@@ -20,6 +20,11 @@ on:
                 description: "Tag to publish (required in both modes, e.g., v3.1.2)"
                 required: true
                 type: string
+            all_parity_validated:
+                description: "Confirm local, CI, e2e, VSIX install, and installed-VS-Code parity validation passed"
+                required: true
+                default: false
+                type: boolean
 
 permissions:
     contents: write
@@ -31,8 +36,15 @@ jobs:
     test:
         uses: ./.github/workflows/ext-vscode-test.yml
 
+    e2e:
+        permissions:
+            contents: read
+            pull-requests: read
+            id-token: write
+        uses: ./.github/workflows/ext-vscode-test-e2e.yml
+
     publish:
-        needs: test
+        needs: [test, e2e]
         name: Publish Extension
         runs-on: ubuntu-latest
         environment: publish
@@ -47,6 +59,14 @@ jobs:
                   fetch-depth: 0
                   fetch-tags: true
                   lfs: true
+
+            - name: Validate CodeVibe Release Gate
+              working-directory: ${{ github.workspace }}
+              run: |
+                  if [[ "${{ github.event.inputs.all_parity_validated }}" != "true" ]]; then
+                    echo "Error: all_parity_validated must be true before publishing a CodeVibe release."
+                    exit 1
+                  fi
 
             - name: Resolve Release Tag
               id: resolve_tag
@@ -210,12 +230,12 @@ jobs:
                   token: ${{ secrets.SLACK_RELEASE_BOT_TOKEN }}
                   payload: |
                     channel: "C0APVKGGZFC"
-                    text: "Cline ${{ steps.resolve_tag.outputs.tag }}"
+                    text: "CodeVibe ${{ steps.resolve_tag.outputs.tag }}"
                     blocks:
                       - type: "section"
                         text:
                           type: "mrkdwn"
-                          text: "*Cline ${{ steps.resolve_tag.outputs.tag }}*"
+                          text: "*CodeVibe ${{ steps.resolve_tag.outputs.tag }}*"
                       - type: "section"
                         text:
                           type: "mrkdwn"

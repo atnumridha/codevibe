@@ -32,6 +32,11 @@ on:
                 required: true
                 default: true
                 type: boolean
+            all_parity_validated:
+                description: "Confirm local, CI, e2e, VSIX install, and installed-VS-Code parity validation passed"
+                required: true
+                default: false
+                type: boolean
 
 permissions:
     contents: write
@@ -66,6 +71,18 @@ jobs:
                   fetch-depth: 0
                   fetch-tags: true
                   lfs: true
+
+            - name: Validate CodeVibe Release Gate
+              working-directory: ${{ github.workspace }}
+              run: |
+                  if [[ "${{ github.event.inputs.all_parity_validated }}" != "true" ]]; then
+                    echo "Error: all_parity_validated must be true before publishing a CodeVibe VSIX release."
+                    exit 1
+                  fi
+                  if [[ "${{ github.event.inputs.run_tests }}" != "true" || "${{ github.event.inputs.run_e2e }}" != "true" ]]; then
+                    echo "Error: CodeVibe VSIX releases must run both test and e2e workflows."
+                    exit 1
+                  fi
 
             - name: Resolve Release Tag
               id: resolve_tag
