@@ -266,6 +266,20 @@ function buildProviderConfig(
 	if (config.knownModels) {
 		providerConfig.knownModels = config.knownModels;
 	}
+	if (codexHomeAuth) {
+		try {
+			providerSettingsManager.saveProviderSettings(settings, {
+				setLastUsed: false,
+				tokenSource: "oauth",
+			});
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			config.logger?.log?.(
+				`Failed to persist Codex home credentials; refresh fallback may be unavailable (${message})`,
+				{ severity: "warn" },
+			);
+		}
+	}
 	if (config.extensionContext) {
 		providerConfig.extensionContext = config.extensionContext;
 	}

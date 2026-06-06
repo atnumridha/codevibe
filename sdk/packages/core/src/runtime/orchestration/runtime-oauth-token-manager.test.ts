@@ -80,6 +80,61 @@ describe("RuntimeOAuthTokenManager", () => {
 		);
 	});
 
+	it("refreshes saved Codex-home credentials without dropping local metadata", async () => {
+		const getProviderSettings = vi.fn().mockReturnValue({
+			provider: "openai-codex",
+			auth: {
+				accessToken: "access-home-old",
+				refreshToken: "refresh-home-old",
+				expiresAt: Date.now() - 1_000,
+				accountId: "acct-home",
+				installationId: "install_home",
+				clientVersion: "0.136.0-test",
+				tokenSource: "codex-home",
+			},
+		});
+		const saveProviderSettings = vi.fn();
+
+		getValidOpenAICodexCredentials.mockResolvedValueOnce({
+			access: "access-home-new",
+			refresh: "refresh-home-new",
+			expires: 4_000_000_000_000,
+			accountId: "acct-home",
+		});
+
+		const manager = new RuntimeOAuthTokenManager({
+			providerSettingsManager: {
+				getProviderSettings,
+				saveProviderSettings,
+			} as never,
+		});
+
+		const result = await manager.resolveProviderApiKey({
+			providerId: "openai-codex",
+		});
+
+		expect(result).toMatchObject({
+			providerId: "openai-codex",
+			apiKey: "access-home-new",
+			accountId: "acct-home",
+			refreshed: true,
+		});
+		expect(saveProviderSettings).toHaveBeenCalledWith(
+			expect.objectContaining({
+				auth: expect.objectContaining({
+					accessToken: "access-home-new",
+					refreshToken: "refresh-home-new",
+					accountId: "acct-home",
+					expiresAt: 4_000_000_000_000,
+					installationId: "install_home",
+					clientVersion: "0.136.0-test",
+					tokenSource: "codex-home",
+				}),
+			}),
+			{ setLastUsed: false, tokenSource: "oauth" },
+		);
+	});
+
 	it("throws re-auth required when refresh returns null", async () => {
 		getValidOpenAICodexCredentials.mockResolvedValueOnce(null);
 		const manager = new RuntimeOAuthTokenManager({

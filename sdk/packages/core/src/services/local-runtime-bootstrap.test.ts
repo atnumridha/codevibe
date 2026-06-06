@@ -7,6 +7,7 @@ import type { ProviderSettings } from "../types/provider-settings";
 function createProviderSettingsManager(settings?: ProviderSettings) {
 	return {
 		getProviderSettings: vi.fn(() => settings),
+		saveProviderSettings: vi.fn(),
 	};
 }
 
@@ -589,13 +590,14 @@ describe("prepareLocalRuntimeBootstrap", () => {
 		input.config.modelId = "gpt-5.4";
 		delete (input.config as Partial<typeof input.config>).apiKey;
 
+		const providerSettingsManager = createProviderSettingsManager({
+			provider: "openai-codex",
+			model: "gpt-5.4",
+		});
 		const bootstrap = await prepareLocalRuntimeBootstrap({
 			input,
 			sessionId: "sess-codex-home",
-			providerSettingsManager: createProviderSettingsManager({
-				provider: "openai-codex",
-				model: "gpt-5.4",
-			}) as never,
+			providerSettingsManager: providerSettingsManager as never,
 			defaultTelemetry: undefined,
 			defaultToolPolicies: undefined,
 			onPluginEvent: () => {},
@@ -614,5 +616,20 @@ describe("prepareLocalRuntimeBootstrap", () => {
 			"ChatGPT-Account-Id": "acct-home",
 			"x-codex-installation-id": "install_home",
 		});
+		expect(providerSettingsManager.saveProviderSettings).toHaveBeenCalledWith(
+			expect.objectContaining({
+				provider: "openai-codex",
+				model: "gpt-5.4",
+				auth: expect.objectContaining({
+					accessToken: token,
+					refreshToken: "refresh-home",
+					accountId: "acct-home",
+					installationId: "install_home",
+					clientVersion: "0.136.0-test",
+					tokenSource: "codex-home",
+				}),
+			}),
+			{ setLastUsed: false, tokenSource: "oauth" },
+		);
 	});
 });
