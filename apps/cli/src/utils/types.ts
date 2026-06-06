@@ -1,6 +1,7 @@
 import type {
 	AgentMode,
 	CoreSessionConfig,
+	CursorSandboxRuntimePolicy,
 	Llms,
 	ProviderSettings,
 	RuntimeLoggerConfig,
@@ -25,6 +26,7 @@ export interface Config extends Omit<CoreSessionConfig, "apiKey" | "mode"> {
 	timeoutSeconds?: number;
 	sandbox: boolean;
 	sandboxDataDir?: string;
+	cursorSandboxPolicy?: CursorSandboxRuntimePolicy;
 	thinking: boolean;
 	outputMode: CliOutputMode;
 	mode: CliAgentMode;

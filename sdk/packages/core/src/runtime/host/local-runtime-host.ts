@@ -443,6 +443,7 @@ export class LocalRuntimeHost implements RuntimeHost {
 			initialMessages: bootstrap.effectiveInput.initialMessages,
 			userFileContentLoader: loadUserFileContent,
 			toolPolicies: bootstrap.toolPolicies,
+			toolContextMetadata: configWithProvider.toolContextMetadata,
 			requestToolApproval: bootstrap.requestToolApproval
 				? async (request) => {
 						const requestToolApproval = bootstrap.requestToolApproval;

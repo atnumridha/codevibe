@@ -56,6 +56,31 @@ describe("createBashExecutor", () => {
 		}
 	});
 
+	it("blocks known file-reading commands outside Cursor sandbox readable paths", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-bash-"));
+		await fs.mkdir(path.join(dir, "private"), { recursive: true });
+		await fs.mkdir(path.join(dir, "src"), { recursive: true });
+		await fs.writeFile(path.join(dir, "private", "token.txt"), "secret", "utf-8");
+
+		try {
+			const bash = createBashExecutor();
+			await expect(
+				bash("cat private/token.txt", dir, {
+					...ctx,
+					metadata: {
+						cursorSandboxPolicy: {
+							source: "cursor-sandbox",
+							readablePaths: [path.join(dir, "src")],
+							writablePaths: [],
+						},
+					},
+				}),
+			).rejects.toThrow("outside Cursor sandbox read paths");
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("includes stderr in combined output on success", async () => {
 		const bash = createBashExecutor({ combineOutput: true });
 		const output = await bash(

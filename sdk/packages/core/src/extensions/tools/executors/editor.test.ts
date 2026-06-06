@@ -61,6 +61,41 @@ describe("createEditorExecutor", () => {
 		}
 	});
 
+	it("blocks writes outside Cursor sandbox writable paths", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-editor-"));
+		const filePath = path.join(dir, "private", "token.txt");
+		await fs.mkdir(path.dirname(filePath), { recursive: true });
+		await fs.mkdir(path.join(dir, "src"), { recursive: true });
+
+		try {
+			const editor = createEditorExecutor();
+			await expect(
+				editor(
+					{
+						path: "private/token.txt",
+						new_text: "blocked",
+					},
+					dir,
+					{
+						agentId: "agent-1",
+						conversationId: "conv-1",
+						iteration: 1,
+						metadata: {
+							cursorSandboxPolicy: {
+								source: "cursor-sandbox",
+								readablePaths: [dir],
+								writablePaths: [path.join(dir, "src")],
+							},
+						},
+					},
+				),
+			).rejects.toThrow("outside Cursor sandbox write paths");
+			await expect(fs.readFile(filePath, "utf-8")).rejects.toThrow();
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("inserts before a one-based line and appends at the EOF boundary", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-editor-"));
 		const filePath = path.join(dir, "example.txt");

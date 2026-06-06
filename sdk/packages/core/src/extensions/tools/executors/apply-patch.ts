@@ -19,7 +19,10 @@ import {
 	type PatchChunk,
 	PatchParser,
 } from "./apply-patch-parser";
-import { assertPathAllowedByDirectAccessIgnores } from "./access-ignore";
+import {
+	assertPathAllowedByCursorSandboxPolicy,
+	assertPathAllowedByDirectAccessIgnores,
+} from "./access-ignore";
 
 interface FileChange {
 	type: PatchActionType;
@@ -216,6 +219,7 @@ async function assertPatchPathsAllowed(
 	lines: readonly string[],
 	cwd: string,
 	restrictToCwd: boolean,
+	context: AgentToolContext,
 ): Promise<void> {
 	const pathsToCheck = [
 		...extractFilesForOperations(lines, [
@@ -228,6 +232,7 @@ async function assertPatchPathsAllowed(
 	for (const filePath of pathsToCheck) {
 		const absolutePath = resolveFilePath(cwd, filePath, restrictToCwd);
 		await assertPathAllowedByDirectAccessIgnores(cwd, absolutePath);
+		assertPathAllowedByCursorSandboxPolicy(context, cwd, absolutePath, "write");
 	}
 }
 
@@ -335,10 +340,15 @@ export function createApplyPatchExecutor(
 	return async (
 		input: ApplyPatchInput,
 		cwd: string,
-		_context: AgentToolContext,
+		context: AgentToolContext,
 	): Promise<string> => {
 		const normalizedInput = normalizePatchInput(input.input);
-		await assertPatchPathsAllowed(normalizedInput.lines, cwd, restrictToCwd);
+		await assertPatchPathsAllowed(
+			normalizedInput.lines,
+			cwd,
+			restrictToCwd,
+			context,
+		);
 		const currentFiles = await loadFiles(
 			normalizedInput.lines,
 			cwd,

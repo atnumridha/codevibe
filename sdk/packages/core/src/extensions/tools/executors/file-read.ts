@@ -12,6 +12,7 @@ import type { ReadFileRequest } from "../schemas";
 import type { FileReadExecutor } from "../types";
 import {
 	assertPathAllowedByDirectAccessIgnores,
+	assertPathAllowedByCursorSandboxPolicy,
 	getToolCwd,
 } from "./access-ignore";
 
@@ -84,6 +85,7 @@ export function createFileReadExecutor(
 		// the caller's string has a regular space).
 		const resolvedPath = resolveExistingFilePath(initialPath) ?? initialPath;
 		await assertPathAllowedByDirectAccessIgnores(cwd, resolvedPath);
+		assertPathAllowedByCursorSandboxPolicy(context, cwd, resolvedPath, "read");
 		const extension = path.extname(resolvedPath).toLowerCase();
 		const imageMediaType = IMAGE_MEDIA_TYPES.get(extension);
 

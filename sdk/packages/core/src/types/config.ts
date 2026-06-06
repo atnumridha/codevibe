@@ -212,6 +212,11 @@ export interface CoreSessionConfig
 		| ConsecutiveMistakeLimitDecision;
 	toolRoutingRules?: ToolRoutingRule[];
 	/**
+	 * Optional metadata merged into every tool execution context.
+	 * Hosts use this to pass runtime policy data such as Cursor sandbox bounds.
+	 */
+	toolContextMetadata?: AgentConfig["toolContextMetadata"];
+	/**
 	 * Optional skill allowlist for the `skills` tool. When provided, only these
 	 * skills are surfaced in tool metadata and invocable by name.
 	 */

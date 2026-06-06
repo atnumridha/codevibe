@@ -102,6 +102,37 @@ describe("createFileReadExecutor", () => {
 		}
 	});
 
+	it("blocks reads outside Cursor sandbox readable paths", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
+		await fs.mkdir(path.join(dir, "private"), { recursive: true });
+		await fs.mkdir(path.join(dir, "src"), { recursive: true });
+		await fs.writeFile(path.join(dir, "private", "token.txt"), "secret", "utf-8");
+
+		try {
+			const readFile = createFileReadExecutor();
+			await expect(
+				readFile(
+					{ path: "private/token.txt" },
+					{
+						agentId: "agent-1",
+						conversationId: "conv-1",
+						iteration: 1,
+						metadata: {
+							cwd: dir,
+							cursorSandboxPolicy: {
+								source: "cursor-sandbox",
+								readablePaths: [path.join(dir, "src")],
+								writablePaths: [],
+							},
+						},
+					},
+				),
+			).rejects.toThrow("outside Cursor sandbox read paths");
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("returns only the requested inclusive line range", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
 		const filePath = path.join(dir, "example.txt");

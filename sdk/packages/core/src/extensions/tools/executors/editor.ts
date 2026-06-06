@@ -9,7 +9,10 @@ import * as path from "node:path";
 import type { AgentToolContext } from "@cline/shared";
 import type { EditFileInput } from "../schemas";
 import type { EditorExecutor } from "../types";
-import { assertPathAllowedByDirectAccessIgnores } from "./access-ignore";
+import {
+	assertPathAllowedByDirectAccessIgnores,
+	assertPathAllowedByCursorSandboxPolicy,
+} from "./access-ignore";
 
 /**
  * Options for the editor executor
@@ -188,10 +191,11 @@ export function createEditorExecutor(
 	return async (
 		input: EditFileInput,
 		cwd: string,
-		_context: AgentToolContext,
+		context: AgentToolContext,
 	): Promise<string> => {
 		const filePath = resolveFilePath(cwd, input.path, restrictToCwd);
 		await assertPathAllowedByDirectAccessIgnores(cwd, filePath);
+		assertPathAllowedByCursorSandboxPolicy(context, cwd, filePath, "write");
 
 		if (input.insert_line != null) {
 			return insertInFile(

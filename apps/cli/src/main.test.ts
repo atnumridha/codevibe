@@ -51,6 +51,12 @@ const sessionMocks = vi.hoisted(() => ({
 const llmMocks = vi.hoisted(() => ({
 	resolveProviderConfig: vi.fn(async (): Promise<unknown> => undefined),
 }));
+const cursorSandboxMocks = vi.hoisted(() => ({
+	resolveCursorSandboxPolicy: vi.fn(async (): Promise<unknown> => undefined),
+	applyCursorSandboxToolPolicies: vi.fn(
+		(_targetPolicies: Record<string, unknown>, _policy: unknown) => {},
+	),
+}));
 const promptMocks = vi.hoisted(() => ({
 	resolveSystemPrompt: vi.fn(async () => "system prompt"),
 }));
@@ -150,6 +156,9 @@ vi.mock("./session/session", () => sessionMocks);
 vi.mock("@cline/core", () => {
 	return {
 		resolveProviderConfig: llmMocks.resolveProviderConfig,
+		resolveCursorSandboxPolicy: cursorSandboxMocks.resolveCursorSandboxPolicy,
+		applyCursorSandboxToolPolicies:
+			cursorSandboxMocks.applyCursorSandboxToolPolicies,
 		createTeamName: vi.fn(() => "team-test"),
 		createUserInstructionConfigService: vi.fn(() => ({
 			start: vi.fn(async () => {}),
@@ -228,6 +237,12 @@ describe("runCli lightweight command dispatch", () => {
 		});
 		llmMocks.resolveProviderConfig.mockReset();
 		llmMocks.resolveProviderConfig.mockResolvedValue(undefined);
+		cursorSandboxMocks.resolveCursorSandboxPolicy.mockReset();
+		cursorSandboxMocks.resolveCursorSandboxPolicy.mockResolvedValue(undefined);
+		cursorSandboxMocks.applyCursorSandboxToolPolicies.mockReset();
+		cursorSandboxMocks.applyCursorSandboxToolPolicies.mockImplementation(
+			(_targetPolicies: Record<string, unknown>, _policy: unknown) => {},
+		);
 		authMocks.ensureOAuthProviderApiKey.mockReset();
 		authMocks.getPersistedProviderApiKey.mockReset();
 		authMocks.getPersistedProviderApiKey.mockReturnValue(undefined);
@@ -277,6 +292,7 @@ describe("runCli lightweight command dispatch", () => {
 		process.exitCode = undefined;
 
 		process.argv = [...originalArgv];
+		delete process.env.CLINE_CURSOR_SANDBOX_POLICY;
 		Object.defineProperty(process.stdin, "isTTY", {
 			value: originalStdinIsTTY,
 			configurable: true,
@@ -815,6 +831,47 @@ describe("runCli lightweight command dispatch", () => {
 				defaultToolAutoApprove: true,
 				toolPolicies: {
 					"*": { autoApprove: false },
+				},
+			}),
+			expect.anything(),
+			undefined,
+			expect.any(Object),
+		);
+	});
+
+	it("applies Cursor sandbox policies before starting an interactive runtime", async () => {
+		process.env.CLINE_CURSOR_SANDBOX_POLICY = "workspace";
+		const policy = {
+			source: "cursor-sandbox",
+			status: "loaded",
+			effectiveAccess: "workspace",
+		};
+		cursorSandboxMocks.resolveCursorSandboxPolicy.mockResolvedValue(policy);
+		cursorSandboxMocks.applyCursorSandboxToolPolicies.mockImplementation(
+			(targetPolicies: Record<string, { autoApprove?: boolean }>, receivedPolicy) => {
+				expect(receivedPolicy).toBe(policy);
+				targetPolicies["*"] = { autoApprove: false };
+				targetPolicies.read_files = { autoApprove: true };
+				targetPolicies.editor = { autoApprove: false };
+			},
+		);
+		process.argv = ["bun", "src/index.ts"];
+
+		const { runCli } = await import("./main");
+
+		await expect(runCli()).resolves.toBeUndefined();
+		expect(cursorSandboxMocks.resolveCursorSandboxPolicy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				policySetting: "workspace",
+			}),
+		);
+		expect(runtimeMocks.runInteractive).toHaveBeenCalledWith(
+			expect.objectContaining({
+				cursorSandboxPolicy: policy,
+				toolPolicies: {
+					"*": { autoApprove: false },
+					read_files: { autoApprove: true },
+					editor: { autoApprove: false },
 				},
 			}),
 			expect.anything(),

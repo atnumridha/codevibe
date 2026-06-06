@@ -6,6 +6,7 @@
 
 import type { AgentToolContext } from "@cline/shared";
 import type { WebFetchExecutor } from "../types";
+import { assertUrlAllowedByCursorSandboxPolicy } from "./access-ignore";
 
 /**
  * Options for the web fetch executor
@@ -126,6 +127,7 @@ export function createWebFetchExecutor(
 				`Invalid protocol: ${parsedUrl.protocol}. Only http and https are supported.`,
 			);
 		}
+		assertUrlAllowedByCursorSandboxPolicy(context, parsedUrl);
 
 		// Create abort controller for timeout
 		const controller = new AbortController();

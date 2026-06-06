@@ -83,6 +83,42 @@ describe("createApplyPatchExecutor", () => {
 		await expect(fs.readFile(filePath, "utf-8")).resolves.toBe("old");
 	});
 
+	it("blocks patches outside Cursor sandbox writable paths", async () => {
+		const filePath = path.join(tempDir, "private", "token.txt");
+		await fs.mkdir(path.dirname(filePath), { recursive: true });
+		await fs.mkdir(path.join(tempDir, "src"), { recursive: true });
+		await fs.writeFile(filePath, "old", "utf-8");
+
+		const execute = createApplyPatchExecutor();
+
+		await expect(
+			execute(
+				{
+					input: [
+						"*** Update File: private/token.txt",
+						"@@",
+						"-old",
+						"+new",
+					].join("\n"),
+				},
+				tempDir,
+				{
+					agentId: "agent-1",
+					conversationId: "conv-1",
+					iteration: 1,
+					metadata: {
+						cursorSandboxPolicy: {
+							source: "cursor-sandbox",
+							readablePaths: [tempDir],
+							writablePaths: [path.join(tempDir, "src")],
+						},
+					},
+				},
+			),
+		).rejects.toThrow("outside Cursor sandbox write paths");
+		await expect(fs.readFile(filePath, "utf-8")).resolves.toBe("old");
+	});
+
 	it("accepts the legacy shell wrapper around the patch", async () => {
 		const filePath = path.join(tempDir, "note.txt");
 		const execute = createApplyPatchExecutor();

@@ -864,11 +864,25 @@ export async function runCli(): Promise<void> {
 	// should only load when the CLI is actually starting an agent session.
 	const providerSettingsManager = await createProviderSettingsManager();
 	const {
+		applyCursorSandboxToolPolicies,
 		coreServer,
 		coreServer: { createUserInstructionConfigService },
+		resolveCursorSandboxPolicy,
 		resolveSystemPrompt,
 		runAgent,
 	} = await loadCliRuntimeModules();
+	const cursorSandboxPolicy = await resolveCursorSandboxPolicy({
+		workspaceRoot,
+		policySetting: process.env.CLINE_CURSOR_SANDBOX_POLICY?.trim() || "prompt",
+		logger: {
+			warn: (message) => {
+				if (args.outputMode !== "json") {
+					writeln(`${c.dim}${message}${c.reset}`);
+				}
+			},
+		},
+	});
+	applyCursorSandboxToolPolicies(toolPolicies, cursorSandboxPolicy);
 
 	const userInstructionService = createUserInstructionConfigService({
 		skills: {
@@ -1010,6 +1024,7 @@ export async function runCli(): Promise<void> {
 			timeoutSeconds: args.timeoutSeconds,
 			sandbox: sandboxEnabled,
 			sandboxDataDir,
+			cursorSandboxPolicy,
 			verbose: args.verbose,
 			thinking: effectiveReasoningEffort !== "none",
 			reasoningEffort:
@@ -1028,6 +1043,9 @@ export async function runCli(): Promise<void> {
 			enableTools: true,
 			cwd,
 			workspaceRoot,
+			toolContextMetadata: cursorSandboxPolicy
+				? { cursorSandboxPolicy }
+				: undefined,
 			extensionContext: {
 				client: { name: "cline-cli" },
 				workspace: {
