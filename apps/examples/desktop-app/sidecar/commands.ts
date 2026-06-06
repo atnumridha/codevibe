@@ -12,6 +12,7 @@ import type {
 	ClineAutomationNdjsonIngressResult,
 	ClineAccountActionRequest,
 	CursorAutomationIngestRouteRequest,
+	CursorMcpInstallRequest,
 	ProviderCapability,
 	ProviderClient,
 	ProviderProtocol,
@@ -20,6 +21,7 @@ import type {
 import {
 	addLocalProvider,
 	buildCursorAutomationIngestRouteRequest,
+	buildCursorMcpInstallRequest,
 	ClineAccountService,
 	ClineCore,
 	createLocalHubScheduleRuntimeHandlers,
@@ -123,6 +125,23 @@ type CursorAutomationIngestResponse = {
 	events: CursorAutomationIngestRouteRequest["validation"]["events"];
 	rejected: CursorAutomationIngestRouteRequest["validation"]["rejected"];
 	workspaceRoot: string;
+};
+
+type CursorMcpInstallResponse = {
+	handled: true;
+	route: "mcp-install";
+	confirmed: boolean;
+	installed: boolean;
+	serverName: string;
+	source: CursorMcpInstallRequest["source"];
+	transportType: string;
+	settingsPath: string;
+	replaced: boolean;
+	urlOrigin?: string;
+	command?: string;
+	argCount?: number;
+	envKeys?: string[];
+	headerKeys?: string[];
 };
 
 function readProviderSettingsUpdate(
@@ -260,6 +279,55 @@ function ensureMcpSettingsFile(): string {
 		writeMcpServersMap({});
 	}
 	return path;
+}
+
+function getRecordValue(value: unknown): JsonRecord | undefined {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as JsonRecord)
+		: undefined;
+}
+
+function safeUrlOrigin(value: string): string | undefined {
+	try {
+		return new URL(value).origin;
+	} catch {
+		return undefined;
+	}
+}
+
+function buildCursorMcpInstallResponse(
+	request: CursorMcpInstallRequest,
+	input: {
+		confirmed: boolean;
+		installed: boolean;
+		settingsPath: string;
+		replaced: boolean;
+	},
+): CursorMcpInstallResponse {
+	const transport =
+		getRecordValue(request.serverConfig.transport) ?? request.serverConfig;
+	const url = typeof transport.url === "string" ? transport.url : undefined;
+	const command =
+		typeof transport.command === "string" ? transport.command : undefined;
+	const commandLabel = command && !/\s/.test(command) ? command : undefined;
+	const env = getRecordValue(transport.env);
+	const headers = getRecordValue(transport.headers);
+	return {
+		handled: true,
+		route: "mcp-install",
+		confirmed: input.confirmed,
+		installed: input.installed,
+		serverName: request.serverName,
+		source: request.source,
+		transportType: String(transport.type ?? "stdio"),
+		settingsPath: input.settingsPath,
+		replaced: input.replaced,
+		...(url ? { urlOrigin: safeUrlOrigin(url) ?? "[provided]" } : {}),
+		...(commandLabel ? { command: commandLabel } : {}),
+		...(Array.isArray(transport.args) ? { argCount: transport.args.length } : {}),
+		...(env ? { envKeys: Object.keys(env).sort() } : {}),
+		...(headers ? { headerKeys: Object.keys(headers).sort() } : {}),
+	};
 }
 
 function removePathIfExists(
@@ -727,6 +795,36 @@ async function handleCursorAutomationIngestCommand(
 	}
 }
 
+async function handleCursorMcpInstallCommand(
+	_ctx: SidecarContext,
+	args?: Record<string, unknown>,
+): Promise<CursorMcpInstallResponse> {
+	const input = readCursorUriPreviewRequest(_ctx, args);
+	const request = buildCursorMcpInstallRequest(input.uri);
+	const path = ensureMcpSettingsFile();
+	const parsed = JSON.parse(readFileSync(path, "utf8")) as JsonRecord;
+	const servers = (parsed.mcpServers as JsonRecord | undefined) ?? {};
+	const replaced = Object.hasOwn(servers, request.serverName);
+	const confirmed = args?.confirmed === true;
+	if (!confirmed) {
+		return buildCursorMcpInstallResponse(request, {
+			confirmed: false,
+			installed: false,
+			settingsPath: path,
+			replaced,
+		});
+	}
+
+	servers[request.serverName] = request.serverConfig;
+	writeMcpServersMap(servers);
+	return buildCursorMcpInstallResponse(request, {
+		confirmed: true,
+		installed: true,
+		settingsPath: path,
+		replaced,
+	});
+}
+
 async function handleRoutineScheduleCommand(
 	command: string,
 	args?: Record<string, unknown>,
@@ -1126,6 +1224,9 @@ export async function handleCommand(
 	}
 	if (command === "cursor_automation_ingest") {
 		return await handleCursorAutomationIngestCommand(ctx, args);
+	}
+	if (command === "cursor_mcp_install") {
+		return await handleCursorMcpInstallCommand(ctx, args);
 	}
 	if (command === "get_chat_ws_endpoint") {
 		return "";

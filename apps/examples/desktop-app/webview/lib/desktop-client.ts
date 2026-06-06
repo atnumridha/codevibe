@@ -132,6 +132,27 @@ export type CursorAutomationIngestResponse = Record<string, unknown> & {
 	workspaceRoot: string;
 };
 
+export type CursorMcpInstallInput = CursorUriPreviewInput & {
+	confirmed: true;
+};
+
+export type CursorMcpInstallResponse = Record<string, unknown> & {
+	handled: true;
+	route: "mcp-install";
+	confirmed: boolean;
+	installed: boolean;
+	serverName: string;
+	source: "config" | "direct";
+	transportType: string;
+	settingsPath: string;
+	replaced: boolean;
+	urlOrigin?: string;
+	command?: string;
+	argCount?: number;
+	envKeys?: string[];
+	headerKeys?: string[];
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 const RECONNECT_BASE_DELAY_MS = 400;
 const RECONNECT_MAX_DELAY_MS = 4_000;
@@ -374,6 +395,20 @@ class DesktopClient {
 					: {}),
 			},
 		);
+	}
+
+	async installCursorMcp(
+		input: CursorMcpInstallInput,
+	): Promise<CursorMcpInstallResponse> {
+		return await this.invoke<CursorMcpInstallResponse>("cursor_mcp_install", {
+			uri: input.uri,
+			confirmed: input.confirmed,
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+			...(input.maxCommandFileBytes !== undefined
+				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+		});
 	}
 
 	subscribe(eventName: string, handler: EventHandler): () => void {

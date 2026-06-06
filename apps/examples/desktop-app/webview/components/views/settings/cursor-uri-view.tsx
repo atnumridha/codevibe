@@ -6,6 +6,7 @@ import {
 	Database,
 	Loader2,
 	Play,
+	Plug,
 	Search,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -23,6 +24,7 @@ import {
 import {
 	desktopClient,
 	type CursorAutomationIngestResponse,
+	type CursorMcpInstallResponse,
 	type CursorUriLaunchResponse,
 	type CursorUriPreviewResponse,
 } from "@/lib/desktop-client";
@@ -85,6 +87,14 @@ function isAutomationIngestPreview(
 	);
 }
 
+function isMcpInstallPreview(preview: CursorUriPreviewResponse | undefined) {
+	return (
+		preview?.handled === true &&
+		previewString(preview, "route") === "mcp-install" &&
+		preview.requiresConfirmation === true
+	);
+}
+
 function JsonBlock({ value }: { value: unknown }) {
 	if (!value) {
 		return null;
@@ -107,10 +117,14 @@ export function CursorUriView({
 	const [ingest, setIngest] = useState<
 		CursorAutomationIngestResponse | undefined
 	>();
+	const [mcpInstall, setMcpInstall] = useState<
+		CursorMcpInstallResponse | undefined
+	>();
 	const [error, setError] = useState<string | null>(null);
 	const [previewing, setPreviewing] = useState(false);
 	const [launching, setLaunching] = useState(false);
 	const [ingesting, setIngesting] = useState(false);
+	const [mcpInstalling, setMcpInstalling] = useState(false);
 
 	const taskPrompt = previewString(preview, "taskPrompt");
 	const route = previewString(preview, "route");
@@ -125,6 +139,8 @@ export function CursorUriView({
 	);
 	const canLaunch = isLaunchablePreview(preview);
 	const canIngest = isAutomationIngestPreview(preview);
+	const canInstallMcp = isMcpInstallPreview(preview);
+	const isBusy = previewing || launching || ingesting || mcpInstalling;
 
 	const runPreviewForUri = useCallback(async (inputUri: string) => {
 		const trimmed = inputUri.trim();
@@ -133,6 +149,7 @@ export function CursorUriView({
 			setPreview(undefined);
 			setLaunch(undefined);
 			setIngest(undefined);
+			setMcpInstall(undefined);
 			return;
 		}
 		setUri(trimmed);
@@ -140,6 +157,7 @@ export function CursorUriView({
 		setError(null);
 		setLaunch(undefined);
 		setIngest(undefined);
+		setMcpInstall(undefined);
 		try {
 			const result = await desktopClient.previewCursorUri({ uri: trimmed });
 			setPreview(result);
@@ -174,6 +192,7 @@ export function CursorUriView({
 		setLaunching(true);
 		setError(null);
 		setIngest(undefined);
+		setMcpInstall(undefined);
 		try {
 			const result = await desktopClient.launchCursorUri({
 				uri: trimmed,
@@ -203,6 +222,7 @@ export function CursorUriView({
 		setIngesting(true);
 		setError(null);
 		setLaunch(undefined);
+		setMcpInstall(undefined);
 		try {
 			const result = await desktopClient.ingestCursorAutomation({
 				uri: trimmed,
@@ -218,6 +238,32 @@ export function CursorUriView({
 		}
 	};
 
+	const runMcpInstall = async () => {
+		const trimmed = uri.trim();
+		if (!trimmed || !canInstallMcp) {
+			return;
+		}
+		setMcpInstalling(true);
+		setError(null);
+		setLaunch(undefined);
+		setIngest(undefined);
+		try {
+			const result = await desktopClient.installCursorMcp({
+				uri: trimmed,
+				confirmed: true,
+			});
+			setMcpInstall(result);
+		} catch (installError) {
+			setError(
+				installError instanceof Error
+					? installError.message
+					: String(installError),
+			);
+		} finally {
+			setMcpInstalling(false);
+		}
+	};
+
 	return (
 		<ScrollArea className="h-full">
 			<div className="mx-auto flex max-w-5xl flex-col gap-5 p-6">
@@ -225,8 +271,12 @@ export function CursorUriView({
 					<div>
 						<h2 className="text-lg font-semibold text-foreground">Cursor URI</h2>
 					</div>
-					<Badge variant={canLaunch ? "default" : "outline"}>
-						{canLaunch ? "Launchable" : "Preview"}
+					<Badge variant={canLaunch || canInstallMcp ? "default" : "outline"}>
+						{canLaunch
+							? "Launchable"
+							: canInstallMcp
+								? "Installable"
+								: "Preview"}
 					</Badge>
 				</div>
 
@@ -242,7 +292,7 @@ export function CursorUriView({
 					</div>
 					<div className="flex flex-wrap gap-2">
 						<Button
-							disabled={previewing || launching || ingesting}
+							disabled={isBusy}
 							onClick={() => void runPreview()}
 							variant="outline"
 						>
@@ -254,7 +304,7 @@ export function CursorUriView({
 							Preview
 						</Button>
 						<Button
-							disabled={!canLaunch || previewing || launching || ingesting}
+							disabled={!canLaunch || isBusy}
 							onClick={() => void runLaunch()}
 						>
 							{launching ? (
@@ -265,7 +315,7 @@ export function CursorUriView({
 							Launch
 						</Button>
 						<Button
-							disabled={!canIngest || previewing || launching || ingesting}
+							disabled={!canIngest || isBusy}
 							onClick={() => void runIngest()}
 							variant="outline"
 						>
@@ -275,6 +325,18 @@ export function CursorUriView({
 								<Database className="size-4" />
 							)}
 							Ingest
+						</Button>
+						<Button
+							disabled={!canInstallMcp || isBusy}
+							onClick={() => void runMcpInstall()}
+							variant="outline"
+						>
+							{mcpInstalling ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : (
+								<Plug className="size-4" />
+							)}
+							Install MCP
 						</Button>
 					</div>
 				</div>
@@ -319,6 +381,26 @@ export function CursorUriView({
 					</Alert>
 				) : null}
 
+				{mcpInstall ? (
+					<Alert variant={mcpInstall.installed ? "default" : "destructive"}>
+						{mcpInstall.installed ? (
+							<CheckCircle2 className="size-4" />
+						) : (
+							<AlertTriangle className="size-4" />
+						)}
+						<AlertTitle>
+							{mcpInstall.installed
+								? `Installed MCP server ${mcpInstall.serverName}`
+								: "MCP install blocked"}
+						</AlertTitle>
+						<AlertDescription>
+							{mcpInstall.transportType} |{" "}
+							{mcpInstall.replaced ? "replaced" : "added"}
+							{mcpInstall.urlOrigin ? ` | ${mcpInstall.urlOrigin}` : ""}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
 				{preview ? (
 					<div className="flex flex-col gap-4 rounded-lg border border-border bg-background p-4">
 						<div className="flex flex-wrap items-center gap-2">
@@ -348,7 +430,7 @@ export function CursorUriView({
 									value={taskPrompt}
 								/>
 							</div>
-						) : (
+						) : canIngest || canInstallMcp ? null : (
 							<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
 								This route is available for preview only.
 							</div>

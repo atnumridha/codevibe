@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RuntimeCapabilities } from "@cline/core";
@@ -40,10 +40,21 @@ function readEvents(ctx: SidecarContext): Array<{
 	);
 }
 
+function encodeCursorConfig(config: Record<string, unknown>): string {
+	return Buffer.from(JSON.stringify(config), "utf8")
+		.toString("base64")
+		.replace(/\+/g, "-")
+		.replace(/\//g, "_")
+		.replace(/=+$/g, "");
+}
+
 describe("Code sidecar runtime capabilities", () => {
 	const tempDirs: string[] = [];
+	let previousMcpSettingsPath: string | undefined;
 
 	beforeEach(() => {
+		previousMcpSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
+		delete process.env.CLINE_MCP_SETTINGS_PATH;
 		createCoreMock.mockReset();
 		connectMock.mockReset();
 		subscribeMock.mockReset();
@@ -59,6 +70,11 @@ describe("Code sidecar runtime capabilities", () => {
 	});
 
 	afterEach(async () => {
+		if (previousMcpSettingsPath === undefined) {
+			delete process.env.CLINE_MCP_SETTINGS_PATH;
+		} else {
+			process.env.CLINE_MCP_SETTINGS_PATH = previousMcpSettingsPath;
+		}
 		await Promise.all(
 			tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
 		);
@@ -246,6 +262,99 @@ describe("Code sidecar runtime capabilities", () => {
 			maxCommandFileBytes: 4096,
 		});
 		expect(result).toEqual({ handled: true, route: "settings" });
+	});
+
+	it("previews Cursor MCP installs without mutating settings", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const tempDir = await mkdtemp(join(tmpdir(), "codevibe-mcp-install-"));
+		tempDirs.push(tempDir);
+		const settingsPath = join(tempDir, "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		const ctx = createSidecarContext("/workspace/project");
+
+		const result = await handleCommand(ctx, "cursor_mcp_install", {
+			uri: `vscode://cline.cline/mcp/install?${new URLSearchParams({
+				name: "docs",
+				url: "https://mcp.example.com/context",
+			}).toString()}`,
+		});
+		const stored = JSON.parse(
+			await readFile(settingsPath, "utf8"),
+		);
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "mcp-install",
+			confirmed: false,
+			installed: false,
+			serverName: "docs",
+			source: "direct",
+			transportType: "streamableHttp",
+			urlOrigin: "https://mcp.example.com",
+			replaced: false,
+		});
+		expect(stored).toEqual({ mcpServers: {} });
+	});
+
+	it("installs confirmed Cursor MCP configs with sanitized output", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const tempDir = await mkdtemp(join(tmpdir(), "codevibe-mcp-install-"));
+		tempDirs.push(tempDir);
+		const settingsPath = join(tempDir, "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		await writeFile(
+			settingsPath,
+			`${JSON.stringify({ mcpServers: { docs: { type: "stdio" } } })}\n`,
+		);
+		const config = encodeCursorConfig({
+			mcpServers: {
+				docs: {
+					transport: {
+						type: "streamable-http",
+						url: "https://mcp.example.com/context",
+						headers: {
+							Authorization: "Bearer secret-value",
+						},
+					},
+				},
+			},
+		});
+		const ctx = createSidecarContext("/workspace/project");
+
+		const result = await handleCommand(ctx, "cursor_mcp_install", {
+			uri: `vscode://cline.cline/mcp/install?${new URLSearchParams({
+				config,
+			}).toString()}`,
+			confirmed: true,
+		});
+		const storedText = await readFile(settingsPath, "utf8");
+		const stored = JSON.parse(storedText);
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "mcp-install",
+			confirmed: true,
+			installed: true,
+			serverName: "docs",
+			source: "config",
+			transportType: "streamableHttp",
+			urlOrigin: "https://mcp.example.com",
+			headerKeys: ["Authorization"],
+			replaced: true,
+		});
+		expect(JSON.stringify(result)).not.toContain("secret-value");
+		expect(stored.mcpServers.docs).toMatchObject({
+			type: "streamableHttp",
+			url: "https://mcp.example.com/context",
+			headers: {
+				Authorization: "Bearer secret-value",
+			},
+		});
+		expect(storedText).toContain("secret-value");
 	});
 
 	it("requires confirmation before launching Cursor deeplinks", async () => {
