@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,7 +7,10 @@ import {
 	listMcpServerOAuthStatuses,
 	loadMcpSettingsFile,
 	registerMcpServersFromSettingsFile,
+	resolveCursorMcpSettingsPath,
+	resolveMcpServerRegistrationSources,
 	resolveMcpServerRegistrations,
+	resolveMcpSettingsPaths,
 	setMcpServerDisabled,
 	updateMcpServerOAuthState,
 } from "./config-loader";
@@ -128,6 +131,140 @@ describe("mcp config loader", () => {
 				metadata: undefined,
 				oauth: undefined,
 			},
+		]);
+	});
+
+	it("resolves Cursor workspace MCP settings paths", async () => {
+		const tempRoot = await mkdtemp(join(tmpdir(), "core-mcp-config-loader-"));
+		tempRoots.push(tempRoot);
+		const cursorPath = resolveCursorMcpSettingsPath(tempRoot);
+
+		expect(cursorPath).toBe(join(tempRoot, ".cursor", "mcp.json"));
+		expect(
+			resolveMcpSettingsPaths({
+				filePaths: [cursorPath, cursorPath, "  "],
+				workspaceRoot: tempRoot,
+			}),
+		).toEqual([cursorPath]);
+	});
+
+	it("merges native and Cursor MCP settings while preserving first-file precedence", async () => {
+		const tempRoot = await mkdtemp(join(tmpdir(), "core-mcp-config-loader-"));
+		tempRoots.push(tempRoot);
+		const nativePath = join(tempRoot, "cline_mcp_settings.json");
+		const cursorPath = resolveCursorMcpSettingsPath(tempRoot);
+		await mkdir(join(tempRoot, ".cursor"), { recursive: true });
+		await writeFile(
+			nativePath,
+			JSON.stringify(
+				{
+					mcpServers: {
+						docs: {
+							transport: {
+								type: "stdio",
+								command: "node",
+								args: ["native-server.js"],
+							},
+						},
+					},
+				},
+				null,
+				2,
+			),
+			"utf8",
+		);
+		await writeFile(
+			cursorPath,
+			JSON.stringify(
+				{
+					mcpServers: {
+						docs: {
+							transport: {
+								type: "stdio",
+								command: "node",
+								args: ["cursor-server.js"],
+							},
+						},
+						browser: {
+							url: "https://mcp.example.com",
+							transportType: "http",
+						},
+					},
+				},
+				null,
+				2,
+			),
+			"utf8",
+		);
+
+		const sources = resolveMcpServerRegistrationSources({
+			filePaths: [nativePath, cursorPath],
+		});
+
+		expect(sources).toEqual([
+			{
+				filePath: nativePath,
+				registrations: [
+					{
+						name: "docs",
+						transport: {
+							type: "stdio",
+							command: "node",
+							args: ["native-server.js"],
+						},
+						disabled: undefined,
+						metadata: undefined,
+						oauth: undefined,
+					},
+				],
+			},
+			{
+				filePath: cursorPath,
+				registrations: [
+					{
+						name: "browser",
+						transport: {
+							type: "streamableHttp",
+							url: "https://mcp.example.com",
+						},
+						disabled: undefined,
+						metadata: undefined,
+						oauth: undefined,
+					},
+				],
+			},
+		]);
+	});
+
+	it("registers servers from multiple MCP settings files", async () => {
+		const tempRoot = await mkdtemp(join(tmpdir(), "core-mcp-config-loader-"));
+		tempRoots.push(tempRoot);
+		const firstPath = join(tempRoot, "first.json");
+		const secondPath = join(tempRoot, "second.json");
+		await writeFile(
+			firstPath,
+			JSON.stringify({ mcpServers: { first: { command: "node" } } }),
+			"utf8",
+		);
+		await writeFile(
+			secondPath,
+			JSON.stringify({ mcpServers: { second: { command: "python" } } }),
+			"utf8",
+		);
+
+		const registered: Array<{ name: string }> = [];
+		const manager = {
+			registerServer: async (registration: { name: string }) => {
+				registered.push(registration);
+			},
+		};
+
+		await registerMcpServersFromSettingsFile(manager, {
+			filePaths: [firstPath, secondPath],
+		});
+		expect(registered.map((registration) => registration.name)).toEqual([
+			"first",
+			"second",
 		]);
 	});
 

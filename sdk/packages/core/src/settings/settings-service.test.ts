@@ -205,6 +205,58 @@ Use this skill.`,
 		).toBeUndefined();
 	});
 
+	it("lists and toggles MCP servers imported from .cursor/mcp.json", async () => {
+		const tempRoot = await mkdtemp(join(tmpdir(), "core-settings-"));
+		tempRoots.push(tempRoot);
+		const settingsPath = join(tempRoot, "missing-native-mcp.json");
+		const cursorSettingsPath = join(tempRoot, ".cursor", "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		await mkdir(join(tempRoot, ".cursor"), { recursive: true });
+		await writeFile(
+			cursorSettingsPath,
+			`${JSON.stringify(
+				{
+					mcpServers: {
+						browser: {
+							url: "https://mcp.example.com",
+							transportType: "http",
+						},
+					},
+				},
+				null,
+				2,
+			)}\n`,
+		);
+		const service = new CoreSettingsService();
+
+		const snapshot = await service.list({ cwd: tempRoot });
+		expect(snapshot.mcp).toEqual([
+			expect.objectContaining({
+				id: "browser",
+				name: "browser",
+				path: cursorSettingsPath,
+				kind: "mcp",
+				source: "workspace",
+				enabled: true,
+				toggleable: true,
+			}),
+		]);
+
+		await service.toggle({
+			type: "mcp",
+			name: "browser",
+			path: cursorSettingsPath,
+			enabled: false,
+			cwd: tempRoot,
+		});
+		const disabledSettings = JSON.parse(
+			await readFile(cursorSettingsPath, "utf8"),
+		) as {
+			mcpServers?: Record<string, { disabled?: boolean }>;
+		};
+		expect(disabledSettings.mcpServers?.browser?.disabled).toBe(true);
+	});
+
 	it("requires an explicit enabled value when skill state cannot be resolved", async () => {
 		const tempRoot = await mkdtemp(join(tmpdir(), "core-settings-"));
 		tempRoots.push(tempRoot);

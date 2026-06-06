@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { resolveMcpSettingsPath } from "@cline/shared/storage";
 import { z } from "zod";
 import type {
@@ -11,6 +11,7 @@ import type {
 
 const stringRecordSchema = z.record(z.string(), z.string());
 const metadataSchema = z.record(z.string(), z.unknown());
+const CURSOR_MCP_SETTINGS_RELATIVE_PATH = join(".cursor", "mcp.json");
 const oauthStateSchema = z
 	.object({
 		clientInformation: z.record(z.string(), z.unknown()).optional(),
@@ -175,8 +176,18 @@ export interface LoadMcpSettingsOptions {
 	filePath?: string;
 }
 
-export interface RegisterMcpServersFromSettingsOptions {
-	filePath?: string;
+export interface ResolveMcpSettingsPathsOptions extends LoadMcpSettingsOptions {
+	filePaths?: string[];
+	workspaceRoot?: string;
+	includeCursorMcp?: boolean;
+}
+
+export type RegisterMcpServersFromSettingsOptions =
+	ResolveMcpSettingsPathsOptions;
+
+export interface McpServerRegistrationSource {
+	filePath: string;
+	registrations: McpServerRegistration[];
 }
 
 export interface SetMcpServerDisabledOptions {
@@ -187,6 +198,46 @@ export interface SetMcpServerDisabledOptions {
 
 export function resolveDefaultMcpSettingsPath(): string {
 	return resolveMcpSettingsPath();
+}
+
+export function resolveCursorMcpSettingsPath(workspaceRoot: string): string {
+	const root = workspaceRoot.trim();
+	if (!root) {
+		throw new Error("Workspace root is required to resolve .cursor/mcp.json.");
+	}
+	return join(root, CURSOR_MCP_SETTINGS_RELATIVE_PATH);
+}
+
+function dedupeSettingsPaths(paths: ReadonlyArray<string | undefined>): string[] {
+	const seen = new Set<string>();
+	const deduped: string[] = [];
+	for (const candidate of paths) {
+		const trimmed = candidate?.trim();
+		if (!trimmed || seen.has(trimmed)) {
+			continue;
+		}
+		seen.add(trimmed);
+		deduped.push(trimmed);
+	}
+	return deduped;
+}
+
+export function resolveMcpSettingsPaths(
+	options: ResolveMcpSettingsPathsOptions = {},
+): string[] {
+	if (options.filePaths?.length) {
+		return dedupeSettingsPaths(options.filePaths);
+	}
+	if (options.filePath) {
+		return dedupeSettingsPaths([options.filePath]);
+	}
+
+	const paths = [resolveDefaultMcpSettingsPath()];
+	const workspaceRoot = options.workspaceRoot?.trim();
+	if (workspaceRoot && options.includeCursorMcp !== false) {
+		paths.push(resolveCursorMcpSettingsPath(workspaceRoot));
+	}
+	return dedupeSettingsPaths(paths);
 }
 
 function readJsonObject(filePath: string): Record<string, unknown> {
@@ -318,16 +369,16 @@ function validateOauthState(value: unknown): McpServerOAuthState | undefined {
 }
 
 export function hasMcpSettingsFile(
-	options: LoadMcpSettingsOptions = {},
+	options: ResolveMcpSettingsPathsOptions = {},
 ): boolean {
-	const filePath = options.filePath ?? resolveDefaultMcpSettingsPath();
-	return existsSync(filePath);
+	return resolveMcpSettingsPaths(options).some((filePath) =>
+		existsSync(filePath),
+	);
 }
 
-export function resolveMcpServerRegistrations(
-	options: LoadMcpSettingsOptions = {},
+function toMcpServerRegistrations(
+	config: McpSettingsFile,
 ): McpServerRegistration[] {
-	const config = loadMcpSettingsFile(options);
 	return Object.entries(config.mcpServers).map(([name, value]) => ({
 		name,
 		transport: value.transport,
@@ -335,6 +386,41 @@ export function resolveMcpServerRegistrations(
 		metadata: value.metadata,
 		oauth: value.oauth,
 	}));
+}
+
+export function resolveMcpServerRegistrations(
+	options: LoadMcpSettingsOptions = {},
+): McpServerRegistration[] {
+	const config = loadMcpSettingsFile(options);
+	return toMcpServerRegistrations(config);
+}
+
+export function resolveMcpServerRegistrationSources(
+	options: ResolveMcpSettingsPathsOptions = {},
+): McpServerRegistrationSource[] {
+	const explicitPaths = Boolean(options.filePath || options.filePaths?.length);
+	const filePaths = resolveMcpSettingsPaths(options).filter(
+		(filePath) => explicitPaths || existsSync(filePath),
+	);
+	const seenServerNames = new Set<string>();
+	const sources: McpServerRegistrationSource[] = [];
+
+	for (const filePath of filePaths) {
+		const registrations = resolveMcpServerRegistrations({ filePath }).filter(
+			(registration) => {
+				if (seenServerNames.has(registration.name)) {
+					return false;
+				}
+				seenServerNames.add(registration.name);
+				return true;
+			},
+		);
+		if (registrations.length > 0) {
+			sources.push({ filePath, registrations });
+		}
+	}
+
+	return sources;
 }
 
 export function setMcpServerDisabled(
@@ -438,7 +524,9 @@ export async function registerMcpServersFromSettingsFile(
 	manager: Pick<McpManager, "registerServer">,
 	options: RegisterMcpServersFromSettingsOptions = {},
 ): Promise<McpServerRegistration[]> {
-	const registrations = resolveMcpServerRegistrations(options);
+	const registrations = resolveMcpServerRegistrationSources(options).flatMap(
+		(source) => source.registrations,
+	);
 	for (const registration of registrations) {
 		await manager.registerServer(registration);
 	}

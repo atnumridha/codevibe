@@ -190,4 +190,38 @@ describe("listFiles gitignore handling", () => {
 		const hasThirdPartyContent = normalized.some((f) => f.includes("third-party"))
 		hasThirdPartyContent.should.equal(false, "third-party/ contents should be excluded — and its .gitignore files never read")
 	})
+
+	it("excludes files matching root .cursorignore patterns", async () => {
+		const project = path.join(baseDir, "test-cursorignore")
+		await fs.mkdir(path.join(project, "private"), { recursive: true })
+		await fs.mkdir(path.join(project, "src"), { recursive: true })
+		await fs.writeFile(path.join(project, ".cursorignore"), "private/\n*.secret\n")
+		await fs.writeFile(path.join(project, "src", "app.ts"), "app\n")
+		await fs.writeFile(path.join(project, "src", "token.secret"), "secret\n")
+		await fs.writeFile(path.join(project, "private", "notes.md"), "private\n")
+
+		const [files] = await listFiles(project, true, 200)
+		const normalized = files.map(normalizeForComparison)
+
+		normalized.should.containEql(normalizeForComparison(path.join(project, "src", "app.ts")))
+		normalized.some((f) => f.includes("private")).should.equal(false)
+		normalized.some((f) => f.endsWith(".secret")).should.equal(false)
+	})
+
+	it("excludes files matching .cursorindexingignore patterns", async () => {
+		const project = path.join(baseDir, "test-cursorindexingignore")
+		await fs.mkdir(path.join(project, "docs"), { recursive: true })
+		await fs.mkdir(path.join(project, "generated"), { recursive: true })
+		await fs.writeFile(path.join(project, ".cursorindexingignore"), "generated/\n*.snapshot\n")
+		await fs.writeFile(path.join(project, "docs", "guide.md"), "guide\n")
+		await fs.writeFile(path.join(project, "docs", "view.snapshot"), "snapshot\n")
+		await fs.writeFile(path.join(project, "generated", "types.ts"), "generated\n")
+
+		const [files] = await listFiles(project, true, 200)
+		const normalized = files.map(normalizeForComparison)
+
+		normalized.should.containEql(normalizeForComparison(path.join(project, "docs", "guide.md")))
+		normalized.some((f) => f.includes("generated")).should.equal(false)
+		normalized.some((f) => f.endsWith(".snapshot")).should.equal(false)
+	})
 })

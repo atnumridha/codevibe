@@ -11,6 +11,7 @@ import { toggleSkillFrontmatter } from "../extensions/config/skill-frontmatter-t
 import {
 	hasMcpSettingsFile,
 	resolveDefaultMcpSettingsPath,
+	resolveMcpServerRegistrationSources,
 	resolveMcpServerRegistrations,
 	setMcpServerDisabled,
 } from "../extensions/mcp";
@@ -197,22 +198,23 @@ export class CoreSettingsService {
 				}
 			}
 
-			const mcpSettingsPath = resolveDefaultMcpSettingsPath();
-			if (hasMcpSettingsFile({ filePath: mcpSettingsPath })) {
+			if (hasMcpSettingsFile({ workspaceRoot })) {
 				try {
-					for (const registration of resolveMcpServerRegistrations({
-						filePath: mcpSettingsPath,
+					for (const source of resolveMcpServerRegistrationSources({
+						workspaceRoot,
 					})) {
-						mcp.push({
-							id: registration.name,
-							name: registration.name,
-							path: mcpSettingsPath,
-							enabled: registration.disabled !== true,
-							kind: "mcp",
-							source: detectSource(mcpSettingsPath, workspaceRoot),
-							description: registration.transport.type,
-							toggleable: true,
-						});
+						for (const registration of source.registrations) {
+							mcp.push({
+								id: registration.name,
+								name: registration.name,
+								path: source.filePath,
+								enabled: registration.disabled !== true,
+								kind: "mcp",
+								source: detectSource(source.filePath, workspaceRoot),
+								description: registration.transport.type,
+								toggleable: true,
+							});
+						}
 					}
 				} catch {
 					// Settings listing is best-effort; unreadable MCP settings should

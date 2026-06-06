@@ -39,6 +39,43 @@ function makeBaseConfig(
 	};
 }
 
+function writeMockMcpServer(serverPath: string): void {
+	writeFileSync(
+		serverPath,
+		`let buffer = "";
+function write(payload) {
+  process.stdout.write(JSON.stringify(payload) + "\\n");
+}
+function handle(message) {
+  if (message.method === "initialize") {
+    write({ jsonrpc: "2.0", id: message.id, result: { protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "mock", version: "1.0.0" } } });
+    return;
+  }
+  if (message.method === "tools/list") {
+    write({ jsonrpc: "2.0", id: message.id, result: { tools: [{ name: "echo", description: "Echo tool", inputSchema: { type: "object", properties: { value: { type: "string" } }, required: [] } }] } });
+    return;
+  }
+  if (message.method === "tools/call") {
+    write({ jsonrpc: "2.0", id: message.id, result: { echoed: message.params?.arguments?.value ?? null } });
+  }
+}
+process.stdin.on("data", (chunk) => {
+  buffer += chunk.toString("utf8");
+  while (true) {
+    const separator = buffer.indexOf("\\n");
+    if (separator < 0) break;
+    const line = buffer.slice(0, separator).trim();
+    buffer = buffer.slice(separator + 1);
+    if (!line) continue;
+    const message = JSON.parse(line);
+    if (message.method === "notifications/initialized") continue;
+    handle(message);
+  }
+});`,
+		"utf8",
+	);
+}
+
 async function collectExtensionTools(
 	extensions?: AgentExtension[],
 ): Promise<AgentTool[]> {
@@ -370,6 +407,44 @@ process.stdin.on("data", (chunk) => {
 				config: makeBaseConfig(),
 			});
 			expect(runtime.tools.map((tool) => tool.name)).toContain("mock__echo");
+			await runtime.shutdown("test");
+		} finally {
+			process.env.CLINE_MCP_SETTINGS_PATH = previousSettingsPath;
+		}
+	});
+
+	it("includes MCP tools from workspace .cursor/mcp.json", async () => {
+		const tempRoot = mkdtempSync(join(tmpdir(), "runtime-builder-cursor-mcp-"));
+		const cursorDir = join(tempRoot, ".cursor");
+		const serverPath = join(tempRoot, "mock-mcp-server.js");
+		const cursorSettingsPath = join(cursorDir, "mcp.json");
+		const previousSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
+
+		mkdirSync(cursorDir, { recursive: true });
+		writeMockMcpServer(serverPath);
+		writeFileSync(
+			cursorSettingsPath,
+			JSON.stringify(
+				{
+					mcpServers: {
+						cursor: {
+							command: process.execPath,
+							args: [serverPath],
+						},
+					},
+				},
+				null,
+				2,
+			),
+			"utf8",
+		);
+
+		process.env.CLINE_MCP_SETTINGS_PATH = join(tempRoot, "missing-native.json");
+		try {
+			const runtime = await new DefaultRuntimeBuilder().build({
+				config: makeBaseConfig({ cwd: tempRoot }),
+			});
+			expect(runtime.tools.map((tool) => tool.name)).toContain("cursor__echo");
 			await runtime.shutdown("test");
 		} finally {
 			process.env.CLINE_MCP_SETTINGS_PATH = previousSettingsPath;

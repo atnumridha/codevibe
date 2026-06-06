@@ -3,7 +3,9 @@ export { createDefaultMcpServerClientFactory } from "./client";
 export type {
 	LoadMcpSettingsOptions,
 	McpSettingsFile,
+	McpServerRegistrationSource,
 	RegisterMcpServersFromSettingsOptions,
+	ResolveMcpSettingsPathsOptions,
 	SetMcpServerDisabledOptions,
 } from "./config-loader";
 export {
@@ -12,8 +14,11 @@ export {
 	listMcpServerOAuthStatuses,
 	loadMcpSettingsFile,
 	registerMcpServersFromSettingsFile,
+	resolveCursorMcpSettingsPath,
 	resolveDefaultMcpSettingsPath,
+	resolveMcpServerRegistrationSources,
 	resolveMcpServerRegistrations,
+	resolveMcpSettingsPaths,
 	setMcpServerDisabled,
 	updateMcpServerOAuthState,
 } from "./config-loader";

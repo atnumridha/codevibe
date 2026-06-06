@@ -12,8 +12,7 @@ import {
 	createMcpTools,
 	hasMcpSettingsFile,
 	InMemoryMcpManager,
-	registerMcpServersFromSettingsFile,
-	resolveDefaultMcpSettingsPath,
+	resolveMcpServerRegistrationSources,
 } from "../../extensions/mcp";
 import {
 	createBuiltinTools,
@@ -145,62 +144,77 @@ function isSkillsToolEnabledForSession(input: {
 
 const SKILLS_PROBE_EXECUTOR = (async () => "") as SkillsExecutorWithMetadata;
 
-async function loadConfiguredMcpTools(logger?: BasicLogger): Promise<{
+async function loadConfiguredMcpTools(input: {
+	cwd?: string;
+	logger?: BasicLogger;
+} = {}): Promise<{
 	tools: AgentTool[];
 	shutdown?: () => Promise<void>;
 }> {
-	const settingsPath = resolveDefaultMcpSettingsPath();
-	if (!hasMcpSettingsFile({ filePath: settingsPath })) {
+	if (!hasMcpSettingsFile({ workspaceRoot: input.cwd })) {
 		return { tools: [] };
 	}
 
-	const manager = new InMemoryMcpManager({
-		clientFactory: createDefaultMcpServerClientFactory({
-			settingsPath,
-		}),
-	});
-
-	let registrations: Awaited<
-		ReturnType<typeof registerMcpServersFromSettingsFile>
-	>;
+	const managers: InMemoryMcpManager[] = [];
+	let sources: ReturnType<typeof resolveMcpServerRegistrationSources>;
 	try {
-		registrations = await registerMcpServersFromSettingsFile(manager, {
-			filePath: settingsPath,
+		sources = resolveMcpServerRegistrationSources({
+			workspaceRoot: input.cwd,
 		});
+		for (const source of sources) {
+			const manager = new InMemoryMcpManager({
+				clientFactory: createDefaultMcpServerClientFactory({
+					settingsPath: source.filePath,
+				}),
+			});
+			for (const registration of source.registrations) {
+				await manager.registerServer(registration);
+			}
+			managers.push(manager);
+		}
 	} catch (error) {
-		await manager.dispose().catch(() => {});
+		await Promise.all(
+			managers.map((manager) => manager.dispose().catch(() => {})),
+		);
 		const message = error instanceof Error ? error.message : String(error);
-		logger?.log(
+		input.logger?.log(
 			`[mcp] Failed to load MCP settings, skipping MCP tools: ${message}`,
 		);
 		return { tools: [] };
 	}
 
-	const enabled = registrations.filter((r) => r.disabled !== true);
-	const results = await Promise.allSettled(
-		enabled.map((r) =>
-			createMcpTools({ serverName: r.name, provider: manager }),
-		),
-	);
 	const tools: AgentTool[] = [];
-	for (const [i, result] of results.entries()) {
-		if (result.status === "fulfilled") {
-			tools.push(...result.value);
-		} else {
-			const message =
-				result.reason instanceof Error
-					? result.reason.message
-					: String(result.reason);
-			logger?.log(
-				`[mcp] Failed to load tools from MCP server "${enabled[i].name}", skipping: ${message}`,
-			);
+	for (const [sourceIndex, source] of sources.entries()) {
+		const manager = managers[sourceIndex];
+		if (!manager) {
+			continue;
+		}
+		const enabled = source.registrations.filter((r) => r.disabled !== true);
+		const results = await Promise.allSettled(
+			enabled.map((r) =>
+				createMcpTools({ serverName: r.name, provider: manager }),
+			),
+		);
+		for (const [i, result] of results.entries()) {
+			if (result.status === "fulfilled") {
+				tools.push(...result.value);
+			} else {
+				const message =
+					result.reason instanceof Error
+						? result.reason.message
+						: String(result.reason);
+				const serverName = enabled[i]?.name ?? "unknown";
+				input.logger?.log(
+					`[mcp] Failed to load tools from MCP server "${serverName}", skipping: ${message}`,
+				);
+			}
 		}
 	}
 
 	return {
 		tools,
 		shutdown: async () => {
-			await manager.dispose();
+			await Promise.all(managers.map((manager) => manager.dispose()));
 		},
 	};
 }
@@ -392,7 +406,10 @@ export class DefaultRuntimeBuilder implements RuntimeBuilder {
 				),
 			);
 			if (!normalized.disableMcpSettingsTools) {
-				const mcpRuntime = await loadConfiguredMcpTools(config.logger);
+				const mcpRuntime = await loadConfiguredMcpTools({
+					cwd: config.cwd,
+					logger: config.logger,
+				});
 				tools.push(...mcpRuntime.tools);
 				mcpShutdown = mcpRuntime.shutdown;
 			}

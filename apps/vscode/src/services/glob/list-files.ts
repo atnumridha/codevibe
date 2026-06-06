@@ -25,6 +25,12 @@ const DEFAULT_IGNORE_DIRECTORIES = [
 	"Pods",
 ]
 
+const WORKSPACE_IGNORE_FILE_NAMES = [
+	".gitignore",
+	".cursorignore",
+	".cursorindexingignore",
+]
+
 // Helper functions
 function isRestrictedPath(absolutePath: string): boolean {
 	const root = process.platform === "win32" ? path.parse(absolutePath).root : "/"
@@ -48,7 +54,7 @@ function isTargetingHiddenDirectory(absolutePath: string): boolean {
 }
 
 /**
- * Read a .gitignore file and convert its patterns to glob ignore patterns.
+ * Read workspace ignore files and convert their patterns to glob ignore patterns.
  *
  * We do NOT use globby's built-in `gitignore: true` option because it recursively
  * reads ALL .gitignore files in the entire directory tree upfront - including those
@@ -56,13 +62,13 @@ function isTargetingHiddenDirectory(absolutePath: string): boolean {
  * directories containing many nested repos (each with their own .gitignore), this
  * causes V8 to run out of memory during regex compilation, crashing the extension host.
  *
- * Instead, we read .gitignore files incrementally during BFS traversal: only from
+ * Instead, we read ignore files incrementally during BFS traversal: only from
  * directories we actually enter (which are not ignored), never from ignored directories.
  */
-async function readGitignorePatterns(dirPath: string): Promise<string[]> {
+async function readIgnoreFilePatterns(dirPath: string, fileName: string): Promise<string[]> {
 	try {
-		const gitignorePath = path.join(dirPath, ".gitignore")
-		const content = await fs.readFile(gitignorePath, "utf8")
+		const ignorePath = path.join(dirPath, fileName)
+		const content = await fs.readFile(ignorePath, "utf8")
 		const patterns: string[] = []
 
 		for (const line of content.split("\n")) {
@@ -96,6 +102,15 @@ async function readGitignorePatterns(dirPath: string): Promise<string[]> {
 	}
 }
 
+async function readWorkspaceIgnorePatterns(dirPath: string): Promise<string[]> {
+	const patterns = await Promise.all(
+		WORKSPACE_IGNORE_FILE_NAMES.map((fileName) =>
+			readIgnoreFilePatterns(dirPath, fileName),
+		),
+	)
+	return patterns.flat()
+}
+
 async function buildIgnorePatterns(absolutePath: string): Promise<string[]> {
 	const isTargetHidden = isTargetingHiddenDirectory(absolutePath)
 
@@ -108,11 +123,11 @@ async function buildIgnorePatterns(absolutePath: string): Promise<string[]> {
 
 	const globPatterns = patterns.map((dir) => `**/${dir}/**`)
 
-	// Read root .gitignore to seed the initial ignore patterns.
-	// Additional .gitignore files from subdirectories are read incrementally
+	// Read root ignore files to seed the initial ignore patterns.
+	// Additional ignore files from subdirectories are read incrementally
 	// during BFS traversal in globbyLevelByLevel().
-	const gitignorePatterns = await readGitignorePatterns(absolutePath)
-	globPatterns.push(...gitignorePatterns)
+	const workspaceIgnorePatterns = await readWorkspaceIgnorePatterns(absolutePath)
+	globPatterns.push(...workspaceIgnorePatterns)
 
 	return globPatterns
 }
@@ -153,7 +168,7 @@ Breadth-first traversal of directory structure level by level up to a limit:
    - Processes directory patterns level by level
    - Captures a representative sample of the directory structure up to the limit
    - Minimizes risk of missing deeply nested files
-   - Reads .gitignore files incrementally from each non-ignored directory entered,
+   - Reads ignore files incrementally from each non-ignored directory entered,
      avoiding the OOM crash caused by globby's gitignore:true reading ALL nested
      .gitignore files upfront (including those inside gitignored directories)
 
@@ -166,7 +181,7 @@ async function globbyLevelByLevel(limit: number, options?: Options) {
 	const results: Set<string> = new Set()
 	const queue: string[] = ["*"]
 	// Track all ignore patterns, starting with whatever was passed in options.
-	// We'll add patterns from .gitignore files as we discover non-ignored directories.
+	// We'll add patterns from workspace ignore files as we discover non-ignored directories.
 	const currentIgnore: string[] = [...((options?.ignore as string[]) ?? [])]
 
 	const globbingProcess = async () => {
@@ -183,11 +198,11 @@ async function globbyLevelByLevel(limit: number, options?: Options) {
 				results.add(file)
 				if (file.endsWith("/")) {
 					// This directory passed the ignore filters, so it's not gitignored.
-					// Read its .gitignore (if any) and add patterns to the ignore list
+					// Read its workspace ignore files (if any) and add patterns to the ignore list
 					// so deeper traversal respects them.
-					const dirGitignorePatterns = await readGitignorePatterns(file)
-					if (dirGitignorePatterns.length > 0) {
-						currentIgnore.push(...dirGitignorePatterns)
+					const dirIgnorePatterns = await readWorkspaceIgnorePatterns(file)
+					if (dirIgnorePatterns.length > 0) {
+						currentIgnore.push(...dirIgnorePatterns)
 					}
 
 					// Queue as a RELATIVE path to cwd so that ignore patterns (like **/tmp/**)
