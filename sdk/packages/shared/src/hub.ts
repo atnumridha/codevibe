@@ -483,6 +483,7 @@ export type HubToolExecutorName =
 	| "search"
 	| "bash"
 	| "webFetch"
+	| "browserSnapshot"
 	| "editor"
 	| "applyPatch"
 	| "skills"
@@ -494,6 +495,7 @@ export const HUB_TOOL_EXECUTOR_NAMES = [
 	"search",
 	"bash",
 	"webFetch",
+	"browserSnapshot",
 	"editor",
 	"applyPatch",
 	"skills",

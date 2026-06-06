@@ -110,6 +110,69 @@ describe("handleCapabilityProgress", () => {
 });
 
 describe("hub client runtime capabilities", () => {
+	it("proxies browser snapshot tool executors through capability requests", async () => {
+		const request: ClientContributionRequest = vi.fn(async () => ({
+			result: {
+				url: "https://example.test/",
+				title: "Example",
+				text: "Snapshot text",
+			},
+		}));
+		const runtime = createHubClientContributionRuntime({
+			sessionId: "session-1",
+			targetClientId: "client-1",
+			contributions: [
+				{
+					kind: "toolExecutor",
+					executor: "browserSnapshot",
+					capabilityName: "tool_executor.browserSnapshot",
+				},
+			],
+			requestCapability: request,
+		});
+
+		const result = await runtime.toolExecutors?.browserSnapshot?.(
+			{
+				tab_id: "tab-1",
+				include_screenshot: true,
+				include_logs: true,
+			},
+			{
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 3,
+				metadata: { source: "standalone" },
+			},
+		);
+
+		expect(result).toEqual({
+			url: "https://example.test/",
+			title: "Example",
+			text: "Snapshot text",
+		});
+		expect(request).toHaveBeenCalledWith(
+			"session-1",
+			"tool_executor.browserSnapshot",
+			{
+				executor: "browserSnapshot",
+				args: [
+					{
+						tab_id: "tab-1",
+						include_screenshot: true,
+						include_logs: true,
+					},
+				],
+				context: {
+					agentId: "agent-1",
+					conversationId: "conv-1",
+					iteration: 3,
+					metadata: { source: "standalone" },
+				},
+			},
+			"client-1",
+		);
+	});
+
 	it("proxies lifecycle hooks through capability requests", async () => {
 		const request = vi.fn(async () => ({
 			control: { context: "extra context" },

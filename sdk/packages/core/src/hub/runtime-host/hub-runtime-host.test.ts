@@ -456,6 +456,7 @@ describe("HubRuntimeHost", () => {
 				},
 			})
 			.mockResolvedValueOnce({ ok: true, payload: {} })
+			.mockResolvedValueOnce({ ok: true, payload: {} })
 			.mockResolvedValueOnce({ ok: true, payload: {} });
 		const askQuestion = vi.fn(
 			async (
@@ -464,12 +465,26 @@ describe("HubRuntimeHost", () => {
 				_context: AgentToolContext,
 			) => "Use the SDK",
 		);
+		const browserSnapshot = vi.fn(
+			async (
+				_input: {
+					tab_id?: string;
+					include_screenshot?: boolean;
+					include_logs?: boolean;
+				},
+				_context: AgentToolContext,
+			) => ({
+				url: "https://example.test/",
+				title: "Example",
+				text: "Snapshot text",
+			}),
+		);
 		const requestToolApproval = vi.fn(async () => ({
 			approved: true,
 			reason: "approved by app handler",
 		}));
 		const appCapabilities = {
-			toolExecutors: { askQuestion },
+			toolExecutors: { askQuestion, browserSnapshot },
 			requestToolApproval,
 		};
 
@@ -482,17 +497,26 @@ describe("HubRuntimeHost", () => {
 			capabilities: appCapabilities,
 		});
 		expect(commandMock.mock.calls[0]?.[0]).toBe("session.create");
-		expect(commandMock.mock.calls[0]?.[1]).toMatchObject({
-			runtimeOptions: {
-				clientContributions: [
-					{
-						kind: "toolExecutor",
-						executor: "askQuestion",
-						capabilityName: "tool_executor.askQuestion",
-					},
-				],
-			},
-		});
+		expect(
+			(
+				commandMock.mock.calls[0]?.[1] as {
+					runtimeOptions?: { clientContributions?: unknown[] };
+				}
+			).runtimeOptions?.clientContributions,
+		).toEqual(
+			expect.arrayContaining([
+				{
+					kind: "toolExecutor",
+					executor: "askQuestion",
+					capabilityName: "tool_executor.askQuestion",
+				},
+				{
+					kind: "toolExecutor",
+					executor: "browserSnapshot",
+					capabilityName: "tool_executor.browserSnapshot",
+				},
+			]),
+		);
 
 		onEvent?.({
 			version: "v1",
@@ -535,6 +559,62 @@ describe("HubRuntimeHost", () => {
 				requestId: "capreq-1",
 				ok: true,
 				payload: { result: "Use the SDK" },
+			},
+			"sess-1",
+		);
+
+		onEvent?.({
+			version: "v1",
+			event: "capability.requested",
+			sessionId: "sess-1",
+			payload: {
+				requestId: "capreq-2",
+				targetClientId: "client-1",
+				capabilityName: "tool_executor.browserSnapshot",
+				payload: {
+					args: [
+						{
+							tab_id: "tab-1",
+							include_screenshot: true,
+							include_logs: true,
+						},
+					],
+					context: {
+						agentId: "agent-1",
+						conversationId: "conversation-1",
+						iteration: 2,
+						metadata: { surface: "hub" },
+					},
+				},
+			},
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(browserSnapshot).toHaveBeenCalledWith(
+			{
+				tab_id: "tab-1",
+				include_screenshot: true,
+				include_logs: true,
+			},
+			expect.objectContaining({
+				agentId: "agent-1",
+				conversationId: "conversation-1",
+				iteration: 2,
+				metadata: { surface: "hub" },
+			}),
+		);
+		expect(commandMock).toHaveBeenLastCalledWith(
+			"capability.respond",
+			{
+				requestId: "capreq-2",
+				ok: true,
+				payload: {
+					result: {
+						url: "https://example.test/",
+						title: "Example",
+						text: "Snapshot text",
+					},
+				},
 			},
 			"sess-1",
 		);
