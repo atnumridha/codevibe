@@ -10,6 +10,11 @@ import type { CronEventNdjsonIngressResult } from "../../cron/events/cron-event-
 import { CronService } from "../../cron/service/cron-service";
 import { HubScheduleCommandService } from "../../cron/service/schedule-command-service";
 import { HubScheduleService } from "../../cron/service/schedule-service";
+import type {
+	CronEventLogRecord,
+	CronEventProcessingStatus,
+	ListEventLogsOptions,
+} from "../../cron/store/sqlite-cron-store";
 import { LocalRuntimeHost } from "../../runtime/host/local-runtime-host";
 import type {
 	PendingPromptsRuntimeService,
@@ -82,6 +87,19 @@ const SETTINGS_TYPES = new Set<CoreSettingsType>([
 	"tools",
 	"mcp",
 ]);
+const CRON_EVENT_PROCESSING_STATUSES = new Set<CronEventProcessingStatus>([
+	"received",
+	"unmatched",
+	"queued",
+	"suppressed",
+	"failed",
+]);
+const MAX_CRON_EVENT_LIST_LIMIT = 500;
+const MAX_CRON_EVENT_STRING_VALUE_LENGTH = 4_096;
+const MAX_CRON_EVENT_ARRAY_VALUES = 100;
+const MAX_CRON_EVENT_OBJECT_KEYS = 100;
+const CRON_EVENT_SECRET_KEY_PATTERN =
+	/(token|secret|password|authorization|api[-_]?key|credential|cookie|session)/i;
 
 function isPayloadObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -113,6 +131,48 @@ function requireOptionalBoolean(
 		throw new Error(`settings payload '${key}' must be a boolean.`);
 	}
 	return value;
+}
+
+function requireOptionalHubBoolean(
+	payload: Record<string, unknown>,
+	key: "includePayload",
+): boolean | undefined {
+	const value = payload[key];
+	if (value === undefined) {
+		return undefined;
+	}
+	if (typeof value !== "boolean") {
+		throw new Error(`cron event payload '${key}' must be a boolean.`);
+	}
+	return value;
+}
+
+function requireOptionalHubString(
+	payload: Record<string, unknown>,
+	key: "eventType" | "source" | "processingStatus",
+): string | undefined {
+	const value = payload[key];
+	if (value === undefined) {
+		return undefined;
+	}
+	if (typeof value !== "string") {
+		throw new Error(`cron event payload '${key}' must be a string.`);
+	}
+	return value.trim() || undefined;
+}
+
+function requireCronEventListLimit(payload: Record<string, unknown>): number | undefined {
+	const value = payload.limit;
+	if (value === undefined) {
+		return undefined;
+	}
+	if (typeof value !== "number" || !Number.isFinite(value)) {
+		throw new Error("cron.event.list payload 'limit' must be a finite number.");
+	}
+	return Math.min(
+		MAX_CRON_EVENT_LIST_LIMIT,
+		Math.max(1, Math.floor(value)),
+	);
 }
 
 function parseSettingsListInput(payload: unknown): CoreSettingsListInput {
@@ -175,6 +235,131 @@ function parseCronEventIngestInput(payload: unknown): {
 	return {
 		input: inputValue ?? JSON.stringify(payload),
 		...(defaultSource?.trim() ? { defaultSource: defaultSource.trim() } : {}),
+	};
+}
+
+function parseCronEventListInput(payload: unknown): {
+	options: ListEventLogsOptions;
+	includePayload: boolean;
+} {
+	if (payload === undefined) {
+		return { options: {}, includePayload: false };
+	}
+	if (!isPayloadObject(payload)) {
+		throw new Error("cron.event.list payload must be an object.");
+	}
+	const processingStatus = requireOptionalHubString(payload, "processingStatus");
+	if (
+		processingStatus !== undefined &&
+		!CRON_EVENT_PROCESSING_STATUSES.has(
+			processingStatus as CronEventProcessingStatus,
+		)
+	) {
+		throw new Error(
+			"cron.event.list payload 'processingStatus' must be one of: received, unmatched, queued, suppressed, failed.",
+		);
+	}
+	return {
+		includePayload: requireOptionalHubBoolean(payload, "includePayload") ?? false,
+		options: {
+			eventType: requireOptionalHubString(payload, "eventType"),
+			source: requireOptionalHubString(payload, "source"),
+			processingStatus: processingStatus as CronEventProcessingStatus | undefined,
+			limit: requireCronEventListLimit(payload),
+		},
+	};
+}
+
+function parseCronEventGetInput(payload: unknown): {
+	eventId: string;
+	includePayload: boolean;
+} {
+	if (typeof payload === "string" && payload.trim()) {
+		return { eventId: payload.trim(), includePayload: true };
+	}
+	if (!isPayloadObject(payload)) {
+		throw new Error("cron.event.get payload must be an object or event id string.");
+	}
+	const value = payload.eventId ?? payload.id;
+	if (typeof value !== "string" || !value.trim()) {
+		throw new Error("cron.event.get payload 'eventId' must be a non-empty string.");
+	}
+	return {
+		eventId: value.trim(),
+		includePayload: requireOptionalHubBoolean(payload, "includePayload") ?? true,
+	};
+}
+
+function sanitizeCronEventValue(value: unknown, depth = 0): unknown {
+	if (value === null || value === undefined) {
+		return value;
+	}
+	if (typeof value === "string") {
+		return value.length > MAX_CRON_EVENT_STRING_VALUE_LENGTH
+			? `${value.slice(0, MAX_CRON_EVENT_STRING_VALUE_LENGTH)}\n[truncated]`
+			: value;
+	}
+	if (typeof value === "number" || typeof value === "boolean") {
+		return value;
+	}
+	if (depth >= 8) {
+		return "[truncated]";
+	}
+	if (Array.isArray(value)) {
+		const output = value
+			.slice(0, MAX_CRON_EVENT_ARRAY_VALUES)
+			.map((entry) => sanitizeCronEventValue(entry, depth + 1));
+		if (value.length > MAX_CRON_EVENT_ARRAY_VALUES) {
+			output.push("[truncated]");
+		}
+		return output;
+	}
+	if (!isPayloadObject(value)) {
+		return String(value);
+	}
+
+	const entries = Object.entries(value).slice(0, MAX_CRON_EVENT_OBJECT_KEYS);
+	const output: Record<string, unknown> = {};
+	for (const [key, entry] of entries) {
+		output[key] = CRON_EVENT_SECRET_KEY_PATTERN.test(key)
+			? "[redacted]"
+			: sanitizeCronEventValue(entry, depth + 1);
+	}
+	const truncatedKeys = Object.keys(value).length - MAX_CRON_EVENT_OBJECT_KEYS;
+	if (truncatedKeys > 0) {
+		output.__truncatedKeys = truncatedKeys;
+	}
+	return output;
+}
+
+function summarizeCronEventLog(
+	event: CronEventLogRecord,
+	options: { includePayload: boolean },
+) {
+	return {
+		eventId: event.eventId,
+		eventType: event.eventType,
+		source: event.source,
+		subject: event.subject,
+		occurredAt: event.occurredAt,
+		receivedAt: event.receivedAt,
+		workspaceRoot: event.workspaceRoot,
+		dedupeKey: event.dedupeKey,
+		processingStatus: event.processingStatus,
+		matchedSpecCount: event.matchedSpecCount,
+		queuedRunCount: event.queuedRunCount,
+		suppressedCount: event.suppressedCount,
+		error: event.error,
+		createdAt: event.createdAt,
+		updatedAt: event.updatedAt,
+		payloadKeys: Object.keys(event.payload ?? {}).sort(),
+		attributeKeys: Object.keys(event.attributes ?? {}).sort(),
+		...(options.includePayload
+			? {
+					payload: sanitizeCronEventValue(event.payload),
+					attributes: sanitizeCronEventValue(event.attributes),
+				}
+			: {}),
 	};
 }
 
@@ -446,6 +631,10 @@ export class HubServerTransport implements NativeHubTransport {
 				return await this.handleSettingsToggle(envelope);
 			case "cron.event.ingest":
 				return this.handleCronEventIngest(envelope);
+			case "cron.event.list":
+				return this.handleCronEventList(envelope);
+			case "cron.event.get":
+				return this.handleCronEventGet(envelope);
 			case "settings.get":
 			case "settings.patch":
 				return {
@@ -597,6 +786,96 @@ export class HubServerTransport implements NativeHubTransport {
 				ok: false,
 				error: {
 					code: "cron_event_ingest_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private handleCronEventList(envelope: HubCommandEnvelope): HubReplyEnvelope {
+		if (!this.cronService) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "cron_not_enabled",
+					message: "cron.event.list requires hub cronOptions.",
+				},
+			};
+		}
+		try {
+			const input = parseCronEventListInput(envelope.payload);
+			const events = this.cronService.listEventLogs(input.options);
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: true,
+				payload: {
+					count: events.length,
+					events: events.map((event) =>
+						summarizeCronEventLog(event, {
+							includePayload: input.includePayload,
+						}),
+					),
+				},
+			};
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "cron_event_list_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private handleCronEventGet(envelope: HubCommandEnvelope): HubReplyEnvelope {
+		if (!this.cronService) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "cron_not_enabled",
+					message: "cron.event.get requires hub cronOptions.",
+				},
+			};
+		}
+		try {
+			const input = parseCronEventGetInput(envelope.payload);
+			const event = this.cronService.getEventLog(input.eventId);
+			if (!event) {
+				return {
+					version: envelope.version,
+					requestId: envelope.requestId,
+					ok: false,
+					error: {
+						code: "cron_event_not_found",
+						message: `Cron event not found: ${input.eventId}`,
+					},
+				};
+			}
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: true,
+				payload: {
+					event: summarizeCronEventLog(event, {
+						includePayload: input.includePayload,
+					}),
+				},
+			};
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "cron_event_get_failed",
 					message: error instanceof Error ? error.message : String(error),
 				},
 			};

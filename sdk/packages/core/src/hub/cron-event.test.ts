@@ -114,6 +114,97 @@ Summarize the Cursor git event.
 					],
 				},
 			});
+
+			const listReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.list",
+				requestId: "req-3",
+				clientId: "client-one",
+				payload: {
+					source: "cursor",
+					limit: 10,
+				},
+			});
+
+			expect(listReply).toMatchObject({
+				ok: true,
+				payload: {
+					count: 2,
+				},
+			});
+			const listedEvents = listReply.payload?.events as Array<Record<string, unknown>>;
+			expect(listedEvents.map((event) => event.eventId)).toEqual(
+				expect.arrayContaining(["evt_cursor_git_1", "evt_cursor_git_2"]),
+			);
+			expect(listedEvents[0]).toHaveProperty("payloadKeys");
+			expect(listedEvents[0]).not.toHaveProperty("payload");
+			expect(JSON.stringify(listReply)).not.toContain("secret-value");
+
+			const getReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.get",
+				requestId: "req-4",
+				clientId: "client-one",
+				payload: {
+					eventId: "evt_cursor_git_1",
+				},
+			});
+
+			expect(getReply).toMatchObject({
+				ok: true,
+				payload: {
+					event: {
+						eventId: "evt_cursor_git_1",
+						eventType: "git.commit.created",
+						source: "cursor",
+						processingStatus: "queued",
+						matchedSpecCount: 1,
+						queuedRunCount: 1,
+						payload: {
+							secret: "[redacted]",
+							ref: "main",
+						},
+						attributes: {
+							branch: "main",
+						},
+					},
+				},
+			});
+			expect(JSON.stringify(getReply)).not.toContain("secret-value");
+
+			const missingReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.get",
+				requestId: "req-5",
+				clientId: "client-one",
+				payload: {
+					eventId: "evt_missing",
+				},
+			});
+
+			expect(missingReply).toMatchObject({
+				ok: false,
+				error: {
+					code: "cron_event_not_found",
+				},
+			});
+
+			const invalidListReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.list",
+				requestId: "req-6",
+				clientId: "client-one",
+				payload: {
+					processingStatus: "done",
+				},
+			});
+
+			expect(invalidListReply).toMatchObject({
+				ok: false,
+				error: {
+					code: "cron_event_list_failed",
+				},
+			});
 		} finally {
 			await transport.stop();
 			rmSync(root, { recursive: true, force: true });
@@ -136,6 +227,34 @@ Summarize the Cursor git event.
 			});
 
 			expect(reply).toMatchObject({
+				ok: false,
+				error: {
+					code: "cron_not_enabled",
+				},
+			});
+
+			const listReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.list",
+				requestId: "req-2",
+				clientId: "client-one",
+				payload: {},
+			});
+			expect(listReply).toMatchObject({
+				ok: false,
+				error: {
+					code: "cron_not_enabled",
+				},
+			});
+
+			const getReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.get",
+				requestId: "req-3",
+				clientId: "client-one",
+				payload: { eventId: "evt_missing" },
+			});
+			expect(getReply).toMatchObject({
 				ok: false,
 				error: {
 					code: "cron_not_enabled",
