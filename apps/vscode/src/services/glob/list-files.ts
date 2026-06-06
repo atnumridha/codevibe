@@ -1,6 +1,7 @@
 import { workspaceResolver } from "@core/workspace"
 import {
 	type IgnoreRule,
+	WORKSPACE_GIT_IGNORE_FILE_NAMES,
 	hasNegatedDescendantRule,
 	isPathIgnored,
 	normalizeRelativePath,
@@ -32,6 +33,10 @@ const DEFAULT_IGNORE_DIRECTORIES = [
 	"deps",
 	"Pods",
 ]
+
+export interface ListFilesOptions {
+	cursorIgnoreBehavior?: "omit" | "include"
+}
 
 // Helper functions
 function isRestrictedPath(absolutePath: string): boolean {
@@ -84,15 +89,26 @@ async function readDirectoryEntries(dirPath: string): Promise<Dirent[]> {
 	}
 }
 
-async function listFilesLevelByLevel(absolutePath: string, recursive: boolean, limit: number): Promise<string[]> {
+async function listFilesLevelByLevel(
+	absolutePath: string,
+	recursive: boolean,
+	limit: number,
+	options: ListFilesOptions = {},
+): Promise<string[]> {
 	const results: string[] = []
 	const queue: { dirPath: string; rules: IgnoreRule[] }[] = [{ dirPath: absolutePath, rules: [] }]
 	const isTargetHidden = isTargetingHiddenDirectory(absolutePath)
+	const ignoreFileNames = options.cursorIgnoreBehavior === "include" ? WORKSPACE_GIT_IGNORE_FILE_NAMES : undefined
 
 	while (queue.length > 0 && results.length < limit) {
 		const { dirPath, rules } = queue.shift()!
 		const relativeDir = normalizeRelativePath(toPosixRelative(absolutePath, dirPath))
-		const activeRules = [...rules, ...(await readIgnoreRules(absolutePath, relativeDir === "." ? "" : relativeDir))]
+		const activeRules = [
+			...rules,
+			...(await readIgnoreRules(absolutePath, relativeDir === "." ? "" : relativeDir, {
+				fileNames: ignoreFileNames,
+			})),
+		]
 		const entries = (await readDirectoryEntries(dirPath)).sort((a, b) => {
 			if (a.isDirectory() !== b.isDirectory()) {
 				return a.isDirectory() ? -1 : 1
@@ -134,7 +150,12 @@ async function listFilesLevelByLevel(absolutePath: string, recursive: boolean, l
 	return results
 }
 
-export async function listFiles(dirPath: string, recursive: boolean, limit: number): Promise<[string[], boolean]> {
+export async function listFiles(
+	dirPath: string,
+	recursive: boolean,
+	limit: number,
+	options: ListFilesOptions = {},
+): Promise<[string[], boolean]> {
 	const absolutePathResult = workspaceResolver.resolveWorkspacePath(dirPath, "", "Services.glob.listFiles")
 	const absolutePath = typeof absolutePathResult === "string" ? absolutePathResult : absolutePathResult.absolutePath
 
@@ -148,7 +169,7 @@ export async function listFiles(dirPath: string, recursive: boolean, limit: numb
 		return [[], false]
 	}
 
-	const filePaths = await listFilesLevelByLevel(absolutePath, recursive, limit)
+	const filePaths = await listFilesLevelByLevel(absolutePath, recursive, limit, options)
 
 	return [filePaths, filePaths.length >= limit]
 }

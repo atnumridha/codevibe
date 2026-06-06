@@ -107,7 +107,9 @@ export class ListFilesToolHandler implements IFullyManagedTool {
 				config.taskState.consecutiveMistakeCount++
 				return formatResponse.toolError(sandboxValidation.error)
 			}
-			;[files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
+			;[files, didHitLimit] = await listFiles(absolutePath, recursive, 200, {
+				cursorIgnoreBehavior: config.cursorRetrievalIndexingPrivacyGate ? "omit" : "include",
+			})
 		} catch (error) {
 			config.taskState.consecutiveMistakeCount++
 			const errorMessage = error instanceof Error ? error.message : String(error)

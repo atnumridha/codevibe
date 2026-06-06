@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises"
 import path from "node:path"
 
-export const WORKSPACE_IGNORE_FILE_NAMES = [".gitignore", ".cursorignore", ".cursorindexingignore"]
+export const WORKSPACE_GIT_IGNORE_FILE_NAMES = [".gitignore"] as const
+export const WORKSPACE_CURSOR_IGNORE_FILE_NAMES = [".cursorignore", ".cursorindexingignore"] as const
+export const WORKSPACE_IGNORE_FILE_NAMES = [
+	...WORKSPACE_GIT_IGNORE_FILE_NAMES,
+	...WORKSPACE_CURSOR_IGNORE_FILE_NAMES,
+] as const
 
 export interface IgnoreRule {
 	basePath: string
@@ -116,10 +121,19 @@ function parseIgnoreContent(content: string, basePath: string): IgnoreRule[] {
 	return rules
 }
 
-export async function readIgnoreRules(cwd: string, basePath: string): Promise<IgnoreRule[]> {
+export interface ReadIgnoreRulesOptions {
+	fileNames?: readonly string[]
+}
+
+export async function readIgnoreRules(
+	cwd: string,
+	basePath: string,
+	options: ReadIgnoreRulesOptions = {},
+): Promise<IgnoreRule[]> {
 	const dir = basePath ? path.join(cwd, basePath) : cwd
+	const fileNames = options.fileNames ?? WORKSPACE_IGNORE_FILE_NAMES
 	const ruleSets = await Promise.all(
-		WORKSPACE_IGNORE_FILE_NAMES.map(async (fileName) => {
+		fileNames.map(async (fileName) => {
 			try {
 				return parseIgnoreContent(await readFile(path.join(dir, fileName), "utf8"), basePath)
 			} catch {

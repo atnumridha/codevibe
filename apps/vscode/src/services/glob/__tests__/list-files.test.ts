@@ -225,6 +225,28 @@ describe("listFiles gitignore handling", () => {
 		normalized.some((f) => f.endsWith(".snapshot")).should.equal(false)
 	})
 
+	it("can include Cursor ignored files for mark-mode list output while keeping .gitignore excluded", async () => {
+		const project = path.join(baseDir, "test-cursorignore-include-mode")
+		await fs.mkdir(path.join(project, "docs"), { recursive: true })
+		await fs.mkdir(path.join(project, "generated"), { recursive: true })
+		await fs.mkdir(path.join(project, "git-ignored"), { recursive: true })
+		await fs.writeFile(path.join(project, ".cursorindexingignore"), "generated/\n*.snapshot\n")
+		await fs.writeFile(path.join(project, ".gitignore"), "git-ignored/\n")
+		await fs.writeFile(path.join(project, "docs", "guide.md"), "guide\n")
+		await fs.writeFile(path.join(project, "docs", "view.snapshot"), "snapshot\n")
+		await fs.writeFile(path.join(project, "generated", "types.ts"), "generated\n")
+		await fs.writeFile(path.join(project, "git-ignored", "secret.ts"), "secret\n")
+
+		const [files] = await listFiles(project, true, 200, { cursorIgnoreBehavior: "include" })
+		const normalized = files.map(normalizeForComparison)
+
+		normalized.should.containEql(normalizeForComparison(path.join(project, "docs", "guide.md")))
+		normalized.should.containEql(normalizeForComparison(path.join(project, "docs", "view.snapshot")))
+		normalized.should.containEql(normalizeForComparison(path.join(project, "generated") + "/"))
+		normalized.should.containEql(normalizeForComparison(path.join(project, "generated", "types.ts")))
+		normalized.some((f) => f.includes("git-ignored")).should.equal(false)
+	})
+
 	it("honors later negated .cursorindexingignore rules", async () => {
 		const project = path.join(baseDir, "test-cursorindexingignore-negation")
 		await fs.mkdir(path.join(project, "generated"), { recursive: true })

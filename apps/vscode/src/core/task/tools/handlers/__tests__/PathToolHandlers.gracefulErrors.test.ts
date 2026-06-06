@@ -3,7 +3,7 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import type { CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
-import { LOCK_TEXT_SYMBOL } from "@core/ignore/ClineIgnoreController"
+import { ClineIgnoreController, LOCK_TEXT_SYMBOL } from "@core/ignore/ClineIgnoreController"
 import { ClineDefaultTool } from "@shared/tools"
 import * as pathUtils from "@utils/path"
 import { afterEach, beforeEach, describe, it } from "mocha"
@@ -429,6 +429,54 @@ describe("ListFilesToolHandler.execute – error recovery", () => {
 		assert.equal(typeof result, "string")
 		assert.ok((result as string).includes("visible.ts"))
 		assert.ok((result as string).includes(`${LOCK_TEXT_SYMBOL} secret.ts`))
+	})
+
+	it("omits real Cursor indexing ignored list entries when the privacy gate is enabled", async () => {
+		const { config } = createConfig()
+		const dirName = "real-cursor-privacy-dir"
+		await fs.mkdir(path.join(tmpDir, dirName))
+		await fs.writeFile(path.join(tmpDir, ".cursorindexingignore"), `${dirName}/secret.ts\n`)
+		await fs.writeFile(path.join(tmpDir, dirName, "visible.ts"), "visible")
+		await fs.writeFile(path.join(tmpDir, dirName, "secret.ts"), "secret")
+		const controller = new ClineIgnoreController(tmpDir)
+		await controller.initialize()
+		config.services.clineIgnoreController = controller
+		const handler = new ListFilesToolHandler(new ToolValidator(controller))
+
+		try {
+			const result = await handler.execute(config, makeBlock(dirName))
+
+			assert.equal(typeof result, "string")
+			assert.ok((result as string).includes("visible.ts"))
+			assert.ok(!(result as string).includes("secret.ts"))
+			assert.ok(!(result as string).includes(LOCK_TEXT_SYMBOL))
+		} finally {
+			await controller.dispose()
+		}
+	})
+
+	it("marks real Cursor indexing ignored list entries when the privacy gate is disabled", async () => {
+		const { config } = createConfig()
+		config.cursorRetrievalIndexingPrivacyGate = false
+		const dirName = "real-cursor-legacy-privacy-dir"
+		await fs.mkdir(path.join(tmpDir, dirName))
+		await fs.writeFile(path.join(tmpDir, ".cursorindexingignore"), `${dirName}/secret.ts\n`)
+		await fs.writeFile(path.join(tmpDir, dirName, "visible.ts"), "visible")
+		await fs.writeFile(path.join(tmpDir, dirName, "secret.ts"), "secret")
+		const controller = new ClineIgnoreController(tmpDir)
+		await controller.initialize()
+		config.services.clineIgnoreController = controller
+		const handler = new ListFilesToolHandler(new ToolValidator(controller))
+
+		try {
+			const result = await handler.execute(config, makeBlock(dirName))
+
+			assert.equal(typeof result, "string")
+			assert.ok((result as string).includes("visible.ts"))
+			assert.ok((result as string).includes(`${LOCK_TEXT_SYMBOL} secret.ts`))
+		} finally {
+			await controller.dispose()
+		}
 	})
 
 	it("catches a thrown exception from listFiles and returns a tool error", async () => {
