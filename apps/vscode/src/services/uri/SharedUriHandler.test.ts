@@ -24,6 +24,7 @@ describe("SharedUriHandler", () => {
 	let handleOpenRouterCallbackStub: sinon.SinonStub
 	let handleAuthCallbackStub: sinon.SinonStub
 	let handleTaskCreationStub: sinon.SinonStub
+	let handleCursorAutomationIngestStub: sinon.SinonStub
 	let handleCursorBackgroundAgentLaunchStub: sinon.SinonStub
 	let handleMcpOAuthCallbackStub: sinon.SinonStub
 	let addServerFromConfigStub: sinon.SinonStub
@@ -59,6 +60,14 @@ describe("SharedUriHandler", () => {
 		handleOpenRouterCallbackStub = sandbox.stub().resolves()
 		handleAuthCallbackStub = sandbox.stub().resolves()
 		handleTaskCreationStub = sandbox.stub().resolves()
+		handleCursorAutomationIngestStub = sandbox.stub().resolves({
+			accepted: 1,
+			rejected: 0,
+			stored: 1,
+			duplicates: 0,
+			strict: false,
+			strictFailed: false,
+		})
 		handleCursorBackgroundAgentLaunchStub = sandbox.stub().resolves()
 		handleMcpOAuthCallbackStub = sandbox.stub().resolves()
 		addServerFromConfigStub = sandbox.stub().resolves([])
@@ -73,6 +82,7 @@ describe("SharedUriHandler", () => {
 				handleOpenRouterCallback: handleOpenRouterCallbackStub,
 				handleAuthCallback: handleAuthCallbackStub,
 				handleTaskCreation: handleTaskCreationStub,
+				handleCursorAutomationIngest: handleCursorAutomationIngestStub,
 				handleCursorBackgroundAgentLaunch: handleCursorBackgroundAgentLaunchStub,
 				handleMcpOAuthCallback: handleMcpOAuthCallbackStub,
 				postStateToWebview: postStateToWebviewStub,
@@ -274,9 +284,9 @@ describe("SharedUriHandler", () => {
 				expect(launchRequest.routePrompt).to.contain("Cursor-compatible background agent deeplink")
 			})
 
-			it("should confirm Cursor automation NDJSON ingest before creating a review task", async () => {
+			it("should confirm Cursor automation NDJSON ingest before storing events", async () => {
 				showMessageStub.resetBehavior()
-				showMessageStub.resolves({ selectedOption: "Create Review Task" })
+				showMessageStub.resolves({ selectedOption: "Ingest Events" })
 				const ndjson = encodeURIComponent(
 					JSON.stringify({
 						eventId: "evt-1",
@@ -291,14 +301,20 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor automation NDJSON ingest?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Ingest Cursor automation NDJSON?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Default source: cursor")
-				sinon.assert.calledOnce(handleTaskCreationStub)
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("automation NDJSON ingest deeplink")
-				expect(handleTaskCreationStub.firstCall.args[0]).not.to.contain("secret-value")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Accepted events: 1")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
+				sinon.assert.calledOnce(handleCursorAutomationIngestStub)
+				expect(handleCursorAutomationIngestStub.firstCall.args[0]).to.deep.include({
+					strict: false,
+				})
+				expect(handleCursorAutomationIngestStub.firstCall.args[0].validation.events).to.have.length(1)
+				expect(handleCursorAutomationIngestStub.firstCall.args[0].routePrompt).to.contain("automation NDJSON ingest deeplink")
+				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should not create a task when Cursor automation NDJSON ingest is cancelled", async () => {
+			it("should not ingest events when Cursor automation NDJSON confirmation is cancelled", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
 				const ndjson = encodeURIComponent(JSON.stringify({ eventId: "evt-1", eventType: "git.commit.created" }))
@@ -306,7 +322,8 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/automation/ingest?ndjson=${ndjson}`)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor automation NDJSON ingest?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Ingest Cursor automation NDJSON?")
+				expect(handleCursorAutomationIngestStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 

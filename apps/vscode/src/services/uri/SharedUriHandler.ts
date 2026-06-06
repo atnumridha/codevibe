@@ -9,9 +9,11 @@ import { ShowMessageType } from "@/shared/proto/host/window"
 import { Logger } from "@/shared/services/Logger"
 import { getCwd, getDesktopDir } from "@/utils/path"
 import {
+	buildCursorCompatibleAutomationIngestRequest,
 	buildCursorCompatibleBackgroundAgentLaunchRequest,
 	buildCursorCompatibleTaskPrompt,
 	parseCursorCompatibleUri,
+	type CursorCompatibleAutomationIngestRequest,
 	type CursorCompatibleUriRoute,
 } from "./CursorUriRoutes"
 import {
@@ -35,6 +37,7 @@ interface SharedUriController {
 	handleTaskCreation(prompt: string): Promise<void>
 	handleMcpOAuthCallback(serverHash: string, code: string, state: string): Promise<void>
 	handleHicapCallback(code: string): Promise<void>
+	handleCursorAutomationIngest(request: CursorCompatibleAutomationIngestRequest): Promise<unknown>
 	handleCursorBackgroundAgentLaunch(request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>): Promise<unknown>
 	postStateToWebview(): Promise<void>
 	stateManager?: {
@@ -228,15 +231,28 @@ function buildCursorBackgroundAgentDetail(
 	].join("\n")
 }
 
-function buildCursorAutomationIngestDetail(route: CursorCompatibleUriRoute): string {
+function buildCursorAutomationIngestDetail(
+	route: CursorCompatibleUriRoute,
+	request?: CursorCompatibleAutomationIngestRequest,
+): string {
 	const config = route.params.config
 	const configKeys =
 		config && typeof config === "object" && !Array.isArray(config)
 			? Object.keys(config).sort()
 			: []
 	return [
-		"Validate Cursor-compatible automation NDJSON and create a review task.",
-		"This does not silently run automation inside VS Code.",
+		"Validate Cursor-compatible automation NDJSON and ingest accepted events into VS Code local automation storage.",
+		"This does not silently run tasks, terminal commands, network calls, git operations, or browser actions.",
+		...(request
+			? [
+					`Accepted events: ${request.validation.events.length}`,
+					`Rejected lines: ${request.validation.rejected.length}`,
+					`Strict mode: ${request.strict ? "yes" : "no"}`,
+				]
+			: []),
+		...(request?.strict && request.validation.rejected.length > 0
+			? ["Strict mode will block storage until rejected lines are fixed."]
+			: []),
 		...(getRouteStringParam(route, "defaultSource") ? [`Default source: ${getRouteStringParam(route, "defaultSource")}`] : []),
 		...(getRouteStringParam(route, "allowedSources") ? [`Allowed sources: ${getRouteStringParam(route, "allowedSources")}`] : []),
 		...(getRouteStringParam(route, "maxEvents") ? [`Max events: ${getRouteStringParam(route, "maxEvents")}`] : []),
@@ -432,19 +448,20 @@ export class SharedUriHandler {
 						return true
 					}
 					if (cursorRoute.route.kind === "automation-ingest") {
+						const ingestRequest = buildCursorCompatibleAutomationIngestRequest(cursorRoute.route)
 						const choice = await HostProvider.window.showMessage({
 							type: ShowMessageType.WARNING,
-							message: "Review Cursor automation NDJSON ingest?",
+							message: "Ingest Cursor automation NDJSON?",
 							options: {
 								modal: true,
-								items: ["Create Review Task"],
-								detail: buildCursorAutomationIngestDetail(cursorRoute.route),
+								items: ["Ingest Events"],
+								detail: buildCursorAutomationIngestDetail(cursorRoute.route, ingestRequest),
 							},
 						})
-						if (choice.selectedOption !== "Create Review Task") {
+						if (choice.selectedOption !== "Ingest Events") {
 							return true
 						}
-						await controller.handleTaskCreation(buildCursorCompatibleTaskPrompt(cursorRoute.route))
+						await controller.handleCursorAutomationIngest(ingestRequest)
 						return true
 					}
 					if (isCursorGitHelperRoute(cursorRoute.route)) {

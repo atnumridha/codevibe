@@ -32,10 +32,15 @@ import { ExtensionRegistryInfo } from "@/registry"
 import { AuthService } from "@/services/auth/AuthService"
 import { OcaAuthService } from "@/services/auth/oca/OcaAuthService"
 import { LogoutReason } from "@/services/auth/types"
+import {
+	ingestCursorAutomationEvents,
+	type CursorAutomationIngestResult,
+} from "@/services/automation/CursorAutomationIngestStore"
 import { BannerService } from "@/services/banner/BannerService"
 import { featureFlagsService } from "@/services/feature-flags"
 import { getDistinctId } from "@/services/logging/distinctId"
 import { telemetryService } from "@/services/telemetry"
+import type { CursorCompatibleAutomationIngestRequest } from "@/services/uri/CursorUriRoutes"
 import { ClineExtensionContext } from "@/shared/cline"
 import { getAxiosSettings } from "@/shared/net"
 import { ShowMessageType } from "@/shared/proto/host/window"
@@ -668,6 +673,20 @@ export class Controller {
 	async handleTaskCreation(prompt: string) {
 		await sendChatButtonClickedEvent()
 		await this.initTask(prompt)
+	}
+
+	async handleCursorAutomationIngest(
+		request: CursorCompatibleAutomationIngestRequest,
+	): Promise<CursorAutomationIngestResult> {
+		const result = await ingestCursorAutomationEvents(this.context.globalStorageUri.fsPath, request)
+		const message = result.strictFailed
+			? `Cursor automation ingest blocked: ${result.rejected} rejected line(s) in strict mode.`
+			: `Ingested ${result.stored} Cursor automation event(s).`
+		await HostProvider.window.showMessage({
+			type: result.strictFailed ? ShowMessageType.WARNING : ShowMessageType.INFORMATION,
+			message,
+		})
+		return result
 	}
 
 	getBackgroundAgentTaskRecords(): BackgroundAgentTaskRecord[] {

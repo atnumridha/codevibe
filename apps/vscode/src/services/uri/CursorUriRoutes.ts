@@ -5,6 +5,10 @@ import {
 	normalizeGitCommitMessage,
 } from "@utils/git-helper"
 import { parseAutomationEventNdjson } from "@/services/automation/AutomationEventNdjson"
+import type {
+	AutomationEventNdjsonParseResult,
+	ParseAutomationEventNdjsonOptions,
+} from "@/services/automation/AutomationEventNdjson"
 
 export const CURSOR_COMPATIBLE_URI_PATHS = [
 	"/createchat",
@@ -58,6 +62,16 @@ export interface CursorCompatibleBackgroundAgentLaunchRequest {
 	requestedBranch?: string
 	requestedBaseBranch?: string
 	config?: Record<string, unknown>
+}
+
+export interface CursorCompatibleAutomationIngestRequest {
+	ndjson: string
+	strict: boolean
+	options: ParseAutomationEventNdjsonOptions
+	validation: AutomationEventNdjsonParseResult
+	routePrompt: string
+	paramKeys: string[]
+	configKeys: string[]
 }
 
 export type CursorCompatibleUriParseResult =
@@ -268,7 +282,10 @@ const automationIngestSchema = z
 		config: configSchema,
 	})
 	.strict()
-	.refine((value) => value.ndjson || value.input || hasStringConfigValue(value.config, "ndjson"), "ndjson or input is required")
+	.refine(
+		(value) => value.ndjson || value.input || hasStringConfigValue(value.config, "ndjson") || hasStringConfigValue(value.config, "input"),
+		"ndjson or input is required",
+	)
 
 const routeSchemas: Record<CursorCompatibleUriPath, { kind: CursorCompatibleUriKind; schema: z.ZodTypeAny }> = {
 	"/createchat": { kind: "createchat", schema: promptLikeSchema },
@@ -510,7 +527,7 @@ export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute)
 }
 
 function getAutomationNdjson(route: CursorCompatibleUriRoute): string {
-	const value = getStringParam(route, "ndjson") || getStringParam(route, "input") || getConfigString(route, "ndjson")
+	const value = getStringParam(route, "ndjson") || getStringParam(route, "input") || getConfigString(route, "ndjson") || getConfigString(route, "input")
 	if (!value) {
 		throw new Error("automation NDJSON input is required")
 	}
@@ -563,7 +580,7 @@ function buildCursorAutomationIngestPrompt(route: CursorCompatibleUriRoute): str
 	const rejectedLines = result.rejected.slice(0, 20).map((line) => `- line ${line.lineNumber}: ${line.reason} (${line.message})`)
 
 	return [
-		"A Cursor-compatible automation NDJSON ingest deeplink was opened. The VS Code extension validated the NDJSON locally; automation execution is not enabled in this extension surface yet.",
+		"A Cursor-compatible automation NDJSON ingest deeplink was opened. The VS Code extension validated the NDJSON locally and can ingest accepted events after explicit confirmation.",
 		"",
 		"Validation summary:",
 		`- accepted events: ${result.events.length}`,
@@ -578,7 +595,7 @@ function buildCursorAutomationIngestPrompt(route: CursorCompatibleUriRoute): str
 		"",
 		strict && result.rejected.length > 0
 			? "Because strict mode was requested and at least one line was rejected, do not treat this ingest as successful. Ask the user how they want to fix or retry the input."
-			: "Do not run automation silently. Ask the user to confirm any follow-up task or CLI/hub ingest action.",
+			: "Do not run follow-up automation silently. Ask the user to confirm any task, CLI, hub, or schedule action triggered by these events.",
 	].join("\n")
 }
 
@@ -610,5 +627,34 @@ export function buildCursorCompatibleBackgroundAgentLaunchRequest(
 		requestedBranch: getStringParam(route, "branch"),
 		requestedBaseBranch: getStringParam(route, "baseBranch"),
 		config: typeof config === "object" ? config : undefined,
+	}
+}
+
+export function buildCursorCompatibleAutomationIngestRequest(
+	route: CursorCompatibleUriRoute,
+): CursorCompatibleAutomationIngestRequest {
+	if (route.kind !== "automation-ingest") {
+		throw new Error(`Expected automation-ingest route, received ${route.kind}`)
+	}
+
+	const config = route.params.config
+	const options: ParseAutomationEventNdjsonOptions = {
+		defaultSource: getStringParam(route, "defaultSource") || getConfigString(route, "defaultSource") || "cursor",
+		allowedSources: getAllowedSources(route),
+		maxLineBytes: getPositiveIntegerParam(route, "maxLineBytes"),
+		maxEvents: getPositiveIntegerParam(route, "maxEvents"),
+	}
+	const ndjson = getAutomationNdjson(route)
+	return {
+		ndjson,
+		strict: getBooleanParam(route, "strict"),
+		options,
+		validation: parseAutomationEventNdjson(ndjson, options),
+		routePrompt: buildCursorCompatibleTaskPrompt(route),
+		paramKeys: Object.keys(route.params).sort(),
+		configKeys:
+			config && typeof config === "object" && !Array.isArray(config)
+				? Object.keys(config).sort()
+				: [],
 	}
 }
