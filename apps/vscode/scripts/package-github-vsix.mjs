@@ -33,6 +33,18 @@ const expectedManifestAssetPaths = [
 	"walkthrough/step5.md",
 ]
 
+const packagedMarkdownAssetPaths = [
+	"README.md",
+	"walkthrough/step1.md",
+	"walkthrough/step2.md",
+	"walkthrough/step3.md",
+	"walkthrough/step4.md",
+	"walkthrough/step5.md",
+]
+
+const upstreamLicenseNotice = "[Apache 2.0 \u00a9 2026 Cline Bot Inc.](./LICENSE)"
+const upstreamLicensePlaceholder = "__CODEVIBE_UPSTREAM_CLINE_LICENSE_NOTICE__"
+
 const githubVsixManifestOverrides = {
 	name: "codevibe",
 	displayName: "CodeVibe",
@@ -232,6 +244,13 @@ function replaceVisibleClineBrand(value) {
 	return value.replace(/\bCline\b/g, "CodeVibe")
 }
 
+function replaceVisibleMarkdownBrand(value) {
+	return replaceVisibleClineBrand(value.replace(upstreamLicenseNotice, upstreamLicensePlaceholder)).replace(
+		upstreamLicensePlaceholder,
+		upstreamLicenseNotice,
+	)
+}
+
 function brandVisibleManifestStrings(value, key) {
 	if (typeof value === "string") {
 		return visibleManifestStringKeys.has(key) ? replaceVisibleClineBrand(value) : value
@@ -347,6 +366,27 @@ function assertVisibleManifestStringsBranded(value, label, pathParts = []) {
 	}
 }
 
+function brandPackagedMarkdownAssets() {
+	const snapshot = new Map()
+	for (const assetPath of packagedMarkdownAssetPaths) {
+		const filePath = path.join(projectRoot, assetPath)
+		assertFileExists(filePath, `packaged markdown asset "${assetPath}"`, { nonEmpty: true })
+		const originalText = fs.readFileSync(filePath, "utf8")
+		snapshot.set(filePath, originalText)
+		const brandedText = replaceVisibleMarkdownBrand(originalText)
+		if (brandedText !== originalText) {
+			fs.writeFileSync(filePath, brandedText)
+		}
+	}
+	return snapshot
+}
+
+function restorePackagedMarkdownAssets(snapshot) {
+	for (const [filePath, originalText] of snapshot) {
+		fs.writeFileSync(filePath, originalText)
+	}
+}
+
 function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (packageJson.name !== "codevibe") {
 		throw new Error(`${label} must use name codevibe`)
@@ -408,6 +448,24 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 			value,
 			`${label} cline.cursorCompatibility.sandboxPolicy enum`,
 		)
+	}
+}
+
+function stripAllowedMarkdownClineReferences(value) {
+	return value.replace(upstreamLicenseNotice, "")
+}
+
+function assertPackagedMarkdownTextBranded(value, label) {
+	if (/\bCline\b/.test(stripAllowedMarkdownClineReferences(value))) {
+		throw new Error(`${label} must use CodeVibe branding for visible markdown copy`)
+	}
+}
+
+function assertPackagedMarkdownAssetsBranded() {
+	for (const assetPath of packagedMarkdownAssetPaths) {
+		const filePath = path.join(projectRoot, assetPath)
+		assertFileExists(filePath, `packaged markdown asset "${assetPath}"`, { nonEmpty: true })
+		assertPackagedMarkdownTextBranded(fs.readFileSync(filePath, "utf8"), `packaged markdown asset "${assetPath}"`)
 	}
 }
 
@@ -534,6 +592,7 @@ function assertPackageInputs(packageJson) {
 	assertFileExists(path.join(projectRoot, "README.md"), "packaged README.md", { nonEmpty: true })
 	assertManifestAssets(packageJson)
 	assertCursorParityManifest(packageJson)
+	assertPackagedMarkdownAssetsBranded()
 }
 
 function assertManifestInputs(packageJson) {
@@ -567,6 +626,11 @@ function assertPackagedVsix(outPath) {
 		if (!zip.entries.has(entryName)) {
 			throw new Error(`VSIX artifact is missing manifest asset ${entryName}`)
 		}
+	}
+	for (const assetPath of packagedMarkdownAssetPaths) {
+		const entryName = `extension/${assetPath.replace(/\\/g, "/")}`
+		const text = readZipEntry(zip, entryName).toString("utf8")
+		assertPackagedMarkdownTextBranded(text, `VSIX markdown asset ${entryName}`)
 	}
 }
 
@@ -620,13 +684,18 @@ async function main() {
 		return
 	}
 
+	let brandedMarkdownSnapshot
 	const restorePackageInputs = () => {
 		fs.writeFileSync(packageJsonPath, originalPackageJsonText)
+		if (brandedMarkdownSnapshot) {
+			restorePackagedMarkdownAssets(brandedMarkdownSnapshot)
+		}
 		restoreMarketplaceReadme()
 	}
 	const signalCleanup = installSignalCleanup(restorePackageInputs)
 	try {
 		swapInMarketplaceReadme()
+		brandedMarkdownSnapshot = brandPackagedMarkdownAssets()
 		writePackageJson(githubVsixPackageJson)
 		assertPackageInputs(githubVsixPackageJson)
 		fs.mkdirSync(path.dirname(outPath), { recursive: true })
