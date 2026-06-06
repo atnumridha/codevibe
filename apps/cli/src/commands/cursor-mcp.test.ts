@@ -941,6 +941,54 @@ describe("Cursor MCP install command", () => {
 		expect(out[0]).not.toContain("requiresAgent");
 	});
 
+	it("installs confirmed config-source local Cursor plugin deeplinks", async () => {
+		const workspace = await mkdtemp(join(tmpdir(), "cline-cursor-plugin-"));
+		tempDirs.push(workspace);
+		await writeFile(
+			join(workspace, "docs-plugin.js"),
+			[
+				"export default {",
+				"  name: 'docs-plugin',",
+				"  manifest: { capabilities: [] },",
+				"  activate() {}",
+				"};",
+				"",
+			].join("\n"),
+		);
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: `vscode://cline.cline/plugin/add?config=${encodeConfig({
+				source: "./docs-plugin.js",
+				token: "secret-value",
+			})}`,
+			cwd: workspace,
+			confirmed: true,
+			json: true,
+			io,
+		});
+		const payload = JSON.parse(out[0] ?? "{}") as {
+			entryPaths?: string[];
+			installPath?: string;
+		};
+
+		expect(code).toBe(0);
+		expect(payload).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			installed: true,
+			source: "./docs-plugin.js",
+			sourceParam: "config",
+			sourceConfigKey: "source",
+		});
+		expect(payload.installPath).toContain(join(workspace, ".cline", "plugins"));
+		expect(payload.entryPaths?.[0]).toContain("docs-plugin.js");
+		await expect(readFile(payload.entryPaths?.[0] ?? "", "utf8")).resolves.toContain(
+			"docs-plugin",
+		);
+		expect(out[0]).not.toContain("secret-value");
+	});
+
 	it("previews Cursor automation ingest URI events without storing payload values", async () => {
 		const { out, io } = createIo();
 		const ndjson = encodeURIComponent(

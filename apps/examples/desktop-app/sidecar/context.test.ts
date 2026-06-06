@@ -930,6 +930,58 @@ describe("Code sidecar runtime capabilities", () => {
 		);
 	});
 
+	it("installs confirmed config-source local Cursor plugins through the plugin installer", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-plugin-add-"));
+		tempDirs.push(workspace);
+		const pluginPath = join(workspace, "docs-plugin.js");
+		await writeFile(
+			pluginPath,
+			[
+				"export default {",
+				"  name: 'docs-plugin',",
+				"  manifest: { capabilities: [] },",
+				"  activate() {}",
+				"};",
+				"",
+			].join("\n"),
+		);
+		const ctx = createSidecarContext(workspace);
+		const config = encodeCursorConfig({
+			source: "./docs-plugin.js",
+			token: "secret-value",
+		});
+
+		const result = (await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				config,
+			}).toString()}`,
+			confirmed: true,
+		})) as {
+			installed: boolean;
+			sourceParam?: string;
+			sourceConfigKey?: string;
+			entryCount: number;
+			entryPaths: string[];
+			installPath: string;
+		};
+
+		expect(result).toMatchObject({
+			installed: true,
+			sourceParam: "config",
+			sourceConfigKey: "source",
+			entryCount: 1,
+		});
+		expect(result.installPath).toContain(join(workspace, ".cline", "plugins"));
+		expect(result.entryPaths[0]).toContain("docs-plugin.js");
+		await expect(readFile(result.entryPaths[0], "utf8")).resolves.toContain(
+			"docs-plugin",
+		);
+		expect(JSON.stringify(result)).not.toContain("secret-value");
+	});
+
 	it("keeps opaque Cursor plugin config payloads review-only", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

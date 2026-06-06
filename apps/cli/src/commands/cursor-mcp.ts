@@ -542,6 +542,8 @@ async function writeCursorPluginAddRoute(
 				route: "plugin-add",
 				installed: true,
 				source: result.source,
+				sourceParam: request.sourceParam,
+				...(request.sourceConfigKey ? { sourceConfigKey: request.sourceConfigKey } : {}),
 				installPath: result.installPath,
 				entryPaths: result.entryPaths,
 			}),
