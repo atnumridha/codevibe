@@ -45,6 +45,7 @@ import { desktopClient } from "@/lib/desktop-client";
 import { cn } from "@/lib/utils";
 
 type McpTransportType = "stdio" | "sse" | "streamableHttp";
+type CursorMcpImportSource = "workspace" | "global";
 
 interface McpServer {
 	name: string;
@@ -68,6 +69,7 @@ interface McpServersResponse {
 interface CursorMcpImportResponse extends McpServersResponse {
 	imported: boolean;
 	importedCount: number;
+	source: CursorMcpImportSource;
 	sourcePath: string;
 	serverNames: string[];
 	replacedNames: string[];
@@ -282,7 +284,9 @@ export function McpServersContent() {
 		}
 	};
 
-	const importCursorMcpServers = async () => {
+	const importCursorMcpServers = async (
+		source: CursorMcpImportSource = "workspace",
+	) => {
 		setIsImportingCursorMcp(true);
 		setErrorMessage(null);
 		try {
@@ -290,6 +294,7 @@ export function McpServersContent() {
 				"import_cursor_mcp_servers",
 				{
 					confirmed: true,
+					source,
 				},
 			);
 			applyResponse(response);
@@ -449,7 +454,7 @@ export function McpServersContent() {
 							From settings file
 						</span>
 					</div>
-					<div className="flex items-center gap-2">
+					<div className="flex flex-wrap items-center justify-end gap-2">
 						<Button
 							variant="outline"
 							size="sm"
@@ -464,7 +469,7 @@ export function McpServersContent() {
 						<Button
 							variant="outline"
 							size="sm"
-							onClick={() => void importCursorMcpServers()}
+							onClick={() => void importCursorMcpServers("workspace")}
 							disabled={isImportingCursorMcp}
 						>
 							<Download
@@ -474,6 +479,20 @@ export function McpServersContent() {
 								)}
 							/>
 							Import Cursor MCP
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => void importCursorMcpServers("global")}
+							disabled={isImportingCursorMcp}
+						>
+							<Download
+								className={cn(
+									"h-4 w-4",
+									isImportingCursorMcp && "animate-pulse",
+								)}
+							/>
+							Import Global Cursor MCP
 						</Button>
 						<Button size="sm" onClick={openCreateDialog}>
 							<Plus className="h-4 w-4" />

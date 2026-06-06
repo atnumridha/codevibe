@@ -52,6 +52,7 @@ import {
 	ProviderSettingsManager,
 	readGlobalSettings,
 	resolveLocalClineAuthToken,
+	resolveGlobalCursorMcpSettingsPath,
 	resolvePluginConfigSearchPaths,
 	resolveSessionBackend,
 	resolveAgentConfigSearchPaths as resolveSharedAgentConfigSearchPaths,
@@ -397,6 +398,22 @@ function resolveCursorMcpSettingsPath(workspaceRoot: string): string {
 	return join(resolve(workspaceRoot), ".cursor", "mcp.json");
 }
 
+type CursorMcpImportSource = "workspace" | "global";
+
+function readCursorMcpImportSource(args?: Record<string, unknown>): {
+	source: CursorMcpImportSource;
+	userHome?: string;
+} {
+	const rawSource = typeof args?.source === "string" ? args.source.trim() : "";
+	const source: CursorMcpImportSource =
+		rawSource === "global" || args?.global === true ? "global" : "workspace";
+	const userHome =
+		typeof args?.userHome === "string" && args.userHome.trim()
+			? args.userHome.trim()
+			: undefined;
+	return { source, ...(userHome ? { userHome } : {}) };
+}
+
 function getRecordValue(value: unknown): JsonRecord | undefined {
 	return value && typeof value === "object" && !Array.isArray(value)
 		? (value as JsonRecord)
@@ -411,17 +428,33 @@ function readMcpServersMap(path: string): JsonRecord {
 	return getRecordValue(parsed.mcpServers) ?? {};
 }
 
-function readCursorWorkspaceMcpServers(workspaceRoot: string): {
+function readCursorMcpServers(input: {
+	source: CursorMcpImportSource;
+	workspaceRoot: string;
+	userHome?: string;
+}): {
 	sourcePath: string;
 	servers: JsonRecord;
 } {
-	const sourcePath = resolveCursorMcpSettingsPath(workspaceRoot);
+	const sourcePath =
+		input.source === "global"
+			? resolveGlobalCursorMcpSettingsPath(input.userHome)
+			: resolveCursorMcpSettingsPath(input.workspaceRoot);
 	if (!existsSync(sourcePath)) {
-		throw new Error("No .cursor/mcp.json found in the active workspace");
+		throw new Error(
+			input.source === "global"
+				? "No global ~/.cursor/mcp.json found"
+				: "No .cursor/mcp.json found in the active workspace",
+		);
 	}
 	const parsed = JSON.parse(readFileSync(sourcePath, "utf8")) as JsonRecord;
 	const normalized = normalizeCursorMcpSettingsObject(parsed, {
-		workspaceRoot,
+		...(input.source === "global" && input.userHome
+			? { userHome: input.userHome }
+			: {}),
+		...(input.source === "workspace"
+			? { workspaceRoot: input.workspaceRoot }
+			: {}),
 	}) as JsonRecord;
 	const servers = getRecordValue(normalized.mcpServers);
 	if (!servers || Object.keys(servers).length === 0) {
@@ -433,6 +466,7 @@ function readCursorWorkspaceMcpServers(workspaceRoot: string): {
 function buildCursorMcpImportResponse(input: {
 	confirmed: boolean;
 	imported: boolean;
+	source: CursorMcpImportSource;
 	sourcePath: string;
 	serverNames: string[];
 	replacedNames?: string[];
@@ -442,6 +476,7 @@ function buildCursorMcpImportResponse(input: {
 		route: "cursor-mcp-import",
 		confirmed: input.confirmed,
 		imported: input.imported,
+		source: input.source,
 		sourcePath: input.sourcePath,
 		serverNames: input.serverNames,
 		importedCount: input.imported ? input.serverNames.length : 0,
@@ -454,14 +489,18 @@ function importCursorMcpServers(
 	ctx: SidecarContext,
 	args?: Record<string, unknown>,
 ): JsonRecord {
-	const { sourcePath, servers: cursorServers } = readCursorWorkspaceMcpServers(
-		ctx.workspaceRoot,
-	);
+	const importSource = readCursorMcpImportSource(args);
+	const { sourcePath, servers: cursorServers } = readCursorMcpServers({
+		source: importSource.source,
+		workspaceRoot: ctx.workspaceRoot,
+		userHome: importSource.userHome,
+	});
 	const serverNames = Object.keys(cursorServers).sort();
 	if (args?.confirmed !== true) {
 		return buildCursorMcpImportResponse({
 			confirmed: false,
 			imported: false,
+			source: importSource.source,
 			sourcePath,
 			serverNames,
 		});
@@ -486,8 +525,14 @@ function importCursorMcpServers(
 			metadata: {
 				...metadata,
 				cursor: {
-					source: "workspace-mcp",
-					path: ".cursor/mcp.json",
+					source:
+						importSource.source === "global"
+							? "global-cursor-mcp"
+							: "workspace-mcp",
+					path:
+						importSource.source === "global"
+							? "~/.cursor/mcp.json"
+							: ".cursor/mcp.json",
 					importedAt,
 				},
 			},
@@ -497,6 +542,7 @@ function importCursorMcpServers(
 	return buildCursorMcpImportResponse({
 		confirmed: true,
 		imported: true,
+		source: importSource.source,
 		sourcePath,
 		serverNames,
 		replacedNames,

@@ -618,6 +618,67 @@ describe("Code sidecar runtime capabilities", () => {
 		}
 	});
 
+	it("imports global Cursor MCP settings without requiring a workspace Cursor file", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const tempDir = await mkdtemp(join(tmpdir(), "codevibe-cursor-mcp-"));
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-mcp-ws-"));
+		const cursorHome = await mkdtemp(join(tmpdir(), "codevibe-cursor-home-"));
+		tempDirs.push(tempDir, workspace, cursorHome);
+		const settingsPath = join(tempDir, "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		await mkdir(join(cursorHome, ".cursor"), { recursive: true });
+		await writeFile(
+			join(cursorHome, ".cursor", "mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					globalDocs: {
+						command: "node",
+						args: ["${userHome}/global-server.js"],
+						env: {
+							TOKEN: "secret-token",
+						},
+					},
+				},
+			}),
+		);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "import_cursor_mcp_servers", {
+			source: "global",
+			userHome: cursorHome,
+			confirmed: true,
+		});
+		const stored = JSON.parse(await readFile(settingsPath, "utf8"));
+
+		expect(JSON.stringify(result)).not.toContain("secret-token");
+		expect(result).toMatchObject({
+			handled: true,
+			route: "cursor-mcp-import",
+			confirmed: true,
+			imported: true,
+			source: "global",
+			importedCount: 1,
+			serverNames: ["globalDocs"],
+			replacedNames: [],
+		});
+		expect(stored.mcpServers.globalDocs).toMatchObject({
+			type: "stdio",
+			command: "node",
+			args: [join(cursorHome, "global-server.js")],
+			env: {
+				TOKEN: "secret-token",
+			},
+			metadata: {
+				cursor: {
+					source: "global-cursor-mcp",
+					path: "~/.cursor/mcp.json",
+				},
+			},
+		});
+	});
+
 	it("previews safe Cursor rule files without writing them", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
