@@ -920,6 +920,7 @@ export async function handleConnectorUserTurn<
 		const { prompt, userImages, userFiles } = await buildUserInputMessage(
 			runtimeInput,
 			input.userInstructionService,
+			{ cwd: startRequest.cwd },
 		);
 		await input.client.sendRuntimeSession(
 			activeTurn.sessionId,
@@ -960,6 +961,7 @@ export async function handleConnectorUserTurn<
 	const { prompt, userImages, userFiles } = await buildUserInputMessage(
 		runtimeInput,
 		input.userInstructionService,
+		{ cwd: startRequest.cwd },
 	);
 	const request: ChatRunTurnRequest = {
 		config: startRequest,

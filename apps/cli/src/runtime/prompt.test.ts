@@ -1,7 +1,7 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildUserInputMessage } from "./prompt";
 
 describe("buildUserInputMessage", () => {
@@ -39,6 +39,79 @@ describe("buildUserInputMessage", () => {
 		const result = await buildUserInputMessage(`summarize @"${filePath}"`);
 
 		expect(result.prompt).toBe("summarize [file: notes with spaces.md]");
+		expect(result.userImages).toEqual([]);
+		expect(result.userFiles).toEqual([filePath]);
+	});
+
+	it("does not attach files blocked by .cursorignore", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "cli-prompt-"));
+		const filePath = join(dir, "secrets", "token.txt");
+		mkdirSync(join(dir, "secrets"), { recursive: true });
+		writeFileSync(join(dir, ".cursorignore"), "secrets/\n");
+		writeFileSync(filePath, "secret\n");
+		const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		try {
+			const result = await buildUserInputMessage(
+				`summarize @${filePath}`,
+				undefined,
+				{ cwd: dir },
+			);
+
+			expect(result.prompt).toBe(`summarize @${filePath}`);
+			expect(result.userImages).toEqual([]);
+			expect(result.userFiles).toEqual([]);
+			expect(warn).toHaveBeenCalledWith(
+				expect.stringContaining("blocked by direct-access ignore settings"),
+			);
+		} finally {
+			warn.mockRestore();
+		}
+	});
+
+	it("does not attach files blocked by .cursorindexingignore", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "cli-prompt-"));
+		const filePath = join(dir, "generated", "types.ts");
+		mkdirSync(join(dir, "generated"), { recursive: true });
+		writeFileSync(join(dir, ".cursorindexingignore"), "generated/\n");
+		writeFileSync(filePath, "export type Secret = string\n");
+		const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		try {
+			const result = await buildUserInputMessage(
+				"summarize @./generated/types.ts",
+				undefined,
+				{ cwd: dir },
+			);
+
+			expect(result.prompt).toBe("summarize @./generated/types.ts");
+			expect(result.userImages).toEqual([]);
+			expect(result.userFiles).toEqual([]);
+			expect(warn).toHaveBeenCalledWith(
+				expect.stringContaining("blocked by direct-access ignore settings"),
+			);
+		} finally {
+			warn.mockRestore();
+		}
+	});
+
+	it("attaches files allowed by negated .cursorindexingignore rules", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "cli-prompt-"));
+		const filePath = join(dir, "generated", "keep.ts");
+		mkdirSync(join(dir, "generated"), { recursive: true });
+		writeFileSync(
+			join(dir, ".cursorindexingignore"),
+			"generated/\n!generated/keep.ts\n",
+		);
+		writeFileSync(filePath, "export const keep = true\n");
+
+		const result = await buildUserInputMessage(
+			"summarize @./generated/keep.ts",
+			undefined,
+			{ cwd: dir },
+		);
+
+		expect(result.prompt).toBe("summarize [file: keep.ts]");
 		expect(result.userImages).toEqual([]);
 		expect(result.userFiles).toEqual([filePath]);
 	});

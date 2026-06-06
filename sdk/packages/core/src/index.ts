@@ -618,6 +618,10 @@ export {
 	getCurrentContextSize,
 	summarizeUsageFromMessages,
 } from "./services/usage";
+export {
+	assertPathAllowedByDirectAccessIgnores,
+	isPathAllowedByDirectAccessIgnores,
+} from "./extensions/tools/executors/access-ignore";
 export type {
 	FastFileIndexOptions,
 	MentionEnricherOptions,

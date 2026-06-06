@@ -2,6 +2,7 @@ import { statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, resolve } from "node:path";
 import {
+	assertPathAllowedByDirectAccessIgnores,
 	buildWorkspaceMetadata,
 	mergeRulesForSystemPrompt,
 	type UserInstructionConfigService,
@@ -87,16 +88,17 @@ function extractFileMentions(
 	return matches;
 }
 
-function resolveMentionPath(filePath: string): string {
+function resolveMentionPath(filePath: string, cwd: string): string {
 	if (filePath.startsWith("~/")) {
 		return resolve(homedir(), filePath.slice(2));
 	}
-	return resolve(filePath);
+	return resolve(cwd, filePath);
 }
 
 export async function buildUserInputMessage(
 	rawPrompt: string,
 	userInstructionService?: UserInstructionConfigService,
+	options: { cwd?: string } = {},
 ): Promise<{
 	prompt: string;
 	userImages: string[];
@@ -141,10 +143,12 @@ export async function buildUserInputMessage(
 		path: string;
 		fileName: string;
 	}> = [];
+	const cwd = options.cwd?.trim() ? resolve(options.cwd) : process.cwd();
 
 	for (const mention of fileMentions) {
 		try {
-			const resolvedPath = resolveMentionPath(mention.path);
+			const resolvedPath = resolveMentionPath(mention.path, cwd);
+			await assertPathAllowedByDirectAccessIgnores(cwd, resolvedPath);
 			const stats = statSync(resolvedPath);
 			if (!stats.isFile()) {
 				throw new Error(`Path is not a file: ${resolvedPath}`);
