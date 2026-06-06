@@ -8,7 +8,7 @@ import {
 	Play,
 	Search,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,11 @@ const LAUNCHABLE_AGENT_PATHS = new Set([
 	"/git/branch",
 	"/git/commit",
 ]);
+
+export type CursorUriIntent = {
+	id: number;
+	uri: string;
+};
 
 function previewString(
 	preview: CursorUriPreviewResponse | undefined,
@@ -91,7 +96,11 @@ function JsonBlock({ value }: { value: unknown }) {
 	);
 }
 
-export function CursorUriView() {
+export function CursorUriView({
+	incomingUri,
+}: {
+	incomingUri?: CursorUriIntent | null;
+}) {
 	const [uri, setUri] = useState("");
 	const [preview, setPreview] = useState<CursorUriPreviewResponse | undefined>();
 	const [launch, setLaunch] = useState<CursorUriLaunchResponse | undefined>();
@@ -117,8 +126,8 @@ export function CursorUriView() {
 	const canLaunch = isLaunchablePreview(preview);
 	const canIngest = isAutomationIngestPreview(preview);
 
-	const runPreview = async () => {
-		const trimmed = uri.trim();
+	const runPreviewForUri = useCallback(async (inputUri: string) => {
+		const trimmed = inputUri.trim();
 		if (!trimmed) {
 			setError("URI is required.");
 			setPreview(undefined);
@@ -126,6 +135,7 @@ export function CursorUriView() {
 			setIngest(undefined);
 			return;
 		}
+		setUri(trimmed);
 		setPreviewing(true);
 		setError(null);
 		setLaunch(undefined);
@@ -143,6 +153,17 @@ export function CursorUriView() {
 		} finally {
 			setPreviewing(false);
 		}
+	}, []);
+
+	useEffect(() => {
+		if (!incomingUri?.uri) {
+			return;
+		}
+		void runPreviewForUri(incomingUri.uri);
+	}, [incomingUri?.id, incomingUri?.uri, runPreviewForUri]);
+
+	const runPreview = async () => {
+		await runPreviewForUri(uri);
 	};
 
 	const runLaunch = async () => {

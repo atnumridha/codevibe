@@ -14,7 +14,7 @@ import type {
 import { cn } from "@/lib/utils";
 import { AccountView } from "./account-view";
 import { AddProviderContent, type AddProviderPayload } from "./add-provider";
-import { CursorUriView } from "./cursor-uri-view";
+import { CursorUriView, type CursorUriIntent } from "./cursor-uri-view";
 import { primeExtensionsListsCache, RulesView } from "./extensions-view";
 import { McpServersContent } from "./mcp-view";
 import {
@@ -54,7 +54,13 @@ let providerCatalogCache: {
 // Component
 // -----------------------------------------------------------
 
-export function SettingsView({ onClose }: { onClose: () => void }) {
+export function SettingsView({
+	onClose,
+	incomingCursorUri,
+}: {
+	onClose: () => void;
+	incomingCursorUri?: CursorUriIntent | null;
+}) {
 	const [activeNav, setActiveNav] = useState<NavCategory>("Providers");
 	const [providersExpanded, setProvidersExpanded] = useState(true);
 	const [providers, setProviders] = useState<Provider[]>(
@@ -134,6 +140,15 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
 			// Keep settings responsive even if extension prefetch fails.
 		});
 	}, [loadProviderCatalog]);
+
+	useEffect(() => {
+		if (!incomingCursorUri) {
+			return;
+		}
+		setActiveNav("Features");
+		setSelectedProviderId(null);
+		setAddingProvider(false);
+	}, [incomingCursorUri]);
 
 	const persistProviderSettings = useCallback(
 		async (
@@ -473,7 +488,7 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
 					) : activeNav === "Extensions" ? (
 						<RulesView />
 					) : activeNav === "Features" ? (
-						<CursorUriView />
+						<CursorUriView incomingUri={incomingCursorUri} />
 					) : activeNav === "Account" ? (
 						<AccountView />
 					) : (

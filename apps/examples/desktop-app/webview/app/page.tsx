@@ -23,6 +23,7 @@ import { ChatInputBar } from "@/components/views/chat/chat-input-bar";
 import { ChatMessages } from "@/components/views/chat/chat-messages";
 import { DiffView } from "@/components/views/chat/diff-view";
 import { SettingsView } from "@/components/views/settings/settings-view";
+import type { CursorUriIntent } from "@/components/views/settings/cursor-uri-view";
 import { WorkspaceProvider } from "@/contexts/workspace-context";
 import type { PromptInQueue } from "@/hooks/chat-session/types";
 import { useChatSession } from "@/hooks/use-chat-session";
@@ -36,6 +37,69 @@ import {
 
 function makeThreadId(): string {
 	return `thread_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+const CURSOR_COMPATIBLE_NATIVE_URI_PATHS = new Set([
+	"/createchat",
+	"/mcp/install",
+	"/background-agent",
+	"/settings",
+	"/prompt",
+	"/command",
+	"/rule",
+	"/pr-review",
+	"/plugin/add",
+	"/glass",
+	"/automation/ingest",
+	"/git/checkout",
+	"/git/branch",
+	"/git/commit",
+]);
+
+const CURSOR_COMPATIBLE_NATIVE_URI_HOSTS = new Set([
+	"cline.cline",
+	"codevibe",
+	"atnumridha.codevibe",
+]);
+
+function normalizeNativeDeepLinkPayload(payload: unknown): string[] {
+	if (typeof payload === "string") {
+		return [payload];
+	}
+	if (Array.isArray(payload)) {
+		return payload.filter((item): item is string => typeof item === "string");
+	}
+	if (payload && typeof payload === "object") {
+		const record = payload as Record<string, unknown>;
+		if (typeof record.url === "string") {
+			return [record.url];
+		}
+		if (Array.isArray(record.urls)) {
+			return record.urls.filter(
+				(item): item is string => typeof item === "string",
+			);
+		}
+	}
+	return [];
+}
+
+function isCursorCompatibleNativeUri(uri: string): boolean {
+	try {
+		const parsed = new URL(uri);
+		const protocol = parsed.protocol.toLowerCase();
+		if (protocol !== "vscode:" && protocol !== "cursor:") {
+			return false;
+		}
+		if (
+			protocol === "vscode:" &&
+			!CURSOR_COMPATIBLE_NATIVE_URI_HOSTS.has(parsed.hostname.toLowerCase())
+		) {
+			return false;
+		}
+		return CURSOR_COMPATIBLE_NATIVE_URI_PATHS.has(parsed.pathname || "/");
+	} catch {
+		return false;
+	}
 }
 
 type Thread = {
@@ -71,12 +135,15 @@ function toThreadTitle(options: { title?: string; prompt?: string }): string {
 
 export default function Home() {
 	const [view, setView] = useState<"chat" | "diff" | "settings">("chat");
+	const [incomingCursorUri, setIncomingCursorUri] =
+		useState<CursorUriIntent | null>(null);
 	const [threads, setThreads] = useState<Thread[]>(() => [
 		{ id: makeThreadId() },
 	]);
 	const [activeThreadId, setActiveThreadId] = useState<string>(
 		() => threads[0]?.id,
 	);
+	const nativeUriSequenceRef = useRef(0);
 	const handleNewThread = useCallback(() => {
 		const id = makeThreadId();
 		setThreads((prev) => [...prev, { id }]);
@@ -171,6 +238,58 @@ export default function Home() {
 		});
 	}, [handleDeleteSession]);
 
+	useEffect(() => {
+		let disposed = false;
+		let unlisten: (() => void) | undefined;
+
+		async function subscribeToNativeDeepLinks() {
+			if (
+				typeof window === "undefined" ||
+				!("__TAURI_INTERNALS__" in window)
+			) {
+				return;
+			}
+			try {
+				const { listen } = await import("@tauri-apps/api/event");
+				unlisten = await listen<unknown>(
+					"native_deep_link_opened",
+					(event) => {
+						if (disposed) {
+							return;
+						}
+						const uri = normalizeNativeDeepLinkPayload(event.payload).find(
+							isCursorCompatibleNativeUri,
+						);
+						if (!uri) {
+							return;
+						}
+						nativeUriSequenceRef.current += 1;
+						setIncomingCursorUri({
+							id: nativeUriSequenceRef.current,
+							uri,
+						});
+						setView("settings");
+						toast({
+							title: "Cursor URI received",
+							description: "Previewing the link in Settings.",
+						});
+					},
+				);
+				if (disposed) {
+					unlisten();
+				}
+			} catch {
+				// Browser/dev mode can run without Tauri event support.
+			}
+		}
+
+		void subscribeToNativeDeepLinks();
+		return () => {
+			disposed = true;
+			unlisten?.();
+		};
+	}, []);
+
 	const activeHistorySessionId =
 		threads.find((thread) => thread.id === activeThreadId)?.historySession
 			?.sessionId ?? null;
@@ -212,7 +331,13 @@ export default function Home() {
 			</SidebarProvider>
 			{view === "settings" ? (
 				<div className="fixed inset-0 z-50 bg-background text-foreground">
-					<SettingsView onClose={() => setView("chat")} />
+					<SettingsView
+						incomingCursorUri={incomingCursorUri}
+						onClose={() => {
+							setIncomingCursorUri(null);
+							setView("chat");
+						}}
+					/>
 				</div>
 			) : null}
 		</>
