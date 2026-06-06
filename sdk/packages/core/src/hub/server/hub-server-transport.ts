@@ -163,6 +163,57 @@ function requireOptionalHubString(
 	return value.trim() || undefined;
 }
 
+function requireOptionalHubStringArray(
+	payload: Record<string, unknown>,
+	key: "allowedSources",
+	commandName: string,
+): string[] | undefined {
+	const value = payload[key];
+	if (value === undefined) {
+		return undefined;
+	}
+	if (!Array.isArray(value)) {
+		throw new Error(`${commandName} payload '${key}' must be an array.`);
+	}
+	const strings = value.map((item) => {
+		if (typeof item !== "string") {
+			throw new Error(
+				`${commandName} payload '${key}' must contain only strings.`,
+			);
+		}
+		return item.trim();
+	});
+	const nonEmpty = strings.filter(Boolean);
+	if (nonEmpty.length === 0) {
+		throw new Error(
+			`${commandName} payload '${key}' must contain at least one non-empty string.`,
+		);
+	}
+	return nonEmpty;
+}
+
+function requireOptionalHubPositiveInteger(
+	payload: Record<string, unknown>,
+	key: "maxLineBytes" | "maxEvents",
+	commandName: string,
+): number | undefined {
+	const value = payload[key];
+	if (value === undefined) {
+		return undefined;
+	}
+	if (
+		typeof value !== "number" ||
+		!Number.isFinite(value) ||
+		!Number.isInteger(value) ||
+		value <= 0
+	) {
+		throw new Error(
+			`${commandName} payload '${key}' must be a positive integer.`,
+		);
+	}
+	return value;
+}
+
 function requireCronEventListLimit(payload: Record<string, unknown>): number | undefined {
 	const value = payload.limit;
 	if (value === undefined) {
@@ -267,6 +318,9 @@ function parseSettingsPatchInput(payload: unknown): CoreSettingsPatchInput {
 function parseCronEventIngestInput(payload: unknown): {
 	input: string;
 	defaultSource?: string;
+	allowedSources?: string[];
+	maxLineBytes?: number;
+	maxEvents?: number;
 } {
 	if (typeof payload === "string") {
 		return { input: payload };
@@ -282,9 +336,27 @@ function parseCronEventIngestInput(payload: unknown): {
 	if (defaultSource !== undefined && typeof defaultSource !== "string") {
 		throw new Error("cron.event.ingest payload 'defaultSource' must be a string.");
 	}
+	const allowedSources = requireOptionalHubStringArray(
+		payload,
+		"allowedSources",
+		"cron.event.ingest",
+	);
+	const maxLineBytes = requireOptionalHubPositiveInteger(
+		payload,
+		"maxLineBytes",
+		"cron.event.ingest",
+	);
+	const maxEvents = requireOptionalHubPositiveInteger(
+		payload,
+		"maxEvents",
+		"cron.event.ingest",
+	);
 	return {
 		input: inputValue ?? JSON.stringify(payload),
 		...(defaultSource?.trim() ? { defaultSource: defaultSource.trim() } : {}),
+		...(allowedSources ? { allowedSources } : {}),
+		...(maxLineBytes !== undefined ? { maxLineBytes } : {}),
+		...(maxEvents !== undefined ? { maxEvents } : {}),
 	};
 }
 
@@ -879,7 +951,12 @@ export class HubServerTransport implements NativeHubTransport {
 		try {
 			const input = parseCronEventIngestInput(envelope.payload);
 			const result = this.cronService.ingestNdjson(input.input, {
-				defaultSource: input.defaultSource,
+				...(input.defaultSource ? { defaultSource: input.defaultSource } : {}),
+				...(input.allowedSources ? { allowedSources: input.allowedSources } : {}),
+				...(input.maxLineBytes !== undefined
+					? { maxLineBytes: input.maxLineBytes }
+					: {}),
+				...(input.maxEvents !== undefined ? { maxEvents: input.maxEvents } : {}),
 			});
 			return {
 				version: envelope.version,

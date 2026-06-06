@@ -115,10 +115,134 @@ Summarize the Cursor git event.
 				},
 			});
 
+			const limitedReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-3",
+				clientId: "client-one",
+				payload: {
+					defaultSource: "cursor",
+					allowedSources: ["cursor"],
+					maxEvents: 1,
+					ndjson: [
+						JSON.stringify({
+							id: "evt_cursor_git_3",
+							type: "git.commit.created",
+							attrs: { branch: "main" },
+						}),
+						JSON.stringify({
+							id: "evt_cursor_git_4",
+							type: "git.commit.created",
+							attrs: { branch: "main" },
+						}),
+					].join("\n"),
+				},
+			});
+
+			expect(limitedReply).toMatchObject({
+				ok: true,
+				payload: {
+					eventCount: 1,
+					rejectedCount: 1,
+					results: [
+						{
+							eventId: "evt_cursor_git_3",
+							source: "cursor",
+						},
+					],
+					rejected: [
+						{
+							lineNumber: 2,
+							reason: "too_many_events",
+						},
+					],
+				},
+			});
+
+			const disallowedSourceReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-4",
+				clientId: "client-one",
+				payload: {
+					allowedSources: ["cursor"],
+					ndjson: JSON.stringify({
+						id: "evt_external_git_1",
+						type: "git.commit.created",
+						source: "external",
+						attrs: { branch: "main" },
+					}),
+				},
+			});
+
+			expect(disallowedSourceReply).toMatchObject({
+				ok: true,
+				payload: {
+					eventCount: 0,
+					rejectedCount: 1,
+					rejected: [
+						{
+							lineNumber: 1,
+							reason: "source_not_allowed",
+						},
+					],
+				},
+			});
+
+			const maxLineBytesReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-5",
+				clientId: "client-one",
+				payload: {
+					defaultSource: "cursor",
+					maxLineBytes: 10,
+					ndjson: JSON.stringify({
+						id: "evt_cursor_git_large",
+						type: "git.commit.created",
+						attrs: { branch: "main" },
+					}),
+				},
+			});
+
+			expect(maxLineBytesReply).toMatchObject({
+				ok: true,
+				payload: {
+					eventCount: 0,
+					rejectedCount: 1,
+					rejected: [
+						{
+							lineNumber: 1,
+							reason: "line_too_large",
+						},
+					],
+				},
+			});
+
+			const invalidLimitReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-6",
+				clientId: "client-one",
+				payload: {
+					defaultSource: "cursor",
+					maxEvents: 0,
+					ndjson: "",
+				},
+			});
+
+			expect(invalidLimitReply).toMatchObject({
+				ok: false,
+				error: {
+					code: "cron_event_ingest_failed",
+				},
+			});
+			expect(invalidLimitReply.error?.message).toContain("positive integer");
+
 			const listReply = await transport.handleCommand({
 				version: "v1",
 				command: "cron.event.list",
-				requestId: "req-3",
+				requestId: "req-7",
 				clientId: "client-one",
 				payload: {
 					source: "cursor",
@@ -129,12 +253,16 @@ Summarize the Cursor git event.
 			expect(listReply).toMatchObject({
 				ok: true,
 				payload: {
-					count: 2,
+					count: 3,
 				},
 			});
 			const listedEvents = listReply.payload?.events as Array<Record<string, unknown>>;
 			expect(listedEvents.map((event) => event.eventId)).toEqual(
-				expect.arrayContaining(["evt_cursor_git_1", "evt_cursor_git_2"]),
+				expect.arrayContaining([
+					"evt_cursor_git_1",
+					"evt_cursor_git_2",
+					"evt_cursor_git_3",
+				]),
 			);
 			expect(listedEvents[0]).toHaveProperty("payloadKeys");
 			expect(listedEvents[0]).not.toHaveProperty("payload");
@@ -143,7 +271,7 @@ Summarize the Cursor git event.
 			const getReply = await transport.handleCommand({
 				version: "v1",
 				command: "cron.event.get",
-				requestId: "req-4",
+				requestId: "req-8",
 				clientId: "client-one",
 				payload: {
 					eventId: "evt_cursor_git_1",
@@ -175,7 +303,7 @@ Summarize the Cursor git event.
 			const missingReply = await transport.handleCommand({
 				version: "v1",
 				command: "cron.event.get",
-				requestId: "req-5",
+				requestId: "req-9",
 				clientId: "client-one",
 				payload: {
 					eventId: "evt_missing",
@@ -192,7 +320,7 @@ Summarize the Cursor git event.
 			const invalidListReply = await transport.handleCommand({
 				version: "v1",
 				command: "cron.event.list",
-				requestId: "req-6",
+				requestId: "req-10",
 				clientId: "client-one",
 				payload: {
 					processingStatus: "done",
