@@ -7,13 +7,12 @@ import type { IToolHandler } from "../ToolExecutorCoordinator"
 import type { TaskConfig } from "../types/TaskConfig"
 import { sanitizeBrowserActionResult } from "./BrowserToolHandler"
 
-const MAX_BROWSER_SNAPSHOT_DOM_LENGTH = 12_000
-
-export class BrowserSnapshotToolHandler implements IToolHandler {
-	readonly name = ClineDefaultTool.BROWSER_SNAPSHOT
+export class BrowserScreenshotToolHandler implements IToolHandler {
+	readonly name = ClineDefaultTool.BROWSER_SCREENSHOT
 
 	getDescription(block: ToolUse): string {
-		return `[${block.name}]`
+		const tabId = getOptionalString(block.params.tab_id)
+		return tabId ? `[${block.name} for '${tabId}']` : `[${block.name}]`
 	}
 
 	async execute(config: TaskConfig, block: ToolUse): Promise<ToolResponse> {
@@ -21,52 +20,52 @@ export class BrowserSnapshotToolHandler implements IToolHandler {
 			const tabId = getOptionalString(block.params.tab_id)
 			if (tabId && tabId !== "active") {
 				config.taskState.consecutiveMistakeCount++
-				return formatResponse.toolError("Only active tab browser snapshots are currently supported.")
+				return formatResponse.toolError("Only active tab browser screenshots are currently supported.")
 			}
 
+			const fullPage = getOptionalBoolean(block.params.full_page, false)
 			config.taskState.consecutiveMistakeCount = 0
 			await config.callbacks.say("browser_action_result", "")
 
 			const browserActionResult = sanitizeBrowserActionResult(
 				await config.services.browserSession.snapshot({
 					tabId,
-					includeScreenshot: getOptionalBoolean(block.params.include_screenshot, true),
-					includeLogs: getOptionalBoolean(block.params.include_logs, true),
+					includeScreenshot: true,
+					includeLogs: false,
+					fullPage,
 				}),
 			)
-			await config.callbacks.say("browser_action_result", JSON.stringify(browserActionResult))
+			await config.callbacks.say("browser_action_result", JSON.stringify(toScreenshotPreview(browserActionResult)))
 
-			return formatBrowserSnapshotResult(browserActionResult)
+			return formatBrowserScreenshotResult(browserActionResult)
 		} catch (error) {
 			config.taskState.consecutiveMistakeCount++
 			const message = error instanceof Error ? error.message : String(error)
-			return formatResponse.toolError(`Browser snapshot failed: ${message}`)
+			return formatResponse.toolError(`Browser screenshot failed: ${message}`)
 		}
 	}
 }
 
-function formatBrowserSnapshotResult(result: BrowserActionResult): ToolResponse {
-	const domSnapshot = formatBrowserSnapshotDom(result)
-
+function formatBrowserScreenshotResult(result: BrowserActionResult): ToolResponse {
 	return formatResponse.toolResult(
-		`The browser snapshot has been captured. Use the screenshot, URL, title, visible page text, DOM snapshot, and console logs to decide the next browser action.
+		`The browser screenshot has been captured.
 
 URL: ${result.currentUrl || "(unknown)"}
 Tab: ${result.tabId || "active"}
 Title: ${result.title || "(untitled)"}
 
-Visible page text:
-${result.text || "(No visible text captured)"}
-
-DOM snapshot:
-${domSnapshot}
-
-Console logs:
-${result.logs || "(No new logs)"}
-
 (REMEMBER: while the browser is active, continue with \`browser_action\`, \`browser_snapshot\`, or \`browser_screenshot\`; close the browser with \`browser_action\` before using non-browser tools.)`,
 		result.screenshot ? [result.screenshot] : [],
 	)
+}
+
+function toScreenshotPreview(result: BrowserActionResult): BrowserActionResult {
+	return {
+		screenshot: result.screenshot,
+		currentUrl: result.currentUrl,
+		tabId: result.tabId,
+		title: result.title,
+	}
 }
 
 function getOptionalString(value: unknown): string | undefined {
@@ -91,18 +90,4 @@ function getOptionalBoolean(value: unknown, defaultValue: boolean): boolean {
 		return false
 	}
 	return defaultValue
-}
-
-function formatBrowserSnapshotDom(result: BrowserActionResult): string {
-	const serializedNodes =
-		result.nodes && result.nodes.length > 0 ? JSON.stringify(result.nodes, null, 2) : result.html || ""
-	if (!serializedNodes) {
-		return "(No DOM snapshot captured)"
-	}
-
-	if (serializedNodes.length <= MAX_BROWSER_SNAPSHOT_DOM_LENGTH) {
-		return serializedNodes
-	}
-
-	return `${serializedNodes.slice(0, MAX_BROWSER_SNAPSHOT_DOM_LENGTH)}\n[truncated]`
 }

@@ -153,6 +153,7 @@ describe("PromptRegistry", () => {
 
 			expect(toolNames).to.include(ClineDefaultTool.BROWSER)
 			expect(toolNames).to.include(ClineDefaultTool.BROWSER_SNAPSHOT)
+			expect(toolNames).to.include(ClineDefaultTool.BROWSER_SCREENSHOT)
 		})
 
 		it("should omit browser native tools when browser use is disabled", async () => {

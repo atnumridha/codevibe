@@ -4,6 +4,7 @@ import { ClineDefaultTool } from "@shared/tools"
 import { describe, it } from "mocha"
 import sinon from "sinon"
 import { BrowserSnapshotToolHandler } from "../BrowserSnapshotToolHandler"
+import { BrowserScreenshotToolHandler } from "../BrowserScreenshotToolHandler"
 import { BrowserToolHandler, sanitizeBrowserActionResult } from "../BrowserToolHandler"
 
 function createConfig(allowBrowserEvaluate: boolean, evaluateResult?: unknown) {
@@ -72,6 +73,15 @@ function makeSnapshotBlockWithParams(params: Record<string, unknown>) {
 	return {
 		type: "tool_use" as const,
 		name: ClineDefaultTool.BROWSER_SNAPSHOT,
+		params,
+		partial: false,
+	}
+}
+
+function makeScreenshotBlock(params: Record<string, unknown> = {}) {
+	return {
+		type: "tool_use" as const,
+		name: ClineDefaultTool.BROWSER_SCREENSHOT,
 		params,
 		partial: false,
 	}
@@ -225,6 +235,70 @@ describe("BrowserToolHandler evaluate safety", () => {
 
 		assert.equal(config.taskState.consecutiveMistakeCount, 1)
 		assert(String(response).includes("Browser snapshot failed"))
+	})
+
+	it("captures a read-only browser screenshot from the active tab", async () => {
+		const { config, browserSession, callbacks } = createSnapshotConfig({
+			screenshot: "data:image/png;base64,abc",
+			logs: "token=secret-token-value-1234567890",
+			currentUrl: "https://example.com/?access_token=secret-token-value-1234567890",
+			tabId: "active",
+			title: "Dashboard",
+			text: "SHOULD_NOT_BE_IN_PREVIEW",
+			html: "<main>SHOULD_NOT_BE_IN_PREVIEW</main>",
+		})
+
+		const response = await new BrowserScreenshotToolHandler().execute(config, makeScreenshotBlock())
+		const serializedResponse = JSON.stringify(response)
+		const resultSay = callbacks.say.getCalls().find((call) => call.args[0] === "browser_action_result")
+
+		assert.equal(
+			browserSession.snapshot.calledOnceWith({
+				tabId: undefined,
+				includeScreenshot: true,
+				includeLogs: false,
+				fullPage: false,
+			}),
+			true,
+		)
+		assert(resultSay)
+		assert(!String(resultSay?.args[1]).includes("secret-token-value-1234567890"))
+		assert(!String(resultSay?.args[1]).includes("SHOULD_NOT_BE_IN_PREVIEW"))
+		assert(!serializedResponse.includes("secret-token-value-1234567890"))
+		assert(serializedResponse.includes("browser screenshot"))
+		assert(serializedResponse.includes("data:image/png;base64,abc"))
+	})
+
+	it("rejects browser screenshots for non-active tab ids until multi-tab capture is available", async () => {
+		const { config, browserSession } = createSnapshotConfig()
+
+		const response = await new BrowserScreenshotToolHandler().execute(config, makeScreenshotBlock({ tab_id: "tab-2" }))
+
+		assert.equal(browserSession.snapshot.called, false)
+		assert.equal(config.taskState.consecutiveMistakeCount, 1)
+		assert(String(response).includes("Only active tab"))
+	})
+
+	it("passes full-page browser screenshot requests through to the browser session", async () => {
+		const { config, browserSession } = createSnapshotConfig({
+			screenshot: "data:image/png;base64,abc",
+			currentUrl: "https://example.com",
+			title: "Dashboard",
+		})
+
+		const response = await new BrowserScreenshotToolHandler().execute(config, makeScreenshotBlock({ full_page: true }))
+
+		assert.equal(
+			browserSession.snapshot.calledOnceWith({
+				tabId: undefined,
+				includeScreenshot: true,
+				includeLogs: false,
+				fullPage: true,
+			}),
+			true,
+		)
+		assert.equal(config.taskState.consecutiveMistakeCount, 0)
+		assert(String(response).includes("browser screenshot"))
 	})
 
 	it("redacts evaluate text while streaming partial browser action display", async () => {

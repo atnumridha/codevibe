@@ -69,6 +69,7 @@ export class AutoApprove {
 
 				case ClineDefaultTool.BROWSER:
 				case ClineDefaultTool.BROWSER_SNAPSHOT:
+				case ClineDefaultTool.BROWSER_SCREENSHOT:
 				case ClineDefaultTool.WEB_FETCH:
 				case ClineDefaultTool.WEB_SEARCH:
 				case ClineDefaultTool.MCP_ACCESS:
@@ -92,6 +93,7 @@ export class AutoApprove {
 					return [true, true]
 				case ClineDefaultTool.BROWSER:
 				case ClineDefaultTool.BROWSER_SNAPSHOT:
+				case ClineDefaultTool.BROWSER_SCREENSHOT:
 				case ClineDefaultTool.WEB_FETCH:
 				case ClineDefaultTool.WEB_SEARCH:
 				case ClineDefaultTool.MCP_ACCESS:
@@ -121,6 +123,7 @@ export class AutoApprove {
 				]
 			case ClineDefaultTool.BROWSER:
 			case ClineDefaultTool.BROWSER_SNAPSHOT:
+			case ClineDefaultTool.BROWSER_SCREENSHOT:
 				return autoApprovalSettings.actions.useBrowser
 			case ClineDefaultTool.WEB_FETCH:
 			case ClineDefaultTool.WEB_SEARCH:
@@ -280,6 +283,7 @@ function isNetworkTool(toolName: ClineDefaultTool): boolean {
 	return (
 		toolName === ClineDefaultTool.BROWSER ||
 		toolName === ClineDefaultTool.BROWSER_SNAPSHOT ||
+		toolName === ClineDefaultTool.BROWSER_SCREENSHOT ||
 		toolName === ClineDefaultTool.WEB_FETCH ||
 		toolName === ClineDefaultTool.WEB_SEARCH
 	)

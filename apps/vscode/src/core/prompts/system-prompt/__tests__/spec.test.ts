@@ -5,6 +5,7 @@ import { ClineDefaultTool } from "@/shared/tools"
 import type { ClineToolSpec } from "../spec"
 import { toolSpecFunctionDeclarations, toolSpecFunctionDefinition, toolSpecInputSchema } from "../spec"
 import { browser_action_variants } from "../tools/browser_action"
+import { browser_screenshot_variants } from "../tools/browser_screenshot"
 import { browser_snapshot_variants } from "../tools/browser_snapshot"
 import type { SystemPromptContext } from "../types"
 
@@ -155,6 +156,21 @@ describe("browser_action tool docs", () => {
 			expect(docs).to.include("tab_id")
 			expect(docs).to.include("include_screenshot")
 			expect(docs).to.include("include_logs")
+		}
+	})
+
+	it("documents browser_screenshot as read-only active-page capture", () => {
+		for (const spec of browser_screenshot_variants) {
+			const docs = `${spec.description}\n${spec.parameters?.map((parameter) => parameter.instruction).join("\n") ?? ""}`
+
+			expect(docs).to.include("read-only")
+			expect(docs).to.include("browser_action")
+			expect(docs).to.include("browser_snapshot")
+			expect(docs).to.include("browser_screenshot")
+			expect(docs).to.include("Do not use this to click")
+			expect(docs).to.include("running user-provided JavaScript")
+			expect(docs).to.include("tab_id")
+			expect(docs).to.include("full_page")
 		}
 	})
 })

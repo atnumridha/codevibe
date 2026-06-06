@@ -4,7 +4,7 @@ import type { PromptVariant, SystemPromptContext } from "../types"
 
 const BROWSER_RULES = `- The user may ask generic non-development tasks, such as "what\\'s the latest news" or "look up the weather in San Diego", in which case you might use the browser_action tool to complete the task if it makes sense to do so, rather than trying to create a website or using curl to answer the question. However, if an available MCP server tool or resource can be used instead, you should prefer to use it over browser_action.\n`
 
-const BROWSER_WAIT_RULES = ` Then if you want to test your work, you might use browser_action to launch the site, wait for the user's response confirming the site was launched along with a screenshot, then use browser_snapshot to re-inspect the current page if needed, perhaps e.g., click a button to test functionality, wait for the user's response confirming the button was clicked along with a screenshot of the new state, before finally closing the browser.`
+const BROWSER_WAIT_RULES = ` Then if you want to test your work, you might use browser_action to launch the site, wait for the user's response confirming the site was launched along with a screenshot, then use browser_snapshot or browser_screenshot to re-inspect the current page if needed, perhaps e.g., click a button to test functionality, wait for the user's response confirming the button was clicked along with a screenshot of the new state, before finally closing the browser.`
 
 const CLI_RULES = `- After making code changes, consider running any available validation tools for the project (such as type checkers, linters, test suites, or build scripts) to catch errors, since you won't receive automatic diagnostics after edits.\n`
 

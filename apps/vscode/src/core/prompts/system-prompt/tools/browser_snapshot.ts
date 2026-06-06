@@ -11,7 +11,7 @@ const GENERIC: ClineToolSpec = {
 	description: `Capture a read-only snapshot of the currently launched Puppeteer-controlled browser tab. The result includes a screenshot, current URL, page title, visible page text, and new console logs.
 - Use this after \`browser_action\` has launched a browser when you need to re-inspect the current page state without clicking, typing, scrolling, navigating, closing, or running user-provided JavaScript.
 - Omit \`tab_id\` or use \`active\`; this VS Code extension currently snapshots the active browser tab only.
-- While the browser is active, only \`browser_action\` and \`browser_snapshot\` should be used. Close the browser with \`browser_action\` before using non-browser tools.`,
+- While the browser is active, only \`browser_action\`, \`browser_snapshot\`, and \`browser_screenshot\` should be used. Close the browser with \`browser_action\` before using non-browser tools.`,
 	contextRequirements: (context) => context.supportsBrowserUse === true,
 	parameters: [
 		{
@@ -44,7 +44,7 @@ const NATIVE_NEXT_GEN: ClineToolSpec = {
 	description: `Capture a read-only snapshot of the currently launched Puppeteer-controlled browser tab. The result includes a screenshot, current URL, page title, visible page text, and new console logs.
 - Use this after \`browser_action\` has launched a browser when you need to re-inspect the current page state without clicking, typing, scrolling, navigating, closing, or running user-provided JavaScript.
 - Omit \`tab_id\` or use \`active\`; this VS Code extension currently snapshots the active browser tab only.
-- While the browser is active, only \`browser_action\` and \`browser_snapshot\` should be used. Close the browser with \`browser_action\` before using non-browser tools.`,
+- While the browser is active, only \`browser_action\`, \`browser_snapshot\`, and \`browser_screenshot\` should be used. Close the browser with \`browser_action\` before using non-browser tools.`,
 	contextRequirements: (context) => context.supportsBrowserUse === true,
 	parameters: [
 		{

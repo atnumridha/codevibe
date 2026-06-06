@@ -27,6 +27,7 @@ export interface BrowserConnectionInfo {
 export interface BrowserActionCaptureOptions {
 	includeScreenshot?: boolean
 	includeLogs?: boolean
+	fullPage?: boolean
 }
 
 export interface BrowserSnapshotOptions extends BrowserActionCaptureOptions {
@@ -451,6 +452,7 @@ export class BrowserSession {
 		if (includeScreenshot) {
 			const screenshotOptions: ScreenshotOptions = {
 				encoding: "base64",
+				fullPage: options.fullPage === true,
 
 				// clip: {
 				// 	x: 0,

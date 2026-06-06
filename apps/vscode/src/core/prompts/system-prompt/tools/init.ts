@@ -6,6 +6,7 @@ import { apply_patch_variants } from "./apply_patch"
 import { ask_followup_question_variants } from "./ask_followup_question"
 import { attempt_completion_variants } from "./attempt_completion"
 import { browser_action_variants } from "./browser_action"
+import { browser_screenshot_variants } from "./browser_screenshot"
 import { browser_snapshot_variants } from "./browser_snapshot"
 import { execute_command_variants } from "./execute_command"
 import { focus_chain_variants } from "./focus_chain"
@@ -38,6 +39,7 @@ export function registerClineToolSets(): void {
 		...ask_followup_question_variants,
 		...attempt_completion_variants,
 		...browser_action_variants,
+		...browser_screenshot_variants,
 		...browser_snapshot_variants,
 		...execute_command_variants,
 		...focus_chain_variants,
