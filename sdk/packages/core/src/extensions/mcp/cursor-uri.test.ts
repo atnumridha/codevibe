@@ -164,6 +164,18 @@ describe("Cursor MCP install URI parser", () => {
 		).toThrow("Expected /mcp/install route");
 	});
 
+	it("rejects unknown Cursor MCP install route parameters", () => {
+		expect(() =>
+			buildCursorMcpInstallRequest(
+				route({
+					name: "docs",
+					url: "https://mcp.example.com/context",
+					extra: "ignored-before",
+				}),
+			),
+		).toThrow('/mcp/install does not accept query parameter "extra"');
+	});
+
 	it("parses Cursor settings route query aliases", () => {
 		expect(
 			buildCursorSettingsRouteRequest(
@@ -173,6 +185,14 @@ describe("Cursor MCP install URI parser", () => {
 			query: "codex",
 			sourceParam: "section",
 		});
+	});
+
+	it("rejects unknown Cursor settings route parameters", () => {
+		expect(() =>
+			buildCursorSettingsRouteRequest(
+				"vscode://cline.cline/settings?section=codex&extra=ignored-before",
+			),
+		).toThrow('/settings does not accept query parameter "extra"');
 	});
 
 	it("normalizes safe Cursor rule file targets", () => {
@@ -213,6 +233,14 @@ describe("Cursor MCP install URI parser", () => {
 		expect(() =>
 			buildCursorRuleRouteRequest("vscode://cline.cline/rule?path=../bad.mdc"),
 		).toThrow(CursorUriError);
+	});
+
+	it("rejects unknown Cursor rule route parameters", () => {
+		expect(() =>
+			buildCursorRuleRouteRequest(
+				"vscode://cline.cline/rule?name=team-style&extra=ignored-before",
+			),
+		).toThrow('/rule does not accept query parameter "extra"');
 	});
 
 	it("builds standalone task prompts for prompt-like Cursor routes", () => {

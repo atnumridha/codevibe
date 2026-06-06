@@ -288,6 +288,15 @@ function parseCursorMcpInstallParams(
 	let values: Record<string, string | Record<string, unknown>>;
 	try {
 		values = parseCursorRouteParams(uri, "/mcp/install");
+		assertAllowedParamNames("/mcp/install", values, [
+			"name",
+			"server",
+			"id",
+			"url",
+			"command",
+			"package",
+			"config",
+		]);
 	} catch (error) {
 		throw new CursorMcpInstallError(error instanceof Error ? error.message : String(error));
 	}
@@ -794,7 +803,15 @@ function assertAllowedParams(
 	path: CursorAgentTaskRoutePath,
 	params: Record<string, string | Record<string, unknown>>,
 ): void {
-	const allowed = new Set(CURSOR_AGENT_TASK_ROUTE_DEFINITIONS[path].allowed);
+	assertAllowedParamNames(path, params, CURSOR_AGENT_TASK_ROUTE_DEFINITIONS[path].allowed);
+}
+
+function assertAllowedParamNames(
+	path: string,
+	params: Record<string, string | Record<string, unknown>>,
+	allowedParams: readonly string[],
+): void {
+	const allowed = new Set(allowedParams);
 	for (const key of Object.keys(params)) {
 		if (!allowed.has(key)) {
 			throw new CursorUriError(`${path} does not accept query parameter "${key}"`);
@@ -1031,12 +1048,7 @@ export function buildCursorPluginAddRouteRequest(
 	uri: string,
 ): CursorPluginAddRouteRequest {
 	const params = parseCursorRouteParams(uri, "/plugin/add");
-	const allowed = new Set(["id", "name", "url", "config"]);
-	for (const key of Object.keys(params)) {
-		if (!allowed.has(key)) {
-			throw new CursorUriError(`/plugin/add does not accept query parameter "${key}"`);
-		}
-	}
+	assertAllowedParamNames("/plugin/add", params, ["id", "name", "url", "config"]);
 
 	const sourceParam = (["id", "name", "url"] as const).find((key) =>
 		Boolean(getRouteStringParam(params, key)),
@@ -1137,6 +1149,7 @@ export function buildCursorSettingsRouteRequest(
 	uri: string,
 ): CursorSettingsRouteRequest {
 	const params = parseCursorRouteParams(uri, "/settings");
+	assertAllowedParamNames("/settings", params, ["query", "section", "tab", "config"]);
 	for (const key of ["query", "section", "tab"] as const) {
 		const value = getRouteStringParam(params, key);
 		if (value) {
@@ -1150,6 +1163,7 @@ export function buildCursorRuleRouteRequest(
 	uri: string,
 ): CursorRuleRouteRequest {
 	const params = parseCursorRouteParams(uri, "/rule");
+	assertAllowedParamNames("/rule", params, ["name", "path", "content", "url", "config"]);
 	const content = getRouteStringParam(params, "content");
 	const url = getRouteStringParam(params, "url");
 	const name = getRouteStringParam(params, "name");
