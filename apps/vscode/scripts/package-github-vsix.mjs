@@ -9,9 +9,28 @@ import { fileURLToPath } from "node:url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.join(__dirname, "..")
+const packageJsonPath = path.join(projectRoot, "package.json")
+
+const githubVsixManifestOverrides = {
+	name: "codevibe",
+	displayName: "CodeVibe",
+	description:
+		"CodeVibe Cursor-parity coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
+	publisher: "atnumridha",
+	author: {
+		name: "CodeVibe",
+	},
+	repository: {
+		type: "git",
+		url: "https://github.com/atnumridha/codevibe",
+	},
+	homepage: "https://github.com/atnumridha/codevibe",
+}
 
 function usage() {
-	console.error("Usage: package-github-vsix.mjs [--out-dir <dir>] [--install] [--verify-install] [--code <path>]")
+	console.error(
+		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--install] [--verify-install] [--code <path>] [--print-metadata]",
+	)
 }
 
 function parseArgs(argv) {
@@ -20,6 +39,7 @@ function parseArgs(argv) {
 		install: false,
 		verifyInstall: false,
 		code: undefined,
+		printMetadata: false,
 	}
 
 	for (let index = 0; index < argv.length; index++) {
@@ -40,6 +60,8 @@ function parseArgs(argv) {
 				throw new Error("--code requires a value")
 			}
 			options.code = code
+		} else if (arg === "--print-metadata") {
+			options.printMetadata = true
 		} else if (arg === "-h" || arg === "--help") {
 			usage()
 			process.exit(0)
@@ -141,8 +163,23 @@ function runCommand(candidates, args, options = {}) {
 	throw lastError ?? new Error(`Unable to find command: ${candidates.join(" or ")}`)
 }
 
-function readPackageMetadata() {
-	const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"))
+function readPackageJson() {
+	return JSON.parse(fs.readFileSync(packageJsonPath, "utf8"))
+}
+
+function writePackageJson(packageJson) {
+	fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, "\t")}\n`)
+}
+
+function createGithubVsixPackageJson(packageJson) {
+	return {
+		...packageJson,
+		...githubVsixManifestOverrides,
+		keywords: Array.from(new Set(["codevibe", ...(Array.isArray(packageJson.keywords) ? packageJson.keywords : [])])),
+	}
+}
+
+function readPackageMetadata(packageJson = readPackageJson()) {
 	if (typeof packageJson.version !== "string" || !packageJson.version.trim()) {
 		throw new Error("apps/vscode/package.json is missing a version")
 	}
@@ -201,20 +238,42 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 
 async function main() {
 	const options = parseArgs(process.argv.slice(2))
-	const metadata = readPackageMetadata()
+	const originalPackageJsonText = fs.readFileSync(packageJsonPath, "utf8")
+	const originalPackageJson = JSON.parse(originalPackageJsonText)
+	const githubVsixPackageJson = createGithubVsixPackageJson(originalPackageJson)
+	const metadata = readPackageMetadata(githubVsixPackageJson)
 	const outDir = path.resolve(projectRoot, options.outDir)
 	const outPath = path.join(outDir, `codevibe-${metadata.version}.vsix`)
-
-	fs.mkdirSync(outDir, { recursive: true })
-	runCommand(commandCandidates("vsce"), ["package", "--allow-package-secrets", "sendgrid", "--out", outPath])
-	console.log(`VSIX packaged at ${outPath}`)
-
-	if (options.install) {
-		runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
-		console.log(`VSIX installed into VS Code from ${outPath}`)
+	if (options.printMetadata) {
+		console.log(
+			JSON.stringify(
+				{
+					...metadata,
+					displayName: githubVsixPackageJson.displayName,
+					outPath,
+				},
+				null,
+				2,
+			),
+		)
+		return
 	}
-	if (options.verifyInstall) {
-		await verifyInstallWithCode(outPath, metadata, options.code)
+
+	try {
+		writePackageJson(githubVsixPackageJson)
+		fs.mkdirSync(outDir, { recursive: true })
+		runCommand(commandCandidates("vsce"), ["package", "--allow-package-secrets", "sendgrid", "--out", outPath])
+		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
+
+		if (options.install) {
+			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
+			console.log(`VSIX installed into VS Code from ${outPath}`)
+		}
+		if (options.verifyInstall) {
+			await verifyInstallWithCode(outPath, metadata, options.code)
+		}
+	} finally {
+		fs.writeFileSync(packageJsonPath, originalPackageJsonText)
 	}
 }
 
