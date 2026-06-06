@@ -279,6 +279,9 @@ export interface SaveProviderSettingsActionRequest {
 		refreshToken?: string;
 		expiresAt?: number;
 		accountId?: string;
+		installationId?: string;
+		clientVersion?: string;
+		tokenSource?: string;
 	};
 	// Model configuration
 	model?: string;

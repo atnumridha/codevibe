@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -38,14 +38,20 @@ function createSpawnTool() {
 
 describe("prepareLocalRuntimeBootstrap", () => {
 	const previousGlobalSettingsPath = process.env.CLINE_GLOBAL_SETTINGS_PATH;
+	const previousCodexHome = process.env.CODEX_HOME;
+	const tempDirs: string[] = [];
 	let resetModulesAfterEach = false;
 
 	afterEach(() => {
 		process.env.CLINE_GLOBAL_SETTINGS_PATH = previousGlobalSettingsPath;
+		process.env.CODEX_HOME = previousCodexHome;
 		vi.doUnmock("../extensions/plugin/plugin-config-loader");
 		if (resetModulesAfterEach) {
 			vi.resetModules();
 			resetModulesAfterEach = false;
+		}
+		for (const dir of tempDirs.splice(0)) {
+			rmSync(dir, { recursive: true, force: true });
 		}
 	});
 
@@ -411,6 +417,7 @@ describe("prepareLocalRuntimeBootstrap", () => {
 				auth: {
 					accessToken: "oauth-access-token",
 					accountId: "acct-123",
+					installationId: "install_123",
 				},
 				headers: {
 					"x-stored": "stored",
@@ -429,6 +436,7 @@ describe("prepareLocalRuntimeBootstrap", () => {
 			originator: "cline",
 			session_id: "sess-codex",
 			"ChatGPT-Account-Id": "acct-123",
+			"x-codex-installation-id": "install_123",
 			"x-stored": "stored",
 		});
 	});
@@ -538,6 +546,73 @@ describe("prepareLocalRuntimeBootstrap", () => {
 			originator: "cline",
 			session_id: "sess-codex-derived",
 			"ChatGPT-Account-Id": "acct-derived",
+		});
+	});
+
+	it("loads Codex home credentials as the local openai-codex fallback", async () => {
+		const { prepareLocalRuntimeBootstrap } = await import(
+			"./local-runtime-bootstrap"
+		);
+
+		const tempRoot = mkdtempSync(join(tmpdir(), "local-bootstrap-codex-home-"));
+		tempDirs.push(tempRoot);
+		process.env.CODEX_HOME = tempRoot;
+		const payload = Buffer.from(
+			JSON.stringify({
+				exp: 2_000,
+				"https://api.openai.com/auth": {
+					chatgpt_account_id: "acct-home",
+				},
+			}),
+			"utf8",
+		).toString("base64url");
+		const token = `header.${payload}.sig`;
+		writeFileSync(
+			join(tempRoot, "auth.json"),
+			JSON.stringify({
+				tokens: {
+					access_token: token,
+					refresh_token: "refresh-home",
+				},
+			}),
+			"utf8",
+		);
+		writeFileSync(join(tempRoot, "installation_id"), "install_home\n", "utf8");
+		writeFileSync(
+			join(tempRoot, "models_cache.json"),
+			JSON.stringify({ client_version: "0.136.0-test" }),
+			"utf8",
+		);
+
+		const input = createStartInput();
+		input.config.providerId = "openai-codex";
+		input.config.modelId = "gpt-5.4";
+		delete (input.config as Partial<typeof input.config>).apiKey;
+
+		const bootstrap = await prepareLocalRuntimeBootstrap({
+			input,
+			sessionId: "sess-codex-home",
+			providerSettingsManager: createProviderSettingsManager({
+				provider: "openai-codex",
+				model: "gpt-5.4",
+			}) as never,
+			defaultTelemetry: undefined,
+			defaultToolPolicies: undefined,
+			onPluginEvent: () => {},
+			onTeamEvent: () => {},
+			createSpawnTool,
+			readSessionMetadata: async () => undefined,
+			writeSessionMetadata: async () => {},
+		});
+
+		expect(bootstrap.providerConfig.apiKey).toBe(token);
+		expect(bootstrap.providerConfig.accessToken).toBe(token);
+		expect(bootstrap.providerConfig.accountId).toBe("acct-home");
+		expect(bootstrap.providerConfig.headers).toMatchObject({
+			originator: "cline",
+			session_id: "sess-codex-home",
+			"ChatGPT-Account-Id": "acct-home",
+			"x-codex-installation-id": "install_home",
 		});
 	});
 });

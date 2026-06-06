@@ -881,6 +881,7 @@ export async function loginLocalProvider(
 	refresh: string;
 	expires: number;
 	accountId?: string;
+	metadata?: Record<string, unknown>;
 }> {
 	const callbacks = createOAuthClientCallbacks({
 		onPrompt: async (prompt) => prompt.defaultValue ?? "",
@@ -919,14 +920,30 @@ export function saveLocalProviderOAuthCredentials(
 		refresh: string;
 		expires: number;
 		accountId?: string;
+		metadata?: Record<string, unknown>;
 	},
 ): ProviderSettings {
+	const installationId =
+		typeof credentials.metadata?.installationId === "string"
+			? credentials.metadata.installationId
+			: undefined;
+	const clientVersion =
+		typeof credentials.metadata?.clientVersion === "string"
+			? credentials.metadata.clientVersion
+			: undefined;
+	const tokenSource =
+		typeof credentials.metadata?.tokenSource === "string"
+			? credentials.metadata.tokenSource
+			: undefined;
 	const auth = {
 		...(existing?.auth ?? {}),
 		accessToken: toProviderApiKey(providerId, credentials),
 		refreshToken: credentials.refresh,
 		accountId: credentials.accountId,
 		expiresAt: credentials.expires,
+		...(installationId ? { installationId } : {}),
+		...(clientVersion ? { clientVersion } : {}),
+		...(tokenSource ? { tokenSource } : {}),
 	} as ProviderSettings["auth"] & { expiresAt?: number };
 
 	const merged: ProviderSettings = {

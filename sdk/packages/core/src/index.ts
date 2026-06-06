@@ -126,6 +126,7 @@ export {
 export {
 	getValidOpenAICodexCredentials,
 	isOpenAICodexTokenExpired,
+	loadOpenAICodexHomeCredentialsSync,
 	loginOpenAICodex,
 	normalizeOpenAICodexCredentials,
 	openaiCodexOAuthProvider,

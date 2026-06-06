@@ -312,11 +312,26 @@ export function saveOAuthProviderSettings(
 	existing: ProviderSettings | undefined,
 	credentials: OAuthCredentials,
 ): ProviderSettings {
+	const installationId =
+		typeof credentials.metadata?.installationId === "string"
+			? credentials.metadata.installationId
+			: undefined;
+	const clientVersion =
+		typeof credentials.metadata?.clientVersion === "string"
+			? credentials.metadata.clientVersion
+			: undefined;
+	const tokenSource =
+		typeof credentials.metadata?.tokenSource === "string"
+			? credentials.metadata.tokenSource
+			: undefined;
 	const auth = {
 		...(existing?.auth ?? {}),
 		accessToken: toProviderApiKey(providerId, credentials),
 		refreshToken: credentials.refresh,
 		accountId: credentials.accountId,
+		...(installationId ? { installationId } : {}),
+		...(clientVersion ? { clientVersion } : {}),
+		...(tokenSource ? { tokenSource } : {}),
 	} as ProviderSettings["auth"] & { expiresAt?: number };
 	auth.expiresAt = credentials.expires;
 	const merged: ProviderSettings = {

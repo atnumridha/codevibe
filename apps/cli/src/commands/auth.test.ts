@@ -52,6 +52,48 @@ describe("saveOAuthProviderSettings", () => {
 			{ tokenSource: "oauth" },
 		);
 	});
+
+	it("persists non-secret Codex OAuth metadata", () => {
+		const save = vi.fn();
+		const manager = {
+			saveProviderSettings: save,
+		} as unknown as ProviderSettingsManager;
+
+		const merged = saveOAuthProviderSettings(
+			manager,
+			"openai-codex",
+			{
+				provider: "openai-codex",
+				auth: {
+					accessToken: "old-access",
+					refreshToken: "old-refresh",
+				},
+			},
+			{
+				access: "new-access",
+				refresh: "new-refresh",
+				expires: 4_000_000_000_000,
+				accountId: "acct-codex",
+				metadata: {
+					tokenSource: "codex-home",
+					installationId: "install_123",
+					clientVersion: "0.136.0-test",
+					idToken: "do-not-persist",
+				},
+			},
+		);
+
+		expect(merged.auth).toMatchObject({
+			accessToken: "new-access",
+			refreshToken: "new-refresh",
+			accountId: "acct-codex",
+			expiresAt: 4_000_000_000_000,
+			tokenSource: "codex-home",
+			installationId: "install_123",
+			clientVersion: "0.136.0-test",
+		});
+		expect(merged.auth).not.toHaveProperty("idToken");
+	});
 });
 
 describe("getPersistedProviderApiKey", () => {

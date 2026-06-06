@@ -10,6 +10,7 @@ import type {
 	WorkspaceInfo,
 } from "@cline/shared";
 import { hasRuntimeConfigExtension } from "@cline/shared";
+import { loadOpenAICodexHomeCredentialsSync } from "../auth/codex";
 import { decodeJwtPayload } from "../auth/utils";
 import {
 	resolveAndLoadAgentPlugins,
@@ -130,6 +131,7 @@ function buildOpenAICodexHeaders(input: {
 	storedHeaders: ProviderSettings["headers"];
 	accountId?: string;
 	accessToken?: string;
+	installationId?: string;
 }): Record<string, string> | undefined {
 	const headers: Record<string, string> = {
 		...(input.storedHeaders ?? {}),
@@ -142,6 +144,9 @@ function buildOpenAICodexHeaders(input: {
 	headers["User-Agent"] = `Cline/${process.env.npm_package_version || "1.0.0"}`;
 	if (resolvedAccountId) {
 		headers["ChatGPT-Account-Id"] = resolvedAccountId;
+	}
+	if (input.installationId?.trim()) {
+		headers["x-codex-installation-id"] = input.installationId.trim();
 	}
 	return headers;
 }
@@ -182,6 +187,43 @@ function buildProviderConfig(
 	defaultFetch?: typeof fetch,
 ): ProviderConfig {
 	const stored = providerSettingsManager.getProviderSettings(config.providerId);
+	const codexHomeCredentials =
+		config.providerId === "openai-codex" &&
+		!(config.apiKey ?? stored?.auth?.accessToken ?? stored?.apiKey)
+			? (() => {
+					try {
+						return loadOpenAICodexHomeCredentialsSync();
+					} catch (error) {
+						const message = error instanceof Error ? error.message : String(error);
+						config.logger?.log?.(
+							`Failed to load Codex home credentials; continuing without them (${message})`,
+							{ severity: "warn" },
+						);
+						return null;
+					}
+				})()
+			: null;
+	const codexHomeAuth =
+		config.providerId === "openai-codex" && codexHomeCredentials
+			? {
+					accessToken: codexHomeCredentials.access,
+					refreshToken: codexHomeCredentials.refresh,
+					expiresAt: codexHomeCredentials.expires,
+					accountId: codexHomeCredentials.accountId,
+					installationId:
+						typeof codexHomeCredentials.metadata?.installationId === "string"
+							? codexHomeCredentials.metadata.installationId
+							: undefined,
+					clientVersion:
+						typeof codexHomeCredentials.metadata?.clientVersion === "string"
+							? codexHomeCredentials.metadata.clientVersion
+							: undefined,
+					tokenSource:
+						typeof codexHomeCredentials.metadata?.tokenSource === "string"
+							? codexHomeCredentials.metadata.tokenSource
+							: undefined,
+				}
+			: undefined;
 	const modelCatalog =
 		modelCatalogDefaults || stored?.modelCatalog
 			? {
@@ -194,6 +236,12 @@ function buildProviderConfig(
 		provider: config.providerId,
 		model: config.modelId,
 		apiKey: config.apiKey ?? stored?.apiKey,
+		auth: codexHomeAuth
+			? {
+					...(stored?.auth ?? {}),
+					...codexHomeAuth,
+				}
+			: stored?.auth,
 		baseUrl: config.baseUrl ?? stored?.baseUrl,
 		headers:
 			config.providerId === "openai-codex"
@@ -201,9 +249,14 @@ function buildProviderConfig(
 						sessionId,
 						configHeaders: config.headers,
 						storedHeaders: stored?.headers,
-						accountId: stored?.auth?.accountId,
+						accountId: stored?.auth?.accountId ?? codexHomeAuth?.accountId,
 						accessToken:
-							config.apiKey ?? stored?.auth?.accessToken ?? stored?.apiKey,
+							config.apiKey ??
+							stored?.auth?.accessToken ??
+							codexHomeAuth?.accessToken ??
+							stored?.apiKey,
+						installationId:
+							stored?.auth?.installationId ?? codexHomeAuth?.installationId,
 					})
 				: (config.headers ?? stored?.headers),
 		reasoning: resolveReasoningSettings(config, stored?.reasoning),

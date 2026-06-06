@@ -58,6 +58,9 @@ export const AuthSettingsSchema = z.object({
 	refreshToken: z.string().optional(),
 	expiresAt: z.number().int().positive().optional(),
 	accountId: z.string().optional(),
+	installationId: z.string().optional(),
+	clientVersion: z.string().optional(),
+	tokenSource: z.string().optional(),
 });
 
 export type AuthSettings = z.infer<typeof AuthSettingsSchema>;

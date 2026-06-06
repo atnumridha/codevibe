@@ -1,6 +1,10 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	getValidOpenAICodexCredentials,
+	loadOpenAICodexHomeCredentialsSync,
 	normalizeOpenAICodexCredentials,
 	refreshOpenAICodexToken,
 } from "./codex";
@@ -29,9 +33,14 @@ function createCredentials(
 }
 
 describe("auth/codex token lifecycle", () => {
+	const tempDirs: string[] = [];
+
 	afterEach(() => {
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
+		for (const dir of tempDirs.splice(0)) {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 
 	it("returns current credentials when not expired", async () => {
@@ -149,6 +158,75 @@ describe("auth/codex token lifecycle", () => {
 		});
 		expect(normalized.accountId).toBe("acct-derived");
 		expect(normalized.metadata).toMatchObject({ provider: "openai-codex" });
+	});
+
+	it("prefers access-token ChatGPT account claims over id-token organizations", () => {
+		const accessToken = createJwt({
+			"https://api.openai.com/auth": { chatgpt_account_id: "acct-access" },
+		});
+		const idToken = createJwt({
+			organizations: [{ id: "org-from-id-token" }],
+		});
+
+		const normalized = normalizeOpenAICodexCredentials({
+			access: accessToken,
+			refresh: "refresh",
+			expires: 1,
+			metadata: { idToken },
+		});
+
+		expect(normalized.accountId).toBe("acct-access");
+		expect(normalized.metadata).not.toHaveProperty("idToken");
+	});
+
+	it("loads Codex home credentials with installation and client metadata", () => {
+		const codexHome = mkdtempSync(join(tmpdir(), "cline-codex-home-"));
+		tempDirs.push(codexHome);
+		const accessToken = createJwt({
+			exp: 2_000,
+			email: "codex@example.com",
+			"https://api.openai.com/auth": { chatgpt_account_id: "acct-home" },
+		});
+		const idToken = createJwt({
+			email: "id@example.com",
+			organizations: [{ id: "org-id" }],
+		});
+		writeFileSync(
+			join(codexHome, "auth.json"),
+			JSON.stringify({
+				auth_mode: "chatgpt",
+				tokens: {
+					access_token: accessToken,
+					refresh_token: "refresh-home",
+					id_token: idToken,
+				},
+			}),
+			"utf8",
+		);
+		writeFileSync(join(codexHome, "installation_id"), "install_123\n", "utf8");
+		writeFileSync(
+			join(codexHome, "models_cache.json"),
+			JSON.stringify({ client_version: "0.136.0-test" }),
+			"utf8",
+		);
+
+		const credentials = loadOpenAICodexHomeCredentialsSync({ codexHome });
+
+		expect(credentials).toMatchObject({
+			access: accessToken,
+			refresh: "refresh-home",
+			expires: 2_000_000,
+			accountId: "acct-home",
+			email: "id@example.com",
+			metadata: {
+				provider: "openai-codex",
+				tokenSource: "codex-home",
+				installationId: "install_123",
+				clientVersion: "0.136.0-test",
+				authMode: "chatgpt",
+			},
+		});
+		expect(credentials?.metadata).not.toHaveProperty("idToken");
 	});
 
 	it("refreshOpenAICodexToken throws when response is structurally invalid", async () => {

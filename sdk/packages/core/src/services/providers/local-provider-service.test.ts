@@ -18,6 +18,7 @@ import {
 	normalizeOAuthProvider,
 	refreshProviderModelsFromSource,
 	resolveLocalClineAuthToken,
+	saveLocalProviderOAuthCredentials,
 	saveLocalProviderSettings,
 	updateLocalProvider,
 } from "./local-provider-service";
@@ -1008,6 +1009,48 @@ describe("updateLocalProvider", () => {
 				name: "Nope",
 			}),
 		).rejects.toThrow('"missing-provider" does not exist');
+	});
+});
+
+describe("saveLocalProviderOAuthCredentials", () => {
+	let manager: ProviderSettingsManager;
+	let cleanup: () => void;
+
+	beforeEach(() => {
+		({ manager, cleanup } = makeTempManager());
+	});
+
+	afterEach(() => cleanup());
+
+	it("persists non-secret Codex OAuth metadata", () => {
+		const saved = saveLocalProviderOAuthCredentials(
+			manager,
+			"openai-codex",
+			{ provider: "openai-codex", model: "gpt-5.4" },
+			{
+				access: "access-token",
+				refresh: "refresh-token",
+				expires: 4_000_000_000_000,
+				accountId: "acct-codex",
+				metadata: {
+					tokenSource: "codex-home",
+					installationId: "install_123",
+					clientVersion: "0.136.0-test",
+					idToken: "do-not-persist",
+				},
+			},
+		);
+
+		expect(saved.auth).toMatchObject({
+			accessToken: "access-token",
+			refreshToken: "refresh-token",
+			accountId: "acct-codex",
+			expiresAt: 4_000_000_000_000,
+			tokenSource: "codex-home",
+			installationId: "install_123",
+			clientVersion: "0.136.0-test",
+		});
+		expect(saved.auth).not.toHaveProperty("idToken");
 	});
 });
 

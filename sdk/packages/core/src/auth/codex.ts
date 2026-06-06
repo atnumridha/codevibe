@@ -5,6 +5,9 @@
  * It is only intended for CLI use, not browser environments.
  */
 
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { ITelemetryService } from "@cline/shared";
 import { nanoid } from "nanoid";
 import {
@@ -65,6 +68,19 @@ type JwtPayload = {
 	};
 	[key: string]: unknown;
 };
+
+interface CodexHomeAuthJson {
+	tokens?: {
+		access_token?: string;
+		refresh_token?: string;
+		id_token?: string;
+	};
+	auth_mode?: string;
+}
+
+interface CodexHomeModelsCacheJson {
+	client_version?: string;
+}
 
 class OpenAICodexOAuthTokenError extends Error {
 	public readonly status?: number;
@@ -246,27 +262,50 @@ function resolveCallbackServerConfig(): {
 }
 
 function getAccountId(accessToken: string, idToken?: string): string | null {
-	const payload = (
-		idToken ? decodeJwtPayload(idToken) : decodeJwtPayload(accessToken)
-	) as JwtPayload | null;
-	const fallback = (
-		payload ? payload : decodeJwtPayload(accessToken)
-	) as JwtPayload | null;
-	const auth = fallback?.[OPENAI_CODEX_OAUTH_CONFIG.jwtClaimPath];
+	const accessPayload = decodeJwtPayload(accessToken) as JwtPayload | null;
+	const idPayload = idToken ? (decodeJwtPayload(idToken) as JwtPayload | null) : null;
+	const accessAccountId = getAccountIdFromPayload(accessPayload, {
+		includeOrganizations: false,
+	});
+	if (accessAccountId) {
+		return accessAccountId;
+	}
+
+	const idAccountId = getAccountIdFromPayload(idPayload, {
+		includeOrganizations: true,
+	});
+	if (idAccountId) {
+		return idAccountId;
+	}
+
+	return getAccountIdFromPayload(accessPayload, {
+		includeOrganizations: true,
+	});
+}
+
+function getAccountIdFromPayload(
+	payload: JwtPayload | null,
+	options: { includeOrganizations: boolean },
+): string | null {
+	const auth = payload?.[OPENAI_CODEX_OAUTH_CONFIG.jwtClaimPath];
 	const accountId = auth?.chatgpt_account_id;
 	if (typeof accountId === "string" && accountId.length > 0) {
 		return accountId;
 	}
 
-	const organizations = fallback?.organizations;
-	if (Array.isArray(organizations) && organizations.length > 0) {
+	const organizations = payload?.organizations;
+	if (
+		options.includeOrganizations &&
+		Array.isArray(organizations) &&
+		organizations.length > 0
+	) {
 		const first = organizations[0] as { id?: unknown } | undefined;
 		if (typeof first?.id === "string" && first.id.length > 0) {
 			return first.id;
 		}
 	}
 
-	const rootAccountId = fallback?.chatgpt_account_id;
+	const rootAccountId = payload?.chatgpt_account_id;
 	if (typeof rootAccountId === "string" && rootAccountId.length > 0) {
 		return rootAccountId;
 	}
@@ -293,6 +332,91 @@ function toCodexCredentials(
 		metadata: {
 			...(fallback?.metadata ?? {}),
 			provider: "openai-codex",
+		},
+	};
+}
+
+function resolveCodexHomePath(codexHome?: string): string {
+	return codexHome?.trim() || process.env.CODEX_HOME || join(homedir(), ".codex");
+}
+
+function readOptionalTextSync(filePath: string): string | undefined {
+	if (!existsSync(filePath)) {
+		return undefined;
+	}
+	return readFileSync(filePath, "utf8");
+}
+
+function parseJsonObject<T>(text: string): T {
+	const parsed = JSON.parse(text) as unknown;
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		throw new Error("Expected JSON object");
+	}
+	return parsed as T;
+}
+
+function getJwtExpiryMs(accessToken: string, now: () => number): number {
+	const payload = decodeJwtPayload(accessToken) as { exp?: unknown } | null;
+	return typeof payload?.exp === "number" && Number.isFinite(payload.exp)
+		? payload.exp * 1000
+		: now() + 60 * 60 * 1000;
+}
+
+function getJwtEmail(accessToken: string, idToken?: string): string | undefined {
+	for (const token of [idToken, accessToken]) {
+		if (!token) continue;
+		const payload = decodeJwtPayload(token) as { email?: unknown } | null;
+		if (typeof payload?.email === "string" && payload.email.length > 0) {
+			return payload.email;
+		}
+	}
+	return undefined;
+}
+
+export function loadOpenAICodexHomeCredentialsSync(options?: {
+	codexHome?: string;
+	now?: () => number;
+}): OAuthCredentials | null {
+	const codexHome = resolveCodexHomePath(options?.codexHome);
+	const authText = readOptionalTextSync(join(codexHome, "auth.json"));
+	if (!authText) {
+		return null;
+	}
+
+	const authJson = parseJsonObject<CodexHomeAuthJson>(authText);
+	const accessToken = authJson.tokens?.access_token?.trim();
+	const refreshToken = authJson.tokens?.refresh_token?.trim();
+	if (!accessToken || !refreshToken) {
+		return null;
+	}
+
+	const idToken = authJson.tokens?.id_token?.trim() || undefined;
+	const installationId =
+		readOptionalTextSync(join(codexHome, "installation_id"))?.trim() ||
+		undefined;
+	const modelsCacheText = readOptionalTextSync(join(codexHome, "models_cache.json"));
+	const modelsCache = modelsCacheText
+		? parseJsonObject<CodexHomeModelsCacheJson>(modelsCacheText)
+		: undefined;
+	const clientVersion =
+		typeof modelsCache?.client_version === "string" &&
+		modelsCache.client_version.trim().length > 0
+			? modelsCache.client_version.trim()
+			: undefined;
+	const accountId = getAccountId(accessToken, idToken);
+
+	return {
+		access: accessToken,
+		refresh: refreshToken,
+		expires: getJwtExpiryMs(accessToken, options?.now ?? Date.now),
+		accountId: accountId ?? undefined,
+		email: getJwtEmail(accessToken, idToken),
+		metadata: {
+			provider: "openai-codex",
+			tokenSource: "codex-home",
+			...(installationId ? { installationId } : {}),
+			...(clientVersion ? { clientVersion } : {}),
+			...(authJson.auth_mode ? { authMode: authJson.auth_mode } : {}),
 		},
 	};
 }
@@ -453,15 +577,22 @@ export function isOpenAICodexTokenExpired(
 export function normalizeOpenAICodexCredentials(
 	credentials: OAuthCredentials,
 ): OAuthCredentials {
-	const accountId = credentials.accountId ?? getAccountId(credentials.access);
+	const idToken =
+		typeof credentials.metadata?.idToken === "string"
+			? credentials.metadata.idToken
+			: undefined;
+	const accountId =
+		credentials.accountId ?? getAccountId(credentials.access, idToken);
 	if (!accountId) {
 		throw new Error("Failed to extract accountId from token");
 	}
+	const metadata = { ...(credentials.metadata ?? {}) };
+	delete metadata.idToken;
 	return {
 		...credentials,
 		accountId,
 		metadata: {
-			...(credentials.metadata ?? {}),
+			...metadata,
 			provider: "openai-codex",
 		},
 	};
