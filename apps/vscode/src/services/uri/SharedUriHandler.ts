@@ -290,7 +290,8 @@ function buildCursorBackgroundAgentDetail(
 		...(request.requestedBranch ? [`Branch: ${request.requestedBranch}`] : []),
 		...(request.requestedBaseBranch ? [`Base branch: ${request.requestedBaseBranch}`] : []),
 		...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
-		"This will launch a background agent session. Git, network, terminal, and file changes still require the normal approvals.",
+		"Confirming may immediately run git worktree add, create a background-agent branch/worktree, and copy files listed in .worktreeinclude before the agent starts.",
+		"After launch, agent terminal, network, and file changes still require the normal approvals.",
 	].join("\n")
 }
 
@@ -500,11 +501,11 @@ export class SharedUriHandler {
 							message: "Launch Cursor background agent?",
 							options: {
 								modal: true,
-								items: ["Launch"],
+								items: ["Launch and Create Worktree"],
 								detail: buildCursorBackgroundAgentDetail(launchRequest),
 							},
 						})
-						if (choice.selectedOption !== "Launch") {
+						if (choice.selectedOption !== "Launch and Create Worktree") {
 							return true
 						}
 						await controller.handleCursorBackgroundAgentLaunch(launchRequest)

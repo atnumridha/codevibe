@@ -281,7 +281,7 @@ describe("SharedUriHandler", () => {
 
 			it("should launch Cursor background-agent routes through the controller background path", async () => {
 				showMessageStub.resetBehavior()
-				showMessageStub.resolves({ selectedOption: "Launch" })
+				showMessageStub.resolves({ selectedOption: "Launch and Create Worktree" })
 				const config = encodeConfig({
 					token: "secret-value",
 					mode: "fast",
@@ -296,6 +296,9 @@ describe("SharedUriHandler", () => {
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Repository: owner/repo")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Branch: main")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: mode, token")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("git worktree add")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(".worktreeinclude")
+				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["Launch and Create Worktree"])
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
 				sinon.assert.calledOnce(handleCursorBackgroundAgentLaunchStub)
 				expect(handleTaskCreationStub.called).to.be.false
