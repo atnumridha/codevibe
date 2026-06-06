@@ -528,13 +528,17 @@ describe("Cursor MCP install URI parser", () => {
 		expect(byId.detail).toContain("Plugin source: docs-helper");
 
 		const byUrl = buildCursorPluginAddRouteRequest(
-			"vscode://cline.cline/plugin/add?url=https%3A%2F%2Fexample.com%2Fplugin.js",
+			"vscode://cline.cline/plugin/add?url=https%3A%2F%2Fexample.com%2Fplugin.js%3Ftoken%3Dsecret-value%23secret-fragment",
 		);
 		expect(byUrl).toMatchObject({
-			source: "https://example.com/plugin.js",
+			source: "https://example.com/plugin.js?token=secret-value#secret-fragment",
 			sourceParam: "url",
+			displaySource: "https://example.com/plugin.js?[redacted]#[redacted]",
 			requiresReview: false,
 		});
+		expect(byUrl.detail).toContain("https://example.com/plugin.js?[redacted]#[redacted]");
+		expect(byUrl.detail).not.toContain("secret-value");
+		expect(byUrl.detail).not.toContain("secret-fragment");
 
 		const configOnly = buildCursorPluginAddRouteRequest(
 			`vscode://cline.cline/plugin/add?config=${encodeConfig({ token: "secret-value", source: "docs-helper" })}`,

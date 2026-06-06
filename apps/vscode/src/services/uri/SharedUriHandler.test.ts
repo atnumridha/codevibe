@@ -438,6 +438,30 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should redact Cursor plugin URL query values in confirmation text", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Install Plugin" })
+
+				const pluginUrl = "https://example.com/plugins/docs.js?token=secret-value#secret-fragment"
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/plugin/add?url=${encodeURIComponent(pluginUrl)}`,
+				)
+
+				expect(result).to.be.true
+				const modal = showMessageStub.firstCall.args[0]
+				expect(modal.message).to.equal(
+					'Install Cursor plugin "https://example.com/plugins/docs.js?[redacted]#[redacted]"?',
+				)
+				expect(modal.options.detail).to.contain("https://example.com/plugins/docs.js?[redacted]#[redacted]")
+				expect(modal.options.detail).not.to.contain("secret-value")
+				expect(modal.options.detail).not.to.contain("secret-fragment")
+				sinon.assert.calledOnce(handleCursorPluginAddStub)
+				expect(handleCursorPluginAddStub.firstCall.args[0]).to.deep.include({
+					source: pluginUrl,
+					sourceParam: "url",
+				})
+			})
+
 			it("should summarize Cursor plugin config routes without leaking secret values", async () => {
 				const config = encodeConfig({
 					token: "secret-value",

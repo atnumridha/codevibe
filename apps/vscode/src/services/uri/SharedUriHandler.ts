@@ -263,10 +263,12 @@ async function readCursorCommandFile(
 function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 	source?: string
 	sourceParam?: "id" | "name" | "url"
+	displaySource?: string
 	detail: string
 } {
 	const sourceParam = (["id", "name", "url"] as const).find((key) => getRouteStringParam(route, key))
 	const source = sourceParam ? getRouteStringParam(route, sourceParam) : undefined
+	const displaySource = formatCursorPluginSource(source, sourceParam)
 	const config = route.params.config
 	const configKeys =
 		config && typeof config === "object" && !Array.isArray(config)
@@ -274,7 +276,7 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 			: []
 	const lines = source
 		? [
-				`Plugin source: ${source}`,
+				`Plugin source: ${displaySource}`,
 				`Source parameter: ${sourceParam}`,
 				...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
 				"Install action: requires confirmation before downloading or writing plugin files.",
@@ -287,7 +289,23 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 	return {
 		source,
 		sourceParam,
+		displaySource,
 		detail: lines.join("\n"),
+	}
+}
+
+function formatCursorPluginSource(source: string | undefined, sourceParam: "id" | "name" | "url" | undefined): string {
+	if (!source) {
+		return "config payload"
+	}
+	if (sourceParam !== "url") {
+		return source
+	}
+	try {
+		const url = new URL(source)
+		return `${url.origin}${url.pathname}${url.search ? "?[redacted]" : ""}${url.hash ? "#[redacted]" : ""}`
+	} catch {
+		return "[provided url]"
 	}
 }
 
@@ -824,7 +842,7 @@ export class SharedUriHandler {
 		if (request.source && request.sourceParam) {
 			const choice = await HostProvider.window.showMessage({
 				type: ShowMessageType.WARNING,
-				message: `Install Cursor plugin "${request.source}"?`,
+				message: `Install Cursor plugin "${request.displaySource ?? request.source}"?`,
 				options: {
 					modal: true,
 					items: ["Install Plugin"],

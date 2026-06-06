@@ -184,6 +184,7 @@ export interface CursorPluginAddRouteRequest {
 	kind: "plugin-add";
 	source?: string;
 	sourceParam?: "id" | "name" | "url";
+	displaySource?: string;
 	requiresReview: boolean;
 	reason?: string;
 	detail: string;
@@ -961,6 +962,24 @@ function formatRouteDetails(
 	return lines.length > 0 ? lines.join("\n") : "- No additional route parameters.";
 }
 
+function formatCursorPluginSource(
+	source: string | undefined,
+	sourceParam: "id" | "name" | "url" | undefined,
+): string {
+	if (!source) {
+		return "config payload";
+	}
+	if (sourceParam !== "url") {
+		return source;
+	}
+	try {
+		const url = new URL(source);
+		return `${url.origin}${url.pathname}${url.search ? "?[redacted]" : ""}${url.hash ? "#[redacted]" : ""}`;
+	} catch {
+		return "[provided url]";
+	}
+}
+
 function assertAllowedParams(
 	path: CursorAgentTaskRoutePath,
 	params: Record<string, string | Record<string, unknown>>,
@@ -1342,13 +1361,15 @@ export function buildCursorPluginAddRouteRequest(
 	}
 
 	const configKeys = Object.keys(config ?? {}).sort();
+	const displaySource = formatCursorPluginSource(source, sourceParam);
 	return {
 		kind: "plugin-add",
 		source,
 		sourceParam,
+		displaySource,
 		requiresReview: false,
 		detail: [
-			`Plugin source: ${source}`,
+			`Plugin source: ${displaySource}`,
 			`Source parameter: ${sourceParam}`,
 			...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
 			"Install action: preview by default; requires explicit confirmation.",
