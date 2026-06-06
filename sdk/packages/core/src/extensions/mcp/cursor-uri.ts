@@ -226,7 +226,8 @@ export interface CursorAutomationIngestRouteRequest {
 }
 
 export interface ResolveCursorCommandFileRouteOptions {
-	workspaceRoot: string;
+	workspaceRoot?: string;
+	workspaceRoots?: readonly string[];
 	maxBytes?: number;
 }
 
@@ -1365,14 +1366,56 @@ export function resolveCursorCommandFileRouteRequest(
 		return undefined;
 	}
 
-	const workspaceRoot = options.workspaceRoot.trim();
-	if (!workspaceRoot) {
-		return undefined;
-	}
 	const maxBytes = Math.max(
 		1,
 		Math.floor(options.maxBytes ?? MAX_CURSOR_COMMAND_FILE_BYTES),
 	);
+	for (const workspaceRoot of getCursorCommandWorkspaceRoots(options)) {
+		const resolved = resolveCursorCommandFileRouteRequestInRoot(
+			target,
+			workspaceRoot,
+			maxBytes,
+		);
+		if (resolved) {
+			return resolved;
+		}
+	}
+	return undefined;
+}
+
+function getCursorCommandWorkspaceRoots(
+	options: ResolveCursorCommandFileRouteOptions,
+): string[] {
+	const roots = [
+		...(options.workspaceRoot ? [options.workspaceRoot] : []),
+		...(options.workspaceRoots ?? []),
+	];
+	const seen = new Set<string>();
+	const normalized: string[] = [];
+	for (const root of roots) {
+		const trimmed = root.trim();
+		if (!trimmed) {
+			continue;
+		}
+		const resolved = resolve(trimmed);
+		if (seen.has(resolved)) {
+			continue;
+		}
+		seen.add(resolved);
+		normalized.push(trimmed);
+	}
+	return normalized;
+}
+
+function resolveCursorCommandFileRouteRequestInRoot(
+	target: {
+		commandName: string;
+		filename: string;
+		relativePath: string;
+	},
+	workspaceRoot: string,
+	maxBytes: number,
+): CursorCommandFileRouteRequest | undefined {
 	const root = resolve(workspaceRoot);
 	const commandRoot = resolve(root, CURSOR_COMMANDS_DIR);
 	const filePath = resolve(root, target.relativePath);

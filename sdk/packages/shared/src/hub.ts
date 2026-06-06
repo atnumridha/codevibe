@@ -360,6 +360,7 @@ export const HUB_COMMAND_SLOW_LOG_MS = 5_000;
 export interface CursorUriPreviewRequest {
 	uri: string;
 	workspaceRoot?: string;
+	workspaceRoots?: string[];
 	maxCommandFileBytes?: number;
 }
 

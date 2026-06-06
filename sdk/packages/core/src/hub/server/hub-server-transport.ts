@@ -546,15 +546,31 @@ function parseCursorUriPreviewInput(
 	if (workspaceRoot !== undefined && typeof workspaceRoot !== "string") {
 		throw new Error("cursor.uri.preview payload 'workspaceRoot' must be a string.");
 	}
+	const workspaceRoots = payload.workspaceRoots;
+	if (
+		workspaceRoots !== undefined &&
+		(!Array.isArray(workspaceRoots) ||
+			workspaceRoots.some((entry) => typeof entry !== "string"))
+	) {
+		throw new Error(
+			"cursor.uri.preview payload 'workspaceRoots' must be an array of strings.",
+		);
+	}
 	const maxCommandFileBytes = requireOptionalHubPositiveInteger(
 		payload,
 		"maxCommandFileBytes",
 		"cursor.uri.preview",
 	);
+	const trimmedWorkspaceRoots = Array.isArray(workspaceRoots)
+		? workspaceRoots.map((entry) => entry.trim()).filter(Boolean)
+		: [];
 	return {
 		uri: value.trim(),
 		...(workspaceRoot?.trim()
 			? { workspaceRoot: workspaceRoot.trim() }
+			: {}),
+		...(trimmedWorkspaceRoots.length > 0
+			? { workspaceRoots: trimmedWorkspaceRoots }
 			: {}),
 		...(maxCommandFileBytes !== undefined ? { maxCommandFileBytes } : {}),
 	};
@@ -706,9 +722,11 @@ function summarizeCursorUriPreview(
 	if (CURSOR_AGENT_TASK_ROUTE_PATHS.has(path)) {
 		const request = buildCursorAgentTaskRouteRequest(uri);
 		const commandFile =
-			input.workspaceRoot && request.kind === "command"
+			(input.workspaceRoot || input.workspaceRoots?.length) &&
+			request.kind === "command"
 				? resolveCursorCommandFileRouteRequest(request, {
-						workspaceRoot: input.workspaceRoot,
+						...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+						...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
 						...(input.maxCommandFileBytes !== undefined
 							? { maxBytes: input.maxCommandFileBytes }
 							: {}),

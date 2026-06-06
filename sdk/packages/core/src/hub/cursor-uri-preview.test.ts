@@ -215,6 +215,52 @@ describe("hub Cursor URI preview command", () => {
 		}
 	});
 
+	it("resolves safe Cursor command files from later workspace roots", async () => {
+		const firstRoot = mkdtempSync(join(tmpdir(), "cline-hub-cursor-command-first-"));
+		const secondRoot = mkdtempSync(join(tmpdir(), "cline-hub-cursor-command-second-"));
+		try {
+			const commandsDir = join(secondRoot, ".cursor", "commands");
+			mkdirSync(commandsDir, { recursive: true });
+			writeFileSync(
+				join(commandsDir, "review-code.md"),
+				"Review the second workspace diff.",
+				"utf8",
+			);
+			const transport = createTransport();
+
+			const reply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.uri.preview",
+				requestId: "req-5b",
+				clientId: "client-one",
+				payload: {
+					uri: "vscode://cline.cline/command?name=review-code",
+					workspaceRoots: [firstRoot, secondRoot],
+				},
+			});
+
+			expect(reply).toMatchObject({
+				ok: true,
+				payload: {
+					handled: true,
+					route: "command-file",
+					commandFile: {
+						commandName: "review-code",
+						relativePath: ".cursor/commands/review-code.md",
+					},
+				},
+			});
+			expect(String(reply.payload?.taskPrompt)).toContain(
+				"Review the second workspace diff.",
+			);
+			expect(JSON.stringify(reply)).not.toContain(firstRoot);
+			expect(JSON.stringify(reply)).not.toContain(secondRoot);
+		} finally {
+			rmSync(firstRoot, { recursive: true, force: true });
+			rmSync(secondRoot, { recursive: true, force: true });
+		}
+	});
+
 	it("falls back to command preview when the command file exceeds the preview limit", async () => {
 		const root = mkdtempSync(join(tmpdir(), "cline-hub-cursor-command-"));
 		try {

@@ -414,6 +414,41 @@ describe("Cursor MCP install URI parser", () => {
 		}
 	});
 
+	it("resolves standalone Cursor command files from later workspace roots", () => {
+		const firstRoot = mkdtempSync(join(tmpdir(), "cline-cursor-command-first-"));
+		const secondRoot = mkdtempSync(join(tmpdir(), "cline-cursor-command-second-"));
+		try {
+			const commandsDir = join(secondRoot, ".cursor", "commands");
+			mkdirSync(commandsDir, { recursive: true });
+			writeFileSync(
+				join(commandsDir, "review-code.md"),
+				"Review the second workspace only.",
+				"utf8",
+			);
+
+			const request = buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/command?name=review-code",
+			);
+			const resolved = resolveCursorCommandFileRouteRequest(request, {
+				workspaceRoots: [firstRoot, secondRoot],
+			});
+
+			expect(resolved).toMatchObject({
+				kind: "command-file",
+				commandName: "review-code",
+				filename: "review-code.md",
+				relativePath: ".cursor/commands/review-code.md",
+				filePath: join(secondRoot, ".cursor", "commands", "review-code.md"),
+			});
+			expect(resolved?.taskPrompt).toContain(
+				"Review the second workspace only.",
+			);
+		} finally {
+			rmSync(firstRoot, { recursive: true, force: true });
+			rmSync(secondRoot, { recursive: true, force: true });
+		}
+	});
+
 	it("does not resolve unsafe or symlinked standalone Cursor command files", () => {
 		const root = mkdtempSync(join(tmpdir(), "cline-cursor-command-"));
 		try {

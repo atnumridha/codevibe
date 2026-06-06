@@ -489,6 +489,9 @@ export class NodeHubClient {
 		if (input.workspaceRoot !== undefined) {
 			payload.workspaceRoot = input.workspaceRoot;
 		}
+		if (input.workspaceRoots !== undefined) {
+			payload.workspaceRoots = input.workspaceRoots;
+		}
 		if (input.maxCommandFileBytes !== undefined) {
 			payload.maxCommandFileBytes = input.maxCommandFileBytes;
 		}

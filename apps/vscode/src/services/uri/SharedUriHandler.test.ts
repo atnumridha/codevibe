@@ -33,6 +33,7 @@ describe("SharedUriHandler", () => {
 	let showMessageStub: sinon.SinonStub
 	let openSettingsStub: sinon.SinonStub
 	let openFileStub: sinon.SinonStub
+	let getWorkspacePathsStub: sinon.SinonStub
 	let workspaceDir: string
 
 	beforeEach(async () => {
@@ -112,8 +113,9 @@ describe("SharedUriHandler", () => {
 					openFile: openFileStub,
 				}) as any,
 		)
+		getWorkspacePathsStub = sandbox.stub().resolves({ paths: [workspaceDir] })
 		sandbox.stub(HostProvider, "workspace").value({
-			getWorkspacePaths: sandbox.stub().resolves({ paths: [workspaceDir] }),
+			getWorkspacePaths: getWorkspacePathsStub,
 		})
 	})
 
@@ -547,6 +549,32 @@ describe("SharedUriHandler", () => {
 				expect(prompt).to.contain("Review the staged diff and call out risky changes.")
 				expect(prompt).to.contain("normal permission boundaries")
 				expect(prompt).not.to.contain("```sh")
+			})
+
+			it("should create a task from a Cursor command file in a later workspace root", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+				const secondWorkspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "cline-uri-workspace-second-"))
+				getWorkspacePathsStub.resolves({ paths: [workspaceDir, secondWorkspaceDir] })
+				try {
+					const commandsDir = path.join(secondWorkspaceDir, ".cursor", "commands")
+					await fs.mkdir(commandsDir, { recursive: true })
+					await fs.writeFile(
+						path.join(commandsDir, "review-code.md"),
+						"Review the second workspace diff.",
+						"utf8",
+					)
+
+					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+
+					expect(result).to.be.true
+					sinon.assert.calledOnce(handleTaskCreationStub)
+					const prompt = handleTaskCreationStub.firstCall.args[0]
+					expect(prompt).to.contain(".cursor/commands/review-code.md")
+					expect(prompt).to.contain("Review the second workspace diff.")
+				} finally {
+					await fs.rm(secondWorkspaceDir, { recursive: true, force: true })
+				}
 			})
 
 			it("should fall back to a review prompt when a Cursor command file is missing", async () => {

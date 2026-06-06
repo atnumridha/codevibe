@@ -174,6 +174,62 @@ function buildCursorCommandFilePrompt(target: {
 	].join("\n")
 }
 
+async function getCursorCommandWorkspaceRoots(): Promise<string[]> {
+	try {
+		const workspacePaths = (await HostProvider.workspace.getWorkspacePaths({})).paths ?? []
+		const roots = workspacePaths.map((entry) => entry.trim()).filter(Boolean)
+		if (roots.length > 0) {
+			return roots
+		}
+	} catch (error) {
+		Logger.warn(`SharedUriHandler: failed to resolve workspace roots for Cursor command file: ${String(error)}`)
+	}
+	return [await getCwd(getDesktopDir())]
+}
+
+async function readCursorCommandFile(
+	target: {
+		filename: string
+		relativePath: string
+	},
+	workspaceRoot: string,
+): Promise<string | undefined> {
+	const root = path.resolve(workspaceRoot)
+	const commandRoot = path.resolve(root, GlobalFileNames.cursorCommandsDir)
+	const filePath = path.resolve(root, target.relativePath)
+	if (filePath !== path.resolve(commandRoot, target.filename)) {
+		return undefined
+	}
+
+	let stat
+	try {
+		stat = await fs.lstat(filePath)
+	} catch (error) {
+		const code =
+			error && typeof error === "object" && "code" in error
+				? (error as { code?: unknown }).code
+				: undefined
+		if (code === "ENOENT") {
+			return undefined
+		}
+		throw error
+	}
+
+	if (stat.isSymbolicLink() || !stat.isFile() || stat.size > MAX_CURSOR_COMMAND_FILE_BYTES) {
+		Logger.warn(
+			`SharedUriHandler: Cursor command file is not readable or exceeds ${MAX_CURSOR_COMMAND_FILE_BYTES} bytes: ${target.relativePath}`,
+		)
+		return undefined
+	}
+
+	const content = await fs.readFile(filePath, "utf8")
+	if (!content.trim()) {
+		Logger.warn(`SharedUriHandler: Cursor command file is empty: ${target.relativePath}`)
+		return undefined
+	}
+	return content
+}
+
 function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 	source?: string
 	sourceParam?: "id" | "name" | "url"
@@ -696,50 +752,24 @@ export class SharedUriHandler {
 			return false
 		}
 
-		const cwd = await getCwd(getDesktopDir())
-		const commandRoot = path.resolve(cwd, GlobalFileNames.cursorCommandsDir)
-		const filePath = path.resolve(cwd, target.relativePath)
-		if (filePath !== path.join(commandRoot, target.filename)) {
-			return false
-		}
-
-		let stat
-		try {
-			stat = await fs.lstat(filePath)
-		} catch (error) {
-			const code =
-				error && typeof error === "object" && "code" in error
-					? (error as { code?: unknown }).code
-					: undefined
-			if (code === "ENOENT") {
-				return false
+		for (const workspaceRoot of await getCursorCommandWorkspaceRoots()) {
+			const content = await readCursorCommandFile(target, workspaceRoot)
+			if (!content) {
+				continue
 			}
-			throw error
-		}
 
-		if (stat.isSymbolicLink() || !stat.isFile() || stat.size > MAX_CURSOR_COMMAND_FILE_BYTES) {
-			Logger.warn(
-				`SharedUriHandler: Cursor command file is not readable or exceeds ${MAX_CURSOR_COMMAND_FILE_BYTES} bytes: ${target.relativePath}`,
+			const confirmed = await this.confirmCursorTaskCreation(
+				route,
+				`Create an agent task from the workspace command file "${target.relativePath}". The file is treated as user-supplied instructions.`,
 			)
-			return false
-		}
+			if (!confirmed) {
+				return true
+			}
 
-		const content = await fs.readFile(filePath, "utf8")
-		if (!content.trim()) {
-			Logger.warn(`SharedUriHandler: Cursor command file is empty: ${target.relativePath}`)
-			return false
-		}
-
-		const confirmed = await this.confirmCursorTaskCreation(
-			route,
-			`Create an agent task from the workspace command file "${target.relativePath}". The file is treated as user-supplied instructions.`,
-		)
-		if (!confirmed) {
+			await controller.handleTaskCreation(buildCursorCommandFilePrompt(target, content))
 			return true
 		}
-
-		await controller.handleTaskCreation(buildCursorCommandFilePrompt(target, content))
-		return true
+		return false
 	}
 
 	private static async confirmCursorTaskCreation(route: CursorCompatibleUriRoute, action: string): Promise<boolean> {
