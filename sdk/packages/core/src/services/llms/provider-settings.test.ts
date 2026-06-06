@@ -35,6 +35,7 @@ describe("provider settings", () => {
 				installationId: "install_123",
 				clientVersion: "0.136.0-test",
 				tokenSource: "codex-home",
+				authMode: "chatgpt",
 			},
 		});
 
@@ -51,6 +52,7 @@ describe("provider settings", () => {
 				accountId: "acct_123",
 				installationId: "install_123",
 				tokenSource: "codex-home",
+				authMode: "chatgpt",
 			},
 		});
 	});

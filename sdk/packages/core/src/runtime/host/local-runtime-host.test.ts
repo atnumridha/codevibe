@@ -4019,6 +4019,13 @@ describe("LocalRuntimeHost", () => {
 					providerId: "openai-codex",
 					apiKey: "oauth-access-new",
 					accountId: "acct-new",
+					codex: {
+						accountId: "acct-new",
+						installationId: "install_123",
+						clientVersion: "0.136.0-test",
+						tokenSource: "codex-home",
+						authMode: "chatgpt",
+					},
 					refreshed: true,
 				}),
 			} as never,
@@ -4047,7 +4054,6 @@ describe("LocalRuntimeHost", () => {
 					apiKey: "oauth-access-old",
 					headers: {
 						"ChatGPT-Account-Id": "acct-old",
-						"x-codex-installation-id": "install_123",
 					},
 				}),
 				interactive: true,
@@ -4065,7 +4071,13 @@ describe("LocalRuntimeHost", () => {
 				apiKey: "oauth-access-new",
 				accessToken: "oauth-access-new",
 				accountId: "acct-new",
-				codex: expect.objectContaining({ accountId: "acct-new" }),
+				codex: expect.objectContaining({
+					accountId: "acct-new",
+					installationId: "install_123",
+					clientVersion: "0.136.0-test",
+					tokenSource: "codex-home",
+					authMode: "chatgpt",
+				}),
 				headers: expect.objectContaining({
 					"ChatGPT-Account-Id": "acct-new",
 					"x-codex-installation-id": "install_123",

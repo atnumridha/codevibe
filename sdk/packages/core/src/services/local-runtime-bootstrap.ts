@@ -222,6 +222,10 @@ function buildProviderConfig(
 						typeof codexHomeCredentials.metadata?.tokenSource === "string"
 							? codexHomeCredentials.metadata.tokenSource
 							: undefined,
+					authMode:
+						typeof codexHomeCredentials.metadata?.authMode === "string"
+							? codexHomeCredentials.metadata.authMode
+							: undefined,
 				}
 			: undefined;
 	const modelCatalog =

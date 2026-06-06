@@ -121,10 +121,20 @@ import {
 const MAX_SCAN_LIMIT = 5000;
 const OPENAI_CODEX_PROVIDER_ID = "openai-codex";
 const OPENAI_CODEX_ACCOUNT_HEADER = "ChatGPT-Account-Id";
+const OPENAI_CODEX_INSTALLATION_HEADER = "x-codex-installation-id";
 
 type OAuthConnectionOverrides = Partial<
 	Pick<AgentConfig, "apiKey" | "headers" | "providerConfig">
 >;
+type OpenAICodexConfigOptions = NonNullable<
+	NonNullable<CoreSessionConfig["providerConfig"]>["codex"]
+>;
+type OpenAICodexConfigKey =
+	| "accountId"
+	| "installationId"
+	| "clientVersion"
+	| "tokenSource"
+	| "authMode";
 
 function trimNonEmpty(value: string | undefined): string | undefined {
 	const trimmed = value?.trim();
@@ -139,6 +149,44 @@ function mergeHeadersForRefresh(
 		...(providerHeaders ?? {}),
 		...(sessionHeaders ?? {}),
 	};
+}
+
+function hasOpenAICodexConfigChanged(
+	existing: OpenAICodexConfigOptions | undefined,
+	next: OpenAICodexConfigOptions | undefined,
+): boolean {
+	const keys: OpenAICodexConfigKey[] = [
+		"accountId",
+		"installationId",
+		"clientVersion",
+		"tokenSource",
+		"authMode",
+	];
+	return keys.some((key) => existing?.[key] !== next?.[key]);
+}
+
+function mergeOpenAICodexConfig(
+	existing: OpenAICodexConfigOptions | undefined,
+	resolved: RuntimeOAuthResolution,
+	accountId: string | undefined,
+): OpenAICodexConfigOptions | undefined {
+	const next = {
+		...(existing ?? {}),
+		...(accountId ? { accountId } : {}),
+		...(trimNonEmpty(resolved.codex?.installationId)
+			? { installationId: trimNonEmpty(resolved.codex?.installationId) }
+			: {}),
+		...(trimNonEmpty(resolved.codex?.clientVersion)
+			? { clientVersion: trimNonEmpty(resolved.codex?.clientVersion) }
+			: {}),
+		...(trimNonEmpty(resolved.codex?.tokenSource)
+			? { tokenSource: trimNonEmpty(resolved.codex?.tokenSource) }
+			: {}),
+		...(trimNonEmpty(resolved.codex?.authMode)
+			? { authMode: trimNonEmpty(resolved.codex?.authMode) }
+			: {}),
+	} as OpenAICodexConfigOptions;
+	return Object.keys(next).length > 0 ? next : undefined;
 }
 
 function asFiniteUsageNumber(value: unknown): number | undefined {
@@ -1621,19 +1669,32 @@ export class LocalRuntimeHost implements RuntimeHost {
 	): void {
 		const providerConfig = session.config.providerConfig;
 		const accountId = trimNonEmpty(resolved.accountId);
+		const installationId = trimNonEmpty(resolved.codex?.installationId);
 		const mergedHeaders = mergeHeadersForRefresh(
 			session.config.headers,
 			providerConfig?.headers,
 		);
+		const refreshedHeaders = { ...mergedHeaders };
+		let shouldUpdateHeaders = false;
 		if (
 			accountId &&
 			(mergedHeaders[OPENAI_CODEX_ACCOUNT_HEADER] !== accountId ||
 				session.config.headers?.[OPENAI_CODEX_ACCOUNT_HEADER] !== accountId)
 		) {
-			overrides.headers = {
-				...mergedHeaders,
-				[OPENAI_CODEX_ACCOUNT_HEADER]: accountId,
-			};
+			refreshedHeaders[OPENAI_CODEX_ACCOUNT_HEADER] = accountId;
+			shouldUpdateHeaders = true;
+		}
+		if (
+			installationId &&
+			(mergedHeaders[OPENAI_CODEX_INSTALLATION_HEADER] !== installationId ||
+				session.config.headers?.[OPENAI_CODEX_INSTALLATION_HEADER] !==
+					installationId)
+		) {
+			refreshedHeaders[OPENAI_CODEX_INSTALLATION_HEADER] = installationId;
+			shouldUpdateHeaders = true;
+		}
+		if (shouldUpdateHeaders) {
+			overrides.headers = refreshedHeaders;
 		}
 		if (!providerConfig) return;
 
@@ -1644,9 +1705,20 @@ export class LocalRuntimeHost implements RuntimeHost {
 				? providerConfig.codex
 				: undefined;
 		const nextHeaders = overrides.headers ?? providerConfig.headers;
+		const nextCodex = mergeOpenAICodexConfig(
+			existingCodex,
+			resolved,
+			accountId,
+		);
+		const codexNeedsUpdate = hasOpenAICodexConfigChanged(
+			existingCodex,
+			nextCodex,
+		);
 		const providerConfigNeedsUpdate =
 			providerConfig.apiKey !== resolved.apiKey ||
 			providerConfig.accessToken !== resolved.apiKey ||
+			overrides.headers !== undefined ||
+			codexNeedsUpdate ||
 			(accountId !== undefined &&
 				(providerConfig.accountId !== accountId ||
 					providerConfig.headers?.[OPENAI_CODEX_ACCOUNT_HEADER] !== accountId ||
@@ -1659,9 +1731,7 @@ export class LocalRuntimeHost implements RuntimeHost {
 			accessToken: resolved.apiKey,
 			...(accountId ? { accountId } : {}),
 			...(nextHeaders ? { headers: nextHeaders } : {}),
-			...(accountId
-				? { codex: { ...(existingCodex ?? {}), accountId } }
-				: {}),
+			...(nextCodex ? { codex: nextCodex } : {}),
 		};
 	}
 

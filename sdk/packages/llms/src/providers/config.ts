@@ -208,6 +208,7 @@ export interface CodexConfig {
 	accountId?: string;
 	installationId?: string;
 	tokenSource?: string;
+	authMode?: string;
 	defaultSettings?: Record<string, unknown>;
 	modelSettings?: Record<string, unknown>;
 }

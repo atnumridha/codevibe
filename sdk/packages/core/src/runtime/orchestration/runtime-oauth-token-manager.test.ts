@@ -91,6 +91,7 @@ describe("RuntimeOAuthTokenManager", () => {
 				installationId: "install_home",
 				clientVersion: "0.136.0-test",
 				tokenSource: "codex-home",
+				authMode: "chatgpt",
 			},
 		});
 		const saveProviderSettings = vi.fn();
@@ -117,8 +118,26 @@ describe("RuntimeOAuthTokenManager", () => {
 			providerId: "openai-codex",
 			apiKey: "access-home-new",
 			accountId: "acct-home",
+			codex: {
+				accountId: "acct-home",
+				installationId: "install_home",
+				clientVersion: "0.136.0-test",
+				tokenSource: "codex-home",
+				authMode: "chatgpt",
+			},
 			refreshed: true,
 		});
+		expect(getValidOpenAICodexCredentials).toHaveBeenCalledWith(
+			expect.objectContaining({
+				metadata: expect.objectContaining({
+					installationId: "install_home",
+					clientVersion: "0.136.0-test",
+					tokenSource: "codex-home",
+					authMode: "chatgpt",
+				}),
+			}),
+			expect.any(Object),
+		);
 		expect(saveProviderSettings).toHaveBeenCalledWith(
 			expect.objectContaining({
 				auth: expect.objectContaining({
@@ -129,6 +148,7 @@ describe("RuntimeOAuthTokenManager", () => {
 					installationId: "install_home",
 					clientVersion: "0.136.0-test",
 					tokenSource: "codex-home",
+					authMode: "chatgpt",
 				}),
 			}),
 			{ setLastUsed: false, tokenSource: "oauth" },

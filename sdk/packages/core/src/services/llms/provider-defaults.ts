@@ -771,7 +771,11 @@ function shouldLoadPrivateModels(
 
 function compactCodexOptions(
 	options: Record<
-		"clientVersion" | "accountId" | "installationId" | "tokenSource",
+		| "clientVersion"
+		| "accountId"
+		| "installationId"
+		| "tokenSource"
+		| "authMode",
 		string | undefined
 	>,
 ): ProviderConfig["codex"] | undefined {
@@ -806,6 +810,8 @@ function buildOpenAICodexHomeProviderConfig(
 			typeof metadata?.tokenSource === "string"
 				? metadata.tokenSource
 				: undefined,
+		authMode:
+			typeof metadata?.authMode === "string" ? metadata.authMode : undefined,
 	});
 
 	return {

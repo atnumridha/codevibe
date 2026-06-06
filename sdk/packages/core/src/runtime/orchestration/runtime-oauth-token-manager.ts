@@ -76,6 +76,68 @@ function deriveCredentialExpiry(
 	return Date.now() - 1;
 }
 
+function trimStringField(value: unknown): string | undefined {
+	if (typeof value !== "string") {
+		return undefined;
+	}
+	const trimmed = value.trim();
+	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+export type RuntimeOpenAICodexMetadata = {
+	accountId?: string;
+	installationId?: string;
+	clientVersion?: string;
+	tokenSource?: string;
+	authMode?: string;
+};
+
+function compactCodexMetadata(
+	metadata: RuntimeOpenAICodexMetadata,
+): RuntimeOpenAICodexMetadata | undefined {
+	const compacted = Object.fromEntries(
+		Object.entries(metadata).filter(([, value]) => value !== undefined),
+	) as RuntimeOpenAICodexMetadata;
+	return Object.keys(compacted).length > 0 ? compacted : undefined;
+}
+
+function readCodexMetadataFromAuth(
+	auth: ProviderSettings["auth"] | undefined,
+): RuntimeOpenAICodexMetadata | undefined {
+	return compactCodexMetadata({
+		accountId: trimStringField(auth?.accountId),
+		installationId: trimStringField(auth?.installationId),
+		clientVersion: trimStringField(auth?.clientVersion),
+		tokenSource: trimStringField(auth?.tokenSource),
+		authMode: trimStringField(auth?.authMode),
+	});
+}
+
+function readCodexMetadataFromCredentials(
+	credentials: ClineOAuthCredentials,
+	fallbackAuth: ProviderSettings["auth"] | undefined,
+): RuntimeOpenAICodexMetadata | undefined {
+	const metadata = credentials.metadata ?? {};
+	return compactCodexMetadata({
+		accountId:
+			trimStringField(credentials.accountId) ??
+			trimStringField(metadata.accountId) ??
+			trimStringField(fallbackAuth?.accountId),
+		installationId:
+			trimStringField(metadata.installationId) ??
+			trimStringField(fallbackAuth?.installationId),
+		clientVersion:
+			trimStringField(metadata.clientVersion) ??
+			trimStringField(fallbackAuth?.clientVersion),
+		tokenSource:
+			trimStringField(metadata.tokenSource) ??
+			trimStringField(fallbackAuth?.tokenSource),
+		authMode:
+			trimStringField(metadata.authMode) ??
+			trimStringField(fallbackAuth?.authMode),
+	});
+}
+
 function toCredentials(
 	providerId: ManagedOAuthProviderId,
 	settings: ProviderSettings,
@@ -95,6 +157,14 @@ function toCredentials(
 		refresh: refreshToken,
 		expires: deriveCredentialExpiry(settings, access),
 		accountId: settings.auth?.accountId,
+		...(providerId === "openai-codex"
+			? {
+					metadata: {
+						provider: "openai-codex",
+						...(readCodexMetadataFromAuth(settings.auth) ?? {}),
+					},
+				}
+			: {}),
 	};
 }
 
@@ -112,6 +182,10 @@ function authSettingsEqual(
 		a?.accessToken === b?.accessToken &&
 		a?.refreshToken === b?.refreshToken &&
 		a?.accountId === b?.accountId &&
+		a?.installationId === b?.installationId &&
+		a?.clientVersion === b?.clientVersion &&
+		a?.tokenSource === b?.tokenSource &&
+		a?.authMode === b?.authMode &&
 		aExpiry === bExpiry
 	);
 }
@@ -132,6 +206,7 @@ export type RuntimeOAuthResolution = {
 	providerId: ManagedOAuthProviderId;
 	apiKey: string;
 	accountId?: string;
+	codex?: RuntimeOpenAICodexMetadata;
 	refreshed: boolean;
 };
 
@@ -210,11 +285,16 @@ export class RuntimeOAuthTokenManager {
 			providerId,
 			nextCredentials.access,
 		);
+		const codex =
+			providerId === "openai-codex"
+				? readCodexMetadataFromCredentials(nextCredentials, settings.auth)
+				: undefined;
 		const nextAuth = {
 			...(settings.auth ?? {}),
 			accessToken: persistedAccessToken,
 			refreshToken: nextCredentials.refresh,
-			accountId: nextCredentials.accountId,
+			accountId: nextCredentials.accountId ?? settings.auth?.accountId,
+			...(codex ?? {}),
 		} as ProviderSettings["auth"] & { expiresAt?: number };
 		nextAuth.expiresAt = nextCredentials.expires;
 		const nextSettings: ProviderSettings = {
@@ -232,7 +312,8 @@ export class RuntimeOAuthTokenManager {
 		return {
 			providerId,
 			apiKey: persistedAccessToken,
-			accountId: nextCredentials.accountId,
+			accountId: nextAuth.accountId,
+			...(codex ? { codex } : {}),
 			refreshed: wasRefreshed,
 		};
 	}

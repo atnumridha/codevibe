@@ -61,6 +61,7 @@ export const AuthSettingsSchema = z.object({
 	installationId: z.string().optional(),
 	clientVersion: z.string().optional(),
 	tokenSource: z.string().optional(),
+	authMode: z.string().optional(),
 });
 
 export type AuthSettings = z.infer<typeof AuthSettingsSchema>;
@@ -251,6 +252,7 @@ export function toProviderConfig(
 					accountId: codexAuth.accountId,
 					installationId: codexAuth.installationId,
 					tokenSource: codexAuth.tokenSource,
+					authMode: codexAuth.authMode,
 				}).filter(([, value]) => value !== undefined),
 			) as ProviderConfig["codex"])
 		: undefined;
