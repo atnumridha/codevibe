@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
+	buildCursorAutomationIngestRouteRequest,
 	buildCursorAgentTaskRouteRequest,
 	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
@@ -11,12 +12,13 @@ import {
 	formatCursorMcpInstallDetail,
 	HubSessionClient,
 	installPlugin,
-	parseAutomationEventNdjson,
 	resolveCursorCommandFileRouteRequest,
-	type AutomationEventEnvelope,
 	type ClineAutomationNdjsonIngestOptions,
 	type ClineAutomationNdjsonIngressResult,
 	type ClineCoreAutomationApi,
+	type CursorAutomationEventSummary,
+	type CursorAutomationIngestRouteRequest,
+	type CursorAutomationRejectedLineSummary,
 } from "@cline/core";
 import type {
 	ChatRunTurnRequest,
@@ -31,8 +33,6 @@ import {
 import { ensureCliHubServer } from "../utils/hub-runtime";
 
 const BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS = 5_000;
-const MAX_CURSOR_URI_PARAM_LENGTH = 16_384;
-const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024;
 
 export type BackgroundAgentHubResolution = {
 	url: string;
@@ -93,36 +93,6 @@ export interface CursorMcpInstallCommandOptions {
 	};
 }
 
-interface CursorAutomationIngestRouteRequest {
-	ndjson: string;
-	strict: boolean;
-	defaultSource?: string;
-	allowedSources?: string[];
-	maxLineBytes?: number;
-	maxEvents?: number;
-	paramKeys: string[];
-	configKeys: string[];
-}
-
-interface AutomationEventSummary {
-	eventId: string;
-	eventType: string;
-	source: string;
-	occurredAt: string;
-	subject?: string;
-	workspaceRoot?: string;
-	dedupeKey?: string;
-	payloadKeys?: string[];
-	attributeKeys?: string[];
-}
-
-interface AutomationRejectedSummary {
-	lineNumber: number;
-	reason: string;
-	message: string;
-	lineLength: number;
-}
-
 interface AutomationIngestReport {
 	handled: true;
 	route: "automation-ingest";
@@ -142,8 +112,8 @@ interface AutomationIngestReport {
 	maxEvents?: number;
 	paramKeys: string[];
 	configKeys: string[];
-	events: AutomationEventSummary[];
-	rejected: AutomationRejectedSummary[];
+	events: CursorAutomationEventSummary[];
+	rejected: CursorAutomationRejectedLineSummary[];
 }
 
 function writeCommandError(
@@ -203,187 +173,22 @@ function writeSettingsRoute(options: CursorMcpInstallCommandOptions): number {
 	return 0;
 }
 
-function decodeBase64JsonConfig(value: string): Record<string, unknown> {
-	const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-	const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-	const raw = Buffer.from(padded, "base64").toString("utf8");
-	if (raw.length > MAX_CURSOR_URI_CONFIG_JSON_LENGTH) {
-		throw new Error("config JSON exceeds maximum length");
-	}
-	const parsed = JSON.parse(raw) as unknown;
-	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-		throw new Error("config must decode to a JSON object");
-	}
-	return parsed as Record<string, unknown>;
-}
-
-function parseCursorAutomationIngestParams(
-	uri: string,
-): Record<string, string | Record<string, unknown>> {
-	const parsedUrl = new URL(uri);
-	if (parsedUrl.pathname !== "/automation/ingest") {
-		throw new Error(
-			`Expected /automation/ingest route, received ${parsedUrl.pathname || "/"}`,
-		);
-	}
-	const query = new URLSearchParams(parsedUrl.search.slice(1).replace(/\+/g, "%2B"));
-	const values: Record<string, string | Record<string, unknown>> = {};
-	const allowed = new Set([
-		"ndjson",
-		"input",
-		"defaultSource",
-		"allowedSources",
-		"maxLineBytes",
-		"maxEvents",
-		"strict",
-		"config",
-	]);
-	for (const [key, value] of query.entries()) {
-		if (!key || key.length > 128) {
-			throw new Error("query parameter name is invalid");
-		}
-		if (!allowed.has(key)) {
-			throw new Error(`/automation/ingest does not accept query parameter "${key}"`);
-		}
-		if (Object.hasOwn(values, key)) {
-			throw new Error(`duplicate query parameter: ${key}`);
-		}
-		if (value.length > MAX_CURSOR_URI_PARAM_LENGTH) {
-			throw new Error(`query parameter is too large: ${key}`);
-		}
-		values[key] = key === "config" ? decodeBase64JsonConfig(value) : value;
-	}
-	return values;
-}
-
-function getParamString(
-	params: Record<string, string | Record<string, unknown>>,
-	key: string,
-): string | undefined {
-	const value = params[key];
-	return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function getConfigString(config: Record<string, unknown>, key: string): string | undefined {
-	const value = config[key];
-	return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function parsePositiveInteger(value: string | undefined, label: string): number | undefined {
-	if (!value) return undefined;
-	const parsed = Number.parseInt(value, 10);
-	if (!Number.isFinite(parsed) || parsed <= 0 || String(parsed) !== value.trim()) {
-		throw new Error(`${label} must be a positive integer`);
-	}
-	return parsed;
-}
-
-function parseCursorBoolean(value: string | undefined, label: string): boolean {
-	if (!value) return false;
-	const normalized = value.toLowerCase();
-	if (["true", "1", "yes"].includes(normalized)) return true;
-	if (["false", "0", "no"].includes(normalized)) return false;
-	throw new Error(`${label} must be one of true, false, 1, 0, yes, or no`);
-}
-
-function parseCsvList(value: string | undefined): string[] | undefined {
-	const items = value
-		?.split(",")
-		.map((item) => item.trim())
-		.filter(Boolean);
-	return items && items.length > 0 ? items : undefined;
-}
-
-function buildCursorAutomationIngestRouteRequest(
-	uri: string,
-): CursorAutomationIngestRouteRequest {
-	const params = parseCursorAutomationIngestParams(uri);
-	const config =
-		params.config && typeof params.config === "object" && !Array.isArray(params.config)
-			? params.config
-			: {};
-	const ndjson =
-		getParamString(params, "ndjson") ||
-		getParamString(params, "input") ||
-		getConfigString(config, "ndjson") ||
-		getConfigString(config, "input");
-	if (!ndjson) {
-		throw new Error("ndjson or input is required");
-	}
-
-	return {
-		ndjson,
-		strict: parseCursorBoolean(
-			getParamString(params, "strict") || getConfigString(config, "strict"),
-			"strict",
-		),
-		defaultSource:
-			getParamString(params, "defaultSource") ||
-			getConfigString(config, "defaultSource"),
-		allowedSources: parseCsvList(
-			getParamString(params, "allowedSources") ||
-				getConfigString(config, "allowedSources"),
-		),
-		maxLineBytes: parsePositiveInteger(
-			getParamString(params, "maxLineBytes") ||
-				getConfigString(config, "maxLineBytes"),
-			"maxLineBytes",
-		),
-		maxEvents: parsePositiveInteger(
-			getParamString(params, "maxEvents") || getConfigString(config, "maxEvents"),
-			"maxEvents",
-		),
-		paramKeys: Object.keys(params).sort(),
-		configKeys: Object.keys(config).sort(),
-	};
-}
-
 function toAutomationIngestOptions(
 	request: CursorAutomationIngestRouteRequest,
 ): ClineAutomationNdjsonIngestOptions {
 	return {
-		...(request.defaultSource ? { defaultSource: request.defaultSource } : {}),
-		...(request.allowedSources ? { allowedSources: request.allowedSources } : {}),
-		...(request.maxLineBytes ? { maxLineBytes: request.maxLineBytes } : {}),
-		...(request.maxEvents ? { maxEvents: request.maxEvents } : {}),
-	};
-}
-
-function objectKeys(value: unknown): string[] | undefined {
-	if (!value || typeof value !== "object" || Array.isArray(value)) {
-		return undefined;
-	}
-	const keys = Object.keys(value).sort();
-	return keys.length > 0 ? keys : undefined;
-}
-
-function summarizeAutomationEvent(event: AutomationEventEnvelope): AutomationEventSummary {
-	const payloadKeys = objectKeys(event.payload);
-	const attributeKeys = objectKeys(event.attributes);
-	return {
-		eventId: event.eventId,
-		eventType: event.eventType,
-		source: event.source,
-		occurredAt: event.occurredAt,
-		...(event.subject ? { subject: event.subject } : {}),
-		...(event.workspaceRoot ? { workspaceRoot: event.workspaceRoot } : {}),
-		...(event.dedupeKey ? { dedupeKey: event.dedupeKey } : {}),
-		...(payloadKeys ? { payloadKeys } : {}),
-		...(attributeKeys ? { attributeKeys } : {}),
-	};
-}
-
-function summarizeAutomationRejectedLine(input: {
-	lineNumber: number;
-	reason: string;
-	message: string;
-	line: string;
-}): AutomationRejectedSummary {
-	return {
-		lineNumber: input.lineNumber,
-		reason: input.reason,
-		message: input.message,
-		lineLength: input.line.length,
+		...(request.options.defaultSource
+			? { defaultSource: request.options.defaultSource }
+			: {}),
+		...(request.options.allowedSources
+			? { allowedSources: request.options.allowedSources }
+			: {}),
+		...(request.options.maxLineBytes !== undefined
+			? { maxLineBytes: request.options.maxLineBytes }
+			: {}),
+		...(request.options.maxEvents !== undefined
+			? { maxEvents: request.options.maxEvents }
+			: {}),
 	};
 }
 
@@ -392,12 +197,9 @@ function buildAutomationIngestReport(
 	ingested: boolean,
 	result?: ClineAutomationNdjsonIngressResult,
 ): AutomationIngestReport {
-	const parsed =
-		result ??
-		parseAutomationEventNdjson(request.ndjson, toAutomationIngestOptions(request));
-	const strictFailed = request.strict && parsed.rejected.length > 0;
-	const valid = parsed.events.length > 0 && !strictFailed;
-	const results = "results" in parsed ? parsed.results : undefined;
+	const strictFailed = request.strict && request.validation.rejectedCount > 0;
+	const valid = request.validation.eventCount > 0 && !strictFailed;
+	const results = result?.results;
 	return {
 		handled: true,
 		route: "automation-ingest",
@@ -406,8 +208,8 @@ function buildAutomationIngestReport(
 		strict: request.strict,
 		...(strictFailed ? { strictFailed: true } : {}),
 		valid,
-		eventCount: parsed.events.length,
-		rejectedCount: parsed.rejected.length,
+		eventCount: request.validation.eventCount,
+		rejectedCount: request.validation.rejectedCount,
 		...(results ? { resultCount: results.length } : {}),
 		...(results
 			? {
@@ -418,14 +220,22 @@ function buildAutomationIngestReport(
 					),
 				}
 			: {}),
-		...(request.defaultSource ? { defaultSource: request.defaultSource } : {}),
-		...(request.allowedSources ? { allowedSources: request.allowedSources } : {}),
-		...(request.maxLineBytes ? { maxLineBytes: request.maxLineBytes } : {}),
-		...(request.maxEvents ? { maxEvents: request.maxEvents } : {}),
+		...(request.options.defaultSource
+			? { defaultSource: request.options.defaultSource }
+			: {}),
+		...(request.options.allowedSources
+			? { allowedSources: request.options.allowedSources }
+			: {}),
+		...(request.options.maxLineBytes !== undefined
+			? { maxLineBytes: request.options.maxLineBytes }
+			: {}),
+		...(request.options.maxEvents !== undefined
+			? { maxEvents: request.options.maxEvents }
+			: {}),
 		paramKeys: request.paramKeys,
 		configKeys: request.configKeys,
-		events: parsed.events.map(summarizeAutomationEvent),
-		rejected: parsed.rejected.map(summarizeAutomationRejectedLine),
+		events: request.validation.events,
+		rejected: request.validation.rejected,
 	};
 }
 
