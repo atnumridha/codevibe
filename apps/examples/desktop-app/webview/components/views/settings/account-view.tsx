@@ -11,9 +11,12 @@ import type {
 } from "@cline/core";
 import {
 	AlertCircle,
+	Bot,
 	Building,
+	CheckCircle2,
 	CreditCard,
 	ExternalLink,
+	KeyRound,
 	Loader2,
 	LogOut,
 	Plus,
@@ -28,13 +31,34 @@ import { cn } from "@/lib/utils";
 
 function normalizeAccountViewError(error: unknown): Error {
 	const message = error instanceof Error ? error.message : String(error);
-	if (message.includes("unsupported desktop command: cline_account")) {
+	if (
+		message.includes("unsupported desktop command: cline_account") ||
+		message.includes("unsupported desktop command: openai_codex_auth_status")
+	) {
 		return new Error(
 			"The desktop sidecar is running an older build that does not support account commands. Restart the sidecar or reload the app, then try again.",
 		);
 	}
 	return error instanceof Error ? error : new Error(message);
 }
+
+type OpenAICodexAuthStatus = {
+	provider: string;
+	connected: boolean;
+	accessTokenPresent?: boolean;
+	refreshTokenPresent?: boolean;
+	apiKeyPresent?: boolean;
+	tokenSource?: string;
+	accountId?: string;
+	expiresAt?: number;
+	expiresAtIso?: string;
+	expired?: boolean;
+	installationIdPresent?: boolean;
+	clientVersion?: string;
+	lastUsed?: boolean;
+	settingsPath?: string;
+	updatedAt?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Data fetching helpers via sidecar command
@@ -118,6 +142,18 @@ async function fetchPaymentTransactions(): Promise<
 	);
 }
 
+async function fetchOpenAICodexAuthStatus(): Promise<OpenAICodexAuthStatus> {
+	return await desktopClient.invoke<OpenAICodexAuthStatus>(
+		"openai_codex_auth_status",
+	);
+}
+
+async function signInOpenAICodex(): Promise<void> {
+	await desktopClient.invoke("run_provider_oauth_login", {
+		provider: "openai-codex",
+	});
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -137,6 +173,11 @@ export function AccountView() {
 	>([]);
 	const [overviewLoading, setOverviewLoading] = useState(true);
 	const [overviewError, setOverviewError] = useState<string | null>(null);
+	const [codexAuth, setCodexAuth] =
+		useState<OpenAICodexAuthStatus | null>(null);
+	const [codexAuthLoading, setCodexAuthLoading] = useState(true);
+	const [codexAuthError, setCodexAuthError] = useState<string | null>(null);
+	const [codexAuthSigningIn, setCodexAuthSigningIn] = useState(false);
 
 	// Usage data
 	const [usageTransactions, setUsageTransactions] = useState<
@@ -155,6 +196,38 @@ export function AccountView() {
 	const [billingError, setBillingError] = useState<string | null>(null);
 	const [billingLoaded, setBillingLoaded] = useState(false);
 	const activeOrganization = organizations.find((org) => org.active) ?? null;
+
+	// -- Codex auth fetch --
+	const loadCodexAuth = useCallback(async () => {
+		setCodexAuthLoading(true);
+		setCodexAuthError(null);
+		try {
+			setCodexAuth(await fetchOpenAICodexAuthStatus());
+		} catch (err) {
+			const message = normalizeAccountViewError(err).message;
+			setCodexAuthError(message);
+		} finally {
+			setCodexAuthLoading(false);
+		}
+	}, []);
+
+	const handleCodexSignIn = useCallback(async () => {
+		setCodexAuthSigningIn(true);
+		setCodexAuthError(null);
+		try {
+			await signInOpenAICodex();
+			await loadCodexAuth();
+		} catch (err) {
+			const message = normalizeAccountViewError(err).message;
+			setCodexAuthError(message);
+		} finally {
+			setCodexAuthSigningIn(false);
+		}
+	}, [loadCodexAuth]);
+
+	useEffect(() => {
+		void loadCodexAuth();
+	}, [loadCodexAuth]);
 
 	// -- Overview fetch --
 	const loadOverview = useCallback(async () => {
@@ -273,6 +346,37 @@ export function AccountView() {
 		}).format(value / 1_000_000);
 	};
 
+	const formatCodexAuthSource = (source?: string) => {
+		switch (source) {
+			case "codex-home":
+				return "Codex home";
+			case "oauth":
+				return "OAuth";
+			case "manual":
+				return "Manual";
+			case "migration":
+				return "Migration";
+			default:
+				return source ?? "Not available";
+		}
+	};
+
+	const formatCodexExpiry = (status: OpenAICodexAuthStatus | null) => {
+		if (!status?.expiresAtIso) {
+			return "Not available";
+		}
+		const formatted = `${formatDate(status.expiresAtIso)} ${formatTime(
+			status.expiresAtIso,
+		)}`;
+		return status.expired ? `Expired ${formatted}` : formatted;
+	};
+
+	const formatCompactPath = (value?: string) => {
+		if (!value) return "Not available";
+		const parts = value.split(/[\\/]/).filter(Boolean);
+		return parts.slice(-2).join("/");
+	};
+
 	const displayedBalance = activeOrganization
 		? (organizationBalance?.balance ?? balance?.balance ?? null)
 		: (balance?.balance ?? null);
@@ -301,6 +405,141 @@ export function AccountView() {
 			<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
 		</div>
 	);
+
+	const renderCodexDetail = (
+		label: string,
+		value: string,
+		title?: string,
+	) => (
+		<div className="min-w-0 rounded-lg border border-border bg-secondary/30 px-3 py-2">
+			<p className="text-[11px] font-medium uppercase text-muted-foreground">
+				{label}
+			</p>
+			<p className="mt-1 truncate text-sm text-foreground" title={title ?? value}>
+				{value}
+			</p>
+		</div>
+	);
+
+	const renderCodexAuthCard = () => {
+		const connected = codexAuth?.connected === true;
+		const statusLabel = codexAuthLoading
+			? "Checking"
+			: connected
+				? "Connected"
+				: codexAuthError
+					? "Unavailable"
+					: "Not connected";
+
+		return (
+			<div className="rounded-lg border border-border p-5">
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+					<div className="flex min-w-0 items-start gap-3">
+						<div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+							<Bot className="h-5 w-5" />
+						</div>
+						<div className="min-w-0">
+							<div className="flex flex-wrap items-center gap-2">
+								<h3 className="text-sm font-semibold text-foreground">
+									ChatGPT Codex
+								</h3>
+								<span
+									className={cn(
+										"inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+										connected
+											? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+											: "bg-secondary text-muted-foreground",
+									)}
+								>
+									{connected ? (
+										<CheckCircle2 className="h-3.5 w-3.5" />
+									) : (
+										<AlertCircle className="h-3.5 w-3.5" />
+									)}
+									{statusLabel}
+								</span>
+							</div>
+							{codexAuthError && (
+								<p className="mt-2 text-xs text-destructive">
+									{codexAuthError}
+								</p>
+							)}
+						</div>
+					</div>
+					<div className="flex shrink-0 items-center gap-2">
+						<button
+							type="button"
+							onClick={loadCodexAuth}
+							disabled={codexAuthLoading || codexAuthSigningIn}
+							title="Refresh Codex auth"
+							className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+						>
+							<RefreshCw
+								className={cn("h-4 w-4", codexAuthLoading && "animate-spin")}
+							/>
+						</button>
+						<button
+							type="button"
+							onClick={handleCodexSignIn}
+							disabled={codexAuthSigningIn || codexAuthLoading}
+							className="inline-flex h-9 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+						>
+							{codexAuthSigningIn ? (
+								<Loader2 className="h-4 w-4 animate-spin" />
+							) : (
+								<KeyRound className="h-4 w-4" />
+							)}
+							{connected ? "Refresh Auth" : "Sign In"}
+						</button>
+					</div>
+				</div>
+				{codexAuthLoading ? (
+					<div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+						<Loader2 className="h-4 w-4 animate-spin" />
+						Checking Codex auth
+					</div>
+				) : codexAuth ? (
+					<div className="mt-4 grid gap-3 sm:grid-cols-2">
+						{renderCodexDetail(
+							"Source",
+							formatCodexAuthSource(codexAuth.tokenSource),
+							codexAuth.tokenSource,
+						)}
+						{renderCodexDetail(
+							"Credential",
+							codexAuth.accessTokenPresent
+								? "Access token"
+								: codexAuth.apiKeyPresent
+									? "API key"
+									: "Not available",
+						)}
+						{renderCodexDetail(
+							"Account",
+							codexAuth.accountId ?? "Not available",
+						)}
+						{renderCodexDetail("Expiry", formatCodexExpiry(codexAuth))}
+						{renderCodexDetail(
+							"Installation",
+							codexAuth.installationIdPresent ? "Present" : "Not available",
+						)}
+						{renderCodexDetail(
+							"Client",
+							codexAuth.clientVersion ?? "Not available",
+						)}
+						{renderCodexDetail(
+							"Settings",
+							formatCompactPath(codexAuth.settingsPath),
+							codexAuth.settingsPath,
+						)}
+						{renderCodexDetail(
+							"Updated",
+							codexAuth.updatedAt ? formatDate(codexAuth.updatedAt) : "Never",
+						)}
+					</div>
+				) : null}
+			</div>
+		);
+	};
 
 	return (
 		<ScrollArea className="h-full">
@@ -342,6 +581,7 @@ export function AccountView() {
 				{/* Overview Tab */}
 				{activeTab === "overview" && (
 					<div className="flex flex-col gap-6">
+						{renderCodexAuthCard()}
 						{overviewLoading && renderLoading()}
 						{overviewError && renderError(overviewError, loadOverview)}
 						{!overviewLoading && !overviewError && user && (

@@ -110,6 +110,54 @@ function readProviderSettingsUpdate(
 		: {};
 }
 
+function presentTrimmed(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim().length > 0
+		? value.trim()
+		: undefined;
+}
+
+function readOpenAICodexAuthStatus(): JsonRecord {
+	const manager = new ProviderSettingsManager();
+	const state = manager.read();
+	const entry = state.providers[DEFAULT_CODEVIBE_PROVIDER_ID];
+	const settings = entry?.settings;
+	const auth = settings?.auth;
+	const accessToken = presentTrimmed(auth?.accessToken);
+	const refreshToken = presentTrimmed(auth?.refreshToken);
+	const apiKey = presentTrimmed(settings?.apiKey);
+	const installationId = presentTrimmed(auth?.installationId);
+	const clientVersion = presentTrimmed(auth?.clientVersion);
+	const tokenSource =
+		presentTrimmed(auth?.tokenSource) ?? presentTrimmed(entry?.tokenSource);
+	const accountId = presentTrimmed(auth?.accountId);
+	const expiresAt =
+		typeof auth?.expiresAt === "number" && Number.isFinite(auth.expiresAt)
+			? auth.expiresAt
+			: undefined;
+	const expiresAtIso =
+		typeof expiresAt === "number"
+			? new Date(expiresAt).toISOString()
+			: undefined;
+
+	return {
+		provider: DEFAULT_CODEVIBE_PROVIDER_ID,
+		connected: Boolean(accessToken ?? apiKey),
+		accessTokenPresent: Boolean(accessToken),
+		refreshTokenPresent: Boolean(refreshToken),
+		apiKeyPresent: Boolean(apiKey),
+		tokenSource,
+		accountId,
+		expiresAt,
+		expiresAtIso,
+		expired: typeof expiresAt === "number" ? expiresAt <= Date.now() : undefined,
+		installationIdPresent: Boolean(installationId),
+		clientVersion,
+		lastUsed: state.lastUsedProvider === DEFAULT_CODEVIBE_PROVIDER_ID,
+		settingsPath: manager.getFilePath(),
+		updatedAt: entry?.updatedAt,
+	};
+}
+
 // ---------------------------------------------------------------------------
 // MCP settings helpers
 // ---------------------------------------------------------------------------
@@ -1150,6 +1198,9 @@ export async function handleCommand(
 			args as ClineAccountActionRequest,
 			accountService,
 		);
+	}
+	if (command === "openai_codex_auth_status") {
+		return readOpenAICodexAuthStatus();
 	}
 
 	// ── Provider management ────────────────────────────────────────────
