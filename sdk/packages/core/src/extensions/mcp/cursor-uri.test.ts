@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+	buildCursorAutomationIngestRouteRequest,
 	buildCursorAgentTaskRouteRequest,
 	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
@@ -22,6 +23,10 @@ import {
 
 function route(params: Record<string, string>): string {
 	return `vscode://cline.cline/mcp/install?${new URLSearchParams(params).toString()}`;
+}
+
+function automationRoute(params: Record<string, string>): string {
+	return `vscode://cline.cline/automation/ingest?${new URLSearchParams(params).toString()}`;
 }
 
 function encodeConfig(config: Record<string, unknown>): string {
@@ -241,6 +246,118 @@ describe("Cursor MCP install URI parser", () => {
 				"vscode://cline.cline/rule?name=team-style&extra=ignored-before",
 			),
 		).toThrow('/rule does not accept query parameter "extra"');
+	});
+
+	it("builds sanitized Cursor automation ingest route summaries", () => {
+		const ndjson = [
+			JSON.stringify({
+				id: "evt_cursor_git_1",
+				type: "git.commit.created",
+				data: { secret: "secret-value", ref: "main" },
+				attrs: { branch: "main" },
+			}),
+			"{bad-secret",
+		].join("\n");
+
+		const request = buildCursorAutomationIngestRouteRequest(
+			automationRoute({
+				defaultSource: "cursor",
+				strict: "true",
+				ndjson,
+			}),
+		);
+
+		expect(request).toMatchObject({
+			kind: "automation-ingest",
+			strict: true,
+			options: {
+				defaultSource: "cursor",
+			},
+			validation: {
+				eventCount: 1,
+				rejectedCount: 1,
+				events: [
+					{
+						eventId: "evt_cursor_git_1",
+						eventType: "git.commit.created",
+						source: "cursor",
+						payloadKeys: ["ref", "secret"],
+						attributeKeys: ["branch"],
+					},
+				],
+				rejected: [
+					{
+						lineNumber: 2,
+						reason: "invalid_json",
+						lineLength: 11,
+					},
+				],
+			},
+		});
+		expect(request.taskPrompt).toContain("accepted events: 1");
+		expect(request.taskPrompt).toContain("rejected lines: 1");
+		expect(request.taskPrompt).toContain("payload keys: ref, secret");
+		expect(request.taskPrompt).not.toContain("secret-value");
+		expect(request.taskPrompt).not.toContain("{bad-secret");
+		expect(JSON.stringify(request.validation)).not.toContain("secret-value");
+		expect(JSON.stringify(request.validation)).not.toContain("{bad-secret");
+	});
+
+	it("builds Cursor automation ingest requests from config payloads", () => {
+		const config = encodeConfig({
+			input: JSON.stringify({
+				id: "evt_cursor_git_2",
+				type: "git.commit.created",
+				source: "cursor",
+			}),
+			defaultSource: "fallback",
+			allowedSources: ["cursor"],
+			maxLineBytes: 512,
+			maxEvents: 1,
+			strict: true,
+		});
+
+		const request = buildCursorAutomationIngestRouteRequest(
+			automationRoute({ config }),
+		);
+
+		expect(request.strict).toBe(true);
+		expect(request.options).toEqual({
+			defaultSource: "fallback",
+			allowedSources: ["cursor"],
+			maxLineBytes: 512,
+			maxEvents: 1,
+		});
+		expect(request.configKeys).toEqual([
+			"allowedSources",
+			"defaultSource",
+			"input",
+			"maxEvents",
+			"maxLineBytes",
+			"strict",
+		]);
+		expect(request.validation.eventCount).toBe(1);
+		expect(request.validation.rejectedCount).toBe(0);
+	});
+
+	it("rejects unsafe Cursor automation ingest route parameters", () => {
+		expect(() =>
+			buildCursorAutomationIngestRouteRequest(
+				automationRoute({ ndjson: "{}", extra: "ignored-before" }),
+			),
+		).toThrow('/automation/ingest does not accept query parameter "extra"');
+
+		expect(() =>
+			buildCursorAutomationIngestRouteRequest(
+				"vscode://cline.cline/automation/ingest?strict=true",
+			),
+		).toThrow("automation NDJSON input is required");
+
+		expect(() =>
+			buildCursorAutomationIngestRouteRequest(
+				automationRoute({ ndjson: "{}", maxEvents: "0" }),
+			),
+		).toThrow("maxEvents must be a positive integer");
 	});
 
 	it("builds standalone task prompts for prompt-like Cursor routes", () => {

@@ -1,5 +1,10 @@
 import { lstatSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
+import {
+	parseAutomationEventNdjson,
+	type AutomationEventNdjsonRejectReason,
+	type ParseAutomationEventNdjsonOptions,
+} from "../../cron/events/automation-event-ndjson";
 import { normalizeCursorMcpServerConfig } from "./cursor-mcp-normalization";
 
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384;
@@ -185,6 +190,41 @@ export interface CursorPluginAddRouteRequest {
 	params: Record<string, string | Record<string, unknown>>;
 }
 
+export interface CursorAutomationEventSummary {
+	eventId: string;
+	eventType: string;
+	source: string;
+	subject?: string;
+	workspaceRoot?: string;
+	payloadKeys: string[];
+	attributeKeys: string[];
+}
+
+export interface CursorAutomationRejectedLineSummary {
+	lineNumber: number;
+	reason: AutomationEventNdjsonRejectReason;
+	message: string;
+	lineLength: number;
+}
+
+export interface CursorAutomationIngestValidationSummary {
+	eventCount: number;
+	rejectedCount: number;
+	events: CursorAutomationEventSummary[];
+	rejected: CursorAutomationRejectedLineSummary[];
+}
+
+export interface CursorAutomationIngestRouteRequest {
+	kind: "automation-ingest";
+	ndjson: string;
+	strict: boolean;
+	options: ParseAutomationEventNdjsonOptions;
+	validation: CursorAutomationIngestValidationSummary;
+	paramKeys: string[];
+	configKeys: string[];
+	taskPrompt: string;
+}
+
 export interface ResolveCursorCommandFileRouteOptions {
 	workspaceRoot: string;
 	maxBytes?: number;
@@ -323,6 +363,127 @@ function getRouteStringParam(
 	key: string,
 ): string | undefined {
 	return getString(params[key]);
+}
+
+function getConfigString(
+	config: Record<string, unknown> | undefined,
+	key: string,
+): string | undefined {
+	const value = config?.[key];
+	if (typeof value === "string") {
+		return value.trim() || undefined;
+	}
+	return undefined;
+}
+
+function getAutomationStringParam(
+	params: Record<string, string | Record<string, unknown>>,
+	config: Record<string, unknown> | undefined,
+	key: string,
+): string | undefined {
+	return getRouteStringParam(params, key) ?? getConfigString(config, key);
+}
+
+function getAutomationNdjson(
+	params: Record<string, string | Record<string, unknown>>,
+	config: Record<string, unknown> | undefined,
+): string {
+	const input =
+		getAutomationStringParam(params, config, "ndjson") ??
+		getAutomationStringParam(params, config, "input");
+	if (!input) {
+		throw new CursorUriError("automation NDJSON input is required");
+	}
+	return input;
+}
+
+function getAutomationAllowedSources(
+	params: Record<string, string | Record<string, unknown>>,
+	config: Record<string, unknown> | undefined,
+): string[] | undefined {
+	const paramValue = getRouteStringParam(params, "allowedSources");
+	const configValue = config?.allowedSources;
+	const rawSources =
+		paramValue !== undefined
+			? paramValue.split(",")
+			: Array.isArray(configValue)
+				? configValue
+				: typeof configValue === "string"
+					? configValue.split(",")
+					: undefined;
+	if (rawSources === undefined) {
+		return undefined;
+	}
+	if (rawSources.some((source) => typeof source !== "string")) {
+		throw new CursorUriError("allowedSources must contain only strings");
+	}
+	const sources = rawSources
+		.map((source) => source.trim())
+		.filter(Boolean);
+	return sources.length > 0 ? sources : undefined;
+}
+
+function getAutomationPositiveInteger(
+	params: Record<string, string | Record<string, unknown>>,
+	config: Record<string, unknown> | undefined,
+	key: "maxLineBytes" | "maxEvents",
+): number | undefined {
+	const paramValue = getRouteStringParam(params, key);
+	const value = paramValue ?? config?.[key];
+	if (value === undefined) {
+		return undefined;
+	}
+	const parsed = typeof value === "number" ? value : Number(value);
+	if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+		throw new CursorUriError(`${key} must be a positive integer`);
+	}
+	return parsed;
+}
+
+function getAutomationBoolean(
+	params: Record<string, string | Record<string, unknown>>,
+	config: Record<string, unknown> | undefined,
+	key: "strict",
+): boolean {
+	const paramValue = getRouteStringParam(params, key);
+	const value = paramValue ?? config?.[key];
+	if (value === undefined) {
+		return false;
+	}
+	if (typeof value === "boolean") {
+		return value;
+	}
+	const normalized = typeof value === "string" ? value.toLowerCase() : undefined;
+	if (!normalized || !CURSOR_BOOLEAN_STRING_VALUES.has(normalized)) {
+		throw new CursorUriError(`${key} must be one of true, false, 1, 0, yes, or no`);
+	}
+	return ["true", "1", "yes"].includes(normalized);
+}
+
+function summarizeAutomationValidation(
+	ndjson: string,
+	options: ParseAutomationEventNdjsonOptions,
+): CursorAutomationIngestValidationSummary {
+	const result = parseAutomationEventNdjson(ndjson, options);
+	return {
+		eventCount: result.events.length,
+		rejectedCount: result.rejected.length,
+		events: result.events.map((event) => ({
+			eventId: event.eventId,
+			eventType: event.eventType,
+			source: event.source,
+			...(event.subject ? { subject: event.subject } : {}),
+			...(event.workspaceRoot ? { workspaceRoot: event.workspaceRoot } : {}),
+			payloadKeys: Object.keys(event.payload ?? {}).sort(),
+			attributeKeys: Object.keys(event.attributes ?? {}).sort(),
+		})),
+		rejected: result.rejected.map((line) => ({
+			lineNumber: line.lineNumber,
+			reason: line.reason,
+			message: line.message,
+			lineLength: line.line.length,
+		})),
+	};
 }
 
 function normalizeCursorRuleTarget(
@@ -1020,6 +1181,59 @@ function buildCursorAgentTaskPrompt(
 	].join("\n");
 }
 
+function buildCursorAutomationIngestTaskPrompt(input: {
+	strict: boolean;
+	options: ParseAutomationEventNdjsonOptions;
+	validation: CursorAutomationIngestValidationSummary;
+	paramKeys: string[];
+	configKeys: string[];
+}): string {
+	const acceptedLines = input.validation.events.slice(0, 20).map((event) =>
+		[
+			`- ${event.eventId} (${event.eventType}) from ${event.source}`,
+			...(event.subject ? [`  subject: ${event.subject}`] : []),
+			...(event.workspaceRoot ? [`  workspace: ${event.workspaceRoot}`] : []),
+			`  payload keys: ${event.payloadKeys.join(", ") || "(none)"}`,
+			`  attribute keys: ${event.attributeKeys.join(", ") || "(none)"}`,
+		].join("\n"),
+	);
+	const rejectedLines = input.validation.rejected
+		.slice(0, 20)
+		.map((line) => `- line ${line.lineNumber}: ${line.reason} (${line.message})`);
+	return [
+		"A Cursor-compatible automation NDJSON ingest deeplink was opened. The SDK validated the NDJSON locally and can pass accepted events to an automation store only after explicit user confirmation.",
+		"",
+		"Validation summary:",
+		`- accepted events: ${input.validation.eventCount}`,
+		`- rejected lines: ${input.validation.rejectedCount}`,
+		`- strict mode requested: ${input.strict ? "yes" : "no"}`,
+		`- default source: ${input.options.defaultSource ?? "(none)"}`,
+		...(input.options.allowedSources?.length
+			? [`- allowed sources: ${input.options.allowedSources.join(", ")}`]
+			: []),
+		...(input.options.maxEvents ? [`- max events: ${input.options.maxEvents}`] : []),
+		...(input.options.maxLineBytes
+			? [`- max line bytes: ${input.options.maxLineBytes}`]
+			: []),
+		...(input.paramKeys.length > 0
+			? [`- route parameter keys: ${input.paramKeys.join(", ")}`]
+			: []),
+		...(input.configKeys.length > 0
+			? [`- config keys: ${input.configKeys.join(", ")}`]
+			: []),
+		"",
+		"Accepted event summaries:",
+		acceptedLines.length > 0 ? acceptedLines.join("\n") : "- (none)",
+		"",
+		"Rejected line summaries:",
+		rejectedLines.length > 0 ? rejectedLines.join("\n") : "- (none)",
+		"",
+		input.strict && input.validation.rejectedCount > 0
+			? "Because strict mode was requested and at least one line was rejected, do not treat this ingest as successful. Ask the user how they want to fix or retry the input."
+			: "Do not run follow-up automation silently. Ask the user to confirm any task, CLI, hub, schedule, git, browser, or network action triggered by these events.",
+	].join("\n");
+}
+
 export function buildCursorAgentTaskRouteRequest(
 	uri: string,
 ): CursorAgentTaskRouteRequest {
@@ -1041,6 +1255,59 @@ export function buildCursorAgentTaskRouteRequest(
 		prompt,
 		taskPrompt: buildCursorAgentTaskPrompt(kind, params),
 		params,
+	};
+}
+
+export function buildCursorAutomationIngestRouteRequest(
+	uri: string,
+): CursorAutomationIngestRouteRequest {
+	const params = parseCursorRouteParams(uri, "/automation/ingest");
+	assertAllowedParamNames("/automation/ingest", params, [
+		"ndjson",
+		"input",
+		"defaultSource",
+		"allowedSources",
+		"maxLineBytes",
+		"maxEvents",
+		"strict",
+		"config",
+	]);
+	const config = getRecord(params.config);
+	const ndjson = getAutomationNdjson(params, config);
+	const defaultSource =
+		getAutomationStringParam(params, config, "defaultSource") ?? "cursor";
+	const allowedSources = getAutomationAllowedSources(params, config);
+	const maxLineBytes = getAutomationPositiveInteger(
+		params,
+		config,
+		"maxLineBytes",
+	);
+	const maxEvents = getAutomationPositiveInteger(params, config, "maxEvents");
+	const options: ParseAutomationEventNdjsonOptions = {
+		defaultSource,
+		...(allowedSources ? { allowedSources } : {}),
+		...(maxLineBytes !== undefined ? { maxLineBytes } : {}),
+		...(maxEvents !== undefined ? { maxEvents } : {}),
+	};
+	const strict = getAutomationBoolean(params, config, "strict");
+	const validation = summarizeAutomationValidation(ndjson, options);
+	const paramKeys = Object.keys(params).sort();
+	const configKeys = Object.keys(config ?? {}).sort();
+	return {
+		kind: "automation-ingest",
+		ndjson,
+		strict,
+		options,
+		validation,
+		paramKeys,
+		configKeys,
+		taskPrompt: buildCursorAutomationIngestTaskPrompt({
+			strict,
+			options,
+			validation,
+			paramKeys,
+			configKeys,
+		}),
 	};
 }
 
