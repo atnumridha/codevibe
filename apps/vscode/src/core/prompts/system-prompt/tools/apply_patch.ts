@@ -30,6 +30,13 @@ EOF
 
 Where [YOUR_PATCH] is the actual content of your patch, specified in the following V4A diff format.
 
+Use apply_patch with Cursor-style edit discipline:
+- Patch only after you have inspected the current file contents or have received them from the user.
+- Keep hunks minimal and scoped to the user's request. Do not rewrite unrelated code, reformat untouched sections, or include broad cleanup in the same patch.
+- Prefer one coherent patch per file when several nearby edits are part of the same change. Split patches when edits are logically unrelated or when a smaller patch would be safer.
+- If the patch fails, or if the tool result indicates the file changed differently than expected, re-read the file before preparing another patch. Do not retry against stale context.
+- When the workspace may contain user changes, preserve them and adapt your patch around them.
+
 *** [ACTION] File: [path/to/file] -> ACTION can be one of Add, Update, or Delete. 
 
 In a Add File section, every line of the new file (including blank/empty lines) MUST start with a \`+\` prefix. Do not include any unprefixed lines inside an Add section
