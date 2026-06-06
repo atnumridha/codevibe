@@ -284,6 +284,59 @@ describe("Cursor MCP install command", () => {
 		expect(out[0]).not.toContain("secret-value");
 	});
 
+	it("previews plugin add deeplinks without starting an agent task", async () => {
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: `vscode://cline.cline/plugin/add?id=docs-helper&config=${encodeConfig({ token: "secret-value" })}`,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			installed: false,
+			requiresConfirmation: true,
+			source: "docs-helper",
+			sourceParam: "id",
+			detail: expect.stringContaining("Config keys: token"),
+		});
+		expect(out[0]).not.toContain("secret-value");
+		expect(out[0]).not.toContain("requiresAgent");
+	});
+
+	it("installs plugin add deeplinks only when confirmed", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-plugin-"));
+		tempDirs.push(workspaceRoot);
+		const pluginPath = join(workspaceRoot, "cursor-plugin.ts");
+		await writeFile(
+			pluginPath,
+			"export default { name: 'cursor-plugin', manifest: { capabilities: ['tools'] } };",
+			"utf8",
+		);
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: `vscode://cline.cline/plugin/add?name=${encodeURIComponent(pluginPath)}`,
+			cwd: workspaceRoot,
+			confirmed: true,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			installed: true,
+			source: pluginPath,
+			installPath: expect.stringContaining(join(".cline", "plugins")),
+			entryPaths: [expect.stringContaining("cursor-plugin")],
+		});
+	});
+
 	it("previews Cursor command files for standalone agent task routes", async () => {
 		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-command-"));
 		tempDirs.push(workspaceRoot);
@@ -320,10 +373,9 @@ describe("Cursor MCP install command", () => {
 		});
 	});
 
-	it("previews PR review, plugin add, and glass deeplinks", async () => {
+	it("previews PR review and glass deeplinks", async () => {
 		for (const [uri, route] of [
 			["vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42", "pr-review"],
-			["vscode://cline.cline/plugin/add?id=docs-helper", "plugin-add"],
 			["vscode://cline.cline/glass", "glass"],
 		]) {
 			const { out, io } = createIo();

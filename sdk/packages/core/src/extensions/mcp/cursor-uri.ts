@@ -30,7 +30,6 @@ export type CursorAgentTaskRoutePath =
 	| "/prompt"
 	| "/command"
 	| "/pr-review"
-	| "/plugin/add"
 	| "/glass"
 	| "/git/checkout"
 	| "/git/branch"
@@ -42,7 +41,6 @@ export type CursorAgentTaskRouteKind =
 	| "prompt"
 	| "command"
 	| "pr-review"
-	| "plugin-add"
 	| "glass"
 	| "git-checkout"
 	| "git-branch"
@@ -96,12 +94,6 @@ const CURSOR_AGENT_TASK_ROUTE_DEFINITIONS: Record<
 		kind: "pr-review",
 		allowed: ["url", "repo", "repository", "number", "pullRequest", "instructions", "config"],
 		requiredMessage: "PR URL or repository plus PR number is required",
-	},
-	"/plugin/add": {
-		kind: "plugin-add",
-		allowed: ["id", "name", "url", "config"],
-		requiredAny: ["id", "name", "url", "config"],
-		requiredMessage: "plugin identifier or config is required",
 	},
 	"/glass": {
 		kind: "glass",
@@ -179,6 +171,16 @@ export interface CursorAgentTaskRouteRequest {
 	path: CursorAgentTaskRoutePath;
 	prompt?: string;
 	taskPrompt: string;
+	params: Record<string, string | Record<string, unknown>>;
+}
+
+export interface CursorPluginAddRouteRequest {
+	kind: "plugin-add";
+	source?: string;
+	sourceParam?: "id" | "name" | "url";
+	requiresReview: boolean;
+	reason?: string;
+	detail: string;
 	params: Record<string, string | Record<string, unknown>>;
 }
 
@@ -989,7 +991,6 @@ function buildCursorAgentTaskPrompt(
 	const title = {
 		"background-agent": "background agent",
 		"pr-review": "pull request review",
-		"plugin-add": "plugin add",
 	}[kind];
 
 	return [
@@ -1021,6 +1022,56 @@ export function buildCursorAgentTaskRouteRequest(
 		path,
 		prompt,
 		taskPrompt: buildCursorAgentTaskPrompt(kind, params),
+		params,
+	};
+}
+
+export function buildCursorPluginAddRouteRequest(
+	uri: string,
+): CursorPluginAddRouteRequest {
+	const params = parseCursorRouteParams(uri, "/plugin/add");
+	const allowed = new Set(["id", "name", "url", "config"]);
+	for (const key of Object.keys(params)) {
+		if (!allowed.has(key)) {
+			throw new CursorUriError(`/plugin/add does not accept query parameter "${key}"`);
+		}
+	}
+
+	const sourceParam = (["id", "name", "url"] as const).find((key) =>
+		Boolean(getRouteStringParam(params, key)),
+	);
+	const source = sourceParam ? getRouteStringParam(params, sourceParam) : undefined;
+	const config = getRecord(params.config);
+	if (!source && !config) {
+		throw new CursorUriError("plugin identifier or config is required");
+	}
+
+	if (!source) {
+		return {
+			kind: "plugin-add",
+			requiresReview: true,
+			reason: "Cursor plugin config payloads require manual review before installation.",
+			detail: [
+				"Plugin source: config payload",
+				`Config keys: ${Object.keys(config ?? {}).sort().join(", ") || "(none)"}`,
+				"Install action: unsupported without explicit id, name, or url",
+			].join("\n"),
+			params,
+		};
+	}
+
+	const configKeys = Object.keys(config ?? {}).sort();
+	return {
+		kind: "plugin-add",
+		source,
+		sourceParam,
+		requiresReview: false,
+		detail: [
+			`Plugin source: ${source}`,
+			`Source parameter: ${sourceParam}`,
+			...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
+			"Install action: preview by default; requires explicit confirmation.",
+		].join("\n"),
 		params,
 	};
 }

@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
 	buildCursorAgentTaskRouteRequest,
+	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
@@ -14,6 +15,7 @@ import {
 	getSettingsPath,
 	loadServers,
 } from "../wizards/mcp/settings";
+import { installPlugin } from "./plugin";
 
 export interface CursorMcpInstallCommandOptions {
 	uri: string;
@@ -154,6 +156,73 @@ function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
 	return 0;
 }
 
+async function writeCursorPluginAddRoute(
+	options: CursorMcpInstallCommandOptions,
+): Promise<number> {
+	const request = buildCursorPluginAddRouteRequest(options.uri);
+	if (!request.source || request.requiresReview) {
+		if (options.json) {
+			options.io.writeln(
+				JSON.stringify({
+					handled: true,
+					route: "plugin-add",
+					requiresReview: true,
+					reason: request.reason,
+					detail: request.detail,
+					paramKeys: Object.keys(request.params).sort(),
+				}),
+			);
+		} else {
+			options.io.writeln(request.detail);
+			options.io.writeln("Review this Cursor plugin deeplink before installing.");
+		}
+		return 0;
+	}
+
+	if (!options.confirmed) {
+		if (options.json) {
+			options.io.writeln(
+				JSON.stringify({
+					handled: true,
+					route: "plugin-add",
+					installed: false,
+					requiresConfirmation: true,
+					source: request.source,
+					sourceParam: request.sourceParam,
+					detail: request.detail,
+				}),
+			);
+		} else {
+			options.io.writeln(request.detail);
+			options.io.writeln("");
+			options.io.writeln("Re-run with --yes to install this plugin.");
+		}
+		return 0;
+	}
+
+	const result = await installPlugin({
+		source: request.source,
+		cwd: options.cwd,
+		io: options.io,
+	});
+	if (options.json) {
+		options.io.writeln(
+			JSON.stringify({
+				handled: true,
+				route: "plugin-add",
+				installed: true,
+				source: result.source,
+				installPath: result.installPath,
+				entryPaths: result.entryPaths,
+			}),
+		);
+	} else {
+		options.io.writeln(`Installed plugin from ${result.source}`);
+		options.io.writeln(`  Path: ${result.installPath}`);
+	}
+	return 0;
+}
+
 function writeAgentTaskRoute(options: CursorMcpInstallCommandOptions): number {
 	const request = buildCursorAgentTaskRouteRequest(options.uri);
 	const commandFileRequest = resolveCursorCommandFileRouteRequest(request, {
@@ -273,6 +342,14 @@ export async function runCursorUriCommand(
 	if (path === "/rule") {
 		try {
 			return writeCursorRuleRoute(options);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			return writeUriError(options, message);
+		}
+	}
+	if (path === "/plugin/add") {
+		try {
+			return await writeCursorPluginAddRoute(options);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			return writeUriError(options, message);

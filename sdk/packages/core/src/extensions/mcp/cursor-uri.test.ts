@@ -10,6 +10,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	buildCursorAgentTaskRouteRequest,
+	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
@@ -290,7 +291,7 @@ describe("Cursor MCP install URI parser", () => {
 		).toThrow("Unsupported Cursor agent task route");
 	});
 
-	it("builds guarded prompts for PR review and plugin add routes", () => {
+	it("builds guarded prompts for PR review routes", () => {
 		const prReview = buildCursorAgentTaskRouteRequest(
 			"vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42&instructions=focus%20tests",
 		);
@@ -301,13 +302,46 @@ describe("Cursor MCP install URI parser", () => {
 		expect(prReview.taskPrompt).toContain("pull request review");
 		expect(prReview.taskPrompt).toContain("repo: owner/repo");
 		expect(prReview.taskPrompt).toContain("number: 42");
+	});
 
-		const pluginAdd = buildCursorAgentTaskRouteRequest(
+	it("builds explicit plugin add route requests", () => {
+		const byId = buildCursorPluginAddRouteRequest(
 			"vscode://cline.cline/plugin/add?id=docs-helper",
 		);
-		expect(pluginAdd.kind).toBe("plugin-add");
-		expect(pluginAdd.taskPrompt).toContain("plugin add");
-		expect(pluginAdd.taskPrompt).toContain("ask for confirmation");
+		expect(byId).toMatchObject({
+			kind: "plugin-add",
+			source: "docs-helper",
+			sourceParam: "id",
+			requiresReview: false,
+		});
+		expect(byId.detail).toContain("Plugin source: docs-helper");
+
+		const byUrl = buildCursorPluginAddRouteRequest(
+			"vscode://cline.cline/plugin/add?url=https%3A%2F%2Fexample.com%2Fplugin.js",
+		);
+		expect(byUrl).toMatchObject({
+			source: "https://example.com/plugin.js",
+			sourceParam: "url",
+			requiresReview: false,
+		});
+
+		const configOnly = buildCursorPluginAddRouteRequest(
+			`vscode://cline.cline/plugin/add?config=${encodeConfig({ token: "secret-value", source: "docs-helper" })}`,
+		);
+		expect(configOnly).toMatchObject({
+			requiresReview: true,
+		});
+		expect(configOnly.detail).toContain("Config keys: source, token");
+		expect(configOnly.detail).not.toContain("secret-value");
+
+		expect(() =>
+			buildCursorPluginAddRouteRequest("vscode://cline.cline/plugin/add"),
+		).toThrow("plugin identifier or config is required");
+		expect(() =>
+			buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/plugin/add?id=docs-helper",
+			),
+		).toThrow("Unsupported Cursor agent task route");
 	});
 
 	it("allows empty glass routes as agent prompts", () => {

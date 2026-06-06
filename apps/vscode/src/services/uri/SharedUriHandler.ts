@@ -164,6 +164,37 @@ function buildCursorCommandFilePrompt(target: {
 	].join("\n")
 }
 
+function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
+	source?: string
+	sourceParam?: "id" | "name" | "url"
+	detail: string
+} {
+	const sourceParam = (["id", "name", "url"] as const).find((key) => getRouteStringParam(route, key))
+	const source = sourceParam ? getRouteStringParam(route, sourceParam) : undefined
+	const config = route.params.config
+	const configKeys =
+		config && typeof config === "object" && !Array.isArray(config)
+			? Object.keys(config).sort()
+			: []
+	const lines = source
+		? [
+				`Plugin source: ${source}`,
+				`Source parameter: ${sourceParam}`,
+				...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
+				"Install with CLI: cline cursor-uri --yes <this deeplink>",
+			]
+		: [
+				"Plugin source: config payload",
+				`Config keys: ${configKeys.join(", ") || "(none)"}`,
+				"Config-only plugin payloads require manual review before installation.",
+			]
+	return {
+		source,
+		sourceParam,
+		detail: lines.join("\n"),
+	}
+}
+
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
  */
@@ -271,6 +302,10 @@ export class SharedUriHandler {
 					if (cursorRoute.route.kind === "settings") {
 						const settingsQuery = getSettingsQuery(cursorRoute.route)
 						await HostProvider.window.openSettings(settingsQuery ? { query: settingsQuery } : {})
+						return true
+					}
+					if (cursorRoute.route.kind === "plugin-add") {
+						await this.handleCursorPluginAddRoute(cursorRoute.route)
 						return true
 					}
 					if (cursorRoute.route.kind === "rule") {
@@ -498,5 +533,20 @@ export class SharedUriHandler {
 
 		await controller.handleTaskCreation(buildCursorCommandFilePrompt(target, content))
 		return true
+	}
+
+	private static async handleCursorPluginAddRoute(route: CursorCompatibleUriRoute): Promise<void> {
+		const request = buildCursorPluginAddDetail(route)
+		await HostProvider.window.showMessage({
+			type: request.source ? ShowMessageType.WARNING : ShowMessageType.INFORMATION,
+			message: request.source
+				? `Cursor plugin add requested: ${request.source}`
+				: "Cursor plugin add requires review",
+			options: {
+				modal: true,
+				items: ["OK"],
+				detail: request.detail,
+			},
+		})
 	}
 }

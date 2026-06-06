@@ -255,6 +255,30 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should handle Cursor plugin add routes explicitly without creating a task", async () => {
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor plugin add requested: docs-helper")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Install with CLI")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should summarize Cursor plugin config routes without leaking secret values", async () => {
+				const config = encodeConfig({
+					token: "secret-value",
+					source: "docs-helper",
+				})
+
+				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/plugin/add?config=${config}`)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor plugin add requires review")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: source, token")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should confirm safe Cursor rule routes without creating a task", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
