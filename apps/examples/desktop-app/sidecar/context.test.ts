@@ -123,7 +123,7 @@ describe("Code sidecar runtime capabilities", () => {
 		tempDirs.length = 0;
 	});
 
-	it("registers Code App capability factory with core", async () => {
+	it("registers CodeVibe desktop capability factory with core", async () => {
 		const { createSidecarContext, initializeSessionManager } = await import(
 			"./context"
 		);
@@ -142,7 +142,7 @@ describe("Code sidecar runtime capabilities", () => {
 				}),
 				hub: expect.objectContaining({
 					clientType: "code-sidecar",
-					displayName: "Code App sidecar",
+					displayName: "CodeVibe desktop sidecar",
 				}),
 			}),
 		);
@@ -223,7 +223,7 @@ describe("Code sidecar runtime capabilities", () => {
 				}),
 				hub: expect.objectContaining({
 					clientType: "code-sidecar",
-					displayName: "Code App sidecar",
+					displayName: "CodeVibe desktop sidecar",
 				}),
 			}),
 		);

@@ -689,7 +689,7 @@ export async function initializeSessionManager(
 			workspaceRoot: ctx.workspaceRoot,
 			cwd: ctx.workspaceRoot,
 			clientType: "code-sidecar",
-			displayName: "Code App sidecar",
+			displayName: "CodeVibe desktop sidecar",
 		},
 	});
 
@@ -704,7 +704,7 @@ export async function initializeSessionManager(
 		hubClient = new NodeHubClient({
 			url: runtimeAddress,
 			clientType: "code-sidecar-approvals",
-			displayName: "Code App approvals",
+			displayName: "CodeVibe desktop approvals",
 			workspaceRoot: ctx.workspaceRoot,
 			cwd: ctx.workspaceRoot,
 		});
