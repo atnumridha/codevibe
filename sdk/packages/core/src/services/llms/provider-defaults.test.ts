@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	clearLiveModelsCatalogCache,
@@ -5,11 +8,28 @@ import {
 	resolveProviderConfig,
 } from "./provider-defaults";
 
+const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
+
+function toBase64Url(value: string): string {
+	return Buffer.from(value, "utf8").toString("base64url");
+}
+
+function createJwt(payload: Record<string, unknown>): string {
+	return `${toBase64Url(JSON.stringify({ alg: "none", typ: "JWT" }))}.${toBase64Url(
+		JSON.stringify(payload),
+	)}.sig`;
+}
+
 afterEach(() => {
 	clearLiveModelsCatalogCache();
 	clearPrivateModelsCatalogCache();
 	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
+	if (ORIGINAL_CODEX_HOME === undefined) {
+		delete process.env.CODEX_HOME;
+	} else {
+		process.env.CODEX_HOME = ORIGINAL_CODEX_HOME;
+	}
 });
 
 describe("resolveProviderConfig", () => {
@@ -344,5 +364,85 @@ describe("resolveProviderConfig", () => {
 		);
 		expect(resolved?.knownModels?.["hidden-codex"]).toBeUndefined();
 		expect(resolved?.knownModels?.["gpt-5.5"]?.maxInputTokens).toBe(272_000);
+	});
+
+	it("uses Codex home credentials for first-run authenticated model discovery", async () => {
+		const codexHome = mkdtempSync(
+			join(tmpdir(), "provider-defaults-codex-home-"),
+		);
+		process.env.CODEX_HOME = codexHome;
+		writeFileSync(
+			join(codexHome, "auth.json"),
+			JSON.stringify({
+				auth_mode: "chatgpt",
+				tokens: {
+					access_token: createJwt({
+						exp: Math.floor(Date.now() / 1000) + 3600,
+						"https://api.openai.com/auth": {
+							chatgpt_account_id: "acct_home",
+						},
+					}),
+					refresh_token: "refresh-home",
+				},
+			}),
+			"utf8",
+		);
+		writeFileSync(join(codexHome, "installation_id"), "install_home\n", "utf8");
+		writeFileSync(
+			join(codexHome, "models_cache.json"),
+			JSON.stringify({ client_version: "0.136.0-home" }),
+			"utf8",
+		);
+
+		const fetchMock = vi.fn(async () => {
+			return new Response(
+				JSON.stringify({
+					models: [
+						{
+							display_name: "GPT Home Codex",
+							slug: "gpt-home-codex",
+							supported_in_api: true,
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		try {
+			const resolved = await resolveProviderConfig(
+				"openai-codex",
+				{
+					loadPrivateOnAuth: true,
+					cacheTtlMs: 0,
+					failOnError: true,
+				},
+				undefined,
+			);
+
+			expect(fetchMock).toHaveBeenCalledWith(
+				"https://chatgpt.com/backend-api/codex/models?client_version=0.136.0-home",
+				expect.objectContaining({
+					method: "GET",
+					headers: expect.objectContaining({
+						Authorization: expect.stringMatching(/^Bearer /),
+						"ChatGPT-Account-Id": "acct_home",
+						"x-codex-installation-id": "install_home",
+					}),
+				}),
+			);
+			expect(resolved?.knownModels?.["gpt-home-codex"]).toEqual(
+				expect.objectContaining({
+					name: "GPT Home Codex",
+					status: "active",
+				}),
+			);
+		} finally {
+			rmSync(codexHome, { recursive: true, force: true });
+		}
 	});
 });

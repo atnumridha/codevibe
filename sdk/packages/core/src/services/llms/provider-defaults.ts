@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: static */
 
 import * as Llms from "@cline/llms";
+import { loadOpenAICodexHomeCredentialsSync } from "../../auth/codex";
 import {
 	fetchModelIdsFromSource,
 	resolveModelsSourceUrl,
@@ -768,6 +769,75 @@ function shouldLoadPrivateModels(
 	return Boolean(resolveAuthToken(config));
 }
 
+function compactCodexOptions(
+	options: Record<
+		"clientVersion" | "accountId" | "installationId" | "tokenSource",
+		string | undefined
+	>,
+): ProviderConfig["codex"] | undefined {
+	const compacted = Object.fromEntries(
+		Object.entries(options).filter(([, value]) => value !== undefined),
+	) as ProviderConfig["codex"];
+	return compacted && Object.keys(compacted).length > 0
+		? compacted
+		: undefined;
+}
+
+function buildOpenAICodexHomeProviderConfig(
+	defaults: ProviderDefaults,
+): ProviderConfig | undefined {
+	const credentials = loadOpenAICodexHomeCredentialsSync();
+	if (!credentials?.access) {
+		return undefined;
+	}
+
+	const metadata = credentials.metadata as Record<string, unknown> | undefined;
+	const codex = compactCodexOptions({
+		clientVersion:
+			typeof metadata?.clientVersion === "string"
+				? metadata.clientVersion
+				: undefined,
+		accountId: credentials.accountId,
+		installationId:
+			typeof metadata?.installationId === "string"
+				? metadata.installationId
+				: undefined,
+		tokenSource:
+			typeof metadata?.tokenSource === "string"
+				? metadata.tokenSource
+				: undefined,
+	});
+
+	return {
+		providerId: "openai-codex",
+		modelId: defaults.modelId,
+		apiKey: credentials.access,
+		accessToken: credentials.access,
+		...(credentials.refresh ? { refreshToken: credentials.refresh } : {}),
+		...(credentials.accountId ? { accountId: credentials.accountId } : {}),
+		...(defaults.baseUrl ? { baseUrl: defaults.baseUrl } : {}),
+		...(codex ? { codex } : {}),
+	};
+}
+
+function resolvePrivateProviderConfig(
+	providerId: string,
+	modelCatalog: ModelCatalogConfig | undefined,
+	config: ProviderConfig | undefined,
+	defaults: ProviderDefaults,
+): ProviderConfig | undefined {
+	if (config) {
+		return config;
+	}
+	if (
+		providerId !== "openai-codex" ||
+		modelCatalog?.loadPrivateOnAuth !== true
+	) {
+		return undefined;
+	}
+	return buildOpenAICodexHomeProviderConfig(defaults);
+}
+
 async function getPrivateProviderModels(
 	providerId: string,
 	modelCatalog: ModelCatalogConfig | undefined,
@@ -907,9 +977,16 @@ export async function resolveProviderConfig(
 		const liveModels = liveCatalog
 			? resolveCatalogModels(providerId, liveCatalog)
 			: {};
+		const privateConfig = resolvePrivateProviderConfig(
+			providerId,
+			modelCatalog,
+			config,
+			defaults,
+		);
 		const privateModels =
-			config && shouldLoadPrivateModels(providerId, modelCatalog, config)
-				? await getPrivateProviderModels(providerId, modelCatalog, config)
+			privateConfig &&
+			shouldLoadPrivateModels(providerId, modelCatalog, privateConfig)
+				? await getPrivateProviderModels(providerId, modelCatalog, privateConfig)
 				: {};
 		// Public (keyless) live model sources run whenever `modelsSourceUrl` is
 		// registered for the provider — even if the caller didn't pass a
