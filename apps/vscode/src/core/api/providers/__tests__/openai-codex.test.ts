@@ -34,4 +34,23 @@ describe("OpenAiCodexHandler", () => {
 			"wss://chatgpt.com/backend-api/codex/responses?client_version=0.136.0-test",
 		)
 	})
+
+	it("preserves authenticated backend model ids that are not bundled", () => {
+		const handler = new OpenAiCodexHandler({ apiModelId: "gpt-6-codex-preview" })
+
+		const model = handler.getModel()
+
+		expect(model.id).to.equal("gpt-6-codex-preview")
+		expect(model.info.name).to.equal("gpt-6-codex-preview")
+		expect(model.info.supportsPromptCache).to.equal(true)
+	})
+
+	it("falls back to the bundled default when no Codex model is selected", () => {
+		const handler = new OpenAiCodexHandler({ apiModelId: "  " })
+
+		const model = handler.getModel()
+
+		expect(model.id).to.equal("gpt-5.5")
+		expect(model.info.supportsPromptCache).to.equal(true)
+	})
 })
