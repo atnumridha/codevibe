@@ -8,6 +8,7 @@ import {
 	Play,
 	Plug,
 	Search,
+	Settings,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -44,6 +45,11 @@ const LAUNCHABLE_AGENT_PATHS = new Set([
 export type CursorUriIntent = {
 	id: number;
 	uri: string;
+};
+
+export type CursorSettingsOpenRequest = {
+	query?: string;
+	sourceParam?: string;
 };
 
 function previewString(
@@ -95,6 +101,12 @@ function isMcpInstallPreview(preview: CursorUriPreviewResponse | undefined) {
 	);
 }
 
+function isSettingsPreview(preview: CursorUriPreviewResponse | undefined) {
+	return (
+		preview?.handled === true && previewString(preview, "route") === "settings"
+	);
+}
+
 function JsonBlock({ value }: { value: unknown }) {
 	if (!value) {
 		return null;
@@ -108,8 +120,10 @@ function JsonBlock({ value }: { value: unknown }) {
 
 export function CursorUriView({
 	incomingUri,
+	onOpenSettings,
 }: {
 	incomingUri?: CursorUriIntent | null;
+	onOpenSettings?: (request: CursorSettingsOpenRequest) => void;
 }) {
 	const [uri, setUri] = useState("");
 	const [preview, setPreview] = useState<CursorUriPreviewResponse | undefined>();
@@ -140,6 +154,7 @@ export function CursorUriView({
 	const canLaunch = isLaunchablePreview(preview);
 	const canIngest = isAutomationIngestPreview(preview);
 	const canInstallMcp = isMcpInstallPreview(preview);
+	const canOpenSettings = isSettingsPreview(preview) && Boolean(onOpenSettings);
 	const isBusy = previewing || launching || ingesting || mcpInstalling;
 
 	const runPreviewForUri = useCallback(async (inputUri: string) => {
@@ -264,6 +279,16 @@ export function CursorUriView({
 		}
 	};
 
+	const runOpenSettings = () => {
+		if (!canOpenSettings) {
+			return;
+		}
+		onOpenSettings?.({
+			query: previewString(preview, "query") || undefined,
+			sourceParam: previewString(preview, "sourceParam") || undefined,
+		});
+	};
+
 	return (
 		<ScrollArea className="h-full">
 			<div className="mx-auto flex max-w-5xl flex-col gap-5 p-6">
@@ -271,12 +296,20 @@ export function CursorUriView({
 					<div>
 						<h2 className="text-lg font-semibold text-foreground">Cursor URI</h2>
 					</div>
-					<Badge variant={canLaunch || canInstallMcp ? "default" : "outline"}>
+					<Badge
+						variant={
+							canLaunch || canInstallMcp || canOpenSettings
+								? "default"
+								: "outline"
+						}
+					>
 						{canLaunch
 							? "Launchable"
 							: canInstallMcp
 								? "Installable"
-								: "Preview"}
+								: canOpenSettings
+									? "Openable"
+									: "Preview"}
 					</Badge>
 				</div>
 
@@ -337,6 +370,14 @@ export function CursorUriView({
 								<Plug className="size-4" />
 							)}
 							Install MCP
+						</Button>
+						<Button
+							disabled={!canOpenSettings || isBusy}
+							onClick={runOpenSettings}
+							variant="outline"
+						>
+							<Settings className="size-4" />
+							Open Settings
 						</Button>
 					</div>
 				</div>
@@ -430,7 +471,7 @@ export function CursorUriView({
 									value={taskPrompt}
 								/>
 							</div>
-						) : canIngest || canInstallMcp ? null : (
+						) : canIngest || canInstallMcp || canOpenSettings ? null : (
 							<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
 								This route is available for preview only.
 							</div>

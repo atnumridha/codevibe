@@ -19,13 +19,18 @@ import { Switch } from "@/components/ui/switch";
 import { desktopClient } from "@/lib/desktop-client";
 import { cn } from "@/lib/utils";
 
-type ShortcutTab =
+export type ShortcutTab =
 	| "Rules"
 	| "Hooks"
 	| "Skills"
 	| "Agents"
 	| "Plugins"
 	| "Tools";
+
+export type ExtensionTabIntent = {
+	id: number;
+	tab: ShortcutTab;
+};
 
 type RuleItem = {
 	name: string;
@@ -230,8 +235,14 @@ export async function primeExtensionsListsCache(): Promise<void> {
 	};
 }
 
-export function RulesView() {
-	const [activeTab, setActiveTab] = useState<ShortcutTab>("Rules");
+export function RulesView({
+	activeTabIntent,
+}: {
+	activeTabIntent?: ExtensionTabIntent | null;
+}) {
+	const [activeTab, setActiveTab] = useState<ShortcutTab>(
+		() => activeTabIntent?.tab ?? "Rules",
+	);
 	const [isLoading, setIsLoading] = useState(
 		() => !hasFreshExtensionsListsCache(extensionListsCache, Date.now()),
 	);
@@ -513,6 +524,13 @@ export function RulesView() {
 	useEffect(() => {
 		void refresh(false);
 	}, [refresh]);
+
+	useEffect(() => {
+		if (!activeTabIntent) {
+			return;
+		}
+		setActiveTab(activeTabIntent.tab);
+	}, [activeTabIntent]);
 
 	useEffect(() => {
 		if (activeTab !== "Hooks") {

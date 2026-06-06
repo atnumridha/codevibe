@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronRight, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { desktopClient } from "@/lib/desktop-client";
@@ -14,8 +14,17 @@ import type {
 import { cn } from "@/lib/utils";
 import { AccountView } from "./account-view";
 import { AddProviderContent, type AddProviderPayload } from "./add-provider";
-import { CursorUriView, type CursorUriIntent } from "./cursor-uri-view";
-import { primeExtensionsListsCache, RulesView } from "./extensions-view";
+import {
+	CursorUriView,
+	type CursorSettingsOpenRequest,
+	type CursorUriIntent,
+} from "./cursor-uri-view";
+import {
+	primeExtensionsListsCache,
+	RulesView,
+	type ExtensionTabIntent,
+	type ShortcutTab,
+} from "./extensions-view";
 import { McpServersContent } from "./mcp-view";
 import {
 	ProviderDetailContent,
@@ -50,6 +59,108 @@ let providerCatalogCache: {
 	fetchedAt: number;
 } | null = null;
 
+function normalizeCursorSettingsValue(value: string | undefined): string {
+	return (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function valueMatchesAny(value: string, needles: string[]): boolean {
+	return needles.some((needle) => value.includes(needle));
+}
+
+function findProviderForSettingsQuery(
+	query: string,
+	providers: Provider[],
+): Provider | undefined {
+	if (!query) {
+		return undefined;
+	}
+	return providers.find((provider) => {
+		const providerId = normalizeCursorSettingsValue(provider.id);
+		const providerName = normalizeCursorSettingsValue(provider.name);
+		return (
+			providerId.includes(query) ||
+			providerName.includes(query) ||
+			query.includes(providerId)
+		);
+	});
+}
+
+function extensionTabForSettingsQuery(
+	query: string,
+): ShortcutTab | undefined {
+	if (
+		valueMatchesAny(query, ["customization", "customizations", "rule", "rules"])
+	) {
+		return "Rules";
+	}
+	if (valueMatchesAny(query, ["hook", "hooks"])) {
+		return "Hooks";
+	}
+	if (valueMatchesAny(query, ["skill", "skills", "workflow", "workflows"])) {
+		return "Skills";
+	}
+	if (valueMatchesAny(query, ["agent", "agents", "subagent", "subagents"])) {
+		return "Agents";
+	}
+	if (valueMatchesAny(query, ["plugin", "plugins"])) {
+		return "Plugins";
+	}
+	if (valueMatchesAny(query, ["tool", "tools"])) {
+		return "Tools";
+	}
+	return undefined;
+}
+
+function resolveCursorSettingsTarget(
+	request: CursorSettingsOpenRequest,
+	providers: Provider[],
+): {
+	nav: NavCategory;
+	providerId?: string;
+	extensionTab?: ShortcutTab;
+} {
+	const query = normalizeCursorSettingsValue(request.query);
+	if (!query) {
+		return { nav: "General" };
+	}
+
+	const provider = findProviderForSettingsQuery(query, providers);
+	if (provider) {
+		return { nav: "Providers", providerId: provider.id };
+	}
+	if (valueMatchesAny(query, ["mcp", "modelcontextprotocol"])) {
+		return { nav: "MCP" };
+	}
+	if (
+		valueMatchesAny(query, ["account", "auth", "login", "signin", "codexauth"])
+	) {
+		return { nav: "Account" };
+	}
+	if (valueMatchesAny(query, ["routine", "routines", "schedule", "schedules"])) {
+		return { nav: "Routine" };
+	}
+	if (valueMatchesAny(query, ["extension", "extensions"])) {
+		return { nav: "Extensions", extensionTab: "Rules" };
+	}
+
+	const extensionTab = extensionTabForSettingsQuery(query);
+	if (extensionTab) {
+		return { nav: "Extensions", extensionTab };
+	}
+	if (valueMatchesAny(query, ["provider", "providers", "model", "models"])) {
+		return { nav: "Providers" };
+	}
+	if (
+		valueMatchesAny(query, ["feature", "features", "cursor", "uri", "deeplink"])
+	) {
+		return { nav: "Features" };
+	}
+	if (valueMatchesAny(query, ["general", "settings", "preferences"])) {
+		return { nav: "General" };
+	}
+	return { nav: "General" };
+}
+
 // -----------------------------------------------------------
 // Component
 // -----------------------------------------------------------
@@ -63,6 +174,9 @@ export function SettingsView({
 }) {
 	const [activeNav, setActiveNav] = useState<NavCategory>("Providers");
 	const [providersExpanded, setProvidersExpanded] = useState(true);
+	const settingsIntentSequenceRef = useRef(0);
+	const [extensionTabIntent, setExtensionTabIntent] =
+		useState<ExtensionTabIntent | null>(null);
 	const [providers, setProviders] = useState<Provider[]>(
 		() => providerCatalogCache?.providers ?? [],
 	);
@@ -295,6 +409,28 @@ export function SettingsView({
 		setSelectedProviderId(id);
 	};
 
+	const openCursorSettingsTarget = useCallback(
+		(request: CursorSettingsOpenRequest) => {
+			const target = resolveCursorSettingsTarget(request, providers);
+			setActiveNav(target.nav);
+			setAddingProvider(false);
+			if (target.nav === "Providers") {
+				setProvidersExpanded(true);
+				setSelectedProviderId(target.providerId ?? null);
+			} else {
+				setSelectedProviderId(null);
+			}
+			if (target.nav === "Extensions" && target.extensionTab) {
+				settingsIntentSequenceRef.current += 1;
+				setExtensionTabIntent({
+					id: settingsIntentSequenceRef.current,
+					tab: target.extensionTab,
+				});
+			}
+		},
+		[providers],
+	);
+
 	useEffect(() => {
 		if (!selectedProviderId) {
 			return;
@@ -486,9 +622,12 @@ export function SettingsView({
 					) : activeNav === "Routine" ? (
 						<RoutineSchedulesContent />
 					) : activeNav === "Extensions" ? (
-						<RulesView />
+						<RulesView activeTabIntent={extensionTabIntent} />
 					) : activeNav === "Features" ? (
-						<CursorUriView incomingUri={incomingCursorUri} />
+						<CursorUriView
+							incomingUri={incomingCursorUri}
+							onOpenSettings={openCursorSettingsTarget}
+						/>
 					) : activeNav === "Account" ? (
 						<AccountView />
 					) : (
