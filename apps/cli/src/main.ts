@@ -349,7 +349,7 @@ export async function runCli(): Promise<void> {
 			}
 		});
 
-	program
+	const mcpCmd = program
 		.command("mcp")
 		.description("Manage MCP servers")
 		.action(async () => {
@@ -360,6 +360,48 @@ export async function runCli(): Promise<void> {
 					"MCP wizard requires a TTY. Use cline config mcp to list servers.",
 				);
 			}
+		});
+
+	const mcpInstallCmd = mcpCmd
+		.command("install")
+		.description("Preview or install a Cursor-compatible MCP server deeplink")
+		.argument("<uri>", "Cursor-compatible /mcp/install URI")
+		.option("--yes", "Write the MCP server to settings after previewing")
+		.option("--json", "Output the install result as JSON")
+		.action(async (uri: string) => {
+			const opts = mcpInstallCmd.opts<{ yes?: boolean; json?: boolean }>();
+			if (opts.json) {
+				setCurrentOutputMode("json");
+			}
+			const { runCursorMcpInstallCommand } = await import(
+				"./commands/cursor-mcp"
+			);
+			ctx.exitCode = await runCursorMcpInstallCommand({
+				uri,
+				confirmed: opts.yes,
+				json: opts.json,
+				io,
+			});
+		});
+
+	const uriCmd = program
+		.command("uri")
+		.description("Preview or dispatch a Cursor-compatible deeplink")
+		.argument("<uri>", "Cursor-compatible URI")
+		.option("--yes", "Apply supported deeplink changes after previewing")
+		.option("--json", "Output the dispatch result as JSON")
+		.action(async (uri: string) => {
+			const opts = uriCmd.opts<{ yes?: boolean; json?: boolean }>();
+			if (opts.json) {
+				setCurrentOutputMode("json");
+			}
+			const { runCursorUriCommand } = await import("./commands/cursor-mcp");
+			ctx.exitCode = await runCursorUriCommand({
+				uri,
+				confirmed: opts.yes,
+				json: opts.json,
+				io,
+			});
 		});
 
 	const createDoctorRuntimeCommand = async () => {

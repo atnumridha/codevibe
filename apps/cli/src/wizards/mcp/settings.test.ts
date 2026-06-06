@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { parseStdioCommand } from "./index";
 import {
 	addServer,
+	addServerRecord,
 	clearServerOAuth,
 	loadServers,
 	removeServer,
@@ -101,6 +102,31 @@ describe("MCP wizard settings", () => {
 			};
 		};
 		expect(parsed.mcpServers?.linear?.oauth).toBeUndefined();
+	});
+
+	it("preserves direct MCP server records written by Cursor install", async () => {
+		const settingsPath = await useTempSettingsPath();
+
+		addServerRecord("linear", {
+			command: "npx",
+			args: ["-y", "@modelcontextprotocol/server-linear"],
+			type: "stdio",
+			disabled: false,
+		});
+
+		const parsed = JSON.parse(await readFile(settingsPath, "utf8")) as {
+			mcpServers?: Record<string, unknown>;
+		};
+		expect(parsed.mcpServers?.linear).toEqual({
+			command: "npx",
+			args: ["-y", "@modelcontextprotocol/server-linear"],
+			type: "stdio",
+			disabled: false,
+		});
+		expect(loadServers()[0]?.transport).toMatchObject({
+			command: "npx",
+			type: "stdio",
+		});
 	});
 
 	it("does not create an empty server when clearing OAuth for a missing name", async () => {

@@ -82,6 +82,10 @@ const historyMocks = vi.hoisted(() => ({
 	runHistoryExport: vi.fn(async () => 0),
 	runHistoryUpdate: vi.fn(async () => 0),
 }));
+const cursorMcpMocks = vi.hoisted(() => ({
+	runCursorMcpInstallCommand: vi.fn(async () => 0),
+	runCursorUriCommand: vi.fn(async () => 0),
+}));
 const loggingMocks = vi.hoisted(() => ({
 	createCliLoggerAdapter: vi.fn(() => ({
 		core: {
@@ -172,6 +176,7 @@ vi.mock("./commands/dashboard", () => dashboardMocks);
 vi.mock("./kanban-migration/notice", () => migrationNoticeMocks);
 vi.mock("./commands/update", () => updateMocks);
 vi.mock("./commands/history", () => historyMocks);
+vi.mock("./commands/cursor-mcp", () => cursorMcpMocks);
 vi.mock("./logging/adapter", () => loggingMocks);
 vi.mock("./utils/hub-runtime", () => hubRuntimeMocks);
 vi.mock("./utils/telemetry", () => telemetryMocks);
@@ -191,6 +196,10 @@ describe("runCli lightweight command dispatch", () => {
 		historyMocks.runHistoryExport.mockResolvedValue(0);
 		historyMocks.runHistoryUpdate.mockReset();
 		historyMocks.runHistoryUpdate.mockResolvedValue(0);
+		cursorMcpMocks.runCursorMcpInstallCommand.mockReset();
+		cursorMcpMocks.runCursorMcpInstallCommand.mockResolvedValue(0);
+		cursorMcpMocks.runCursorUriCommand.mockReset();
+		cursorMcpMocks.runCursorUriCommand.mockResolvedValue(0);
 		sessionMocks.getSessionRow.mockReset();
 		sessionMocks.getSessionRow.mockResolvedValue({
 			sessionId: "sess_123",
@@ -295,6 +304,61 @@ describe("runCli lightweight command dispatch", () => {
 		const historyListCalls = historyMocks.runHistoryList.mock
 			.calls as unknown as Array<[Record<string, unknown>]>;
 		expect(historyListCalls[0]?.[0]).not.toHaveProperty("workspaceRoot");
+		expect(mockState.runAgentImports).toBe(0);
+		expect(mockState.runInteractiveImports).toBe(0);
+	});
+
+	it("dispatches Cursor MCP install deeplinks without loading runtime modules", async () => {
+		mockState.runAgentImports = 0;
+		mockState.runInteractiveImports = 0;
+
+		process.argv = [
+			"bun",
+			"src/index.ts",
+			"mcp",
+			"install",
+			"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+			"--yes",
+			"--json",
+		];
+
+		const { runCli } = await import("./main");
+
+		await expect(runCli()).resolves.toBeUndefined();
+		expect(process.exitCode).toBe(0);
+		expect(cursorMcpMocks.runCursorMcpInstallCommand).toHaveBeenCalledWith(
+			expect.objectContaining({
+				uri: "vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				confirmed: true,
+				json: true,
+			}),
+		);
+		expect(mockState.runAgentImports).toBe(0);
+		expect(mockState.runInteractiveImports).toBe(0);
+	});
+
+	it("dispatches generic Cursor URI commands without loading runtime modules", async () => {
+		mockState.runAgentImports = 0;
+		mockState.runInteractiveImports = 0;
+
+		process.argv = [
+			"bun",
+			"src/index.ts",
+			"uri",
+			"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+			"--json",
+		];
+
+		const { runCli } = await import("./main");
+
+		await expect(runCli()).resolves.toBeUndefined();
+		expect(process.exitCode).toBe(0);
+		expect(cursorMcpMocks.runCursorUriCommand).toHaveBeenCalledWith(
+			expect.objectContaining({
+				uri: "vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				json: true,
+			}),
+		);
 		expect(mockState.runAgentImports).toBe(0);
 		expect(mockState.runInteractiveImports).toBe(0);
 	});

@@ -72,7 +72,9 @@ async function main() {
 		const webviewProvider = await initialize(storageContext)
 
 		// Enable the localhost HTTP server that handles auth redirects.
-		AuthHandler.getInstance().setEnabled(true)
+		const authHandler = AuthHandler.getInstance()
+		authHandler.setEnabled(true)
+		authHandler.setController(webviewProvider.controller)
 
 		// Now this will throw instead of exit if binding fails
 		const protobusAddress = await startProtobusService(webviewProvider.controller)

@@ -1,6 +1,7 @@
 import type { IncomingMessage, Server, ServerResponse } from "node:http"
 import http from "node:http"
 import type { AddressInfo } from "node:net"
+import type { Controller } from "@/core/controller"
 import { SharedUriHandler } from "@/services/uri/SharedUriHandler"
 import { Logger } from "@/shared/services/Logger"
 import { HostProvider } from "../host-provider"
@@ -22,6 +23,7 @@ export class AuthHandler {
 	private serverCreationPromise: Promise<void> | null = null
 	private timeoutId: NodeJS.Timeout | null = null
 	private enabled = false
+	private controller: Controller | null = null
 
 	private constructor() {}
 
@@ -38,6 +40,10 @@ export class AuthHandler {
 
 	public setEnabled(enabled: boolean): void {
 		this.enabled = enabled
+	}
+
+	public setController(controller: Controller): void {
+		this.controller = controller
 	}
 
 	public async getCallbackUrl(path = "", preferredPort?: number): Promise<string> {
@@ -165,8 +171,9 @@ export class AuthHandler {
 		try {
 			const fullUrl = `http://127.0.0.1:${this.port}${req.url}`
 
-			// Use SharedUriHandler directly - it handles all validation and processing
-			const success = await SharedUriHandler.handleUri(fullUrl)
+			const success = this.controller
+				? await SharedUriHandler.handleUriWithController(this.controller, fullUrl)
+				: await SharedUriHandler.handleUri(fullUrl)
 
 			// Try to get redirect URI, but don't fail if not implemented (CLI/JetBrains)
 			let redirectUri: string | undefined

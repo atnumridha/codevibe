@@ -108,6 +108,15 @@ export function addServer(name: string, transport: McpTransport): void {
 	writeServers(servers);
 }
 
+export function addServerRecord(
+	name: string,
+	record: Record<string, unknown>,
+): void {
+	const servers = readRawServers();
+	servers[name] = record;
+	writeServers(servers);
+}
+
 export function removeServer(name: string): boolean {
 	const servers = readRawServers();
 	if (!(name in servers)) return false;

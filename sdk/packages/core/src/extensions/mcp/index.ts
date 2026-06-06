@@ -22,6 +22,12 @@ export {
 	setMcpServerDisabled,
 	updateMcpServerOAuthState,
 } from "./config-loader";
+export {
+	buildCursorMcpInstallRequest,
+	CursorMcpInstallError,
+	formatCursorMcpInstallDetail,
+} from "./cursor-uri";
+export type { CursorMcpInstallRequest } from "./cursor-uri";
 export { InMemoryMcpManager } from "./manager";
 export type {
 	AuthorizeMcpServerOAuthOptions,
