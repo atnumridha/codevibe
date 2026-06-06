@@ -46,6 +46,7 @@ import {
 	setDisabledPlugin,
 	setDisabledTools,
 	toggleDisabledTool,
+	DefaultToolNames,
 } from "@cline/core";
 import type {
 	CursorUriPreviewRequest,
@@ -74,6 +75,30 @@ import type {
 
 const DEFAULT_CODEVIBE_PROVIDER_ID = "openai-codex";
 const DEFAULT_CODEVIBE_MODEL_ID = "gpt-5.5";
+const CURSOR_URI_LAUNCHABLE_AGENT_PATHS = new Set([
+	"/createchat",
+	"/background-agent",
+	"/prompt",
+	"/command",
+	"/pr-review",
+	"/glass",
+	"/git/checkout",
+	"/git/branch",
+	"/git/commit",
+]);
+
+type CursorUriLaunchResponse = {
+	handled: true;
+	launched: true;
+	route: string;
+	path?: string;
+	sessionId: string;
+	provider: string;
+	model: string;
+	mode: "plan";
+	queued: true;
+	preview: CursorUriPreviewResponse;
+};
 
 function readProviderSettingsUpdate(
 	args: Record<string, unknown> | undefined,
@@ -427,6 +452,104 @@ async function handleCursorUriPreviewCommand(
 		throw new Error(reply.error?.message ?? "cursor_uri_preview failed");
 	}
 	return (reply.payload ?? { handled: false }) as CursorUriPreviewResponse;
+}
+
+function getCursorPreviewString(
+	preview: CursorUriPreviewResponse,
+	key: string,
+): string | undefined {
+	const value = preview[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function isLaunchableCursorAgentPreview(
+	preview: CursorUriPreviewResponse,
+): boolean {
+	const path = getCursorPreviewString(preview, "path");
+	const route = getCursorPreviewString(preview, "route");
+	return Boolean(
+		getCursorPreviewString(preview, "taskPrompt") &&
+			path &&
+			(CURSOR_URI_LAUNCHABLE_AGENT_PATHS.has(path) ||
+				(route === "command-file" && path === "/command")),
+	);
+}
+
+function getCursorQueuedAgentToolPolicies(): JsonRecord {
+	return {
+		"*": { enabled: false, autoApprove: false },
+		[DefaultToolNames.READ_FILES]: { enabled: true, autoApprove: true },
+		[DefaultToolNames.SEARCH_CODEBASE]: { enabled: true, autoApprove: true },
+	};
+}
+
+async function handleCursorUriLaunchCommand(
+	ctx: SidecarContext,
+	args?: Record<string, unknown>,
+): Promise<CursorUriLaunchResponse> {
+	if (args?.confirmed !== true) {
+		throw new Error("cursor_uri_launch requires confirmed=true");
+	}
+	const input = readCursorUriPreviewRequest(ctx, args);
+	const preview = await handleCursorUriPreviewCommand(ctx, args);
+	if (!preview.handled) {
+		throw new Error("Cursor URI was not handled by the preview route");
+	}
+	const taskPrompt = getCursorPreviewString(preview, "taskPrompt");
+	const route = getCursorPreviewString(preview, "route") ?? "unknown";
+	if (!isLaunchableCursorAgentPreview(preview) || !taskPrompt) {
+		throw new Error(
+			`Cursor URI route "${route}" can be previewed but is not launchable from the desktop app yet`,
+		);
+	}
+
+	const provider = asTrimmedString(args?.provider) ?? DEFAULT_CODEVIBE_PROVIDER_ID;
+	const model = asTrimmedString(args?.model) ?? DEFAULT_CODEVIBE_MODEL_ID;
+	const mode = "plan";
+	const workspaceRoot = input.workspaceRoot ?? ctx.workspaceRoot;
+	const cwd = workspaceRoot;
+	const { handleChatSessionCommand } = await import("./chat-session");
+	const started = (await handleChatSessionCommand(ctx, {
+		action: "start",
+		config: {
+			provider,
+			model,
+			mode,
+			workspaceRoot,
+			cwd,
+			enableTools: true,
+			enableSpawn: false,
+			enableTeams: false,
+			autoApproveTools: false,
+			toolPolicies: getCursorQueuedAgentToolPolicies(),
+		},
+	})) as { sessionId?: unknown };
+	const sessionId =
+		typeof started.sessionId === "string" ? started.sessionId.trim() : "";
+	if (!sessionId) {
+		throw new Error("cursor_uri_launch failed to start a desktop session");
+	}
+	await handleChatSessionCommand(ctx, {
+		action: "send",
+		sessionId,
+		prompt: taskPrompt,
+		delivery: "queue",
+	});
+
+	return {
+		handled: true,
+		launched: true,
+		route,
+		...(getCursorPreviewString(preview, "path")
+			? { path: getCursorPreviewString(preview, "path") }
+			: {}),
+		sessionId,
+		provider,
+		model,
+		mode,
+		queued: true,
+		preview,
+	};
 }
 
 async function handleRoutineScheduleCommand(
@@ -822,6 +945,9 @@ export async function handleCommand(
 	}
 	if (command === "cursor_uri_preview") {
 		return await handleCursorUriPreviewCommand(ctx, args);
+	}
+	if (command === "cursor_uri_launch") {
+		return await handleCursorUriLaunchCommand(ctx, args);
 	}
 	if (command === "get_chat_ws_endpoint") {
 		return "";

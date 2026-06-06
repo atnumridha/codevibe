@@ -14,6 +14,7 @@ import type {
 import { cn } from "@/lib/utils";
 import { AccountView } from "./account-view";
 import { AddProviderContent, type AddProviderPayload } from "./add-provider";
+import { CursorUriView } from "./cursor-uri-view";
 import { primeExtensionsListsCache, RulesView } from "./extensions-view";
 import { McpServersContent } from "./mcp-view";
 import {
@@ -471,6 +472,8 @@ export function SettingsView({ onClose }: { onClose: () => void }) {
 						<RoutineSchedulesContent />
 					) : activeNav === "Extensions" ? (
 						<RulesView />
+					) : activeNav === "Features" ? (
+						<CursorUriView />
 					) : activeNav === "Account" ? (
 						<AccountView />
 					) : (

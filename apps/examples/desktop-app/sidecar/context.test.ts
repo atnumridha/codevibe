@@ -1,5 +1,8 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { RuntimeCapabilities } from "@cline/core";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SidecarContext } from "./types";
 
 const createCoreMock = vi.hoisted(() => vi.fn());
@@ -38,6 +41,8 @@ function readEvents(ctx: SidecarContext): Array<{
 }
 
 describe("Code sidecar runtime capabilities", () => {
+	const tempDirs: string[] = [];
+
 	beforeEach(() => {
 		createCoreMock.mockReset();
 		connectMock.mockReset();
@@ -51,6 +56,13 @@ describe("Code sidecar runtime capabilities", () => {
 			subscribe: vi.fn(() => () => {}),
 			dispose: vi.fn(),
 		});
+	});
+
+	afterEach(async () => {
+		await Promise.all(
+			tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
+		);
+		tempDirs.length = 0;
 	});
 
 	it("registers Code App capability factory with core", async () => {
@@ -234,5 +246,152 @@ describe("Code sidecar runtime capabilities", () => {
 			maxCommandFileBytes: 4096,
 		});
 		expect(result).toEqual({ handled: true, route: "settings" });
+	});
+
+	it("requires confirmation before launching Cursor deeplinks", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const ctx = createSidecarContext("/workspace/project");
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+
+		await expect(
+			handleCommand(ctx, "cursor_uri_launch", {
+				uri: "vscode://cline.cline/createchat?prompt=Review%20the%20diff",
+			}),
+		).rejects.toThrow("confirmed=true");
+		expect(previewCursorUriMock).not.toHaveBeenCalled();
+	});
+
+	it("launches confirmed Cursor task deeplinks as queued desktop sessions", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-uri-"));
+		tempDirs.push(workspace);
+		previewCursorUriMock.mockResolvedValueOnce({
+			handled: true,
+			route: "createchat",
+			path: "/createchat",
+			requiresConfirmation: true,
+			taskPrompt: "Review the new diff and make a plan.",
+		});
+		const startMock = vi.fn(async () => ({ sessionId: "session-cursor" }));
+		const sendMock = vi.fn(async () => ({}));
+		const pendingListMock = vi.fn(async () => []);
+		const ctx = createSidecarContext(workspace);
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+			send: sendMock,
+			pendingPrompts: { list: pendingListMock },
+		} as never;
+
+		const result = await handleCommand(ctx, "cursor_uri_launch", {
+			uri: "vscode://cline.cline/createchat?prompt=Review%20the%20diff",
+			confirmed: true,
+			mode: "act",
+			cwd: "/tmp/outside-workspace",
+		});
+
+		expect(previewCursorUriMock).toHaveBeenCalledWith({
+			uri: "vscode://cline.cline/createchat?prompt=Review%20the%20diff",
+			workspaceRoot: workspace,
+		});
+		expect(startMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				config: expect.objectContaining({
+					providerId: "openai-codex",
+					modelId: "gpt-5.5",
+					mode: "plan",
+					workspaceRoot: workspace,
+					cwd: workspace,
+					enableTools: true,
+					enableSpawnAgent: false,
+					enableAgentTeams: false,
+				}),
+				interactive: true,
+				toolPolicies: {
+					"*": { enabled: false, autoApprove: false },
+					read_files: { enabled: true, autoApprove: true },
+					search_codebase: { enabled: true, autoApprove: true },
+				},
+			}),
+		);
+		expect(sendMock).toHaveBeenCalledWith({
+			sessionId: "session-cursor",
+			prompt: "Review the new diff and make a plan.",
+			delivery: "queue",
+			userImages: undefined,
+		});
+		expect(pendingListMock).toHaveBeenCalledWith({
+			sessionId: "session-cursor",
+		});
+		expect(result).toMatchObject({
+			handled: true,
+			launched: true,
+			route: "createchat",
+			path: "/createchat",
+			sessionId: "session-cursor",
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			mode: "plan",
+			queued: true,
+		});
+	});
+
+	it("does not launch preview-only Cursor routes", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const startMock = vi.fn(async () => ({ sessionId: "session-cursor" }));
+		const ctx = createSidecarContext("/workspace/project");
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+		} as never;
+
+		await expect(
+			handleCommand(ctx, "cursor_uri_launch", {
+				uri: "vscode://cline.cline/settings?query=codex",
+				confirmed: true,
+			}),
+		).rejects.toThrow("not launchable");
+		expect(startMock).not.toHaveBeenCalled();
+	});
+
+	it("does not launch automation previews even when they include task prompts", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		previewCursorUriMock.mockResolvedValueOnce({
+			handled: true,
+			route: "automation-ingest",
+			path: "/automation/ingest",
+			requiresConfirmation: true,
+			taskPrompt: "Ingest this automation payload.",
+		});
+		const startMock = vi.fn(async () => ({ sessionId: "session-cursor" }));
+		const ctx = createSidecarContext("/workspace/project");
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+		} as never;
+
+		await expect(
+			handleCommand(ctx, "cursor_uri_launch", {
+				uri: "vscode://cline.cline/automation/ingest?ndjson=%7B%7D",
+				confirmed: true,
+			}),
+		).rejects.toThrow("not launchable");
+		expect(startMock).not.toHaveBeenCalled();
 	});
 });

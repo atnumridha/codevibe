@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import {
 	buildWorkspaceMetadata,
+	type AgentConfig,
 	type ClineCore,
 	type CoreSessionConfig,
 	type SessionPendingPrompt,
@@ -176,7 +177,11 @@ async function resolveSystemPrompt(config: JsonRecord): Promise<string> {
 
 function resolveToolPolicies(
 	config: JsonRecord,
-): { "*": { autoApprove: boolean } } | undefined {
+): AgentConfig["toolPolicies"] | undefined {
+	const explicit = config.toolPolicies;
+	if (explicit && typeof explicit === "object" && !Array.isArray(explicit)) {
+		return explicit as AgentConfig["toolPolicies"];
+	}
 	return {
 		"*": {
 			autoApprove: config.autoApproveTools !== false,

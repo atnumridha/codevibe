@@ -91,6 +91,27 @@ export type CursorUriPreviewResponse = Record<string, unknown> & {
 	requiresConfirmation?: boolean;
 };
 
+export type CursorUriLaunchInput = CursorUriPreviewInput & {
+	confirmed: true;
+	provider?: string;
+	model?: string;
+	mode?: "plan";
+	cwd?: string;
+};
+
+export type CursorUriLaunchResponse = Record<string, unknown> & {
+	handled: true;
+	launched: true;
+	route: string;
+	path?: string;
+	sessionId: string;
+	provider: string;
+	model: string;
+	mode: "plan";
+	queued: true;
+	preview?: CursorUriPreviewResponse;
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 const RECONNECT_BASE_DELAY_MS = 400;
 const RECONNECT_MAX_DELAY_MS = 4_000;
@@ -297,6 +318,24 @@ class DesktopClient {
 			...(input.maxCommandFileBytes !== undefined
 				? { maxCommandFileBytes: input.maxCommandFileBytes }
 				: {}),
+		});
+	}
+
+	async launchCursorUri(
+		input: CursorUriLaunchInput,
+	): Promise<CursorUriLaunchResponse> {
+		return await this.invoke<CursorUriLaunchResponse>("cursor_uri_launch", {
+			uri: input.uri,
+			confirmed: input.confirmed,
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+			...(input.maxCommandFileBytes !== undefined
+				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+			...(input.provider ? { provider: input.provider } : {}),
+			...(input.model ? { model: input.model } : {}),
+			...(input.mode ? { mode: input.mode } : {}),
+			...(input.cwd ? { cwd: input.cwd } : {}),
 		});
 	}
 
