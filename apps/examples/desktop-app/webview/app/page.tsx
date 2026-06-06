@@ -64,6 +64,15 @@ const CURSOR_COMPATIBLE_NATIVE_URI_HOSTS = new Set([
 	"atnumridha.codevibe",
 ]);
 
+const CURSOR_COMPATIBLE_NATIVE_URI_HOST_PATH_ALIASES = new Map([
+	[
+		"anysphere.cursor-mcp",
+		new Map([
+			["/install", "/mcp/install"],
+		]),
+	],
+]);
+
 function getCursorCompatibleNativeUriPath(parsed: URL): string {
 	const pathname = parsed.pathname || "/";
 	if (CURSOR_COMPATIBLE_NATIVE_URI_PATHS.has(pathname)) {
@@ -73,6 +82,10 @@ function getCursorCompatibleNativeUriPath(parsed: URL): string {
 	const protocol = parsed.protocol.toLowerCase();
 	if (protocol === "cursor:" || protocol === "codevibe:") {
 		const host = parsed.hostname.toLowerCase();
+		const aliasPath = CURSOR_COMPATIBLE_NATIVE_URI_HOST_PATH_ALIASES.get(host)?.get(pathname);
+		if (aliasPath) {
+			return aliasPath;
+		}
 		if (host && !CURSOR_COMPATIBLE_NATIVE_URI_HOSTS.has(host)) {
 			const combinedPath = `/${host}${pathname === "/" ? "" : pathname}`;
 			if (CURSOR_COMPATIBLE_NATIVE_URI_PATHS.has(combinedPath)) {

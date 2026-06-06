@@ -31,6 +31,9 @@ describe("CursorUriRoutes", () => {
 		expect(
 			getCursorCompatibleUriPath(new URL("cursor://anysphere.cursor-deeplink/createchat?prompt=hi")),
 		).to.equal("/createchat")
+		expect(getCursorCompatibleUriPath(new URL("cursor://anysphere.cursor-mcp/install?name=docs"))).to.equal(
+			"/mcp/install",
+		)
 	})
 
 	it("normalizes native codevibe:// route hosts into Cursor-compatible route paths", () => {

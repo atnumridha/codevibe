@@ -298,6 +298,23 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should confirm and install a native Cursor MCP extension install route", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"cursor://anysphere.cursor-mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install MCP server "docs"?')
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				expect(addServerFromConfigStub.firstCall.args[0]).to.equal("docs")
+				expect(addServerFromConfigStub.firstCall.args[1]).to.deep.include({
+					type: "streamableHttp",
+					url: "https://mcp.example.com",
+				})
+				sinon.assert.calledOnce(postStateToWebviewStub)
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should redact Cursor MCP install URL query values in confirmation text", async () => {
 				const result = await SharedUriHandler.handleUri(
 					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fsse%3Ftoken%3Dsecret-value%23secret-fragment",

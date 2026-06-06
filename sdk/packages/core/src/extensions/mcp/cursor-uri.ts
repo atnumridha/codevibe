@@ -31,6 +31,14 @@ const CURSOR_COMPATIBLE_URI_HOST_ALIASES = new Set([
 	"cline.cline",
 	"codevibe",
 ]);
+const CURSOR_COMPATIBLE_URI_HOST_PATH_ALIASES = new Map<string, Map<string, string>>([
+	[
+		"anysphere.cursor-mcp",
+		new Map([
+			["/install", "/mcp/install"],
+		]),
+	],
+]);
 const RESERVED_MCP_SERVER_NAMES = new Set([
 	"__proto__",
 	"constructor",
@@ -193,6 +201,12 @@ function supportsRouteHostPath(parsedUrl: URL): boolean {
 	return protocol === "cursor:" || protocol === "codevibe:";
 }
 
+function resolveCursorHostPathAlias(parsedUrl: URL): string | undefined {
+	const host = parsedUrl.hostname.toLowerCase();
+	const pathname = parsedUrl.pathname || "/";
+	return CURSOR_COMPATIBLE_URI_HOST_PATH_ALIASES.get(host)?.get(pathname);
+}
+
 export function getCursorCompatibleUriPath(uriOrUrl: string | URL): string {
 	const parsedUrl = typeof uriOrUrl === "string" ? new URL(uriOrUrl) : uriOrUrl;
 	const pathname = parsedUrl.pathname || "/";
@@ -201,6 +215,10 @@ export function getCursorCompatibleUriPath(uriOrUrl: string | URL): string {
 	}
 
 	if (supportsRouteHostPath(parsedUrl)) {
+		const aliasPath = resolveCursorHostPathAlias(parsedUrl);
+		if (aliasPath) {
+			return aliasPath;
+		}
 		const combinedPath = combineCursorSchemeHostAndPath(parsedUrl);
 		if (combinedPath && CURSOR_COMPATIBLE_URI_PATHS.has(combinedPath)) {
 			return combinedPath;

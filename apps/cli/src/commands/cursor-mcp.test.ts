@@ -65,6 +65,27 @@ describe("Cursor MCP install command", () => {
 		expect(out.join("\n")).toContain("Re-run with --yes");
 	});
 
+	it("previews native Cursor MCP extension install aliases", async () => {
+		await useTempSettingsPath();
+		const { out, err, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: "cursor://anysphere.cursor-mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(err).toEqual([]);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "mcp-install",
+			installed: false,
+			requiresConfirmation: true,
+			serverName: "docs",
+		});
+	});
+
 	it("writes confirmed installs as direct MCP server records", async () => {
 		const settingsPath = await useTempSettingsPath();
 		const { out, io } = createIo();

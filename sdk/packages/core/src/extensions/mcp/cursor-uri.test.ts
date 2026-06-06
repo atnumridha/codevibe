@@ -54,6 +54,9 @@ describe("Cursor MCP install URI parser", () => {
 		expect(
 			getCursorCompatibleUriPath("cursor://anysphere.cursor-deeplink/createchat?prompt=hi"),
 		).toBe("/createchat");
+		expect(
+			getCursorCompatibleUriPath("cursor://anysphere.cursor-mcp/install?name=docs"),
+		).toBe("/mcp/install");
 	});
 
 	it("normalizes native codevibe:// route hosts into Cursor-compatible route paths", () => {
@@ -123,6 +126,18 @@ describe("Cursor MCP install URI parser", () => {
 		);
 
 		expect(request).toMatchObject({
+			serverName: "docs",
+			source: "direct",
+			serverConfig: {
+				url: "https://mcp.example.com/context",
+				type: "streamableHttp",
+			},
+		});
+
+		const aliasRequest = buildCursorMcpInstallRequest(
+			"cursor://anysphere.cursor-mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fcontext",
+		);
+		expect(aliasRequest).toMatchObject({
 			serverName: "docs",
 			source: "direct",
 			serverConfig: {

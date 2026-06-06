@@ -43,6 +43,27 @@ describe("hub Cursor URI preview command", () => {
 				urlOrigin: "https://mcp.example.com",
 			},
 		});
+
+		const aliasReply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.preview",
+			requestId: "req-native-mcp-alias",
+			clientId: "client-one",
+			payload: {
+				uri: "cursor://anysphere.cursor-mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fcontext",
+			},
+		});
+
+		expect(aliasReply).toMatchObject({
+			ok: true,
+			payload: {
+				handled: true,
+				route: "mcp-install",
+				requiresConfirmation: true,
+				serverName: "docs",
+				urlOrigin: "https://mcp.example.com",
+			},
+		});
 	});
 
 	it("previews native codevibe:// route-host deeplinks", async () => {
