@@ -1,5 +1,6 @@
 import type { Anthropic } from "@anthropic-ai/sdk"
 import { buildApiHandler } from "@core/api"
+import { resolveCursorSandboxPolicy } from "@core/config/cursor-sandbox"
 import { getHooksEnabledSafe } from "@core/hooks/hooks-utils"
 import { tryAcquireTaskLockWithRetry } from "@core/task/TaskLockUtils"
 import { detectWorkspaceRoots } from "@core/workspace/detection"
@@ -23,6 +24,7 @@ import fs from "fs/promises"
 import open from "open"
 import pWaitFor from "p-wait-for"
 import * as path from "path"
+import * as vscode from "vscode"
 import { ClineEnv } from "@/config"
 import type { FolderLockWithRetryResult } from "@/core/locks/types"
 import { HostProvider } from "@/hosts/host-provider"
@@ -278,6 +280,13 @@ export class Controller {
 		})
 
 		const cwd = this.workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
+		const clineConfig = vscode.workspace.getConfiguration("cline")
+		const cursorSandboxPolicy = await resolveCursorSandboxPolicy({
+			workspaceRoot: cwd,
+			enabled: clineConfig.get<boolean>("cursorCompatibility.enabled", true),
+			policySetting: clineConfig.get<string>("cursorCompatibility.sandboxPolicy", "prompt"),
+			logger: { warn: (message) => Logger.warn(message) },
+		})
 
 		const taskId = historyItem?.id || Date.now().toString()
 
@@ -317,6 +326,7 @@ export class Controller {
 			defaultTerminalProfile: defaultTerminalProfile ?? "default",
 			vscodeTerminalExecutionMode,
 			cwd,
+			cursorSandboxPolicy,
 			stateManager: this.stateManager,
 			workspaceManager: this.workspaceManager,
 			task,

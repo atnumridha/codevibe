@@ -1,4 +1,9 @@
+import path from "path"
 import { resolveWorkspacePath } from "@core/workspace"
+import {
+	isPathAllowedByCursorSandbox,
+	type CursorSandboxRuntimePolicy,
+} from "@core/config/cursor-sandbox"
 import { isMultiRootEnabled } from "@core/workspace/multi-root-utils"
 import { ClineDefaultTool } from "@shared/tools"
 import { StateManager } from "@/core/storage/StateManager"
@@ -12,7 +17,10 @@ export class AutoApprove {
 	private workspacePathsCache: { paths: string[] } | null = null
 	private isMultiRootScenarioCache: boolean | null = null
 
-	constructor(stateManager: StateManager) {
+	constructor(
+		stateManager: StateManager,
+		private readonly cursorSandboxPolicy?: CursorSandboxRuntimePolicy,
+	) {
 		this.stateManager = stateManager
 	}
 
@@ -40,6 +48,11 @@ export class AutoApprove {
 	// Check if the tool should be auto-approved based on the settings
 	// Returns bool for most tools, and tuple for tools with nested settings
 	shouldAutoApproveTool(toolName: ClineDefaultTool): boolean | [boolean, boolean] {
+		const sandboxOverride = this.getCursorSandboxToolOverride(toolName)
+		if (sandboxOverride !== undefined) {
+			return sandboxOverride
+		}
+
 		if (this.stateManager.getGlobalSettingsKey("yoloModeToggled")) {
 			switch (toolName) {
 				case ClineDefaultTool.FILE_READ:
@@ -123,6 +136,11 @@ export class AutoApprove {
 		blockname: ClineDefaultTool,
 		autoApproveActionpath: string | undefined,
 	): Promise<boolean> {
+		const sandboxDecision = await this.getCursorSandboxPathDecision(blockname, autoApproveActionpath)
+		if (sandboxDecision?.allowed === false) {
+			return false
+		}
+
 		if (this.stateManager.getGlobalSettingsKey("yoloModeToggled")) {
 			return true
 		}
@@ -154,6 +172,10 @@ export class AutoApprove {
 			isLocalRead = false
 		}
 
+		if (sandboxDecision?.treatAsLocal) {
+			isLocalRead = true
+		}
+
 		// Get auto-approve settings for local and external edits
 		const autoApproveResult = this.shouldAutoApproveTool(blockname)
 		const [autoApproveLocal, autoApproveExternal] = Array.isArray(autoApproveResult)
@@ -165,4 +187,96 @@ export class AutoApprove {
 		}
 		return false
 	}
+
+	private getCursorSandboxToolOverride(toolName: ClineDefaultTool): boolean | [boolean, boolean] | undefined {
+		if (!this.cursorSandboxPolicy) {
+			return undefined
+		}
+		if (isWriteTool(toolName) && !this.cursorSandboxPolicy.allowWriteAutoApprove) {
+			return [false, false]
+		}
+		if (toolName === ClineDefaultTool.BASH && !this.cursorSandboxPolicy.allowTerminalAutoApprove) {
+			return [false, false]
+		}
+		if (isNetworkTool(toolName) && !this.cursorSandboxPolicy.allowNetworkAutoApprove) {
+			return false
+		}
+		return undefined
+	}
+
+	private async getCursorSandboxPathDecision(
+		toolName: ClineDefaultTool,
+		autoApproveActionpath: string | undefined,
+	): Promise<{ allowed: boolean; treatAsLocal: boolean } | undefined> {
+		if (!this.cursorSandboxPolicy || (!isReadTool(toolName) && !isWriteTool(toolName))) {
+			return undefined
+		}
+		if (!autoApproveActionpath) {
+			return { allowed: false, treatAsLocal: false }
+		}
+
+		const allowedPaths = isWriteTool(toolName)
+			? this.cursorSandboxPolicy.writablePaths
+			: this.cursorSandboxPolicy.readablePaths
+		if (allowedPaths.length === 0) {
+			return { allowed: false, treatAsLocal: false }
+		}
+
+		const allowed = await this.isActionPathInSandboxPaths(autoApproveActionpath, allowedPaths)
+		return {
+			allowed,
+			treatAsLocal: allowed && this.cursorSandboxPolicy.effectiveAccess !== "prompt",
+		}
+	}
+
+	private async isActionPathInSandboxPaths(
+		actionPath: string,
+		allowedPaths: ReadonlyArray<string>,
+	): Promise<boolean> {
+		if (path.isAbsolute(actionPath)) {
+			return isPathAllowedByCursorSandbox(actionPath, allowedPaths)
+		}
+
+		const { workspacePaths, isMultiRootScenario } = await this.getWorkspaceInfo()
+		if (isMultiRootScenario) {
+			return workspacePaths.paths.some((workspacePath) => {
+				const absolutePath = resolveWorkspacePath(
+					workspacePath,
+					actionPath,
+					"AutoApprove.isActionPathInSandboxPaths",
+				) as string
+				return isPathAllowedByCursorSandbox(absolutePath, allowedPaths)
+			})
+		}
+
+		const cwd = await getCwd(getDesktopDir())
+		const absolutePath = resolveWorkspacePath(cwd, actionPath, "AutoApprove.isActionPathInSandboxPaths") as string
+		return isPathAllowedByCursorSandbox(absolutePath, allowedPaths)
+	}
+}
+
+function isReadTool(toolName: ClineDefaultTool): boolean {
+	return (
+		toolName === ClineDefaultTool.FILE_READ ||
+		toolName === ClineDefaultTool.LIST_FILES ||
+		toolName === ClineDefaultTool.LIST_CODE_DEF ||
+		toolName === ClineDefaultTool.SEARCH
+	)
+}
+
+function isWriteTool(toolName: ClineDefaultTool): boolean {
+	return (
+		toolName === ClineDefaultTool.NEW_RULE ||
+		toolName === ClineDefaultTool.FILE_NEW ||
+		toolName === ClineDefaultTool.FILE_EDIT ||
+		toolName === ClineDefaultTool.APPLY_PATCH
+	)
+}
+
+function isNetworkTool(toolName: ClineDefaultTool): boolean {
+	return (
+		toolName === ClineDefaultTool.BROWSER ||
+		toolName === ClineDefaultTool.WEB_FETCH ||
+		toolName === ClineDefaultTool.WEB_SEARCH
+	)
 }

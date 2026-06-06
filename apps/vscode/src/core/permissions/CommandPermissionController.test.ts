@@ -29,6 +29,24 @@ describe("CommandPermissionController", () => {
 			result.allowed.should.be.true()
 			result.reason.should.equal("no_config")
 		})
+
+		it("should apply supplemental command permissions without env var", () => {
+			delete process.env[COMMAND_PERMISSIONS_ENV_VAR]
+			const controller = new CommandPermissionController({
+				allow: ["git status", "git status *"],
+				allowRedirects: false,
+			})
+
+			controller.validateCommand("git status --short").allowed.should.be.true()
+
+			const denied = controller.validateCommand("npm install")
+			denied.allowed.should.be.false()
+			denied.reason.should.equal("no_match_deny_default")
+
+			const redirect = controller.validateCommand("git status > out.txt")
+			redirect.allowed.should.be.false()
+			redirect.reason.should.equal("redirect_detected")
+		})
 	})
 
 	describe("Invalid Configuration", () => {
@@ -166,6 +184,21 @@ describe("CommandPermissionController", () => {
 
 			// Doesn't match deny, but also doesn't match allow
 			const result = controller.validateCommand("python script.py")
+			result.allowed.should.be.false()
+			result.reason.should.equal("no_match_deny_default")
+		})
+
+		it("should require commands to satisfy both env and supplemental configs", () => {
+			process.env[COMMAND_PERMISSIONS_ENV_VAR] = JSON.stringify({
+				allow: ["npm *", "git status", "git status *"],
+			})
+			const controller = new CommandPermissionController({
+				allow: ["git status", "git status *"],
+			})
+
+			controller.validateCommand("git status --short").allowed.should.be.true()
+
+			const result = controller.validateCommand("npm install")
 			result.allowed.should.be.false()
 			result.reason.should.equal("no_match_deny_default")
 		})

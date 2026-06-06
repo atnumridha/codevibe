@@ -2,6 +2,7 @@ import { setTimeout as setTimeoutPromise } from "node:timers/promises"
 import { ApiHandler, ApiProviderInfo, buildApiHandler } from "@core/api"
 import { ApiStream } from "@core/api/transform/stream"
 import { AssistantMessageContent, parseAssistantMessageV2, ToolUse } from "@core/assistant-message"
+import type { CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
 import { ContextManager } from "@core/context/context-management/ContextManager"
 import { checkContextWindowExceededError } from "@core/context/context-management/context-error-handling"
 import { getContextWindowInfo } from "@core/context/context-management/context-window-utils"
@@ -146,6 +147,7 @@ type TaskParams = {
 	defaultTerminalProfile: string
 	vscodeTerminalExecutionMode: "vscodeTerminal" | "backgroundExec"
 	cwd: string
+	cursorSandboxPolicy?: CursorSandboxRuntimePolicy
 	stateManager: StateManager
 	workspaceManager?: WorkspaceRootManager
 	task?: string
@@ -224,6 +226,7 @@ export class Task {
 	public checkpointManager?: ICheckpointManager
 	private initialCheckpointCommitPromise?: Promise<string | undefined>
 	private clineIgnoreController: ClineIgnoreController
+	private cursorSandboxPolicy?: CursorSandboxRuntimePolicy
 	private commandPermissionController: CommandPermissionController
 	private toolExecutor: ToolExecutor
 	/**
@@ -285,6 +288,7 @@ export class Task {
 			defaultTerminalProfile,
 			vscodeTerminalExecutionMode,
 			cwd,
+			cursorSandboxPolicy,
 			stateManager,
 			workspaceManager,
 			task,
@@ -315,7 +319,8 @@ export class Task {
 		this.reinitExistingTaskFromId = reinitExistingTaskFromId
 		this.cancelTask = cancelTask
 		this.clineIgnoreController = new ClineIgnoreController(cwd)
-		this.commandPermissionController = new CommandPermissionController()
+		this.cursorSandboxPolicy = cursorSandboxPolicy
+		this.commandPermissionController = new CommandPermissionController(cursorSandboxPolicy?.commandPermissions)
 		this.taskLockAcquired = taskLockAcquired
 		// Determine terminal execution mode and create appropriate terminal manager
 		this.terminalExecutionMode = vscodeTerminalExecutionMode || "vscodeTerminal"
@@ -592,6 +597,7 @@ export class Task {
 			this.commandPermissionController,
 			this.contextManager,
 			this.stateManager,
+			this.cursorSandboxPolicy,
 			cwd,
 			this.taskId,
 			this.ulid,

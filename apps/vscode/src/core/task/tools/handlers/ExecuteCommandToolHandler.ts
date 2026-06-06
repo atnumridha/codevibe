@@ -158,20 +158,20 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			// If no hint, use primary workspace (cwd)
 		}
 
-		// Check command permission validation (CLINE_COMMAND_PERMISSIONS env var)
+		// Check command permission validation (env var and task-level sandbox policy)
 		const permissionResult = config.services.commandPermissionController.validateCommand(actualCommand)
 		if (!permissionResult.allowed) {
 			let errorMessage: string
 			if (permissionResult.failedSegment) {
 				errorMessage =
-					`Command "${actualCommand}" was denied by CLINE_COMMAND_PERMISSIONS. ` +
+					`Command "${actualCommand}" was denied by configured command permissions. ` +
 					`Segment "${permissionResult.failedSegment}" ${permissionResult.reason}.`
 			} else {
 				const matchedPattern = permissionResult.matchedPattern
 					? ` (matched pattern: ${permissionResult.matchedPattern})`
 					: ""
 				errorMessage =
-					`Command "${actualCommand}" was denied by CLINE_COMMAND_PERMISSIONS. ` +
+					`Command "${actualCommand}" was denied by configured command permissions. ` +
 					`Reason: ${permissionResult.reason}${matchedPattern}`
 			}
 			if (!config.isSubagentExecution) {

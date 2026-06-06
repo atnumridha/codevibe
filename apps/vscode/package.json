@@ -392,7 +392,7 @@
 				"cline.cursorCompatibility.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Enables Cursor-compatible workspace inputs such as .cursorrules, .cursor/rules, .cursorignore, .cursorindexingignore, and .cursor/mcp.json."
+					"description": "Enables Cursor-compatible workspace inputs such as .cursorrules, .cursor/rules, .cursorignore, .cursorindexingignore, .cursor/mcp.json, and .cursor/sandbox.json."
 				},
 				"cline.cursorCompatibility.deepLinks.enabled": {
 					"type": "boolean",

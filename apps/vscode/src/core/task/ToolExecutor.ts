@@ -1,5 +1,6 @@
 import { ApiHandler } from "@core/api"
 import { FileContextTracker } from "@core/context/context-tracking/FileContextTracker"
+import type { CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
 import { getHookModelContext } from "@core/hooks/hook-model-context"
 import { getHooksEnabledSafe } from "@core/hooks/hooks-utils"
 import { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
@@ -70,6 +71,7 @@ export class ToolExecutor {
 		private commandPermissionController: CommandPermissionController,
 		private contextManager: ContextManager,
 		private stateManager: StateManager,
+		private cursorSandboxPolicy: CursorSandboxRuntimePolicy | undefined,
 
 		// Configuration & Settings
 
@@ -123,7 +125,7 @@ export class ToolExecutor {
 			context: "initial_task" | "resume" | "feedback",
 		) => Promise<{ cancel?: boolean; wasCancelled?: boolean; contextModification?: string; errorMessage?: string }>,
 	) {
-		this.autoApprover = new AutoApprove(this.stateManager)
+		this.autoApprover = new AutoApprove(this.stateManager, this.cursorSandboxPolicy)
 
 		// Initialize the coordinator and register all tool handlers
 		this.coordinator = new ToolExecutorCoordinator()

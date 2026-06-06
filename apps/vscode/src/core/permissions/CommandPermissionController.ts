@@ -24,10 +24,11 @@ interface ParsedCommand {
 }
 
 /**
- * Controls command execution permissions based on environment variable configuration.
+ * Controls command execution permissions based on environment and task-level configuration.
  * Uses glob pattern matching to allow/deny specific commands.
  *
  * Configuration is read from the CLINE_COMMAND_PERMISSIONS environment variable.
+ * Supplemental task-level configs, such as a sandbox-derived read-only policy, are intersected with it.
  * Format: {"allow": ["pattern1", "pattern2"], "deny": ["pattern3"], "allowRedirects": true}
  *
  * Rule evaluation for chained commands (e.g., "cd /tmp && npm test"):
@@ -36,13 +37,14 @@ interface ParsedCommand {
  * 3. If redirects detected and allowRedirects !== true → DENIED
  * 4. Validate EACH segment against allow/deny rules - ALL must pass
  * 5. Recursively validate any subshell contents
- * 6. If no rules are defined (env var not set) → ALLOWED (backward compatibility)
+ * 6. If no configs are defined (env var not set and no supplemental config) → ALLOWED (backward compatibility)
  */
 export class CommandPermissionController {
-	private config: CommandPermissionConfig | null = null
+	private configs: CommandPermissionConfig[] = []
 
-	constructor() {
-		this.config = this.parseConfig()
+	constructor(config?: CommandPermissionConfig) {
+		const envConfig = this.parseConfig()
+		this.configs = [envConfig, config].filter((candidate): candidate is CommandPermissionConfig => Boolean(candidate))
 	}
 
 	/**
@@ -77,7 +79,7 @@ export class CommandPermissionController {
 	 */
 	validateCommand(command: string): PermissionValidationResult {
 		// No config = allow everything (backward compatibility)
-		if (!this.config) {
+		if (this.configs.length === 0) {
 			return { allowed: true, reason: "no_config" }
 		}
 
@@ -102,20 +104,24 @@ export class CommandPermissionController {
 			}
 		}
 
-		// Validate the parsed command structure
-		const result = this.validateParsedCommand(parseResult, command)
-		return result
+		for (const config of this.configs) {
+			const result = this.validateParsedCommand(parseResult, config)
+			if (!result.allowed) {
+				return result
+			}
+		}
+
+		return { allowed: true, reason: "allowed" }
 	}
 
 	/**
 	 * Recursively validate a parsed command structure
 	 * @param parsed - The parsed command with segments and subshells
-	 * @param fullCommand - The full original command (for error messages)
 	 * @returns PermissionValidationResult
 	 */
-	private validateParsedCommand(parsed: ParsedCommand, fullCommand: string): PermissionValidationResult {
+	private validateParsedCommand(parsed: ParsedCommand, config: CommandPermissionConfig): PermissionValidationResult {
 		// Check if redirects are allowed
-		if (parsed.hasRedirects && !this.config?.allowRedirects) {
+		if (parsed.hasRedirects && !config.allowRedirects) {
 			return {
 				allowed: false,
 				reason: "redirect_detected",
@@ -125,7 +131,7 @@ export class CommandPermissionController {
 		// Validate each command segment
 		const isMultiSegment = parsed.segments.length > 1 || parsed.subshells.length > 0
 		for (const segment of parsed.segments) {
-			const result = this.validateSingleCommand(segment)
+			const result = this.validateSingleCommand(segment, config)
 			if (!result.allowed) {
 				// Only use segment-specific reasons for multi-segment commands
 				if (isMultiSegment) {
@@ -146,7 +152,7 @@ export class CommandPermissionController {
 
 		// Recursively validate subshell contents
 		for (const subshell of parsed.subshells) {
-			const result = this.validateParsedCommand(subshell, fullCommand)
+			const result = this.validateParsedCommand(subshell, config)
 			if (!result.allowed) {
 				return result
 			}
@@ -161,10 +167,10 @@ export class CommandPermissionController {
 	 * @param command - A single command without shell operators
 	 * @returns PermissionValidationResult for this command
 	 */
-	private validateSingleCommand(command: string): PermissionValidationResult {
+	private validateSingleCommand(command: string, config: CommandPermissionConfig): PermissionValidationResult {
 		// Check deny rules first (deny takes precedence)
-		if (this.config?.deny) {
-			for (const pattern of this.config.deny) {
+		if (config.deny) {
+			for (const pattern of config.deny) {
 				if (this.matchesPattern(command, pattern)) {
 					return { allowed: false, matchedPattern: pattern, reason: "denied" }
 				}
@@ -172,8 +178,8 @@ export class CommandPermissionController {
 		}
 
 		// Check allow rules
-		if (this.config?.allow && this.config.allow.length > 0) {
-			for (const pattern of this.config.allow) {
+		if (config.allow && config.allow.length > 0) {
+			for (const pattern of config.allow) {
 				if (this.matchesPattern(command, pattern)) {
 					return { allowed: true, matchedPattern: pattern, reason: "allowed" }
 				}
