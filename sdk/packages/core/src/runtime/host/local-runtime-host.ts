@@ -119,6 +119,27 @@ import {
 } from "./runtime-host-support";
 
 const MAX_SCAN_LIMIT = 5000;
+const OPENAI_CODEX_PROVIDER_ID = "openai-codex";
+const OPENAI_CODEX_ACCOUNT_HEADER = "ChatGPT-Account-Id";
+
+type OAuthConnectionOverrides = Partial<
+	Pick<AgentConfig, "apiKey" | "headers" | "providerConfig">
+>;
+
+function trimNonEmpty(value: string | undefined): string | undefined {
+	const trimmed = value?.trim();
+	return trimmed ? trimmed : undefined;
+}
+
+function mergeHeadersForRefresh(
+	sessionHeaders: CoreSessionConfig["headers"],
+	providerHeaders: Record<string, string> | undefined,
+): Record<string, string> {
+	return {
+		...(providerHeaders ?? {}),
+		...(sessionHeaders ?? {}),
+	};
+}
 
 function asFiniteUsageNumber(value: unknown): number | undefined {
 	return typeof value === "number" && Number.isFinite(value)
@@ -1559,15 +1580,89 @@ export class LocalRuntimeHost implements RuntimeHost {
 			}
 			throw error;
 		}
-		if (!resolved?.apiKey || session.config.apiKey === resolved.apiKey) return;
-		session.config.apiKey = resolved.apiKey;
-		session.agent.updateConnection({ apiKey: resolved.apiKey });
-		session.runtime.delegatedAgentConfigProvider?.updateConnectionDefaults({
+		if (!resolved?.apiKey) return;
+		const overrides = this.buildOAuthConnectionOverrides(session, resolved);
+		if (!overrides) return;
+		if (overrides.apiKey !== undefined) {
+			session.config.apiKey = overrides.apiKey;
+		}
+		if (overrides.headers !== undefined) {
+			session.config.headers = overrides.headers;
+		}
+		if (overrides.providerConfig !== undefined) {
+			session.config.providerConfig =
+				overrides.providerConfig as CoreSessionConfig["providerConfig"];
+		}
+		session.agent.updateConnection(overrides);
+		session.runtime.delegatedAgentConfigProvider?.updateConnectionDefaults(
+			overrides,
+		);
+		session.runtime.teamRuntime?.updateTeammateConnections(overrides);
+	}
+
+	private buildOAuthConnectionOverrides(
+		session: ActiveSession,
+		resolved: RuntimeOAuthResolution,
+	): OAuthConnectionOverrides | null {
+		const overrides: OAuthConnectionOverrides = {};
+		if (session.config.apiKey !== resolved.apiKey) {
+			overrides.apiKey = resolved.apiKey;
+		}
+		if (session.config.providerId === OPENAI_CODEX_PROVIDER_ID) {
+			this.rebaseOpenAICodexConnection(session, resolved, overrides);
+		}
+		return Object.keys(overrides).length > 0 ? overrides : null;
+	}
+
+	private rebaseOpenAICodexConnection(
+		session: ActiveSession,
+		resolved: RuntimeOAuthResolution,
+		overrides: OAuthConnectionOverrides,
+	): void {
+		const providerConfig = session.config.providerConfig;
+		const accountId = trimNonEmpty(resolved.accountId);
+		const mergedHeaders = mergeHeadersForRefresh(
+			session.config.headers,
+			providerConfig?.headers,
+		);
+		if (
+			accountId &&
+			(mergedHeaders[OPENAI_CODEX_ACCOUNT_HEADER] !== accountId ||
+				session.config.headers?.[OPENAI_CODEX_ACCOUNT_HEADER] !== accountId)
+		) {
+			overrides.headers = {
+				...mergedHeaders,
+				[OPENAI_CODEX_ACCOUNT_HEADER]: accountId,
+			};
+		}
+		if (!providerConfig) return;
+
+		const existingCodex =
+			providerConfig.codex &&
+			typeof providerConfig.codex === "object" &&
+			!Array.isArray(providerConfig.codex)
+				? providerConfig.codex
+				: undefined;
+		const nextHeaders = overrides.headers ?? providerConfig.headers;
+		const providerConfigNeedsUpdate =
+			providerConfig.apiKey !== resolved.apiKey ||
+			providerConfig.accessToken !== resolved.apiKey ||
+			(accountId !== undefined &&
+				(providerConfig.accountId !== accountId ||
+					providerConfig.headers?.[OPENAI_CODEX_ACCOUNT_HEADER] !== accountId ||
+					existingCodex?.accountId !== accountId));
+		if (!providerConfigNeedsUpdate) return;
+
+		overrides.providerConfig = {
+			...providerConfig,
 			apiKey: resolved.apiKey,
-		});
-		session.runtime.teamRuntime?.updateTeammateConnections({
-			apiKey: resolved.apiKey,
-		});
+			accessToken: resolved.apiKey,
+			...(accountId ? { accountId } : {}),
+			...(nextHeaders ? { headers: nextHeaders } : {}),
+			...(accountId
+				? { codex: { ...(existingCodex ?? {}), accountId } }
+				: {}),
+		};
 	}
 
 	// ── Utility methods ─────────────────────────────────────────────────

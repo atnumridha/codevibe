@@ -927,7 +927,9 @@ export class AgentTeamsRuntime {
 	}
 
 	updateTeammateConnections(
-		overrides: Partial<Pick<AgentConfig, "apiKey" | "baseUrl" | "headers">>,
+		overrides: Partial<
+			Pick<AgentConfig, "apiKey" | "baseUrl" | "headers" | "providerConfig">
+		>,
 	): void {
 		for (const member of this.members.values()) {
 			if (member.role !== "teammate" || !member.agent) {

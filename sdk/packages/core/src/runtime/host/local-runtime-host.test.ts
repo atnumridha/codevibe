@@ -3993,6 +3993,7 @@ describe("LocalRuntimeHost", () => {
 			deleteSession: vi.fn().mockResolvedValue({ deleted: true }),
 		};
 		const updateConnectionDefaults = vi.fn();
+		const updateTeammateConnections = vi.fn();
 		const runtimeBuilder = {
 			build: vi.fn().mockReturnValue({
 				tools: [],
@@ -4000,6 +4001,9 @@ describe("LocalRuntimeHost", () => {
 					getRuntimeConfig: vi.fn(),
 					getConnectionConfig: vi.fn(),
 					updateConnectionDefaults,
+				},
+				teamRuntime: {
+					updateTeammateConnections,
 				},
 				shutdown: vi.fn(),
 			}),
@@ -4014,6 +4018,7 @@ describe("LocalRuntimeHost", () => {
 				resolveProviderApiKey: vi.fn().mockResolvedValue({
 					providerId: "openai-codex",
 					apiKey: "oauth-access-new",
+					accountId: "acct-new",
 					refreshed: true,
 				}),
 			} as never,
@@ -4040,18 +4045,134 @@ describe("LocalRuntimeHost", () => {
 					sessionId,
 					providerId: "openai-codex",
 					apiKey: "oauth-access-old",
+					headers: {
+						"ChatGPT-Account-Id": "acct-old",
+						"x-codex-installation-id": "install_123",
+					},
 				}),
 				interactive: true,
 			}),
 		);
 		await manager.runTurn({ sessionId, prompt: "hello" });
 
-		expect(updateConnectionDefaults).toHaveBeenCalledWith({
+		const expectedRefresh = {
 			apiKey: "oauth-access-new",
+			headers: expect.objectContaining({
+				"ChatGPT-Account-Id": "acct-new",
+				"x-codex-installation-id": "install_123",
+			}),
+			providerConfig: expect.objectContaining({
+				apiKey: "oauth-access-new",
+				accessToken: "oauth-access-new",
+				accountId: "acct-new",
+				codex: expect.objectContaining({ accountId: "acct-new" }),
+				headers: expect.objectContaining({
+					"ChatGPT-Account-Id": "acct-new",
+					"x-codex-installation-id": "install_123",
+				}),
+			}),
+		};
+		expect(updateConnectionDefaults).toHaveBeenCalledWith(expectedRefresh);
+		expect(updateConnection).toHaveBeenCalledWith(expectedRefresh);
+		expect(updateTeammateConnections).toHaveBeenCalledWith(expectedRefresh);
+		expect(run).toHaveBeenCalledTimes(1);
+	});
+
+	it("updates Codex account headers when OAuth refresh keeps the same key", async () => {
+		const sessionId = "sess-oauth-account";
+		const manifest = createManifest(sessionId);
+		const sessionService = {
+			ensureSessionsDir: vi.fn().mockReturnValue("/tmp/sessions"),
+			createRootSessionWithArtifacts: vi.fn().mockResolvedValue({
+				manifestPath: "/tmp/manifest-oauth-account.json",
+				messagesPath: "/tmp/messages-oauth-account.json",
+				manifest,
+			}),
+			persistSessionMessages: vi.fn(),
+			updateSessionStatus: vi.fn().mockResolvedValue({ updated: true }),
+			writeSessionManifest: vi.fn(),
+			listSessions: vi.fn().mockResolvedValue([]),
+			deleteSession: vi.fn().mockResolvedValue({ deleted: true }),
+		};
+		const updateConnectionDefaults = vi.fn();
+		const runtimeBuilder = {
+			build: vi.fn().mockReturnValue({
+				tools: [],
+				delegatedAgentConfigProvider: {
+					getRuntimeConfig: vi.fn(),
+					getConnectionConfig: vi.fn(),
+					updateConnectionDefaults,
+				},
+				shutdown: vi.fn(),
+			}),
+		};
+		const run = vi.fn().mockResolvedValue(createResult({ text: "ok" }));
+		const updateConnection = vi.fn();
+		const manager = new RuntimeHostUnderTest({
+			distinctId,
+			sessionService: sessionService as never,
+			runtimeBuilder,
+			oauthTokenManager: {
+				resolveProviderApiKey: vi.fn().mockResolvedValue({
+					providerId: "openai-codex",
+					apiKey: "oauth-access-same",
+					accountId: "acct-new",
+					refreshed: true,
+				}),
+			} as never,
+			createAgent: () =>
+				({
+					run,
+					continue: vi.fn(),
+					abort: vi.fn(),
+					subscribeEvents: vi.fn().mockReturnValue(() => {}),
+					canStartRun: vi.fn().mockReturnValue(true),
+					getAgentId: vi.fn().mockReturnValue("agent-root-1"),
+					getConversationId: vi.fn().mockReturnValue("conv-root-1"),
+					restore: vi.fn(),
+					updateConnection,
+					shutdown: vi.fn().mockResolvedValue(undefined),
+					getMessages: vi.fn().mockReturnValue([]),
+					messages: [],
+				}) as never,
 		});
-		expect(updateConnection).toHaveBeenCalledWith({
-			apiKey: "oauth-access-new",
-		});
+
+		await manager.startSession(
+			normalizeStartInput({
+				config: createConfig({
+					sessionId,
+					providerId: "openai-codex",
+					apiKey: "oauth-access-same",
+					headers: {
+						"ChatGPT-Account-Id": "acct-old",
+						"x-codex-installation-id": "install_123",
+					},
+				}),
+				interactive: true,
+			}),
+		);
+		await manager.runTurn({ sessionId, prompt: "hello" });
+
+		const expectedAccountRefresh = {
+			headers: expect.objectContaining({
+				"ChatGPT-Account-Id": "acct-new",
+				"x-codex-installation-id": "install_123",
+			}),
+			providerConfig: expect.objectContaining({
+				apiKey: "oauth-access-same",
+				accessToken: "oauth-access-same",
+				accountId: "acct-new",
+				codex: expect.objectContaining({ accountId: "acct-new" }),
+				headers: expect.objectContaining({
+					"ChatGPT-Account-Id": "acct-new",
+					"x-codex-installation-id": "install_123",
+				}),
+			}),
+		};
+		expect(updateConnectionDefaults).toHaveBeenCalledWith(
+			expectedAccountRefresh,
+		);
+		expect(updateConnection).toHaveBeenCalledWith(expectedAccountRefresh);
 		expect(run).toHaveBeenCalledTimes(1);
 	});
 
@@ -4411,6 +4532,7 @@ describe("LocalRuntimeHost", () => {
 			.mockResolvedValueOnce({
 				providerId: "openai-codex",
 				apiKey: "oauth-access-new",
+				accountId: "acct-new",
 				refreshed: true,
 			});
 		const manager = new RuntimeHostUnderTest({
@@ -4443,6 +4565,10 @@ describe("LocalRuntimeHost", () => {
 					sessionId,
 					providerId: "openai-codex",
 					apiKey: "oauth-access-old",
+					headers: {
+						"ChatGPT-Account-Id": "acct-old",
+						"x-codex-installation-id": "install_123",
+					},
 				}),
 				interactive: true,
 			}),
@@ -4460,12 +4586,27 @@ describe("LocalRuntimeHost", () => {
 			providerId: "openai-codex",
 			forceRefresh: true,
 		});
-		expect(updateConnection).toHaveBeenCalledWith({
+		const expectedRetryRefresh = {
 			apiKey: "oauth-access-new",
-		});
-		expect(updateConnectionDefaults).toHaveBeenCalledWith({
-			apiKey: "oauth-access-new",
-		});
+			headers: expect.objectContaining({
+				"ChatGPT-Account-Id": "acct-new",
+				"x-codex-installation-id": "install_123",
+			}),
+			providerConfig: expect.objectContaining({
+				apiKey: "oauth-access-new",
+				accessToken: "oauth-access-new",
+				accountId: "acct-new",
+				codex: expect.objectContaining({ accountId: "acct-new" }),
+				headers: expect.objectContaining({
+					"ChatGPT-Account-Id": "acct-new",
+					"x-codex-installation-id": "install_123",
+				}),
+			}),
+		};
+		expect(updateConnection).toHaveBeenCalledWith(expectedRetryRefresh);
+		expect(updateConnectionDefaults).toHaveBeenCalledWith(
+			expectedRetryRefresh,
+		);
 		expect(sessionService.persistSessionMessages).toHaveBeenCalledTimes(1);
 		const persisted = (
 			sessionService.persistSessionMessages as ReturnType<typeof vi.fn>
