@@ -12,6 +12,7 @@ service McpService {
   rpc toggleMcpServer(ToggleMcpServerRequest) returns (McpServers);
   rpc updateMcpTimeout(UpdateMcpTimeoutRequest) returns (McpServers);
   rpc addRemoteMcpServer(AddRemoteMcpServerRequest) returns (McpServers);
+  rpc installCursorMcpServer(CursorMcpServerInstallRequest) returns (CursorMcpServerInstallResponse);
   rpc downloadMcp(StringRequest) returns (McpDownloadResponse);
   rpc restartMcpServer(StringRequest) returns (McpServers);
   rpc deleteMcpServer(StringRequest) returns (McpServers);
@@ -45,6 +46,20 @@ message AddRemoteMcpServerRequest {
   string server_name = 2;
   string server_url = 3;
   optional string transport_type = 4;
+}
+
+message CursorMcpServerInstallRequest {
+  Metadata metadata = 1;
+  string uri = 2;
+  bool confirmed = 3;
+}
+
+message CursorMcpServerInstallResponse {
+  bool installed = 1;
+  string server_name = 2;
+  string detail = 3;
+  optional string error = 4;
+  McpServers mcp_servers = 5;
 }
 
 message ToggleToolAutoApproveRequest {
