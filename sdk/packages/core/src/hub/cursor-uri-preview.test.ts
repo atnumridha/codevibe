@@ -142,4 +142,26 @@ describe("hub Cursor URI preview command", () => {
 			},
 		});
 	});
+
+	it("returns validation errors for malformed URI strings", async () => {
+		const transport = createTransport();
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.preview",
+			requestId: "req-4",
+			clientId: "client-one",
+			payload: {
+				uri: "not a uri",
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: false,
+			error: {
+				code: "cursor_uri_invalid",
+				message: "Invalid Cursor URI",
+			},
+		});
+	});
 });

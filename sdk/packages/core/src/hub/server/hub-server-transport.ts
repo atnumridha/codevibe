@@ -595,8 +595,16 @@ function summarizeCursorMcpInstall(uri: string): Record<string, unknown> {
 	};
 }
 
+function parseCursorPreviewUrl(uri: string): URL {
+	try {
+		return new URL(uri);
+	} catch {
+		throw new CursorUriError("Invalid Cursor URI");
+	}
+}
+
 function summarizeCursorUriPreview(uri: string): Record<string, unknown> {
-	const parsedUrl = new URL(uri);
+	const parsedUrl = parseCursorPreviewUrl(uri);
 	const path = parsedUrl.pathname || "/";
 
 	if (path === "/mcp/install") {
