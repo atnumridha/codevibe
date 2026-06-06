@@ -79,6 +79,46 @@ describe("ClineIgnoreController", () => {
 			results.forEach((result) => result.should.be.true())
 		})
 
+		it("should block direct access using root .cursorignore patterns", async () => {
+			await fs.rm(path.join(tempDir, ".clineignore"), { force: true })
+			await fs.writeFile(path.join(tempDir, ".cursorignore"), ["cursor-private/", "*.cursor-secret"].join("\n"))
+
+			controller = new ClineIgnoreController(tempDir)
+			await controller.initialize()
+
+			controller.validateAccess("cursor-private/data.txt").should.be.false()
+			controller.validateAccess("nested/value.cursor-secret").should.be.false()
+			controller.validateAccess(".cursorignore").should.be.false()
+			controller.validateAccess("src/index.ts").should.be.true()
+		})
+
+		it("should block direct access using root .cursorindexingignore patterns", async () => {
+			await fs.rm(path.join(tempDir, ".clineignore"), { force: true })
+			await fs.writeFile(
+				path.join(tempDir, ".cursorindexingignore"),
+				["generated/*.tmp", "*.snapshot", "!generated/keep.tmp"].join("\n"),
+			)
+
+			controller = new ClineIgnoreController(tempDir)
+			await controller.initialize()
+
+			controller.validateAccess("generated/build.tmp").should.be.false()
+			controller.validateAccess("ui/home.snapshot").should.be.false()
+			controller.validateAccess("generated/keep.tmp").should.be.true()
+			controller.validateAccess(".cursorindexingignore").should.be.false()
+		})
+
+		it("should validate file-reading commands against Cursor ignore files", async () => {
+			await fs.rm(path.join(tempDir, ".clineignore"), { force: true })
+			await fs.writeFile(path.join(tempDir, ".cursorignore"), "secrets/\n")
+
+			controller = new ClineIgnoreController(tempDir)
+			await controller.initialize()
+
+			controller.validateCommand("cat secrets/token.txt").should.equal("secrets/token.txt")
+			;(controller.validateCommand("cat public/readme.md") === undefined).should.be.true()
+		})
+
 		it("should handle pattern edge cases", async () => {
 			await fs.writeFile(
 				path.join(tempDir, ".clineignore"),

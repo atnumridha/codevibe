@@ -25,7 +25,7 @@ export const formatResponse = {
 	toolError: (error?: string) => `The tool execution failed with the following error:\n<error>\n${error}\n</error>`,
 
 	clineIgnoreError: (path: string) =>
-		`Access to ${path} is blocked by the .clineignore file settings. You must try to continue in the task without using this file, or ask the user to update the .clineignore file.`,
+		`Access to ${path} is blocked by direct-access ignore settings (.clineignore, .cursorignore, or .cursorindexingignore). You must try to continue in the task without using this file, or ask the user to update the ignore file.`,
 
 	permissionDeniedError: (reason: string) =>
 		`Command execution blocked by configured command permissions: ${reason}. You must try a different approach or ask the user to update the permission settings.`,

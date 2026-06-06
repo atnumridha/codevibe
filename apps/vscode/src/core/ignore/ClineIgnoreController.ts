@@ -6,21 +6,24 @@ import path from "path"
 import { Logger } from "@/shared/services/Logger"
 
 export const LOCK_TEXT_SYMBOL = "\u{1F512}"
+const DIRECT_ACCESS_IGNORE_FILES = [".clineignore", ".cursorignore", ".cursorindexingignore"] as const
 
 /**
  * Controls LLM access to files by enforcing ignore patterns.
  * Designed to be instantiated once in Cline.ts and passed to file manipulation services.
- * Uses the 'ignore' library to support standard .gitignore syntax in .clineignore files.
+ * Uses the 'ignore' library to support standard .gitignore syntax in direct-access ignore files.
  */
 export class ClineIgnoreController {
 	private cwd: string
 	private ignoreInstance: Ignore
 	private fileWatcher?: FSWatcher
+	private hasIgnoreRules: boolean
 	clineIgnoreContent: string | undefined
 
 	constructor(cwd: string) {
 		this.cwd = cwd
 		this.ignoreInstance = ignore()
+		this.hasIgnoreRules = false
 		this.clineIgnoreContent = undefined
 	}
 
@@ -29,18 +32,18 @@ export class ClineIgnoreController {
 	 * Must be called after construction and before using the controller
 	 */
 	async initialize(): Promise<void> {
-		// Set up file watcher for .clineignore
+		// Set up file watcher for direct-access ignore files
 		this.setupFileWatcher()
 		await this.loadClineIgnore()
 	}
 
 	/**
-	 * Set up the file watcher for .clineignore changes
+	 * Set up the file watcher for direct-access ignore file changes
 	 */
 	private setupFileWatcher(): void {
-		const ignorePath = path.join(this.cwd, ".clineignore")
+		const ignorePaths = DIRECT_ACCESS_IGNORE_FILES.map((fileName) => path.join(this.cwd, fileName))
 
-		this.fileWatcher = chokidar.watch(ignorePath, {
+		this.fileWatcher = chokidar.watch(ignorePaths, {
 			persistent: true, // Keep the process running as long as files are being watched
 			ignoreInitial: true, // Don't fire 'add' events when discovering the file initially
 			awaitWriteFinish: {
@@ -65,39 +68,49 @@ export class ClineIgnoreController {
 		})
 
 		this.fileWatcher.on("error", (error) => {
-			Logger.error("Error watching .clineignore file:", error)
+			Logger.error("Error watching direct-access ignore files:", error)
 		})
 	}
 
 	/**
-	 * Load custom patterns from .clineignore if it exists.
-	 * Supports "!include <filename>" to load additional ignore patterns from other files.
+	 * Load custom patterns from .clineignore, .cursorignore, and .cursorindexingignore if they exist.
+	 * Supports "!include <filename>" in .clineignore to load additional ignore patterns from other files.
 	 */
 	private async loadClineIgnore(): Promise<void> {
 		try {
 			// Reset ignore instance to prevent duplicate patterns
 			this.ignoreInstance = ignore()
-			const ignorePath = path.join(this.cwd, ".clineignore")
-			if (await fileExistsAtPath(ignorePath)) {
+			this.hasIgnoreRules = false
+			this.clineIgnoreContent = undefined
+
+			for (const ignoreFileName of DIRECT_ACCESS_IGNORE_FILES) {
+				const ignorePath = path.join(this.cwd, ignoreFileName)
+				if (!(await fileExistsAtPath(ignorePath))) {
+					continue
+				}
+
 				const content = await fs.readFile(ignorePath, "utf8")
-				this.clineIgnoreContent = content
-				await this.processIgnoreContent(content)
-				this.ignoreInstance.add(".clineignore")
-			} else {
-				this.clineIgnoreContent = undefined
+				this.hasIgnoreRules = true
+				if (ignoreFileName === ".clineignore") {
+					this.clineIgnoreContent = content
+					await this.processIgnoreContent(content, { allowIncludes: true })
+				} else {
+					this.ignoreInstance.add(content)
+				}
+				this.ignoreInstance.add(ignoreFileName)
 			}
 		} catch (error) {
 			// Should never happen: reading file failed even though it exists
-			Logger.error("Unexpected error loading .clineignore:", error)
+			Logger.error("Unexpected error loading direct-access ignore files:", error)
 		}
 	}
 
 	/**
 	 * Process ignore content and apply all ignore patterns
 	 */
-	private async processIgnoreContent(content: string): Promise<void> {
+	private async processIgnoreContent(content: string, opts?: { allowIncludes?: boolean }): Promise<void> {
 		// Optimization: first check if there are any !include directives
-		if (!content.includes("!include ")) {
+		if (!opts?.allowIncludes || !content.includes("!include ")) {
 			this.ignoreInstance.add(content)
 			return
 		}
@@ -153,8 +166,8 @@ export class ClineIgnoreController {
 	 * @returns true if file is accessible, false if ignored
 	 */
 	validateAccess(filePath: string): boolean {
-		// Always allow access if .clineignore does not exist
-		if (!this.clineIgnoreContent) {
+		// Always allow access if no direct-access ignore files exist
+		if (!this.hasIgnoreRules) {
 			return true
 		}
 		try {
@@ -177,8 +190,8 @@ export class ClineIgnoreController {
 	 * @returns path of file that is being accessed if it is being accessed, undefined if command is allowed
 	 */
 	validateCommand(command: string): string | undefined {
-		// Always allow if no .clineignore exists
-		if (!this.clineIgnoreContent) {
+		// Always allow if no direct-access ignore files exist
+		if (!this.hasIgnoreRules) {
 			return undefined
 		}
 
