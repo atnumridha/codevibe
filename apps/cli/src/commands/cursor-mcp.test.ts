@@ -462,6 +462,34 @@ describe("Cursor MCP install command", () => {
 		});
 	});
 
+	it("previews background-agent worktree requests without creating worktrees", async () => {
+		const { out, io } = createIo();
+		const createBackgroundAgentWorktree = vi.fn(async () => ({
+			success: true,
+			message: "created",
+			path: "/tmp/unused-worktree",
+		}));
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/background-agent?prompt=fix%20the%20bug",
+			json: true,
+			worktree: true,
+			createBackgroundAgentWorktree,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(createBackgroundAgentWorktree).not.toHaveBeenCalled();
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "background-agent",
+			worktree: {
+				requested: true,
+				created: false,
+			},
+		});
+	});
+
 	it("starts confirmed Cursor background-agent deeplinks as safe hub sessions", async () => {
 		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-"));
 		tempDirs.push(workspaceRoot);
@@ -542,6 +570,119 @@ describe("Cursor MCP install command", () => {
 			delivery: "queue",
 			paramKeys: ["branch", "prompt", "repo"],
 		});
+	});
+
+	it("creates a worktree before confirmed Cursor background-agent sessions when requested", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-src-"));
+		const worktreeRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-worktree-"));
+		tempDirs.push(workspaceRoot, worktreeRoot);
+		const { out, io } = createIo();
+		const ensureBackgroundAgentHub = vi.fn(async () => ({
+			url: "ws://127.0.0.1:25463",
+			authToken: "hub-token",
+		}));
+		const createBackgroundAgentWorktree = vi.fn(async () => ({
+			success: true,
+			message: `Worktree created at ${worktreeRoot}`,
+			path: worktreeRoot,
+			taskId: "abc12",
+			repoRoot: workspaceRoot,
+		}));
+		const sessionClient = {
+			connect: vi.fn(async () => {}),
+			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-bg-worktree" })),
+			sendRuntimeSession: vi.fn(async () => ({})),
+			dispose: vi.fn(async () => {}),
+		};
+		const createBackgroundAgentSessionClient = vi.fn(() => sessionClient);
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/background-agent?prompt=fix%20the%20bug&branch=feature%2Fsafe",
+			cwd: workspaceRoot,
+			confirmed: true,
+			json: true,
+			worktree: true,
+			ensureBackgroundAgentHub,
+			createBackgroundAgentWorktree,
+			createBackgroundAgentSessionClient,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(createBackgroundAgentWorktree).toHaveBeenCalledWith({ cwd: workspaceRoot });
+		expect(ensureBackgroundAgentHub).toHaveBeenCalledWith(worktreeRoot);
+		expect(createBackgroundAgentSessionClient).toHaveBeenCalledWith(
+			expect.objectContaining({
+				workspaceRoot: worktreeRoot,
+				cwd: worktreeRoot,
+			}),
+		);
+		expect(sessionClient.startRuntimeSession).toHaveBeenCalledWith(
+			expect.objectContaining({
+				workspaceRoot: worktreeRoot,
+				cwd: worktreeRoot,
+				source: "cline-cli-cursor-background-agent",
+			}),
+		);
+		expect(sessionClient.sendRuntimeSession).toHaveBeenCalledWith(
+			"session-bg-worktree",
+			expect.objectContaining({
+				prompt: expect.stringContaining("CLI prepared an isolated worktree"),
+			}),
+			{ timeoutMs: 5000 },
+		);
+		const payload = JSON.parse(out[0] ?? "{}");
+		expect(payload).toMatchObject({
+			handled: true,
+			route: "background-agent",
+			started: true,
+			sessionId: "session-bg-worktree",
+			workspaceRoot: worktreeRoot,
+			cwd: worktreeRoot,
+			worktree: {
+				created: true,
+				sourceWorkspaceRoot: workspaceRoot,
+				path: worktreeRoot,
+				taskId: "abc12",
+				repoRoot: workspaceRoot,
+			},
+		});
+	});
+
+	it("does not start background-agent sessions when requested worktree creation fails", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-src-"));
+		tempDirs.push(workspaceRoot);
+		const { out, err, io } = createIo();
+		const ensureBackgroundAgentHub = vi.fn(async () => ({
+			url: "ws://127.0.0.1:25463",
+			authToken: "hub-token",
+		}));
+		const createBackgroundAgentWorktree = vi.fn(async () => ({
+			success: false,
+			message: "Not a git repository",
+		}));
+		const createBackgroundAgentSessionClient = vi.fn();
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/background-agent?prompt=fix%20the%20bug",
+			cwd: workspaceRoot,
+			confirmed: true,
+			json: true,
+			worktree: true,
+			ensureBackgroundAgentHub,
+			createBackgroundAgentWorktree,
+			createBackgroundAgentSessionClient,
+			io,
+		});
+
+		expect(code).toBe(1);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: false,
+			error: expect.stringContaining("Failed to prepare Cursor background-agent worktree"),
+		});
+		expect(err).toHaveLength(0);
+		expect(ensureBackgroundAgentHub).not.toHaveBeenCalled();
+		expect(createBackgroundAgentSessionClient).not.toHaveBeenCalled();
 	});
 
 	it("starts confirmed Cursor agent-task deeplinks as queued plan sessions", async () => {

@@ -441,6 +441,7 @@ describe("runCli lightweight command dispatch", () => {
 			"--json",
 			"--cwd",
 			"/tmp/cursor-uri-workspace",
+			"--worktree",
 		];
 
 		const { runCli } = await import("./main");
@@ -453,6 +454,7 @@ describe("runCli lightweight command dispatch", () => {
 				confirmed: true,
 				json: true,
 				cwd: "/tmp/cursor-uri-workspace",
+				worktree: true,
 				providerId: "openai-codex",
 				modelId: "gpt-5.5",
 				apiKey: "api-key",

@@ -424,8 +424,9 @@ export async function runCli(): Promise<void> {
 		.option("--yes", "Apply supported deeplink changes after previewing")
 		.option("--json", "Output the dispatch result as JSON")
 		.option("-c, --cwd <path>", "Workspace directory for file-producing deeplinks")
+		.option("--worktree", "For confirmed background-agent deeplinks, create an isolated worktree before queuing")
 		.action(async (uri: string) => {
-			const opts = uriCmd.opts<{ yes?: boolean; json?: boolean; cwd?: string }>();
+			const opts = uriCmd.opts<{ yes?: boolean; json?: boolean; cwd?: string; worktree?: boolean }>();
 			const rootOpts = program.opts<{
 				cwd?: string;
 				provider?: string;
@@ -441,6 +442,7 @@ export async function runCli(): Promise<void> {
 				confirmed: opts.yes,
 				json: opts.json,
 				cwd: opts.cwd ?? rootOpts.cwd,
+				worktree: opts.worktree,
 				providerId: normalizeProviderId(
 					rootOpts.provider?.trim() || DEFAULT_CLI_PROVIDER_ID,
 				),

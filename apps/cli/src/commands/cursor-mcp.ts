@@ -36,6 +36,7 @@ import {
 	loadServers,
 } from "../wizards/mcp/settings";
 import { ensureCliHubServer } from "../utils/hub-runtime";
+import type { CreateTaskWorktreeResult } from "../utils/worktree";
 
 const BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS = 5_000;
 
@@ -89,6 +90,10 @@ export interface CursorMcpInstallCommandOptions {
 	createBackgroundAgentSessionClient?: (
 		options: BackgroundAgentSessionClientFactoryOptions,
 	) => BackgroundAgentSessionClient;
+	worktree?: boolean;
+	createBackgroundAgentWorktree?: (options: {
+		cwd: string;
+	}) => Promise<CreateTaskWorktreeResult>;
 	createAutomationIngestCore?: (
 		options: AutomationIngestCoreFactoryOptions,
 	) => Promise<AutomationIngestCore>;
@@ -144,6 +149,14 @@ type CursorAgentTaskRouteResolution = {
 		filename: string;
 		relativePath: string;
 	};
+};
+
+type BackgroundAgentWorktreeReport = {
+	created: true;
+	sourceWorkspaceRoot: string;
+	path: string;
+	taskId?: string;
+	repoRoot?: string;
 };
 
 function writeCommandError(
@@ -560,6 +573,32 @@ function resolveAgentTaskRoute(
 	};
 }
 
+async function createDefaultBackgroundAgentWorktree(options: {
+	cwd: string;
+}): Promise<CreateTaskWorktreeResult> {
+	const { createTaskWorktree } = await import("../utils/worktree");
+	return createTaskWorktree(options);
+}
+
+function buildBackgroundAgentWorktreeTaskPrompt(
+	taskPrompt: string,
+	worktree: BackgroundAgentWorktreeReport,
+): string {
+	return [
+		"CLI prepared an isolated worktree for this Cursor background-agent deeplink.",
+		"",
+		"Prepared worktree:",
+		`- source workspace: ${worktree.sourceWorkspaceRoot}`,
+		`- path: ${worktree.path}`,
+		...(worktree.repoRoot ? [`- repository root: ${worktree.repoRoot}`] : []),
+		...(worktree.taskId ? [`- task id: ${worktree.taskId}`] : []),
+		"",
+		"Use this worktree for any confirmed file or git changes. The deeplink still does not grant permission to mutate files, run commands, install packages, open network connections, or use MCP tools without the normal approvals.",
+		"",
+		taskPrompt,
+	].join("\n");
+}
+
 function writeAgentTaskRoutePreview(
 	options: CursorMcpInstallCommandOptions,
 	request = buildCursorAgentTaskRouteRequest(options.uri),
@@ -576,6 +615,9 @@ function writeAgentTaskRoutePreview(
 				prompt: request.prompt,
 				taskPrompt: resolved.taskPrompt,
 				paramKeys: Object.keys(request.params).sort(),
+				...(request.kind === "background-agent" && options.worktree
+					? { worktree: { requested: true, created: false } }
+					: {}),
 				...(resolved.commandFile
 					? { commandFile: resolved.commandFile }
 					: {}),
@@ -591,6 +633,12 @@ function writeAgentTaskRoutePreview(
 	);
 	options.io.writeln("");
 	options.io.writeln(resolved.taskPrompt);
+	if (request.kind === "background-agent" && options.worktree) {
+		options.io.writeln("");
+		options.io.writeln(
+			"Worktree requested; re-run with --yes --worktree to create it before queuing the background session.",
+		);
+	}
 	return 0;
 }
 
@@ -603,9 +651,35 @@ async function launchCursorAgentTask(
 		return writeAgentTaskRoutePreview(options, request);
 	}
 
-	const cwd = resolve(options.cwd ?? process.cwd());
-	const workspaceRoot = cwd;
+	const sourceWorkspaceRoot = resolve(options.cwd ?? process.cwd());
+	let cwd = sourceWorkspaceRoot;
+	let workspaceRoot = sourceWorkspaceRoot;
+	let worktree: BackgroundAgentWorktreeReport | undefined;
+	if (request.kind === "background-agent" && options.worktree) {
+		const createWorktree =
+			options.createBackgroundAgentWorktree ??
+			createDefaultBackgroundAgentWorktree;
+		const result = await createWorktree({ cwd: sourceWorkspaceRoot });
+		if (!result.success || !result.path) {
+			return writeUriError(
+				options,
+				`Failed to prepare Cursor background-agent worktree: ${result.message}`,
+			);
+		}
+		workspaceRoot = resolve(result.path);
+		cwd = workspaceRoot;
+		worktree = {
+			created: true,
+			sourceWorkspaceRoot,
+			path: workspaceRoot,
+			...(result.taskId ? { taskId: result.taskId } : {}),
+			...(result.repoRoot ? { repoRoot: result.repoRoot } : {}),
+		};
+	}
 	const resolved = resolveAgentTaskRoute(request, workspaceRoot);
+	const taskPrompt = worktree
+		? buildBackgroundAgentWorktreeTaskPrompt(resolved.taskPrompt, worktree)
+		: resolved.taskPrompt;
 	const providerId = options.providerId?.trim() || "openai-codex";
 	const modelId = options.modelId?.trim() || "gpt-5.5";
 	const ensureHub = options.ensureBackgroundAgentHub ?? ensureCliHubServer;
@@ -660,7 +734,7 @@ async function launchCursorAgentTask(
 			started.sessionId,
 			{
 				config: startRequest,
-				prompt: resolved.taskPrompt,
+				prompt: taskPrompt,
 				delivery: "queue",
 			},
 			{ timeoutMs: BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS },
@@ -680,6 +754,7 @@ async function launchCursorAgentTask(
 					model: modelId,
 					delivery: "queue",
 					paramKeys: Object.keys(request.params).sort(),
+					...(worktree ? { worktree } : {}),
 					...(resolved.commandFile
 						? { commandFile: resolved.commandFile }
 						: {}),
@@ -690,6 +765,9 @@ async function launchCursorAgentTask(
 				`Started Cursor ${resolved.route} agent session ${started.sessionId}`,
 			);
 			options.io.writeln(`Workspace: ${workspaceRoot}`);
+			if (worktree) {
+				options.io.writeln(`Worktree: ${worktree.path}`);
+			}
 		}
 		return 0;
 	} finally {
