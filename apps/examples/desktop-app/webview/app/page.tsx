@@ -251,30 +251,34 @@ export default function Home() {
 			}
 			try {
 				const { listen } = await import("@tauri-apps/api/event");
+				const { invoke } = await import("@tauri-apps/api/core");
+				const openNativeDeepLink = (payload: unknown) => {
+					if (disposed) {
+						return;
+					}
+					const uri = normalizeNativeDeepLinkPayload(payload).find(
+						isCursorCompatibleNativeUri,
+					);
+					if (!uri) {
+						return;
+					}
+					nativeUriSequenceRef.current += 1;
+					setIncomingCursorUri({
+						id: nativeUriSequenceRef.current,
+						uri,
+					});
+					setView("settings");
+					toast({
+						title: "Cursor URI received",
+						description: "Previewing the link in Settings.",
+					});
+				};
 				unlisten = await listen<unknown>(
 					"native_deep_link_opened",
-					(event) => {
-						if (disposed) {
-							return;
-						}
-						const uri = normalizeNativeDeepLinkPayload(event.payload).find(
-							isCursorCompatibleNativeUri,
-						);
-						if (!uri) {
-							return;
-						}
-						nativeUriSequenceRef.current += 1;
-						setIncomingCursorUri({
-							id: nativeUriSequenceRef.current,
-							uri,
-						});
-						setView("settings");
-						toast({
-							title: "Cursor URI received",
-							description: "Previewing the link in Settings.",
-						});
-					},
+					(event) => openNativeDeepLink(event.payload),
 				);
+				const initialDeepLinks = await invoke<unknown>("get_initial_deep_links");
+				openNativeDeepLink(initialDeepLinks);
 				if (disposed) {
 					unlisten();
 				}

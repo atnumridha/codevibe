@@ -8,7 +8,8 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use tauri::{Manager, RunEvent, State};
+use tauri::{Emitter, Manager, RunEvent, State};
+use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone)]
 struct AppContext {
@@ -460,6 +461,47 @@ fn open_mcp_settings_file() -> Result<String, String> {
     Ok(settings_path.to_string_lossy().to_string())
 }
 
+fn focus_main_window<R: tauri::Runtime>(app_handle: &tauri::AppHandle<R>) {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
+fn emit_native_deep_links<R, I, U>(app_handle: &tauri::AppHandle<R>, urls: I)
+where
+    R: tauri::Runtime,
+    I: IntoIterator<Item = U>,
+    U: ToString,
+{
+    let payload: Vec<String> = urls
+        .into_iter()
+        .map(|url| url.to_string())
+        .filter(|url| !url.trim().is_empty())
+        .collect();
+    if payload.is_empty() {
+        return;
+    }
+    focus_main_window(app_handle);
+    if let Err(error) = app_handle.emit("native_deep_link_opened", payload) {
+        eprintln!("[deep-link] failed to emit native_deep_link_opened: {error}");
+    }
+}
+
+#[tauri::command]
+fn get_initial_deep_links(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    app.deep_link()
+        .get_current()
+        .map(|urls| {
+            urls.unwrap_or_default()
+                .into_iter()
+                .map(|url| url.to_string())
+                .filter(|url| !url.trim().is_empty())
+                .collect()
+        })
+        .map_err(|error| format!("failed reading initial deep links: {error}"))
+}
+
 fn main() {
     let desktop_backend = Arc::new(DesktopBackendState::default());
     let launch_cwd = std::env::current_dir()
@@ -471,10 +513,26 @@ fn main() {
         workspace_root,
     };
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(
+            |app_handle, _argv, _cwd| {
+                focus_main_window(app_handle);
+            },
+        ));
+    }
+
+    builder
+        .plugin(tauri_plugin_deep_link::init())
         .manage(desktop_backend)
         .manage(app_context)
         .setup(|app| {
+            let app_handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                emit_native_deep_links(&app_handle, event.urls());
+            });
             let app_context = app.state::<AppContext>().inner().clone();
             let backend_state = app.state::<Arc<DesktopBackendState>>().inner().clone();
             if let Err(error) = ensure_desktop_backend_started(&backend_state, &app_context) {
@@ -493,6 +551,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             get_desktop_backend_endpoint,
+            get_initial_deep_links,
             pick_workspace_directory,
             open_mcp_settings_file
         ])
