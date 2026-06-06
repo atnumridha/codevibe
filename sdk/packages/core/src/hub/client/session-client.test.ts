@@ -235,6 +235,120 @@ describe("HubSessionClient", () => {
 		client.close();
 	});
 
+	it("advertises runtime tool executor capabilities when restoring sessions", async () => {
+		vi.stubGlobal("WebSocket", MockWebSocket);
+		const browserAction = vi.fn(async () => ({
+			url: "https://example.test/",
+			title: "Clicked",
+		}));
+		MockWebSocket.commandHandler = (frame) => {
+			if (frame.envelope?.command !== "session.restore") {
+				return undefined;
+			}
+			return {
+				session: {
+					sessionId: "session-restore",
+					metadata: {},
+				},
+				checkpoint: {
+					ref: "checkpoint-ref",
+					createdAt: Date.now(),
+					runCount: 3,
+				},
+			};
+		};
+		const client = new HubSessionClient({
+			address: "ws://127.0.0.1:25463/hub",
+			clientId: "client-1",
+			capabilities: {
+				toolExecutors: {
+					browserAction,
+				},
+			} as never,
+		});
+
+		await client.restore({
+			sessionId: "session-restore",
+			checkpointRunCount: 3,
+			restore: { messages: true },
+			config: {
+				workspaceRoot: "/tmp/project",
+				cwd: "/tmp/project",
+				provider: "cline",
+				model: "test-model",
+				enableTools: true,
+				toolExecutors: ["browserAction"],
+			},
+		});
+
+		const restoreFrameIndex = MockWebSocket.sentFrames.findIndex(
+			(frame) => frame.envelope?.command === "session.restore",
+		);
+		const subscribeFrameIndex = MockWebSocket.sentFrames.findIndex(
+			(frame) => frame.kind === "stream.subscribe",
+		);
+		const restoreFrame = MockWebSocket.sentFrames[restoreFrameIndex];
+		const restorePayload = restoreFrame?.envelope?.payload as
+			| { runtimeOptions?: unknown }
+			| undefined;
+
+		expect(subscribeFrameIndex).toBeGreaterThan(-1);
+		expect(subscribeFrameIndex).toBeLessThan(restoreFrameIndex);
+		expect(restorePayload?.runtimeOptions).toMatchObject({
+			toolExecutors: ["browserAction"],
+			clientContributions: [
+				{
+					kind: "toolExecutor",
+					executor: "browserAction",
+					capabilityName: "tool_executor.browserAction",
+				},
+			],
+		});
+		const socket = MockWebSocket.instances[0];
+		if (!socket) {
+			throw new Error("expected websocket");
+		}
+
+		socket.emitFrame({
+			kind: "event",
+			envelope: {
+				version: "v1",
+				eventId: "evt-capability",
+				event: "capability.requested",
+				timestamp: Date.now(),
+				sessionId: "session-restore",
+				payload: {
+					requestId: "capreq-restore",
+					targetClientId: "client-1",
+					capabilityName: "tool_executor.browserAction",
+					payload: {
+						args: [{ action: "click", coordinate: "10,10" }],
+						context: {
+							agentId: "agent-1",
+							conversationId: "conv-1",
+							iteration: 2,
+						},
+					},
+				},
+			},
+		});
+
+		await vi.waitFor(() => {
+			expect(browserAction).toHaveBeenCalledOnce();
+		});
+		expect(browserAction).toHaveBeenCalledWith(
+			{ action: "click", coordinate: "10,10" },
+			expect.objectContaining({
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 2,
+				signal: expect.any(Object),
+			}),
+		);
+
+		client.close();
+	});
+
 	it("normalizes run.failed events to include a top-level error", async () => {
 		vi.stubGlobal("WebSocket", MockWebSocket);
 		const client = new HubSessionClient({

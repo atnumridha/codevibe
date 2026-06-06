@@ -682,70 +682,108 @@ export class HubSessionClient {
 		}
 		await this.ensureMetadataApplied();
 		const request = input.config;
-		const reply = await this.client.command(
-			"session.restore",
-			{
-				sessionId,
-				checkpointRunCount: input.checkpointRunCount,
-				restore: input.restore,
-				...(request
-					? {
-							workspaceRoot: request.workspaceRoot,
-							cwd: request.cwd,
-							sessionConfig: {
-								providerId: request.provider,
-								modelId: request.model,
-								apiKey: request.apiKey,
-								cwd: request.cwd ?? request.workspaceRoot,
+		const clientContributions = request
+			? buildClientContributionRegistration(
+					undefined,
+					normalizeRuntimeCapabilities(this.options.capabilities) ?? {},
+				)
+			: { manifest: [], handlers: new Map<string, ClientContributionHandler>() };
+		if (clientContributions.handlers.size > 0) {
+			this.registerSessionContributions(sessionId, clientContributions.handlers);
+		}
+		let reply: Awaited<ReturnType<NodeHubClient["command"]>>;
+		try {
+			reply = await this.client.command(
+				"session.restore",
+				{
+					sessionId,
+					checkpointRunCount: input.checkpointRunCount,
+					restore: input.restore,
+					...(request
+						? {
 								workspaceRoot: request.workspaceRoot,
-								systemPrompt: request.systemPrompt ?? "",
-								mode: request.mode ?? "act",
-								rules: request.rules,
-								maxIterations: request.maxIterations,
-								enableTools: request.enableTools,
-								enableSpawnAgent: request.enableSpawn !== false,
-								enableAgentTeams: request.enableTeams !== false,
-								disableMcpSettingsTools: request.disableMcpSettingsTools,
-								missionLogIntervalSteps: request.missionStepInterval,
-								missionLogIntervalMs: request.missionTimeIntervalMs,
-							},
-							metadata: {
-								source: request.source ?? "cli",
-								provider: request.provider,
-								model: request.model,
-								enableTools: request.enableTools,
-								enableSpawn: request.enableSpawn,
-								enableTeams: request.enableTeams,
-								prompt: undefined,
-								interactive: request.interactive !== false,
-							},
-							runtimeOptions: {
-								mode: request.mode,
-								systemPrompt: request.systemPrompt,
-								maxIterations: request.maxIterations,
-								enableTools: request.enableTools,
-								enableSpawn: request.enableSpawn,
-								enableTeams: request.enableTeams,
-								autoApproveTools: request.autoApproveTools,
-								configExtensions: request.configExtensions,
-							},
-							modelSelection: {
-								provider: request.provider,
-								model: request.model,
-								apiKey: request.apiKey,
-							},
-							toolPolicies: request.toolPolicies,
-						}
-					: {}),
-			},
-			sessionId,
-		);
+								cwd: request.cwd,
+								sessionConfig: {
+									providerId: request.provider,
+									modelId: request.model,
+									apiKey: request.apiKey,
+									cwd: request.cwd ?? request.workspaceRoot,
+									workspaceRoot: request.workspaceRoot,
+									systemPrompt: request.systemPrompt ?? "",
+									mode: request.mode ?? "act",
+									rules: request.rules,
+									maxIterations: request.maxIterations,
+									enableTools: request.enableTools,
+									enableSpawnAgent: request.enableSpawn !== false,
+									enableAgentTeams: request.enableTeams !== false,
+									disableMcpSettingsTools: request.disableMcpSettingsTools,
+									missionLogIntervalSteps: request.missionStepInterval,
+									missionLogIntervalMs: request.missionTimeIntervalMs,
+								},
+								metadata: {
+									source: request.source ?? "cli",
+									provider: request.provider,
+									model: request.model,
+									enableTools: request.enableTools,
+									enableSpawn: request.enableSpawn,
+									enableTeams: request.enableTeams,
+									prompt: undefined,
+									interactive: request.interactive !== false,
+								},
+								runtimeOptions: {
+									mode: request.mode,
+									systemPrompt: request.systemPrompt,
+									maxIterations: request.maxIterations,
+									enableTools: request.enableTools,
+									enableSpawn: request.enableSpawn,
+									enableTeams: request.enableTeams,
+									autoApproveTools: request.autoApproveTools,
+									toolExecutors: request.toolExecutors,
+									configExtensions: request.configExtensions,
+									...(clientContributions.manifest.length > 0
+										? { clientContributions: clientContributions.manifest }
+										: {}),
+								},
+								modelSelection: {
+									provider: request.provider,
+									model: request.model,
+									apiKey: request.apiKey,
+								},
+								toolPolicies: request.toolPolicies,
+							}
+						: {}),
+				},
+				sessionId,
+			);
+		} catch (error) {
+			if (clientContributions.handlers.size > 0) {
+				this.cleanupSessionContributions(sessionId);
+			}
+			throw error;
+		}
 		if (!reply.ok) {
+			if (clientContributions.handlers.size > 0) {
+				this.cleanupSessionContributions(sessionId);
+			}
 			throw new Error(hubReplyErrorMessage(reply, "session.restore"));
 		}
 		const row = extractSessionRow(reply.payload);
 		if (restoreMessages && !row?.sessionId) {
+			if (clientContributions.handlers.size > 0) {
+				this.cleanupSessionContributions(sessionId);
+			}
 			throw new Error("hub checkpoint restore returned no session id");
+		}
+		if (clientContributions.handlers.size > 0) {
+			if (row?.sessionId && row.sessionId !== sessionId) {
+				this.cleanupSessionContributions(sessionId);
+				this.registerSessionContributions(
+					row.sessionId,
+					clientContributions.handlers,
+				);
+			} else if (!row?.sessionId) {
+				this.cleanupSessionContributions(sessionId);
+			}
 		}
 		const messages = Array.isArray(reply.payload?.messages)
 			? (reply.payload.messages as LlmsProviders.Message[])
