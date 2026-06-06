@@ -488,6 +488,23 @@ where
     }
 }
 
+fn collect_native_deep_link_args<I, U>(args: I) -> Vec<String>
+where
+    I: IntoIterator<Item = U>,
+    U: ToString,
+{
+    args.into_iter()
+        .map(|arg| arg.to_string())
+        .map(|arg| arg.trim().to_string())
+        .filter(|arg| {
+            let lower = arg.to_ascii_lowercase();
+            lower.starts_with("vscode://")
+                || lower.starts_with("cursor://")
+                || lower.starts_with("codevibe://")
+        })
+        .collect()
+}
+
 #[tauri::command]
 fn get_initial_deep_links(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     app.deep_link()
@@ -518,8 +535,13 @@ fn main() {
     #[cfg(any(target_os = "macos", windows, target_os = "linux"))]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(
-            |app_handle, _argv, _cwd| {
-                focus_main_window(app_handle);
+            |app_handle, argv, _cwd| {
+                let deep_links = collect_native_deep_link_args(argv);
+                if deep_links.is_empty() {
+                    focus_main_window(app_handle);
+                } else {
+                    emit_native_deep_links(app_handle, deep_links);
+                }
             },
         ));
     }
@@ -566,4 +588,30 @@ fn main() {
             }
             _ => {}
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::collect_native_deep_link_args;
+
+    #[test]
+    fn collects_supported_deep_link_args_from_second_instance_argv() {
+        let links = collect_native_deep_link_args([
+            "/Applications/CodeVibe.app/Contents/MacOS/CodeVibe",
+            "--flag",
+            "codevibe://createchat?prompt=hello",
+            "cursor://mcp/install?name=docs",
+            "vscode://atnumridha.codevibe/background-agent?prompt=fix",
+            "https://example.com/not-a-native-link",
+        ]);
+
+        assert_eq!(
+            links,
+            vec![
+                "codevibe://createchat?prompt=hello",
+                "cursor://mcp/install?name=docs",
+                "vscode://atnumridha.codevibe/background-agent?prompt=fix",
+            ]
+        );
+    }
 }
