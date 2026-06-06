@@ -65,7 +65,7 @@ const visibleManifestStringKeys = new Set(["category", "description", "title"])
 
 function usage() {
 	console.error(
-		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--install] [--verify-install] [--code <path>] [--print-metadata]",
+		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--code <path>] [--print-metadata]",
 	)
 }
 
@@ -76,6 +76,7 @@ function parseArgs(argv) {
 		install: false,
 		verifyInstall: false,
 		code: undefined,
+		preRelease: false,
 		printMetadata: false,
 	}
 
@@ -93,6 +94,8 @@ function parseArgs(argv) {
 				throw new Error("--out-file requires a value")
 			}
 			options.outFile = outFile
+		} else if (arg === "--pre-release") {
+			options.preRelease = true
 		} else if (arg === "--install") {
 			options.install = true
 		} else if (arg === "--verify-install") {
@@ -699,7 +702,11 @@ async function main() {
 		writePackageJson(githubVsixPackageJson)
 		assertPackageInputs(githubVsixPackageJson)
 		fs.mkdirSync(path.dirname(outPath), { recursive: true })
-		runCommand(commandCandidates("vsce"), ["package", "--allow-package-secrets", "sendgrid", "--out", outPath])
+		const packageArgs = ["package", "--allow-package-secrets", "sendgrid", "--out", outPath]
+		if (options.preRelease) {
+			packageArgs.push("--pre-release")
+		}
+		runCommand(commandCandidates("vsce"), packageArgs)
 		assertBuildOutputs()
 		assertPackagedVsix(outPath)
 		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
