@@ -27,6 +27,18 @@ describe("CursorMcpInstall", () => {
 		expect((request.serverConfig as any).url).to.equal("https://mcp.example.com/sse")
 	})
 
+	it("redacts URL query and fragment values in install details", () => {
+		const request = buildCursorMcpInstallRequest(
+			route({ name: "docs", url: "https://mcp.example.com/sse?token=secret-value#secret-fragment" }),
+		)
+		const detail = formatCursorMcpInstallDetail(request)
+
+		expect((request.serverConfig as any).url).to.equal("https://mcp.example.com/sse?token=secret-value#secret-fragment")
+		expect(detail).to.contain("URL: https://mcp.example.com/sse?[redacted]#[redacted]")
+		expect(detail).to.not.contain("secret-value")
+		expect(detail).to.not.contain("secret-fragment")
+	})
+
 	it("builds a stdio package install without executing the package", () => {
 		const request = buildCursorMcpInstallRequest(route({ name: "linear", package: "@modelcontextprotocol/server-linear" }))
 

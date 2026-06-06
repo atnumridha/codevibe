@@ -63,7 +63,7 @@ export function formatCursorMcpInstallDetail(request: CursorMcpInstallRequest): 
 		`Transport: ${config.type ?? "stdio"}`,
 	]
 	if (typeof config.url === "string") {
-		lines.push(`URL: ${config.url}`)
+		lines.push(`URL: ${formatUrlForDisplay(config.url) ?? "[provided url]"}`)
 	}
 	if (typeof config.command === "string") {
 		lines.push(`Command: ${config.command}${Array.isArray(config.args) ? ` ${config.args.join(" ")}` : ""}`)
@@ -72,6 +72,15 @@ export function formatCursorMcpInstallDetail(request: CursorMcpInstallRequest): 
 		lines.push(`Environment keys: ${Object.keys(config.env).sort().join(", ") || "(none)"}`)
 	}
 	return lines.join("\n")
+}
+
+function formatUrlForDisplay(value: string): string | undefined {
+	try {
+		const url = new URL(value)
+		return `${url.origin}${url.pathname}${url.search ? "?[redacted]" : ""}${url.hash ? "#[redacted]" : ""}`
+	} catch {
+		return undefined
+	}
 }
 
 function selectConfiguredServer(

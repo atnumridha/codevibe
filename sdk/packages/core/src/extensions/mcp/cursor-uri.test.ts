@@ -55,6 +55,25 @@ describe("Cursor MCP install URI parser", () => {
 		});
 	});
 
+	it("redacts MCP install URL query and fragment values in details", () => {
+		const request = buildCursorMcpInstallRequest(
+			route({
+				name: "docs",
+				url: "https://mcp.example.com/context?token=secret-value#secret-fragment",
+			}),
+		);
+		const detail = formatCursorMcpInstallDetail(request);
+
+		expect(request.serverConfig.url).toBe(
+			"https://mcp.example.com/context?token=secret-value#secret-fragment",
+		);
+		expect(detail).toContain(
+			"URL: https://mcp.example.com/context?[redacted]#[redacted]",
+		);
+		expect(detail).not.toContain("secret-value");
+		expect(detail).not.toContain("secret-fragment");
+	});
+
 	it("derives stdio package installs from package-only deeplinks", () => {
 		const request = buildCursorMcpInstallRequest(
 			route({ package: "@modelcontextprotocol/server-filesystem" }),

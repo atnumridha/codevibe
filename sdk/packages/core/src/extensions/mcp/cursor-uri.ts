@@ -1543,7 +1543,7 @@ export function formatCursorMcpInstallDetail(
 		`Transport: ${transport.type ?? "stdio"}`,
 	];
 	if (typeof transport.url === "string") {
-		lines.push(`URL: ${transport.url}`);
+		lines.push(`URL: ${formatUrlForDisplay(transport.url) ?? "[provided url]"}`);
 	}
 	if (typeof transport.command === "string") {
 		lines.push(

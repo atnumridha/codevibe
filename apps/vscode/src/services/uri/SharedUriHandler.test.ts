@@ -239,6 +239,22 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should redact Cursor MCP install URL query values in confirmation text", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fsse%3Ftoken%3Dsecret-value%23secret-fragment",
+				)
+
+				expect(result).to.be.true
+				const modal = showMessageStub.firstCall.args[0]
+				expect(modal.options.detail).to.contain("https://mcp.example.com/sse?[redacted]#[redacted]")
+				expect(modal.options.detail).not.to.contain("secret-value")
+				expect(modal.options.detail).not.to.contain("secret-fragment")
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				expect(addServerFromConfigStub.firstCall.args[1]).to.deep.include({
+					url: "https://mcp.example.com/sse?token=secret-value#secret-fragment",
+				})
+			})
+
 			it("should install a Cursor MCP route with a bare named-server config map", async () => {
 				const config = encodeConfig({
 					postgres: {
