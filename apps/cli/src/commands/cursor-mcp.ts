@@ -1,7 +1,12 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
+	buildCursorRuleRouteRequest,
+	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
 	formatCursorMcpInstallDetail,
 } from "@cline/core";
+import { resolveGlobalSettingsPath } from "@cline/shared/storage";
 import {
 	addServerRecord,
 	getSettingsPath,
@@ -12,6 +17,7 @@ export interface CursorMcpInstallCommandOptions {
 	uri: string;
 	confirmed?: boolean;
 	json?: boolean;
+	cwd?: string;
 	io: {
 		writeln: (text?: string) => void;
 		writeErr: (text: string) => void;
@@ -28,6 +34,122 @@ function writeCommandError(
 		options.io.writeErr(message);
 	}
 	return 1;
+}
+
+function writeUriError(
+	options: CursorMcpInstallCommandOptions,
+	message: string,
+): number {
+	if (options.json) {
+		options.io.writeln(JSON.stringify({ handled: false, error: message }));
+	} else {
+		options.io.writeErr(message);
+	}
+	return 1;
+}
+
+function writeSettingsRoute(options: CursorMcpInstallCommandOptions): number {
+	const request = buildCursorSettingsRouteRequest(options.uri);
+	const settingsPath = resolveGlobalSettingsPath();
+	if (options.json) {
+		options.io.writeln(
+			JSON.stringify({
+				handled: true,
+				route: "settings",
+				settingsPath,
+				query: request.query,
+				sourceParam: request.sourceParam,
+			}),
+		);
+		return 0;
+	}
+
+	options.io.writeln(`Settings file: ${settingsPath}`);
+	if (request.query) {
+		options.io.writeln(`Requested settings query: ${request.query}`);
+	}
+	return 0;
+}
+
+function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
+	const request = buildCursorRuleRouteRequest(options.uri);
+	if (request.kind === "review") {
+		if (options.json) {
+			options.io.writeln(
+				JSON.stringify({
+					handled: true,
+					route: "rule",
+					requiresReview: true,
+					reason: request.reason,
+					name: request.name,
+					path: request.path,
+				}),
+			);
+		} else {
+			options.io.writeln(request.reason);
+			options.io.writeln("Start an agent task with this deeplink before writing rule content.");
+		}
+		return 0;
+	}
+
+	const cwd = resolve(options.cwd ?? process.cwd());
+	const filePath = resolve(cwd, request.relativePath);
+	const relativePath = relative(cwd, filePath);
+	if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
+		throw new Error("Cursor rule path must stay inside the workspace");
+	}
+
+	if (!options.confirmed) {
+		if (options.json) {
+			options.io.writeln(
+				JSON.stringify({
+					handled: true,
+					route: "rule",
+					created: false,
+					requiresConfirmation: true,
+					filename: request.filename,
+					filePath,
+				}),
+			);
+		} else {
+			options.io.writeln(`Cursor rule: ${request.filename}`);
+			options.io.writeln(`File: ${filePath}`);
+			options.io.writeln("Re-run with --yes to create or reuse this rule file.");
+		}
+		return 0;
+	}
+
+	mkdirSync(dirname(filePath), { recursive: true });
+	let created = true;
+	try {
+		writeFileSync(filePath, "", { flag: "wx" });
+	} catch (error) {
+		const code =
+			error && typeof error === "object" && "code" in error
+				? (error as { code?: unknown }).code
+				: undefined;
+		if (code !== "EEXIST") {
+			throw error;
+		}
+		created = false;
+	}
+
+	if (options.json) {
+		options.io.writeln(
+			JSON.stringify({
+				handled: true,
+				route: "rule",
+				created,
+				filename: request.filename,
+				filePath,
+			}),
+		);
+	} else {
+		options.io.writeln(
+			`${created ? "Created" : "Reused"} Cursor rule "${request.filename}" at ${filePath}`,
+		);
+	}
+	return 0;
 }
 
 export async function runCursorMcpInstallCommand(
@@ -93,11 +215,27 @@ export async function runCursorUriCommand(
 		path = new URL(options.uri).pathname || "/";
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		return writeCommandError(options, message);
+		return writeUriError(options, message);
 	}
 
 	if (path === "/mcp/install") {
 		return runCursorMcpInstallCommand(options);
+	}
+	if (path === "/settings") {
+		try {
+			return writeSettingsRoute(options);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			return writeUriError(options, message);
+		}
+	}
+	if (path === "/rule") {
+		try {
+			return writeCursorRuleRoute(options);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			return writeUriError(options, message);
+		}
 	}
 
 	const message = `Unsupported Cursor URI route for CLI: ${path}`;

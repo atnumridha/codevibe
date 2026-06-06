@@ -346,6 +346,8 @@ describe("runCli lightweight command dispatch", () => {
 			"src/index.ts",
 			"uri",
 			"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+			"--cwd",
+			"/tmp/cursor-uri-workspace",
 			"--json",
 		];
 
@@ -357,6 +359,7 @@ describe("runCli lightweight command dispatch", () => {
 			expect.objectContaining({
 				uri: "vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				json: true,
+				cwd: "/tmp/cursor-uri-workspace",
 			}),
 		);
 		expect(mockState.runAgentImports).toBe(0);

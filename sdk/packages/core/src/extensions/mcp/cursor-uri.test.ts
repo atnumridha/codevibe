@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+	buildCursorRuleRouteRequest,
+	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
 	CursorMcpInstallError,
+	CursorUriError,
 	formatCursorMcpInstallDetail,
 } from "./cursor-uri";
 
@@ -81,5 +84,56 @@ describe("Cursor MCP install URI parser", () => {
 		expect(() =>
 			buildCursorMcpInstallRequest("vscode://cline.cline/createchat?prompt=hi"),
 		).toThrow("Expected /mcp/install route");
+	});
+
+	it("parses Cursor settings route query aliases", () => {
+		expect(
+			buildCursorSettingsRouteRequest(
+				"vscode://cline.cline/settings?section=codex",
+			),
+		).toEqual({
+			query: "codex",
+			sourceParam: "section",
+		});
+	});
+
+	it("normalizes safe Cursor rule file targets", () => {
+		expect(
+			buildCursorRuleRouteRequest("vscode://cline.cline/rule?name=team-style"),
+		).toEqual({
+			kind: "file",
+			filename: "team-style.mdc",
+			relativePath: ".cursor/rules/team-style.mdc",
+		});
+
+		expect(
+			buildCursorRuleRouteRequest("vscode://cline.cline/rule?path=.cursorrules"),
+		).toEqual({
+			kind: "file",
+			filename: ".cursorrules",
+			relativePath: ".cursorrules",
+		});
+	});
+
+	it("requires review for Cursor rule payloads and rejects unsafe paths", () => {
+		expect(
+			buildCursorRuleRouteRequest(
+				"vscode://cline.cline/rule?name=team-style&content=Use%20small%20commits",
+			),
+		).toMatchObject({
+			kind: "review",
+			name: "team-style",
+		});
+		expect(
+			buildCursorRuleRouteRequest(
+				`vscode://cline.cline/rule?config=${encodeConfig({ content: "Use small commits" })}`,
+			),
+		).toMatchObject({
+			kind: "review",
+		});
+
+		expect(() =>
+			buildCursorRuleRouteRequest("vscode://cline.cline/rule?path=../bad.mdc"),
+		).toThrow(CursorUriError);
 	});
 });

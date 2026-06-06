@@ -1,11 +1,21 @@
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384;
 const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024;
 const MAX_MCP_SERVER_NAME_LENGTH = 128;
+const CURSOR_RULES_DIR = ".cursor/rules";
+const CURSOR_RULES_FILE = ".cursorrules";
+const CURSOR_RULE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
 const RESERVED_MCP_SERVER_NAMES = new Set([
 	"__proto__",
 	"constructor",
 	"prototype",
 ]);
+
+export class CursorUriError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = "CursorUriError";
+	}
+}
 
 export interface CursorMcpInstallRequest {
 	serverName: string;
@@ -13,12 +23,34 @@ export interface CursorMcpInstallRequest {
 	source: "config" | "direct";
 }
 
-export class CursorMcpInstallError extends Error {
+export class CursorMcpInstallError extends CursorUriError {
 	constructor(message: string) {
 		super(message);
 		this.name = "CursorMcpInstallError";
 	}
 }
+
+export interface CursorSettingsRouteRequest {
+	query?: string;
+	sourceParam?: "query" | "section" | "tab";
+}
+
+export interface CursorRuleFileRouteRequest {
+	kind: "file";
+	filename: string;
+	relativePath: string;
+}
+
+export interface CursorRuleReviewRouteRequest {
+	kind: "review";
+	reason: string;
+	name?: string;
+	path?: string;
+}
+
+export type CursorRuleRouteRequest =
+	| CursorRuleFileRouteRequest
+	| CursorRuleReviewRouteRequest;
 
 function getString(
 	value: string | Record<string, unknown> | undefined,
@@ -56,13 +88,14 @@ function decodeBase64JsonConfig(value: string): Record<string, unknown> {
 	return parsed as Record<string, unknown>;
 }
 
-function parseCursorMcpInstallParams(
+function parseCursorRouteParams(
 	uri: string,
+	expectedPath: string,
 ): Record<string, string | Record<string, unknown>> {
 	const parsedUrl = new URL(uri);
-	if (parsedUrl.pathname !== "/mcp/install") {
-		throw new CursorMcpInstallError(
-			`Expected /mcp/install route, received ${parsedUrl.pathname || "/"}`,
+	if (parsedUrl.pathname !== expectedPath) {
+		throw new CursorUriError(
+			`Expected ${expectedPath} route, received ${parsedUrl.pathname || "/"}`,
 		);
 	}
 
@@ -70,15 +103,28 @@ function parseCursorMcpInstallParams(
 	const values: Record<string, string | Record<string, unknown>> = {};
 	for (const [key, value] of query.entries()) {
 		if (!key || key.length > 128) {
-			throw new CursorMcpInstallError("query parameter name is invalid");
+			throw new CursorUriError("query parameter name is invalid");
 		}
 		if (Object.hasOwn(values, key)) {
-			throw new CursorMcpInstallError(`duplicate query parameter: ${key}`);
+			throw new CursorUriError(`duplicate query parameter: ${key}`);
 		}
 		if (value.length > MAX_CURSOR_URI_PARAM_LENGTH) {
-			throw new CursorMcpInstallError(`query parameter is too large: ${key}`);
+			throw new CursorUriError(`query parameter is too large: ${key}`);
 		}
 		values[key] = key === "config" ? decodeBase64JsonConfig(value) : value;
+	}
+
+	return values;
+}
+
+function parseCursorMcpInstallParams(
+	uri: string,
+): Record<string, string | Record<string, unknown>> {
+	let values: Record<string, string | Record<string, unknown>>;
+	try {
+		values = parseCursorRouteParams(uri, "/mcp/install");
+	} catch (error) {
+		throw new CursorMcpInstallError(error instanceof Error ? error.message : String(error));
 	}
 
 	if (
@@ -96,6 +142,45 @@ function parseCursorMcpInstallParams(
 	}
 
 	return values;
+}
+
+function getRouteStringParam(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): string | undefined {
+	return getString(params[key]);
+}
+
+function normalizeCursorRuleTarget(
+	requested: string | undefined,
+): { filename: string; relativePath: string } | undefined {
+	const normalized = requested?.replace(/\\/g, "/").trim();
+	if (
+		!normalized ||
+		normalized.includes("\0") ||
+		normalized.startsWith("/") ||
+		normalized.split("/").includes("..")
+	) {
+		return undefined;
+	}
+
+	if (normalized === CURSOR_RULES_FILE || normalized.endsWith(`/${CURSOR_RULES_FILE}`)) {
+		return {
+			filename: CURSOR_RULES_FILE,
+			relativePath: CURSOR_RULES_FILE,
+		};
+	}
+
+	const basename = normalized.split("/").filter(Boolean).pop();
+	if (!basename || !CURSOR_RULE_FILENAME_PATTERN.test(basename)) {
+		return undefined;
+	}
+
+	const filename = basename.endsWith(".mdc") ? basename : `${basename}.mdc`;
+	return {
+		filename,
+		relativePath: `${CURSOR_RULES_DIR}/${filename}`,
+	};
 }
 
 function normalizeMcpServerName(value: string | undefined, required: true): string;
@@ -344,6 +429,49 @@ export function buildCursorMcpInstallRequest(
 	);
 	const serverName = requestedName ?? deriveDirectServerName(params);
 	return { serverName, serverConfig, source: "direct" };
+}
+
+export function buildCursorSettingsRouteRequest(
+	uri: string,
+): CursorSettingsRouteRequest {
+	const params = parseCursorRouteParams(uri, "/settings");
+	for (const key of ["query", "section", "tab"] as const) {
+		const value = getRouteStringParam(params, key);
+		if (value) {
+			return { query: value, sourceParam: key };
+		}
+	}
+	return {};
+}
+
+export function buildCursorRuleRouteRequest(
+	uri: string,
+): CursorRuleRouteRequest {
+	const params = parseCursorRouteParams(uri, "/rule");
+	const content = getRouteStringParam(params, "content");
+	const url = getRouteStringParam(params, "url");
+	const name = getRouteStringParam(params, "name");
+	const path = getRouteStringParam(params, "path");
+	const config = getRecord(params.config);
+
+	if (content || url || config) {
+		return {
+			kind: "review",
+			reason: "Cursor rule content, URL, and config payloads require agent review before writing files",
+			name,
+			path,
+		};
+	}
+
+	const target = normalizeCursorRuleTarget(name || path);
+	if (!target) {
+		throw new CursorUriError("Cursor rule route requires a safe name or path");
+	}
+
+	return {
+		kind: "file",
+		...target,
+	};
 }
 
 export function formatCursorMcpInstallDetail(

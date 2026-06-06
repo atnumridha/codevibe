@@ -390,8 +390,9 @@ export async function runCli(): Promise<void> {
 		.argument("<uri>", "Cursor-compatible URI")
 		.option("--yes", "Apply supported deeplink changes after previewing")
 		.option("--json", "Output the dispatch result as JSON")
+		.option("-c, --cwd <path>", "Workspace directory for file-producing deeplinks")
 		.action(async (uri: string) => {
-			const opts = uriCmd.opts<{ yes?: boolean; json?: boolean }>();
+			const opts = uriCmd.opts<{ yes?: boolean; json?: boolean; cwd?: string }>();
 			if (opts.json) {
 				setCurrentOutputMode("json");
 			}
@@ -400,6 +401,7 @@ export async function runCli(): Promise<void> {
 				uri,
 				confirmed: opts.yes,
 				json: opts.json,
+				cwd: opts.cwd ?? program.opts<{ cwd?: string }>().cwd,
 				io,
 			});
 		});

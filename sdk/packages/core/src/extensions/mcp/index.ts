@@ -23,11 +23,18 @@ export {
 	updateMcpServerOAuthState,
 } from "./config-loader";
 export {
+	buildCursorRuleRouteRequest,
+	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
 	CursorMcpInstallError,
+	CursorUriError,
 	formatCursorMcpInstallDetail,
 } from "./cursor-uri";
-export type { CursorMcpInstallRequest } from "./cursor-uri";
+export type {
+	CursorMcpInstallRequest,
+	CursorRuleRouteRequest,
+	CursorSettingsRouteRequest,
+} from "./cursor-uri";
 export { InMemoryMcpManager } from "./manager";
 export type {
 	AuthorizeMcpServerOAuthOptions,

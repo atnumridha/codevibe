@@ -9,10 +9,12 @@ import {
 
 describe("Cursor MCP install command", () => {
 	const originalSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
+	const originalGlobalSettingsPath = process.env.CLINE_GLOBAL_SETTINGS_PATH;
 	const tempDirs: string[] = [];
 
 	afterEach(async () => {
 		process.env.CLINE_MCP_SETTINGS_PATH = originalSettingsPath;
+		process.env.CLINE_GLOBAL_SETTINGS_PATH = originalGlobalSettingsPath;
 		await Promise.all(
 			tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
 		);
@@ -119,6 +121,137 @@ describe("Cursor MCP install command", () => {
 		expect(JSON.parse(unsupported.out[0] ?? "{}")).toMatchObject({
 			handled: false,
 			error: "Unsupported Cursor URI route for CLI: /createchat",
+		});
+	});
+
+	it("reports Cursor settings routes against the local settings file", async () => {
+		const dir = await mkdtemp(join(tmpdir(), "cline-cursor-settings-"));
+		tempDirs.push(dir);
+		const settingsPath = join(dir, "global-settings.json");
+		process.env.CLINE_GLOBAL_SETTINGS_PATH = settingsPath;
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/settings?query=%40id%3Acline.apiProvider",
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "settings",
+			settingsPath,
+			query: "@id:cline.apiProvider",
+			sourceParam: "query",
+		});
+	});
+
+	it("previews and creates safe Cursor rule files", async () => {
+		const workspace = await mkdtemp(join(tmpdir(), "cline-cursor-rule-"));
+		tempDirs.push(workspace);
+		const preview = createIo();
+
+		await expect(
+			runCursorUriCommand({
+				uri: "vscode://cline.cline/rule?name=team-style",
+				cwd: workspace,
+				io: preview.io,
+			}),
+		).resolves.toBe(0);
+		expect(preview.out.join("\n")).toContain("Re-run with --yes");
+
+		const install = createIo();
+		await expect(
+			runCursorUriCommand({
+				uri: "vscode://cline.cline/rule?name=team-style",
+				cwd: workspace,
+				confirmed: true,
+				json: true,
+				io: install.io,
+			}),
+		).resolves.toBe(0);
+
+		const result = JSON.parse(install.out[0] ?? "{}") as {
+			filePath?: string;
+			created?: boolean;
+		};
+		expect(result).toMatchObject({
+			handled: true,
+			route: "rule",
+			created: true,
+			filename: "team-style.mdc",
+		});
+		await expect(readFile(result.filePath ?? "", "utf8")).resolves.toBe("");
+
+		const reuse = createIo();
+		await expect(
+			runCursorUriCommand({
+				uri: "vscode://cline.cline/rule?name=team-style",
+				cwd: workspace,
+				confirmed: true,
+				json: true,
+				io: reuse.io,
+			}),
+		).resolves.toBe(0);
+		expect(JSON.parse(reuse.out[0] ?? "{}")).toMatchObject({
+			created: false,
+			filename: "team-style.mdc",
+		});
+	});
+
+	it("does not write Cursor rule content payloads directly", async () => {
+		const workspace = await mkdtemp(join(tmpdir(), "cline-cursor-rule-"));
+		tempDirs.push(workspace);
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/rule?name=team-style&content=Use%20short%20commits",
+			cwd: workspace,
+			confirmed: true,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "rule",
+			requiresReview: true,
+			name: "team-style",
+		});
+		await expect(readFile(join(workspace, ".cursor", "rules", "team-style.mdc"), "utf8")).rejects.toThrow();
+	});
+
+	it("returns generic JSON errors for invalid URI dispatch", async () => {
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: "not a uri",
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(1);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: false,
+			error: expect.any(String),
+		});
+	});
+
+	it("returns generic JSON errors for unsafe Cursor rule paths", async () => {
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/rule?path=../bad.mdc",
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(1);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: false,
+			error: expect.stringContaining("safe name or path"),
 		});
 	});
 });
