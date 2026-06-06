@@ -31,6 +31,7 @@ export {
 	buildCursorMcpInstallRequest,
 	buildCursorPluginAddRouteRequest,
 	resolveCursorCommandFileRouteRequest,
+	resolveCursorRuleFileRouteRequest,
 	CursorMcpInstallError,
 	CursorUriError,
 	formatCursorMcpInstallDetail,
@@ -51,9 +52,11 @@ export type {
 	CursorCommandFileRouteRequest,
 	CursorMcpInstallRequest,
 	CursorPluginAddRouteRequest,
+	CursorRuleFileRoutePreview,
 	CursorRuleRouteRequest,
 	CursorSettingsRouteRequest,
 	ResolveCursorCommandFileRouteOptions,
+	ResolveCursorRuleFileRouteOptions,
 } from "./cursor-uri";
 export type { CursorMcpVariableContext } from "./cursor-mcp-normalization";
 export { InMemoryMcpManager } from "./manager";

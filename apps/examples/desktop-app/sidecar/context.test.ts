@@ -360,6 +360,7 @@ describe("Code sidecar runtime capabilities", () => {
 			uri: "vscode://cline.cline/settings?panel=codex",
 			workspaceRoots: ["/workspace/one", "/workspace/two"],
 			maxCommandFileBytes: 4096,
+			maxRuleFileBytes: 2048,
 		});
 
 		expect(previewCursorUriMock).toHaveBeenCalledWith({
@@ -367,6 +368,7 @@ describe("Code sidecar runtime capabilities", () => {
 			workspaceRoot: "/workspace/project",
 			workspaceRoots: ["/workspace/one", "/workspace/two"],
 			maxCommandFileBytes: 4096,
+			maxRuleFileBytes: 2048,
 		});
 		expect(result).toEqual({ handled: true, route: "settings" });
 	});

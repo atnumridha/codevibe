@@ -777,6 +777,7 @@ export function CursorUriView({
 							</div>
 						)}
 						<JsonBlock value={preview.commandFile} />
+						<JsonBlock value={preview.ruleFile} />
 					</div>
 				) : null}
 			</div>

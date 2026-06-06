@@ -28,6 +28,7 @@ import {
 	CursorUriError,
 	getCursorCompatibleUriPath,
 	resolveCursorCommandFileRouteRequest,
+	resolveCursorRuleFileRouteRequest,
 } from "../../extensions/mcp/cursor-uri";
 import { LocalRuntimeHost } from "../../runtime/host/local-runtime-host";
 import type {
@@ -562,6 +563,11 @@ function parseCursorUriPreviewInput(
 		"maxCommandFileBytes",
 		"cursor.uri.preview",
 	);
+	const maxRuleFileBytes = requireOptionalHubPositiveInteger(
+		payload,
+		"maxRuleFileBytes",
+		"cursor.uri.preview",
+	);
 	const trimmedWorkspaceRoots = Array.isArray(workspaceRoots)
 		? workspaceRoots.map((entry) => entry.trim()).filter(Boolean)
 		: [];
@@ -574,6 +580,7 @@ function parseCursorUriPreviewInput(
 			? { workspaceRoots: trimmedWorkspaceRoots }
 			: {}),
 		...(maxCommandFileBytes !== undefined ? { maxCommandFileBytes } : {}),
+		...(maxRuleFileBytes !== undefined ? { maxRuleFileBytes } : {}),
 	};
 }
 
@@ -685,24 +692,51 @@ function summarizeCursorUriPreview(
 
 	if (path === "/rule") {
 		const request = buildCursorRuleRouteRequest(uri);
-		return request.kind === "file"
-			? {
-					handled: true,
-					route: "rule",
-					kind: "file",
-					requiresConfirmation: true,
-					filename: request.filename,
-					relativePath: request.relativePath,
-				}
-			: {
-					handled: true,
-					route: "rule",
-					kind: "review",
-					requiresConfirmation: true,
-					reason: request.reason,
-					name: request.name,
-					path: request.path,
-				};
+		if (request.kind === "file") {
+			const ruleFile =
+				(input.workspaceRoot || input.workspaceRoots?.length)
+					? resolveCursorRuleFileRouteRequest(request, {
+							...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+							...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+							...(input.maxRuleFileBytes !== undefined
+								? { maxBytes: input.maxRuleFileBytes }
+								: {}),
+						})
+					: undefined;
+			return {
+				handled: true,
+				route: "rule",
+				kind: "file",
+				requiresConfirmation: true,
+				filename: request.filename,
+				relativePath: request.relativePath,
+				...(ruleFile
+					? {
+							ruleFile: {
+								filename: ruleFile.filename,
+								relativePath: ruleFile.relativePath,
+								exists: ruleFile.exists,
+								...(ruleFile.byteLength !== undefined
+									? { byteLength: ruleFile.byteLength }
+									: {}),
+								...(ruleFile.lineCount !== undefined
+									? { lineCount: ruleFile.lineCount }
+									: {}),
+								...(ruleFile.tooLarge ? { tooLarge: true } : {}),
+							},
+						}
+					: {}),
+			};
+		}
+		return {
+			handled: true,
+			route: "rule",
+			kind: "review",
+			requiresConfirmation: true,
+			reason: request.reason,
+			name: request.name,
+			path: request.path,
+		};
 	}
 
 	if (path === "/plugin/add") {

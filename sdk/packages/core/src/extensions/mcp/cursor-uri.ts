@@ -13,6 +13,7 @@ const MAX_MCP_SERVER_NAME_LENGTH = 128;
 const MAX_GIT_REF_LENGTH = 255;
 const MAX_COMMIT_MESSAGE_LENGTH = 16_384;
 const MAX_CURSOR_COMMAND_FILE_BYTES = 256 * 1024;
+const MAX_CURSOR_RULE_FILE_BYTES = 256 * 1024;
 const CURSOR_COMMANDS_DIR = ".cursor/commands";
 const CURSOR_RULES_DIR = ".cursor/rules";
 const CURSOR_RULES_FILE = ".cursorrules";
@@ -287,6 +288,12 @@ export interface ResolveCursorCommandFileRouteOptions {
 	maxBytes?: number;
 }
 
+export interface ResolveCursorRuleFileRouteOptions {
+	workspaceRoot?: string;
+	workspaceRoots?: readonly string[];
+	maxBytes?: number;
+}
+
 export interface CursorCommandFileRouteRequest {
 	kind: "command-file";
 	commandName: string;
@@ -295,6 +302,17 @@ export interface CursorCommandFileRouteRequest {
 	filePath: string;
 	content: string;
 	taskPrompt: string;
+}
+
+export interface CursorRuleFileRoutePreview {
+	kind: "rule-file";
+	filename: string;
+	relativePath: string;
+	filePath: string;
+	exists: boolean;
+	byteLength?: number;
+	lineCount?: number;
+	tooLarge?: boolean;
 }
 
 export interface CursorRuleFileRouteRequest {
@@ -1475,6 +1493,13 @@ export function resolveCursorCommandFileRouteRequest(
 function getCursorCommandWorkspaceRoots(
 	options: ResolveCursorCommandFileRouteOptions,
 ): string[] {
+	return getCursorWorkspaceRoots(options);
+}
+
+function getCursorWorkspaceRoots(options: {
+	workspaceRoot?: string;
+	workspaceRoots?: readonly string[];
+}): string[] {
 	const roots = [
 		...(options.workspaceRoot ? [options.workspaceRoot] : []),
 		...(options.workspaceRoots ?? []),
@@ -1541,6 +1566,99 @@ function resolveCursorCommandFileRouteRequestInRoot(
 		filePath,
 		content,
 		taskPrompt: buildCursorCommandFilePrompt(target, content),
+	};
+}
+
+export function resolveCursorRuleFileRouteRequest(
+	request: CursorRuleRouteRequest,
+	options: ResolveCursorRuleFileRouteOptions,
+): CursorRuleFileRoutePreview | undefined {
+	if (request.kind !== "file") {
+		return undefined;
+	}
+
+	const maxBytes = Math.max(
+		1,
+		Math.floor(options.maxBytes ?? MAX_CURSOR_RULE_FILE_BYTES),
+	);
+	let firstMissing: CursorRuleFileRoutePreview | undefined;
+	for (const workspaceRoot of getCursorWorkspaceRoots(options)) {
+		const resolved = resolveCursorRuleFileRouteRequestInRoot(
+			request,
+			workspaceRoot,
+			maxBytes,
+		);
+		if (!resolved) {
+			continue;
+		}
+		if (resolved.exists) {
+			return resolved;
+		}
+		firstMissing ??= resolved;
+	}
+	return firstMissing;
+}
+
+function resolveCursorRuleFileRouteRequestInRoot(
+	request: CursorRuleFileRouteRequest,
+	workspaceRoot: string,
+	maxBytes: number,
+): CursorRuleFileRoutePreview | undefined {
+	const root = resolve(workspaceRoot);
+	const filePath = resolve(root, request.relativePath);
+	const expectedPath =
+		request.relativePath === CURSOR_RULES_FILE
+			? resolve(root, CURSOR_RULES_FILE)
+			: join(resolve(root, CURSOR_RULES_DIR), request.filename);
+	if (filePath !== expectedPath) {
+		return undefined;
+	}
+
+	let stat;
+	try {
+		stat = lstatSync(filePath);
+	} catch (error) {
+		const code =
+			error && typeof error === "object" && "code" in error
+				? (error as { code?: unknown }).code
+				: undefined;
+		if (code === "ENOENT") {
+			return {
+				kind: "rule-file",
+				filename: request.filename,
+				relativePath: request.relativePath,
+				filePath,
+				exists: false,
+			};
+		}
+		throw error;
+	}
+
+	if (stat.isSymbolicLink() || !stat.isFile()) {
+		return undefined;
+	}
+
+	if (stat.size > maxBytes) {
+		return {
+			kind: "rule-file",
+			filename: request.filename,
+			relativePath: request.relativePath,
+			filePath,
+			exists: true,
+			byteLength: stat.size,
+			tooLarge: true,
+		};
+	}
+
+	const content = readFileSync(filePath, "utf8");
+	return {
+		kind: "rule-file",
+		filename: request.filename,
+		relativePath: request.relativePath,
+		filePath,
+		exists: true,
+		byteLength: Buffer.byteLength(content, "utf8"),
+		lineCount: content.length === 0 ? 0 : content.split(/\r\n|\r|\n/).length,
 	};
 }
 

@@ -995,11 +995,13 @@ function readCursorUriPreviewRequest(
 		asTrimmedString(ctx.workspaceRoot);
 	const workspaceRoots = asTrimmedStringArray(args?.workspaceRoots);
 	const maxCommandFileBytes = toPositiveInt(args?.maxCommandFileBytes);
+	const maxRuleFileBytes = toPositiveInt(args?.maxRuleFileBytes);
 	return {
 		uri,
 		...(workspaceRoot ? { workspaceRoot } : {}),
 		...(workspaceRoots ? { workspaceRoots } : {}),
 		...(maxCommandFileBytes ? { maxCommandFileBytes } : {}),
+		...(maxRuleFileBytes ? { maxRuleFileBytes } : {}),
 	};
 }
 

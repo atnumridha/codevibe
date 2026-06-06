@@ -20,6 +20,7 @@ import {
 	formatCursorMcpInstallDetail,
 	getCursorCompatibleUriPath,
 	resolveCursorCommandFileRouteRequest,
+	resolveCursorRuleFileRouteRequest,
 } from "./cursor-uri";
 
 function route(params: Record<string, string>): string {
@@ -553,6 +554,87 @@ describe("Cursor MCP install URI parser", () => {
 			);
 			expect(
 				resolveCursorCommandFileRouteRequest(symlinked, { workspaceRoot: root }),
+			).toBeUndefined();
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it("summarizes standalone Cursor rule files without exposing content", () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-cursor-rule-"));
+		try {
+			const rulesDir = join(root, ".cursor", "rules");
+			mkdirSync(rulesDir, { recursive: true });
+			writeFileSync(join(rulesDir, "team-style.mdc"), "Use small commits\nPrefer tests", "utf8");
+
+			const request = buildCursorRuleRouteRequest(
+				"vscode://cline.cline/rule?name=team-style",
+			);
+			const resolved = resolveCursorRuleFileRouteRequest(request, {
+				workspaceRoot: root,
+			});
+
+			expect(resolved).toMatchObject({
+				kind: "rule-file",
+				filename: "team-style.mdc",
+				relativePath: ".cursor/rules/team-style.mdc",
+				filePath: join(root, ".cursor", "rules", "team-style.mdc"),
+				exists: true,
+				lineCount: 2,
+			});
+			expect(resolved?.byteLength).toBeGreaterThan(0);
+			expect(JSON.stringify(resolved)).not.toContain("Use small commits");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it("summarizes missing and oversized Cursor rule files safely", () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-cursor-rule-"));
+		try {
+			const missing = resolveCursorRuleFileRouteRequest(
+				buildCursorRuleRouteRequest("vscode://cline.cline/rule?path=.cursorrules"),
+				{ workspaceRoot: root },
+			);
+			expect(missing).toMatchObject({
+				filename: ".cursorrules",
+				relativePath: ".cursorrules",
+				exists: false,
+			});
+
+			const rulesDir = join(root, ".cursor", "rules");
+			mkdirSync(rulesDir, { recursive: true });
+			writeFileSync(join(rulesDir, "large.mdc"), "0123456789", "utf8");
+			const oversized = resolveCursorRuleFileRouteRequest(
+				buildCursorRuleRouteRequest("vscode://cline.cline/rule?name=large"),
+				{ workspaceRoot: root, maxBytes: 5 },
+			);
+			expect(oversized).toMatchObject({
+				filename: "large.mdc",
+				relativePath: ".cursor/rules/large.mdc",
+				exists: true,
+				byteLength: 10,
+				tooLarge: true,
+			});
+			expect(oversized).not.toHaveProperty("lineCount");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it("does not summarize symlinked standalone Cursor rule files", () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-cursor-rule-"));
+		try {
+			const rulesDir = join(root, ".cursor", "rules");
+			mkdirSync(rulesDir, { recursive: true });
+			writeFileSync(join(root, "outside-rule.mdc"), "SHOULD_NOT_LOAD", "utf8");
+			symlinkSync(join(root, "outside-rule.mdc"), join(rulesDir, "team-style.mdc"));
+
+			const request = buildCursorRuleRouteRequest(
+				"vscode://cline.cline/rule?name=team-style",
+			);
+			expect(
+				resolveCursorRuleFileRouteRequest(request, { workspaceRoot: root }),
 			).toBeUndefined();
 		} finally {
 			rmSync(root, { recursive: true, force: true });

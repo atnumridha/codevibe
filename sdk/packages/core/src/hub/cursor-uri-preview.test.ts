@@ -347,4 +347,108 @@ describe("hub Cursor URI preview command", () => {
 			rmSync(root, { recursive: true, force: true });
 		}
 	});
+
+	it("summarizes existing Cursor rule files without leaking absolute paths or content", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-hub-cursor-rule-"));
+		try {
+			const rulesDir = join(root, ".cursor", "rules");
+			mkdirSync(rulesDir, { recursive: true });
+			writeFileSync(
+				join(rulesDir, "team-style.mdc"),
+				"Use small commits\nPrefer focused tests",
+				"utf8",
+			);
+			const transport = createTransport();
+
+			const reply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.uri.preview",
+				requestId: "req-rule-existing",
+				clientId: "client-one",
+				payload: {
+					uri: "vscode://cline.cline/rule?name=team-style",
+					workspaceRoot: root,
+				},
+			});
+
+			expect(reply).toMatchObject({
+				ok: true,
+				payload: {
+					handled: true,
+					route: "rule",
+					kind: "file",
+					requiresConfirmation: true,
+					filename: "team-style.mdc",
+					relativePath: ".cursor/rules/team-style.mdc",
+					ruleFile: {
+						filename: "team-style.mdc",
+						relativePath: ".cursor/rules/team-style.mdc",
+						exists: true,
+						lineCount: 2,
+					},
+				},
+			});
+			expect(JSON.stringify(reply)).not.toContain(root);
+			expect(JSON.stringify(reply)).not.toContain("Use small commits");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it("summarizes missing and oversized Cursor rule previews safely", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-hub-cursor-rule-"));
+		try {
+			const transport = createTransport();
+			const missing = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.uri.preview",
+				requestId: "req-rule-missing",
+				clientId: "client-one",
+				payload: {
+					uri: "vscode://cline.cline/rule?path=.cursorrules",
+					workspaceRoot: root,
+				},
+			});
+			expect(missing).toMatchObject({
+				ok: true,
+				payload: {
+					ruleFile: {
+						filename: ".cursorrules",
+						relativePath: ".cursorrules",
+						exists: false,
+					},
+				},
+			});
+
+			const rulesDir = join(root, ".cursor", "rules");
+			mkdirSync(rulesDir, { recursive: true });
+			writeFileSync(join(rulesDir, "large.mdc"), "0123456789", "utf8");
+			const oversized = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.uri.preview",
+				requestId: "req-rule-large",
+				clientId: "client-one",
+				payload: {
+					uri: "vscode://cline.cline/rule?name=large",
+					workspaceRoot: root,
+					maxRuleFileBytes: 5,
+				},
+			});
+			expect(oversized).toMatchObject({
+				ok: true,
+				payload: {
+					ruleFile: {
+						filename: "large.mdc",
+						relativePath: ".cursor/rules/large.mdc",
+						exists: true,
+						byteLength: 10,
+						tooLarge: true,
+					},
+				},
+			});
+			expect(JSON.stringify(oversized)).not.toContain("0123456789");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
 });

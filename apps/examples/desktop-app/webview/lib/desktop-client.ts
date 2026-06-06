@@ -83,6 +83,7 @@ export type CursorUriPreviewInput = {
 	workspaceRoot?: string;
 	workspaceRoots?: string[];
 	maxCommandFileBytes?: number;
+	maxRuleFileBytes?: number;
 };
 
 export type CursorUriPreviewResponse = Record<string, unknown> & {

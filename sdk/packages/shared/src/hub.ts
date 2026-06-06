@@ -362,6 +362,7 @@ export interface CursorUriPreviewRequest {
 	workspaceRoot?: string;
 	workspaceRoots?: string[];
 	maxCommandFileBytes?: number;
+	maxRuleFileBytes?: number;
 }
 
 export interface CursorUriPreviewResponse extends Record<string, unknown> {
