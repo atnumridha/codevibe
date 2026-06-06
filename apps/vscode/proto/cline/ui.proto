@@ -284,6 +284,9 @@ service UiService {
   // Opens a URL in the default browser
   rpc openUrl(StringRequest) returns (Empty);
 
+  // Handles Cline and Cursor-compatible deep links from external/standalone clients
+  rpc handleUri(StringRequest) returns (BooleanResponse);
+
   // Opens the Cline walkthrough
   rpc openWalkthrough(EmptyRequest) returns (Empty);
 }

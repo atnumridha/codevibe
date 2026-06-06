@@ -12,6 +12,7 @@ import {
 import {
 	buildCursorMcpInstallRequest,
 	formatCursorMcpInstallDetail,
+	type CursorMcpServerConfig,
 } from "./CursorMcpInstall"
 
 export const TASK_URI_PATH = "/task"
@@ -21,7 +22,38 @@ interface SharedUriHandlerOptions {
 	cursorCompatibleDeepLinksEnabled?: boolean
 }
 
+interface SharedUriController {
+	handleOpenRouterCallback(code: string): Promise<void>
+	handleRequestyCallback(code: string): Promise<void>
+	handleAuthCallback(token: string, provider: string | null): Promise<void>
+	handleOcaAuthCallback(code: string, state: string): Promise<void>
+	handleTaskCreation(prompt: string): Promise<void>
+	handleMcpOAuthCallback(serverHash: string, code: string, state: string): Promise<void>
+	handleHicapCallback(code: string): Promise<void>
+	handleCursorBackgroundAgentLaunch(request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>): Promise<unknown>
+	postStateToWebview(): Promise<void>
+	mcpHub: {
+		addServerFromConfig(serverName: string, serverConfig: CursorMcpServerConfig): Promise<unknown>
+	}
+}
+
 const MCP_OAUTH_CALLBACK_PATTERN = /^\/mcp-auth\/callback\/[^/]+$/
+
+function parseUri(url: string): {
+	parsedUrl: URL
+	path: string
+	query: URLSearchParams
+} {
+	const parsedUrl = new URL(url)
+	const path = parsedUrl.pathname
+
+	// Create URLSearchParams from the query string, but preserve plus signs
+	// by replacing them with a placeholder before parsing
+	const queryString = parsedUrl.search.slice(1) // Remove leading '?'
+	const query = new URLSearchParams(queryString.replace(/\+/g, "%2B"))
+
+	return { parsedUrl, path, query }
+}
 
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
@@ -36,22 +68,7 @@ export class SharedUriHandler {
 		url: string,
 		options: SharedUriHandlerOptions = {},
 	): Promise<boolean> {
-		const parsedUrl = new URL(url)
-		const path = parsedUrl.pathname
-
-		// Create URLSearchParams from the query string, but preserve plus signs
-		// by replacing them with a placeholder before parsing
-		const queryString = parsedUrl.search.slice(1) // Remove leading '?'
-		const query = new URLSearchParams(queryString.replace(/\+/g, "%2B"))
-
-		Logger.info(
-			"SharedUriHandler: Processing URI:" +
-				JSON.stringify({
-					path: path,
-					query: query,
-					scheme: parsedUrl.protocol,
-				}),
-		)
+		const { parsedUrl, path, query } = parseUri(url)
 
 		const isMcpOAuthCallback = MCP_OAUTH_CALLBACK_PATTERN.test(path)
 		let visibleWebview = WebviewProvider.getVisibleInstance()
@@ -68,6 +85,38 @@ export class SharedUriHandler {
 			Logger.warn("SharedUriHandler: No visible webview found")
 			return false
 		}
+
+		return this.handleParsedUriWithController(visibleWebview.controller, parsedUrl, path, query, options)
+	}
+
+	/**
+	 * Processes a URI against a known controller. This is used by standalone and
+	 * external UI clients that do not have VS Code sidebar visibility semantics.
+	 */
+	public static async handleUriWithController(
+		controller: SharedUriController,
+		url: string,
+		options: SharedUriHandlerOptions = {},
+	): Promise<boolean> {
+		const { parsedUrl, path, query } = parseUri(url)
+		return this.handleParsedUriWithController(controller, parsedUrl, path, query, options)
+	}
+
+	private static async handleParsedUriWithController(
+		controller: SharedUriController,
+		parsedUrl: URL,
+		path: string,
+		query: URLSearchParams,
+		options: SharedUriHandlerOptions,
+	): Promise<boolean> {
+		Logger.info(
+			"SharedUriHandler: Processing URI:" +
+				JSON.stringify({
+					path: path,
+					query: query,
+					scheme: parsedUrl.protocol,
+				}),
+		)
 
 		try {
 			if (options.cursorCompatibleDeepLinksEnabled !== false) {
@@ -93,11 +142,11 @@ export class SharedUriHandler {
 						if (choice.selectedOption !== "Install") {
 							return true
 						}
-						await visibleWebview.controller.mcpHub.addServerFromConfig(
+						await controller.mcpHub.addServerFromConfig(
 							installRequest.serverName,
 							installRequest.serverConfig,
 						)
-						await visibleWebview.controller.postStateToWebview()
+						await controller.postStateToWebview()
 						await HostProvider.window.showMessage({
 							type: ShowMessageType.INFORMATION,
 							message: `Installed MCP server "${installRequest.serverName}".`,
@@ -105,12 +154,12 @@ export class SharedUriHandler {
 						return true
 					}
 					if (cursorRoute.route.kind === "background-agent") {
-						await visibleWebview.controller.handleCursorBackgroundAgentLaunch(
+						await controller.handleCursorBackgroundAgentLaunch(
 							buildCursorCompatibleBackgroundAgentLaunchRequest(cursorRoute.route),
 						)
 						return true
 					}
-					await visibleWebview.controller.handleTaskCreation(
+					await controller.handleTaskCreation(
 						buildCursorCompatibleTaskPrompt(cursorRoute.route),
 					)
 					return true
@@ -121,7 +170,7 @@ export class SharedUriHandler {
 				case "/openrouter": {
 					const code = query.get("code")
 					if (code) {
-						await visibleWebview.controller.handleOpenRouterCallback(code)
+						await controller.handleOpenRouterCallback(code)
 						return true
 					}
 					Logger.warn("SharedUriHandler: Missing code parameter for OpenRouter callback")
@@ -130,7 +179,7 @@ export class SharedUriHandler {
 				case "/requesty": {
 					const code = query.get("code")
 					if (code) {
-						await visibleWebview.controller.handleRequestyCallback(code)
+						await controller.handleRequestyCallback(code)
 						return true
 					}
 					Logger.warn("SharedUriHandler: Missing code parameter for Requesty callback")
@@ -143,7 +192,7 @@ export class SharedUriHandler {
 
 					const token = query.get("refreshToken") || query.get("idToken") || query.get("code")
 					if (token) {
-						await visibleWebview.controller.handleAuthCallback(token, provider)
+						await controller.handleAuthCallback(token, provider)
 						return true
 					}
 					Logger.warn("SharedUriHandler: Missing idToken parameter for auth callback")
@@ -156,7 +205,7 @@ export class SharedUriHandler {
 					const state = query.get("state")
 
 					if (code && state) {
-						await visibleWebview.controller.handleOcaAuthCallback(code, state)
+						await controller.handleOcaAuthCallback(code, state)
 						return true
 					}
 					Logger.warn("SharedUriHandler: Missing code parameter for auth callback")
@@ -165,7 +214,7 @@ export class SharedUriHandler {
 				case TASK_URI_PATH: {
 					const prompt = query.get("prompt")
 					if (prompt) {
-						await visibleWebview.controller.handleTaskCreation(prompt)
+						await controller.handleTaskCreation(prompt)
 						return true
 					}
 					Logger.warn("SharedUriHandler: Missing prompt parameter for task creation")
@@ -193,7 +242,7 @@ export class SharedUriHandler {
 					].join("\n")
 					await writeLgWebhookConfig(webhookUrl, webhookToken)
 					await writeLgWebhookHooks()
-					await visibleWebview.controller.handleTaskCreation(prompt)
+					await controller.handleTaskCreation(prompt)
 					return true
 				}
 				// Match /mcp-auth/callback/{hash}
@@ -207,13 +256,13 @@ export class SharedUriHandler {
 						return false
 					}
 
-					await visibleWebview.controller.handleMcpOAuthCallback(serverHash, code, state)
+					await controller.handleMcpOAuthCallback(serverHash, code, state)
 					return true
 				}
 				case "/hicap": {
 					const code = query.get("code")
 					if (code) {
-						await visibleWebview.controller.handleHicapCallback(code)
+						await controller.handleHicapCallback(code)
 						return true
 					}
 					Logger.warn("SharedUriHandler: Missing code parameter for Hicap callback")
