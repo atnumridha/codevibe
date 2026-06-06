@@ -30,6 +30,8 @@ service TaskService {
   rpc toggleTaskFavorite(TaskFavoriteRequest) returns (Empty);
   // Gets filtered task history
   rpc getTaskHistory(GetTaskHistoryRequest) returns (TaskHistoryArray);
+  // Lists Cursor-compatible background-agent launch sessions
+  rpc getBackgroundAgentSessions(EmptyRequest) returns (BackgroundAgentSessions);
   // Sends a response to a previous ask operation
   rpc askResponse(AskResponseRequest) returns (Empty);
   // Records task feedback (thumbs up/down)
@@ -103,6 +105,36 @@ message TaskItem {
   int32 cache_writes = 9;
   int32 cache_reads = 10;
   string model_id = 11;
+}
+
+// Cursor-compatible background-agent lifecycle session
+message BackgroundAgentSession {
+  string id = 1;
+  string source = 2;
+  string status = 3;
+  optional string launch_mode = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+  string prompt = 7;
+  optional string route_prompt = 8;
+  optional string repository = 9;
+  optional string requested_branch = 10;
+  optional string requested_base_branch = 11;
+  optional string workspace_root = 12;
+  optional string worktree_path = 13;
+  optional string worktree_branch = 14;
+  optional string worktree_base_ref = 15;
+  bool confirmation_required = 16;
+  optional string fallback_reason = 17;
+  optional string warning = 18;
+  optional string task_id = 19;
+  optional string error_message = 20;
+}
+
+// Response for Cursor-compatible background-agent lifecycle sessions
+message BackgroundAgentSessions {
+  repeated BackgroundAgentSession sessions = 1;
+  int32 total_count = 2;
 }
 
 // Request for ask response operation
