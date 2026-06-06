@@ -6,10 +6,16 @@ import {
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
+	ClineCore,
 	DefaultToolNames,
 	formatCursorMcpInstallDetail,
 	HubSessionClient,
+	parseAutomationEventNdjson,
 	resolveCursorCommandFileRouteRequest,
+	type AutomationEventEnvelope,
+	type ClineAutomationNdjsonIngestOptions,
+	type ClineAutomationNdjsonIngressResult,
+	type ClineCoreAutomationApi,
 } from "@cline/core";
 import type {
 	ChatRunTurnRequest,
@@ -25,10 +31,22 @@ import { ensureCliHubServer } from "../utils/hub-runtime";
 import { installPlugin } from "./plugin";
 
 const BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS = 5_000;
+const MAX_CURSOR_URI_PARAM_LENGTH = 16_384;
+const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024;
 
 export type BackgroundAgentHubResolution = {
 	url: string;
 	authToken: string;
+};
+
+export type AutomationIngestCoreFactoryOptions = {
+	workspaceRoot: string;
+	cwd: string;
+};
+
+export type AutomationIngestCore = {
+	automation: Pick<ClineCoreAutomationApi, "ingestNdjson">;
+	dispose?: (reason?: string) => Promise<void>;
 };
 
 export type BackgroundAgentSessionClient = {
@@ -66,10 +84,66 @@ export interface CursorMcpInstallCommandOptions {
 	createBackgroundAgentSessionClient?: (
 		options: BackgroundAgentSessionClientFactoryOptions,
 	) => BackgroundAgentSessionClient;
+	createAutomationIngestCore?: (
+		options: AutomationIngestCoreFactoryOptions,
+	) => Promise<AutomationIngestCore>;
 	io: {
 		writeln: (text?: string) => void;
 		writeErr: (text: string) => void;
 	};
+}
+
+interface CursorAutomationIngestRouteRequest {
+	ndjson: string;
+	strict: boolean;
+	defaultSource?: string;
+	allowedSources?: string[];
+	maxLineBytes?: number;
+	maxEvents?: number;
+	paramKeys: string[];
+	configKeys: string[];
+}
+
+interface AutomationEventSummary {
+	eventId: string;
+	eventType: string;
+	source: string;
+	occurredAt: string;
+	subject?: string;
+	workspaceRoot?: string;
+	dedupeKey?: string;
+	payloadKeys?: string[];
+	attributeKeys?: string[];
+}
+
+interface AutomationRejectedSummary {
+	lineNumber: number;
+	reason: string;
+	message: string;
+	lineLength: number;
+}
+
+interface AutomationIngestReport {
+	handled: true;
+	route: "automation-ingest";
+	ingested: boolean;
+	requiresConfirmation?: boolean;
+	strict: boolean;
+	strictFailed?: boolean;
+	valid: boolean;
+	eventCount: number;
+	rejectedCount: number;
+	resultCount?: number;
+	duplicateCount?: number;
+	queuedRunCount?: number;
+	defaultSource?: string;
+	allowedSources?: string[];
+	maxLineBytes?: number;
+	maxEvents?: number;
+	paramKeys: string[];
+	configKeys: string[];
+	events: AutomationEventSummary[];
+	rejected: AutomationRejectedSummary[];
 }
 
 function writeCommandError(
@@ -127,6 +201,310 @@ function writeSettingsRoute(options: CursorMcpInstallCommandOptions): number {
 		options.io.writeln(`Requested settings query: ${request.query}`);
 	}
 	return 0;
+}
+
+function decodeBase64JsonConfig(value: string): Record<string, unknown> {
+	const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+	const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+	const raw = Buffer.from(padded, "base64").toString("utf8");
+	if (raw.length > MAX_CURSOR_URI_CONFIG_JSON_LENGTH) {
+		throw new Error("config JSON exceeds maximum length");
+	}
+	const parsed = JSON.parse(raw) as unknown;
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		throw new Error("config must decode to a JSON object");
+	}
+	return parsed as Record<string, unknown>;
+}
+
+function parseCursorAutomationIngestParams(
+	uri: string,
+): Record<string, string | Record<string, unknown>> {
+	const parsedUrl = new URL(uri);
+	if (parsedUrl.pathname !== "/automation/ingest") {
+		throw new Error(
+			`Expected /automation/ingest route, received ${parsedUrl.pathname || "/"}`,
+		);
+	}
+	const query = new URLSearchParams(parsedUrl.search.slice(1).replace(/\+/g, "%2B"));
+	const values: Record<string, string | Record<string, unknown>> = {};
+	const allowed = new Set([
+		"ndjson",
+		"input",
+		"defaultSource",
+		"allowedSources",
+		"maxLineBytes",
+		"maxEvents",
+		"strict",
+		"config",
+	]);
+	for (const [key, value] of query.entries()) {
+		if (!key || key.length > 128) {
+			throw new Error("query parameter name is invalid");
+		}
+		if (!allowed.has(key)) {
+			throw new Error(`/automation/ingest does not accept query parameter "${key}"`);
+		}
+		if (Object.hasOwn(values, key)) {
+			throw new Error(`duplicate query parameter: ${key}`);
+		}
+		if (value.length > MAX_CURSOR_URI_PARAM_LENGTH) {
+			throw new Error(`query parameter is too large: ${key}`);
+		}
+		values[key] = key === "config" ? decodeBase64JsonConfig(value) : value;
+	}
+	return values;
+}
+
+function getParamString(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): string | undefined {
+	const value = params[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function getConfigString(config: Record<string, unknown>, key: string): string | undefined {
+	const value = config[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function parsePositiveInteger(value: string | undefined, label: string): number | undefined {
+	if (!value) return undefined;
+	const parsed = Number.parseInt(value, 10);
+	if (!Number.isFinite(parsed) || parsed <= 0 || String(parsed) !== value.trim()) {
+		throw new Error(`${label} must be a positive integer`);
+	}
+	return parsed;
+}
+
+function parseCursorBoolean(value: string | undefined, label: string): boolean {
+	if (!value) return false;
+	const normalized = value.toLowerCase();
+	if (["true", "1", "yes"].includes(normalized)) return true;
+	if (["false", "0", "no"].includes(normalized)) return false;
+	throw new Error(`${label} must be one of true, false, 1, 0, yes, or no`);
+}
+
+function parseCsvList(value: string | undefined): string[] | undefined {
+	const items = value
+		?.split(",")
+		.map((item) => item.trim())
+		.filter(Boolean);
+	return items && items.length > 0 ? items : undefined;
+}
+
+function buildCursorAutomationIngestRouteRequest(
+	uri: string,
+): CursorAutomationIngestRouteRequest {
+	const params = parseCursorAutomationIngestParams(uri);
+	const config =
+		params.config && typeof params.config === "object" && !Array.isArray(params.config)
+			? params.config
+			: {};
+	const ndjson =
+		getParamString(params, "ndjson") ||
+		getParamString(params, "input") ||
+		getConfigString(config, "ndjson") ||
+		getConfigString(config, "input");
+	if (!ndjson) {
+		throw new Error("ndjson or input is required");
+	}
+
+	return {
+		ndjson,
+		strict: parseCursorBoolean(
+			getParamString(params, "strict") || getConfigString(config, "strict"),
+			"strict",
+		),
+		defaultSource:
+			getParamString(params, "defaultSource") ||
+			getConfigString(config, "defaultSource"),
+		allowedSources: parseCsvList(
+			getParamString(params, "allowedSources") ||
+				getConfigString(config, "allowedSources"),
+		),
+		maxLineBytes: parsePositiveInteger(
+			getParamString(params, "maxLineBytes") ||
+				getConfigString(config, "maxLineBytes"),
+			"maxLineBytes",
+		),
+		maxEvents: parsePositiveInteger(
+			getParamString(params, "maxEvents") || getConfigString(config, "maxEvents"),
+			"maxEvents",
+		),
+		paramKeys: Object.keys(params).sort(),
+		configKeys: Object.keys(config).sort(),
+	};
+}
+
+function toAutomationIngestOptions(
+	request: CursorAutomationIngestRouteRequest,
+): ClineAutomationNdjsonIngestOptions {
+	return {
+		...(request.defaultSource ? { defaultSource: request.defaultSource } : {}),
+		...(request.allowedSources ? { allowedSources: request.allowedSources } : {}),
+		...(request.maxLineBytes ? { maxLineBytes: request.maxLineBytes } : {}),
+		...(request.maxEvents ? { maxEvents: request.maxEvents } : {}),
+	};
+}
+
+function objectKeys(value: unknown): string[] | undefined {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		return undefined;
+	}
+	const keys = Object.keys(value).sort();
+	return keys.length > 0 ? keys : undefined;
+}
+
+function summarizeAutomationEvent(event: AutomationEventEnvelope): AutomationEventSummary {
+	const payloadKeys = objectKeys(event.payload);
+	const attributeKeys = objectKeys(event.attributes);
+	return {
+		eventId: event.eventId,
+		eventType: event.eventType,
+		source: event.source,
+		occurredAt: event.occurredAt,
+		...(event.subject ? { subject: event.subject } : {}),
+		...(event.workspaceRoot ? { workspaceRoot: event.workspaceRoot } : {}),
+		...(event.dedupeKey ? { dedupeKey: event.dedupeKey } : {}),
+		...(payloadKeys ? { payloadKeys } : {}),
+		...(attributeKeys ? { attributeKeys } : {}),
+	};
+}
+
+function summarizeAutomationRejectedLine(input: {
+	lineNumber: number;
+	reason: string;
+	message: string;
+	line: string;
+}): AutomationRejectedSummary {
+	return {
+		lineNumber: input.lineNumber,
+		reason: input.reason,
+		message: input.message,
+		lineLength: input.line.length,
+	};
+}
+
+function buildAutomationIngestReport(
+	request: CursorAutomationIngestRouteRequest,
+	ingested: boolean,
+	result?: ClineAutomationNdjsonIngressResult,
+): AutomationIngestReport {
+	const parsed =
+		result ??
+		parseAutomationEventNdjson(request.ndjson, toAutomationIngestOptions(request));
+	const strictFailed = request.strict && parsed.rejected.length > 0;
+	const valid = parsed.events.length > 0 && !strictFailed;
+	const results = "results" in parsed ? parsed.results : undefined;
+	return {
+		handled: true,
+		route: "automation-ingest",
+		ingested,
+		...(ingested ? {} : { requiresConfirmation: valid }),
+		strict: request.strict,
+		...(strictFailed ? { strictFailed: true } : {}),
+		valid,
+		eventCount: parsed.events.length,
+		rejectedCount: parsed.rejected.length,
+		...(results ? { resultCount: results.length } : {}),
+		...(results
+			? {
+					duplicateCount: results.filter((item) => item.duplicate).length,
+					queuedRunCount: results.reduce(
+						(count, item) => count + item.queuedRuns.length,
+						0,
+					),
+				}
+			: {}),
+		...(request.defaultSource ? { defaultSource: request.defaultSource } : {}),
+		...(request.allowedSources ? { allowedSources: request.allowedSources } : {}),
+		...(request.maxLineBytes ? { maxLineBytes: request.maxLineBytes } : {}),
+		...(request.maxEvents ? { maxEvents: request.maxEvents } : {}),
+		paramKeys: request.paramKeys,
+		configKeys: request.configKeys,
+		events: parsed.events.map(summarizeAutomationEvent),
+		rejected: parsed.rejected.map(summarizeAutomationRejectedLine),
+	};
+}
+
+function writeAutomationIngestTextReport(
+	options: CursorMcpInstallCommandOptions,
+	report: AutomationIngestReport,
+): void {
+	options.io.writeln(
+		`${report.ingested ? "Ingested" : "Validated"} ${report.eventCount} Cursor automation event(s).`,
+	);
+	if (report.rejectedCount > 0) {
+		options.io.writeln(`${report.rejectedCount} line(s) rejected:`);
+		for (const rejected of report.rejected) {
+			options.io.writeln(
+				`- line ${rejected.lineNumber}: ${rejected.reason} - ${rejected.message}`,
+			);
+		}
+	}
+	if (report.strictFailed) {
+		options.io.writeln("Strict mode blocked ingest because one or more lines were rejected.");
+	}
+	if (!report.ingested && report.valid) {
+		options.io.writeln("Re-run with --yes to ingest these automation events.");
+	}
+	if (report.ingested) {
+		options.io.writeln(`Queued runs: ${report.queuedRunCount ?? 0}`);
+	}
+}
+
+function writeAutomationIngestReport(
+	options: CursorMcpInstallCommandOptions,
+	report: AutomationIngestReport,
+): number {
+	if (options.json) {
+		options.io.writeln(JSON.stringify(report));
+	} else {
+		writeAutomationIngestTextReport(options, report);
+	}
+	return report.valid ? 0 : 1;
+}
+
+async function createDefaultAutomationIngestCore(
+	options: AutomationIngestCoreFactoryOptions,
+): Promise<AutomationIngestCore> {
+	return ClineCore.create({
+		clientName: "cline-cli-cursor-automation-ingest",
+		backendMode: "local",
+		automation: {
+			workspaceRoot: options.workspaceRoot,
+		},
+	});
+}
+
+async function runCursorAutomationIngestRoute(
+	options: CursorMcpInstallCommandOptions,
+): Promise<number> {
+	const request = buildCursorAutomationIngestRouteRequest(options.uri);
+	const preview = buildAutomationIngestReport(request, false);
+	if (!options.confirmed || !preview.valid) {
+		return writeAutomationIngestReport(options, preview);
+	}
+
+	const cwd = resolve(options.cwd ?? process.cwd());
+	const workspaceRoot = cwd;
+	const createCore =
+		options.createAutomationIngestCore ?? createDefaultAutomationIngestCore;
+	const core = await createCore({ workspaceRoot, cwd });
+	try {
+		const result = core.automation.ingestNdjson(
+			request.ndjson,
+			toAutomationIngestOptions(request),
+		);
+		return writeAutomationIngestReport(
+			options,
+			buildAutomationIngestReport(request, true, result),
+		);
+	} finally {
+		await core.dispose?.("cursor_automation_ingest_done");
+	}
 }
 
 function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
@@ -499,6 +877,14 @@ export async function runCursorUriCommand(
 	if (path === "/plugin/add") {
 		try {
 			return await writeCursorPluginAddRoute(options);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			return writeUriError(options, message);
+		}
+	}
+	if (path === "/automation/ingest") {
+		try {
+			return await runCursorAutomationIngestRoute(options);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			return writeUriError(options, message);

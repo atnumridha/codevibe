@@ -7,6 +7,14 @@ import {
 	runCursorUriCommand,
 } from "./cursor-mcp";
 
+function encodeConfig(config: Record<string, unknown>): string {
+	return Buffer.from(JSON.stringify(config), "utf8")
+		.toString("base64")
+		.replace(/\+/g, "-")
+		.replace(/\//g, "_")
+		.replace(/=+$/g, "");
+}
+
 describe("Cursor MCP install command", () => {
 	const originalSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
 	const originalGlobalSettingsPath = process.env.CLINE_GLOBAL_SETTINGS_PATH;
@@ -413,6 +421,148 @@ describe("Cursor MCP install command", () => {
 		});
 		expect(out[0]).not.toContain("secret-value");
 		expect(out[0]).not.toContain("requiresAgent");
+	});
+
+	it("previews Cursor automation ingest URI events without storing payload values", async () => {
+		const { out, io } = createIo();
+		const ndjson = encodeURIComponent(
+			JSON.stringify({
+				eventId: "evt-1",
+				eventType: "git.commit.created",
+				source: "cursor",
+				occurredAt: "2026-06-06T00:00:00.000Z",
+				payload: { token: "secret-value", branch: "main" },
+			}),
+		);
+
+		const code = await runCursorUriCommand({
+			uri: `vscode://cline.cline/automation/ingest?ndjson=${ndjson}&strict=true`,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "automation-ingest",
+			ingested: false,
+			requiresConfirmation: true,
+			strict: true,
+			valid: true,
+			eventCount: 1,
+			rejectedCount: 0,
+			events: [
+				expect.objectContaining({
+					eventId: "evt-1",
+					eventType: "git.commit.created",
+					source: "cursor",
+					payloadKeys: ["branch", "token"],
+				}),
+			],
+		});
+		expect(out[0]).not.toContain("secret-value");
+	});
+
+	it("blocks confirmed Cursor automation ingest when strict validation rejects a line", async () => {
+		const { out, io } = createIo();
+		const ndjson = encodeURIComponent(
+			[
+				JSON.stringify({
+					eventId: "evt-1",
+					eventType: "git.commit.created",
+					source: "cursor",
+				}),
+				"{ bad json",
+			].join("\n"),
+		);
+		const createAutomationIngestCore = vi.fn();
+
+		const code = await runCursorUriCommand({
+			uri: `vscode://cline.cline/automation/ingest?ndjson=${ndjson}&strict=true`,
+			confirmed: true,
+			json: true,
+			createAutomationIngestCore,
+			io,
+		});
+
+		expect(code).toBe(1);
+		expect(createAutomationIngestCore).not.toHaveBeenCalled();
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "automation-ingest",
+			ingested: false,
+			strict: true,
+			strictFailed: true,
+			valid: false,
+			eventCount: 1,
+			rejectedCount: 1,
+		});
+	});
+
+	it("ingests confirmed Cursor automation URI events through ClineCore automation", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-automation-"));
+		tempDirs.push(workspaceRoot);
+		const { out, io } = createIo();
+		const event = {
+			eventId: "evt-1",
+			eventType: "git.commit.created",
+			source: "cursor",
+			occurredAt: "2026-06-06T00:00:00.000Z",
+			payload: { branch: "main" },
+		};
+		const ingestNdjson = vi.fn(() => ({
+			events: [event],
+			rejected: [],
+			results: [
+				{
+					event: { eventId: "evt-1" },
+					duplicate: false,
+					matchedSpecIds: ["spec-1"],
+					queuedRuns: [{ runId: "run-1" }],
+					suppressions: [],
+				},
+			],
+		}));
+		const dispose = vi.fn(async () => {});
+		const createAutomationIngestCore = vi.fn(async () => ({
+			automation: { ingestNdjson },
+			dispose,
+		}));
+
+		const code = await runCursorUriCommand({
+			uri: `vscode://cline.cline/automation/ingest?config=${encodeConfig({
+				ndjson: JSON.stringify(event),
+				defaultSource: "cursor",
+			})}`,
+			cwd: workspaceRoot,
+			confirmed: true,
+			json: true,
+			createAutomationIngestCore,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(createAutomationIngestCore).toHaveBeenCalledWith({
+			workspaceRoot,
+			cwd: workspaceRoot,
+		});
+		expect(ingestNdjson).toHaveBeenCalledWith(JSON.stringify(event), {
+			defaultSource: "cursor",
+		});
+		expect(dispose).toHaveBeenCalledWith("cursor_automation_ingest_done");
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "automation-ingest",
+			ingested: true,
+			valid: true,
+			eventCount: 1,
+			rejectedCount: 0,
+			resultCount: 1,
+			duplicateCount: 0,
+			queuedRunCount: 1,
+			defaultSource: "cursor",
+			configKeys: ["defaultSource", "ndjson"],
+		});
 	});
 
 	it("installs plugin add deeplinks only when confirmed", async () => {
