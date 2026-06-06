@@ -291,6 +291,36 @@ describe("auth/codex token lifecycle", () => {
 		expect(credentials?.metadata).not.toHaveProperty("clientVersion");
 	});
 
+	it("uses Codex home token account_id when JWT account claims are missing", () => {
+		const codexHome = mkdtempSync(join(tmpdir(), "cline-codex-home-"));
+		tempDirs.push(codexHome);
+		const accessToken = createJwt({
+			exp: 2_000,
+			email: "codex@example.com",
+		});
+		writeFileSync(
+			join(codexHome, "auth.json"),
+			JSON.stringify({
+				tokens: {
+					access_token: accessToken,
+					refresh_token: "refresh-home",
+					account_id: "acct-from-file",
+				},
+			}),
+			"utf8",
+		);
+
+		const credentials = loadOpenAICodexHomeCredentialsSync({ codexHome });
+
+		expect(credentials).toMatchObject({
+			accountId: "acct-from-file",
+			metadata: {
+				provider: "openai-codex",
+				tokenSource: "codex-home",
+			},
+		});
+	});
+
 	it("refreshOpenAICodexToken throws when response is structurally invalid", async () => {
 		vi.stubGlobal(
 			"fetch",

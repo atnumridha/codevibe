@@ -74,6 +74,7 @@ interface CodexHomeAuthJson {
 		access_token?: string;
 		refresh_token?: string;
 		id_token?: string;
+		account_id?: string;
 	};
 	auth_mode?: string;
 }
@@ -426,12 +427,13 @@ export function loadOpenAICodexHomeCredentialsSync(options?: {
 			? modelsCache.client_version.trim()
 			: undefined;
 	const accountId = getAccountId(accessToken, idToken);
+	const tokenAccountId = authJson.tokens?.account_id?.trim() || undefined;
 
 	return {
 		access: accessToken,
 		refresh: refreshToken,
 		expires: getJwtExpiryMs(accessToken, options?.now ?? Date.now),
-		accountId: accountId ?? undefined,
+		accountId: accountId ?? tokenAccountId,
 		email: getJwtEmail(accessToken, idToken),
 		metadata: {
 			provider: "openai-codex",
