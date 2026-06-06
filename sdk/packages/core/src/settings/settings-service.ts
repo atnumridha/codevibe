@@ -21,9 +21,12 @@ import {
 } from "../services/global-settings";
 import { listPluginTools } from "../services/plugin-tools";
 import type {
+	CoreSettingsGetInput,
+	CoreSettingsGetResult,
 	CoreSettingsItem,
 	CoreSettingsListInput,
 	CoreSettingsMutationResult,
+	CoreSettingsPatchInput,
 	CoreSettingsSnapshot,
 	CoreSettingsToggleInput,
 } from "./types";
@@ -64,6 +67,33 @@ function toSorted<T extends CoreSettingsItem>(items: T[]): T[] {
 
 function resolveWorkspaceRoot(input: CoreSettingsListInput): string {
 	return input.workspaceRoot?.trim() || input.cwd?.trim() || "";
+}
+
+function findSettingsItem(
+	snapshot: CoreSettingsSnapshot,
+	input: CoreSettingsGetInput,
+): CoreSettingsItem | undefined {
+	const items = snapshot[input.type] ?? [];
+	const id = input.id?.trim();
+	if (id) {
+		const match = items.find((item) => item.id === id);
+		if (match) return match;
+	}
+	const itemPath = input.path?.trim();
+	if (itemPath) {
+		const match = items.find((item) => item.path === itemPath);
+		if (match) return match;
+	}
+	const name = input.name?.trim();
+	if (name) {
+		const match = items.find((item) => item.name === name || item.id === name);
+		if (match) return match;
+	}
+	return undefined;
+}
+
+function hasSettingsSelector(input: CoreSettingsGetInput): boolean {
+	return Boolean(input.id?.trim() || input.path?.trim() || input.name?.trim());
 }
 
 async function withUserInstructionService<T>(
@@ -232,6 +262,18 @@ export class CoreSettingsService {
 		});
 	}
 
+	async get(input: CoreSettingsGetInput): Promise<CoreSettingsGetResult> {
+		if (!hasSettingsSelector(input)) {
+			throw new Error("settings.get requires id, path, or name.");
+		}
+		const snapshot = await this.list(input);
+		return {
+			type: input.type,
+			item: findSettingsItem(snapshot, input),
+			snapshot,
+		};
+	}
+
 	async toggle(
 		input: CoreSettingsToggleInput,
 	): Promise<CoreSettingsMutationResult> {
@@ -311,6 +353,18 @@ export class CoreSettingsService {
 		}
 
 		throw new Error(`Settings type '${input.type}' does not support toggles.`);
+	}
+
+	async patch(
+		input: CoreSettingsPatchInput,
+	): Promise<CoreSettingsMutationResult> {
+		if (input.enabled === undefined) {
+			throw new Error("settings.patch requires an enabled boolean.");
+		}
+		return await this.toggle({
+			...input,
+			enabled: input.enabled,
+		});
 	}
 }
 

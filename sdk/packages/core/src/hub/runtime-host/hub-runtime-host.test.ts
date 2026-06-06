@@ -1430,6 +1430,48 @@ describe("HubRuntimeHost", () => {
 		});
 	});
 
+	it("gets settings through the hub", async () => {
+		const snapshot = {
+			workflows: [],
+			rules: [],
+			skills: [],
+			tools: [],
+			mcp: [
+				{
+					id: "docs",
+					name: "docs",
+					path: "/tmp/cline_mcp_settings.json",
+					kind: "mcp",
+					source: "workspace",
+					enabled: true,
+				},
+			],
+		};
+		commandMock.mockResolvedValue({
+			ok: true,
+			payload: {
+				type: "mcp",
+				item: snapshot.mcp[0],
+				snapshot,
+			},
+		});
+
+		const { HubRuntimeHost } = await import("./hub-runtime-host");
+		const host = new HubRuntimeHost({ url: "ws://127.0.0.1:25463/hub" });
+
+		await expect(
+			host.getSetting({ type: "mcp", name: "docs" }),
+		).resolves.toEqual({
+			type: "mcp",
+			item: snapshot.mcp[0],
+			snapshot,
+		});
+		expect(commandMock).toHaveBeenCalledWith("settings.get", {
+			type: "mcp",
+			name: "docs",
+		});
+	});
+
 	it("throws when the hub rejects settings toggle", async () => {
 		commandMock.mockResolvedValue({
 			ok: false,
@@ -1448,6 +1490,60 @@ describe("HubRuntimeHost", () => {
 		expect(commandMock).toHaveBeenCalledWith("settings.toggle", {
 			type: "skills",
 			id: "skill-one",
+		});
+	});
+
+	it("patches settings through the hub", async () => {
+		const snapshot = {
+			workflows: [],
+			rules: [],
+			skills: [],
+			tools: [],
+			mcp: [],
+		};
+		commandMock.mockResolvedValue({
+			ok: true,
+			payload: {
+				snapshot,
+				changedTypes: ["mcp"],
+			},
+		});
+
+		const { HubRuntimeHost } = await import("./hub-runtime-host");
+		const host = new HubRuntimeHost({ url: "ws://127.0.0.1:25463/hub" });
+
+		await expect(
+			host.patchSetting({ type: "mcp", name: "docs", enabled: false }),
+		).resolves.toEqual({
+			snapshot,
+			changedTypes: ["mcp"],
+		});
+		expect(commandMock).toHaveBeenCalledWith("settings.patch", {
+			type: "mcp",
+			name: "docs",
+			enabled: false,
+		});
+	});
+
+	it("throws when the hub rejects settings patch", async () => {
+		commandMock.mockResolvedValue({
+			ok: false,
+			error: {
+				code: "settings_patch_failed",
+				message: "Unknown MCP server: docs",
+			},
+		});
+
+		const { HubRuntimeHost } = await import("./hub-runtime-host");
+		const host = new HubRuntimeHost({ url: "ws://127.0.0.1:25463/hub" });
+
+		await expect(
+			host.patchSetting({ type: "mcp", name: "docs", enabled: false }),
+		).rejects.toThrow("Unknown MCP server");
+		expect(commandMock).toHaveBeenCalledWith("settings.patch", {
+			type: "mcp",
+			name: "docs",
+			enabled: false,
 		});
 	});
 

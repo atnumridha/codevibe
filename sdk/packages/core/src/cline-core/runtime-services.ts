@@ -7,8 +7,11 @@ import type {
 } from "../runtime/host/runtime-host";
 import {
 	type ClineCoreSettingsApi,
+	type CoreSettingsGetInput,
+	type CoreSettingsGetResult,
 	type CoreSettingsListInput,
 	type CoreSettingsMutationResult,
+	type CoreSettingsPatchInput,
 	type CoreSettingsSnapshot,
 	type CoreSettingsToggleInput,
 	createCoreSettingsService,
@@ -18,8 +21,14 @@ type RuntimeHostWithSettings = RuntimeHost & {
 	listSettings?: (
 		input?: CoreSettingsListInput,
 	) => Promise<CoreSettingsSnapshot>;
+	getSetting?: (
+		input: CoreSettingsGetInput,
+	) => Promise<CoreSettingsGetResult>;
 	toggleSetting?: (
 		input: CoreSettingsToggleInput,
+	) => Promise<CoreSettingsMutationResult>;
+	patchSetting?: (
+		input: CoreSettingsPatchInput,
 	) => Promise<CoreSettingsMutationResult>;
 };
 
@@ -41,12 +50,26 @@ export function createClineCoreSettingsApi(
 			}
 			return await createCoreSettingsService().list(input);
 		},
+		async get(input) {
+			const settingsHost = host as RuntimeHostWithSettings;
+			if (settingsHost.getSetting) {
+				return await settingsHost.getSetting(input);
+			}
+			return await createCoreSettingsService().get(input);
+		},
 		async toggle(input) {
 			const settingsHost = host as RuntimeHostWithSettings;
 			if (settingsHost.toggleSetting) {
 				return await settingsHost.toggleSetting(input);
 			}
 			return await createCoreSettingsService().toggle(input);
+		},
+		async patch(input) {
+			const settingsHost = host as RuntimeHostWithSettings;
+			if (settingsHost.patchSetting) {
+				return await settingsHost.patchSetting(input);
+			}
+			return await createCoreSettingsService().patch(input);
 		},
 	};
 }

@@ -56,6 +56,23 @@ export interface CoreSettingsToggleInput extends CoreSettingsListInput {
 	enabled?: boolean;
 }
 
+export interface CoreSettingsGetInput extends CoreSettingsListInput {
+	type: CoreSettingsType;
+	id?: string;
+	path?: string;
+	name?: string;
+}
+
+export interface CoreSettingsPatchInput extends CoreSettingsGetInput {
+	enabled: boolean;
+}
+
+export interface CoreSettingsGetResult {
+	type: CoreSettingsType;
+	item?: CoreSettingsItem;
+	snapshot: CoreSettingsSnapshot;
+}
+
 export interface CoreSettingsMutationResult {
 	snapshot: CoreSettingsSnapshot;
 	changedTypes: CoreSettingsType[];
@@ -63,5 +80,7 @@ export interface CoreSettingsMutationResult {
 
 export interface ClineCoreSettingsApi {
 	list(input?: CoreSettingsListInput): Promise<CoreSettingsSnapshot>;
+	get(input: CoreSettingsGetInput): Promise<CoreSettingsGetResult>;
 	toggle(input: CoreSettingsToggleInput): Promise<CoreSettingsMutationResult>;
+	patch(input: CoreSettingsPatchInput): Promise<CoreSettingsMutationResult>;
 }

@@ -23,7 +23,9 @@ import type {
 import { SqliteSessionStore } from "../../services/storage/sqlite-session-store";
 import { CoreSessionService } from "../../session/services/session-service";
 import {
+	type CoreSettingsGetInput,
 	type CoreSettingsListInput,
+	type CoreSettingsPatchInput,
 	CoreSettingsService,
 	type CoreSettingsToggleInput,
 	type CoreSettingsType,
@@ -211,6 +213,54 @@ function parseSettingsToggleInput(payload: unknown): CoreSettingsToggleInput {
 		path: requireOptionalString(payload, "path"),
 		name: requireOptionalString(payload, "name"),
 		enabled: requireOptionalBoolean(payload, "enabled"),
+	};
+}
+
+function parseSettingsTargetInput(
+	payload: unknown,
+	commandName: "settings.get" | "settings.patch",
+): CoreSettingsGetInput {
+	if (!isPayloadObject(payload)) {
+		throw new Error(`${commandName} payload must be an object.`);
+	}
+	const { type } = payload;
+	if (
+		typeof type !== "string" ||
+		!SETTINGS_TYPES.has(type as CoreSettingsType)
+	) {
+		throw new Error(
+			`${commandName} payload 'type' must be one of: skills, workflows, rules, tools, mcp.`,
+		);
+	}
+	const input = {
+		...parseSettingsListInput(payload),
+		type: type as CoreSettingsType,
+		id: requireOptionalString(payload, "id"),
+		path: requireOptionalString(payload, "path"),
+		name: requireOptionalString(payload, "name"),
+	};
+	if (!input.id && !input.path && !input.name) {
+		throw new Error(`${commandName} payload requires id, path, or name.`);
+	}
+	return input;
+}
+
+function parseSettingsGetInput(payload: unknown): CoreSettingsGetInput {
+	return parseSettingsTargetInput(payload, "settings.get");
+}
+
+function parseSettingsPatchInput(payload: unknown): CoreSettingsPatchInput {
+	if (!isPayloadObject(payload)) {
+		throw new Error("settings.patch payload must be an object.");
+	}
+	const input = parseSettingsTargetInput(payload, "settings.patch");
+	const enabled = requireOptionalBoolean(payload, "enabled");
+	if (enabled === undefined) {
+		throw new Error("settings.patch payload 'enabled' must be a boolean.");
+	}
+	return {
+		...input,
+		enabled,
 	};
 }
 
@@ -627,25 +677,18 @@ export class HubServerTransport implements NativeHubTransport {
 				return okReply(envelope);
 			case "settings.list":
 				return await this.handleSettingsList(envelope);
+			case "settings.get":
+				return await this.handleSettingsGet(envelope);
 			case "settings.toggle":
 				return await this.handleSettingsToggle(envelope);
+			case "settings.patch":
+				return await this.handleSettingsPatch(envelope);
 			case "cron.event.ingest":
 				return this.handleCronEventIngest(envelope);
 			case "cron.event.list":
 				return this.handleCronEventList(envelope);
 			case "cron.event.get":
 				return this.handleCronEventGet(envelope);
-			case "settings.get":
-			case "settings.patch":
-				return {
-					version: envelope.version,
-					requestId: envelope.requestId,
-					ok: false,
-					error: {
-						code: "not_implemented",
-						message: `${envelope.command} is not implemented yet.`,
-					},
-				};
 			default: {
 				const reply = await this.scheduleCommands.handleCommand(envelope);
 				if (reply.ok) {
@@ -721,6 +764,36 @@ export class HubServerTransport implements NativeHubTransport {
 		}
 	}
 
+	private async handleSettingsGet(
+		envelope: HubCommandEnvelope,
+	): Promise<HubReplyEnvelope> {
+		try {
+			const result = await this.settings.get(
+				parseSettingsGetInput(envelope.payload),
+			);
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: true,
+				payload: {
+					type: result.type,
+					item: result.item,
+					snapshot: result.snapshot,
+				},
+			};
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "settings_get_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
 	private async handleSettingsToggle(
 		envelope: HubCommandEnvelope,
 	): Promise<HubReplyEnvelope> {
@@ -750,6 +823,41 @@ export class HubServerTransport implements NativeHubTransport {
 				ok: false,
 				error: {
 					code: "settings_toggle_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private async handleSettingsPatch(
+		envelope: HubCommandEnvelope,
+	): Promise<HubReplyEnvelope> {
+		try {
+			const result = await this.settings.patch(
+				parseSettingsPatchInput(envelope.payload),
+			);
+			this.publish(
+				buildHubEvent("settings.changed", {
+					types: result.changedTypes,
+					snapshot: result.snapshot,
+				}),
+			);
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: true,
+				payload: {
+					snapshot: result.snapshot,
+					changedTypes: result.changedTypes,
+				},
+			};
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "settings_patch_failed",
 					message: error instanceof Error ? error.message : String(error),
 				},
 			};

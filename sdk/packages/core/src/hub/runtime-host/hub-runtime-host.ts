@@ -50,8 +50,11 @@ import {
 	coreSessionSnapshotToRecord,
 } from "../../session/session-snapshot";
 import type {
+	CoreSettingsGetInput,
+	CoreSettingsGetResult,
 	CoreSettingsListInput,
 	CoreSettingsMutationResult,
+	CoreSettingsPatchInput,
 	CoreSettingsSnapshot,
 	CoreSettingsToggleInput,
 } from "../../settings";
@@ -107,7 +110,12 @@ function toJsonSerializable(
 }
 
 function serializeSettingsInput(
-	input: CoreSettingsListInput | CoreSettingsToggleInput | undefined,
+	input:
+		| CoreSettingsListInput
+		| CoreSettingsGetInput
+		| CoreSettingsToggleInput
+		| CoreSettingsPatchInput
+		| undefined,
 ): Record<string, unknown> | undefined {
 	if (!input) {
 		return undefined;
@@ -1225,6 +1233,21 @@ export class HubRuntimeHost implements RuntimeHost {
 		return reply.payload?.snapshot as CoreSettingsSnapshot;
 	}
 
+	async getSetting(input: CoreSettingsGetInput): Promise<CoreSettingsGetResult> {
+		const reply = await this.client.command(
+			"settings.get",
+			serializeSettingsInput(input),
+		);
+		if (!reply.ok) {
+			throw new Error(hubReplyErrorMessage(reply, "settings.get"));
+		}
+		return {
+			type: reply.payload?.type as CoreSettingsGetResult["type"],
+			item: reply.payload?.item as CoreSettingsGetResult["item"],
+			snapshot: reply.payload?.snapshot as CoreSettingsSnapshot,
+		};
+	}
+
 	async toggleSetting(
 		input: CoreSettingsToggleInput,
 	): Promise<CoreSettingsMutationResult> {
@@ -1234,6 +1257,25 @@ export class HubRuntimeHost implements RuntimeHost {
 		);
 		if (!reply.ok) {
 			throw new Error(hubReplyErrorMessage(reply, "settings.toggle"));
+		}
+		return {
+			snapshot: reply.payload?.snapshot as CoreSettingsSnapshot,
+			changedTypes: Array.isArray(reply.payload?.changedTypes)
+				? (reply.payload
+						.changedTypes as CoreSettingsMutationResult["changedTypes"])
+				: [],
+		};
+	}
+
+	async patchSetting(
+		input: CoreSettingsPatchInput,
+	): Promise<CoreSettingsMutationResult> {
+		const reply = await this.client.command(
+			"settings.patch",
+			serializeSettingsInput(input),
+		);
+		if (!reply.ok) {
+			throw new Error(hubReplyErrorMessage(reply, "settings.patch"));
 		}
 		return {
 			snapshot: reply.payload?.snapshot as CoreSettingsSnapshot,

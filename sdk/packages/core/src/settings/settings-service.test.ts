@@ -144,6 +144,35 @@ Use this skill.`,
 			]),
 		);
 
+		const found = await service.get({
+			type: "mcp",
+			name: "docs",
+			cwd: tempRoot,
+		});
+		expect(found).toMatchObject({
+			type: "mcp",
+			item: {
+				id: "docs",
+				name: "docs",
+				enabled: true,
+			},
+		});
+		expect(found.snapshot.mcp[0]?.id).toBe("docs");
+
+		const missing = await service.get({
+			type: "mcp",
+			name: "missing",
+			cwd: tempRoot,
+		});
+		expect(missing.item).toBeUndefined();
+
+		await expect(
+			service.get({
+				type: "mcp",
+				cwd: tempRoot,
+			}),
+		).rejects.toThrow("requires id, path, or name");
+
 		const result = await service.toggle({
 			type: "mcp",
 			name: "docs",
@@ -203,6 +232,22 @@ Use this skill.`,
 		expect(
 			implicitlyEnabledSettings.mcpServers?.docs?.disabled,
 		).toBeUndefined();
+
+		const patched = await service.patch({
+			type: "mcp",
+			name: "docs",
+			path: settingsPath,
+			enabled: false,
+			cwd: tempRoot,
+		});
+		const patchedSettings = JSON.parse(
+			await readFile(settingsPath, "utf8"),
+		) as {
+			mcpServers?: Record<string, { disabled?: boolean }>;
+		};
+		expect(patched.changedTypes).toEqual(["mcp"]);
+		expect(patched.snapshot.mcp[0]?.enabled).toBe(false);
+		expect(patchedSettings.mcpServers?.docs?.disabled).toBe(true);
 	});
 
 	it("lists and toggles MCP servers imported from .cursor/mcp.json", async () => {
@@ -255,6 +300,15 @@ Use this skill.`,
 			mcpServers?: Record<string, { disabled?: boolean }>;
 		};
 		expect(disabledSettings.mcpServers?.browser?.disabled).toBe(true);
+	});
+
+	it("rejects settings patches without an enabled boolean", async () => {
+		await expect(
+			new CoreSettingsService().patch({
+				type: "mcp",
+				name: "docs",
+			} as never),
+		).rejects.toThrow("enabled boolean");
 	});
 
 	it("requires an explicit enabled value when skill state cannot be resolved", async () => {
