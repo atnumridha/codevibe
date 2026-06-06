@@ -296,6 +296,13 @@ export class Controller {
 				currentConfig.get<boolean>("cursorCompatibility.safeBrowserEvaluate.enabled", false)
 			)
 		}
+		const getCursorRetrievalIndexingPrivacyGate = () => {
+			const currentConfig = vscode.workspace.getConfiguration("cline")
+			return (
+				currentConfig.get<boolean>("cursorCompatibility.enabled", true) &&
+				currentConfig.get<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
+			)
+		}
 		const cursorSandboxPolicy = await resolveCursorSandboxPolicy({
 			workspaceRoot: cwd,
 			enabled: cursorCompatibilityEnabled,
@@ -343,6 +350,7 @@ export class Controller {
 			cwd,
 			cursorSandboxPolicy,
 			getCursorSafeBrowserEvaluateEnabled,
+			getCursorRetrievalIndexingPrivacyGate,
 			stateManager: this.stateManager,
 			workspaceManager: this.workspaceManager,
 			task,

@@ -3,6 +3,7 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import type { CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
+import { LOCK_TEXT_SYMBOL } from "@core/ignore/ClineIgnoreController"
 import { ClineDefaultTool } from "@shared/tools"
 import * as pathUtils from "@utils/path"
 import { afterEach, beforeEach, describe, it } from "mocha"
@@ -100,6 +101,7 @@ function createConfig() {
 			shouldAutoApproveTool: sinon.stub().returns([true, true]),
 		},
 		browserSettings: {},
+		cursorRetrievalIndexingPrivacyGate: true,
 		focusChainSettings: {},
 		services: {
 			stateManager: {
@@ -387,6 +389,46 @@ describe("ListFilesToolHandler.execute – error recovery", () => {
 		assert.equal(typeof result, "string")
 		assert.ok((result as string).includes("file.txt"))
 		assert.equal(taskState.consecutiveMistakeCount, 0)
+	})
+
+	it("omits ignored list entries when Cursor retrieval privacy gate is enabled", async () => {
+		const { config, validator } = createConfig()
+		const handler = new ListFilesToolHandler(validator)
+		const dirName = "privacy-dir"
+		await fs.mkdir(path.join(tmpDir, dirName))
+		await fs.writeFile(path.join(tmpDir, dirName, "visible.ts"), "visible")
+		await fs.writeFile(path.join(tmpDir, dirName, "secret.ts"), "secret")
+		config.services.clineIgnoreController = {
+			validateAccess: (candidate: string) => !candidate.endsWith("secret.ts"),
+			filterPaths: (paths: string[]) => paths.filter((candidate) => !candidate.endsWith("secret.ts")),
+		} as any
+
+		const result = await handler.execute(config, makeBlock(dirName))
+
+		assert.equal(typeof result, "string")
+		assert.ok((result as string).includes("visible.ts"))
+		assert.ok(!(result as string).includes("secret.ts"))
+		assert.ok(!(result as string).includes(LOCK_TEXT_SYMBOL))
+	})
+
+	it("marks ignored list entries when Cursor retrieval privacy gate is disabled", async () => {
+		const { config, validator } = createConfig()
+		config.cursorRetrievalIndexingPrivacyGate = false
+		const handler = new ListFilesToolHandler(validator)
+		const dirName = "legacy-privacy-dir"
+		await fs.mkdir(path.join(tmpDir, dirName))
+		await fs.writeFile(path.join(tmpDir, dirName, "visible.ts"), "visible")
+		await fs.writeFile(path.join(tmpDir, dirName, "secret.ts"), "secret")
+		config.services.clineIgnoreController = {
+			validateAccess: (candidate: string) => !candidate.endsWith("secret.ts"),
+			filterPaths: (paths: string[]) => paths.filter((candidate) => !candidate.endsWith("secret.ts")),
+		} as any
+
+		const result = await handler.execute(config, makeBlock(dirName))
+
+		assert.equal(typeof result, "string")
+		assert.ok((result as string).includes("visible.ts"))
+		assert.ok((result as string).includes(`${LOCK_TEXT_SYMBOL} secret.ts`))
 	})
 
 	it("catches a thrown exception from listFiles and returns a tool error", async () => {

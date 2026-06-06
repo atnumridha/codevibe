@@ -127,7 +127,9 @@ export class ListFilesToolHandler implements IFullyManagedTool {
 			resolutionMethod: (usedWorkspaceHint ? "hint" : "primary_fallback") as "hint" | "primary_fallback",
 		}
 
-		const result = formatResponse.formatFilesList(absolutePath, files, didHitLimit, config.services.clineIgnoreController)
+		const result = formatResponse.formatFilesList(absolutePath, files, didHitLimit, config.services.clineIgnoreController, {
+			ignoredFilesBehavior: config.cursorRetrievalIndexingPrivacyGate ? "omit" : "mark",
+		})
 
 		// Handle approval flow
 		const sharedMessageProps = {

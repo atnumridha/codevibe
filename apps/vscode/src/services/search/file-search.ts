@@ -20,6 +20,10 @@ import { getBinaryLocation } from "@/utils/fs"
  */
 export type FileSearchSource = "host_index" | "ripgrep"
 
+export type FileSearchPrivacyOptions = {
+	cursorRetrievalIndexingPrivacyGate?: boolean
+}
+
 // Wrapper function for childProcess.spawn
 export type SpawnFunction = typeof childProcess.spawn
 export const getSpawnFunction = (): SpawnFunction => childProcess.spawn
@@ -38,6 +42,7 @@ export class RipgrepError extends Error {
 export async function executeRipgrepForFiles(
 	workspacePath: string,
 	limit = 5000,
+	options?: FileSearchPrivacyOptions,
 ): Promise<{ path: string; type: "file" | "folder"; label?: string }[]> {
 	const rgPath = await resolveRipgrepPath()
 
@@ -134,7 +139,7 @@ export async function executeRipgrepForFiles(
 				type: "folder",
 				label: path.basename(dirPath),
 			}))
-			filterIgnoredWorkspaceItems(workspacePath, [...fileResults, ...dirResults])
+			filterWorkspaceItemsForPrivacy(workspacePath, [...fileResults, ...dirResults], options)
 				.then(resolve)
 				.catch(reject)
 		})
@@ -170,6 +175,18 @@ async function findSystemRipgrep(): Promise<string> {
 	}
 
 	return fallback
+}
+
+function shouldFilterIgnoredWorkspaceItems(options?: FileSearchPrivacyOptions): boolean {
+	return options?.cursorRetrievalIndexingPrivacyGate !== false
+}
+
+async function filterWorkspaceItemsForPrivacy<T extends WorkspaceSearchItem>(
+	workspacePath: string,
+	items: T[],
+	options?: FileSearchPrivacyOptions,
+): Promise<T[]> {
+	return shouldFilterIgnoredWorkspaceItems(options) ? ((await filterIgnoredWorkspaceItems(workspacePath, items)) as T[]) : items
 }
 
 // Get currently active/open files from VSCode tabs using hostbridge
@@ -281,6 +298,7 @@ export async function searchWorkspaceFiles(
 	limit = 20,
 	selectedType?: "file" | "folder",
 	workspaceName?: string,
+	options?: FileSearchPrivacyOptions,
 ): Promise<SearchWorkspaceFilesResult> {
 	try {
 		// Get currently active files and convert to search format
@@ -301,12 +319,11 @@ export async function searchWorkspaceFiles(
 
 		const hostItems = await executeHostIndexForFiles(query, workspacePath, selectedType)
 
-		const allItems = await filterIgnoredWorkspaceItems(
-			workspacePath,
-			hostItems ?? (await executeRipgrepForFiles(workspacePath, 5000)),
-		)
+		const allItems = hostItems
+			? await filterWorkspaceItemsForPrivacy(workspacePath, hostItems, options)
+			: await executeRipgrepForFiles(workspacePath, 5000, options)
 		const source: FileSearchSource = hostItems ? "host_index" : "ripgrep"
-		const allowedActiveFiles = await filterIgnoredWorkspaceItems(workspacePath, activeFiles)
+		const allowedActiveFiles = await filterWorkspaceItemsForPrivacy(workspacePath, activeFiles, options)
 
 		// Combine active files with all items, removing duplicates (like the old WorkspaceTracker)
 		const combinedItems = [...allowedActiveFiles]
@@ -398,6 +415,7 @@ export async function searchWorkspaceFilesMultiroot(
 	limit = 20,
 	selectedType?: "file" | "folder",
 	workspaceHint?: string,
+	options?: FileSearchPrivacyOptions,
 ): Promise<SearchWorkspaceFilesResult> {
 	try {
 		const workspaceRoots = workspaceManager?.getRoots?.() || []
@@ -427,7 +445,7 @@ export async function searchWorkspaceFilesMultiroot(
 		let firstError: unknown
 		const searchPromises = workspacesToSearch.map(async (workspace): Promise<SearchWorkspaceFilesResult> => {
 			try {
-				return await searchWorkspaceFiles(query, workspace.path, limit, selectedType, workspace.name)
+				return await searchWorkspaceFiles(query, workspace.path, limit, selectedType, workspace.name, options)
 			} catch (error) {
 				if (!firstError) {
 					firstError = error

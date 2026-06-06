@@ -74,6 +74,7 @@ export class ToolExecutor {
 		private stateManager: StateManager,
 		private cursorSandboxPolicy: CursorSandboxRuntimePolicy | undefined,
 		private getCursorSafeBrowserEvaluateEnabled: () => boolean,
+		private getCursorRetrievalIndexingPrivacyGate: () => boolean,
 
 		// Configuration & Settings
 
@@ -159,6 +160,7 @@ export class ToolExecutor {
 				cursorCompatibilitySafeBrowserEvaluateEnabled: this.getCursorSafeBrowserEvaluateEnabled(),
 			}),
 			cursorSandboxPolicy: this.cursorSandboxPolicy,
+			cursorRetrievalIndexingPrivacyGate: this.getCursorRetrievalIndexingPrivacyGate(),
 			focusChainSettings: this.stateManager.getGlobalSettingsKey("focusChainSettings"),
 			services: {
 				mcpHub: this.mcpHub,

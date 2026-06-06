@@ -11,6 +11,7 @@ import { FileSearchRequest, FileSearchResults, FileSearchType } from "@shared/pr
 import { convertSearchResultsToProtoFileInfos } from "@shared/proto-conversions/file/search-result-conversion"
 import { type FsInfo, getFsInfo } from "@utils/fs-info"
 import { getWorkspacePath } from "@utils/path"
+import * as vscode from "vscode"
 import { Logger } from "@/shared/services/Logger"
 import { Controller } from ".."
 
@@ -29,6 +30,14 @@ function classifyError(error: unknown): { errorReason: string; errorMessage: str
 		}
 	}
 	return { errorReason: ERROR_REASON_UNKNOWN, errorMessage }
+}
+
+function getCursorRetrievalIndexingPrivacyGate(): boolean {
+	const config = vscode.workspace.getConfiguration("cline")
+	return (
+		config.get<boolean>("cursorCompatibility.enabled", true) &&
+		config.get<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
+	)
 }
 
 // Fire-and-forget the FS-class lookup + telemetry capture. The picker awaits
@@ -68,6 +77,9 @@ export async function searchFiles(controller: Controller, request: FileSearchReq
 		const workspaceHint = request.workspaceHint
 		const workspaceManager = await controller.ensureWorkspaceManager()
 		const hasMultirootSupport = workspaceManager && workspaceManager.getRoots()?.length > 0
+		const privacyOptions = {
+			cursorRetrievalIndexingPrivacyGate: getCursorRetrievalIndexingPrivacyGate(),
+		}
 
 		let searchResult: SearchWorkspaceFilesResult
 
@@ -87,6 +99,7 @@ export async function searchFiles(controller: Controller, request: FileSearchReq
 				request.limit || 20,
 				selectedTypeString,
 				workspaceHint,
+				privacyOptions,
 			)
 		} else {
 			// Legacy single workspace search
@@ -110,6 +123,8 @@ export async function searchFiles(controller: Controller, request: FileSearchReq
 				workspacePath,
 				request.limit || 20, // Use default limit of 20 if not specified
 				selectedTypeString,
+				undefined,
+				privacyOptions,
 			)
 		}
 

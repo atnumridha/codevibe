@@ -27,6 +27,7 @@ export const TASK_CONFIG_KEYS = [
 	"autoApprovalSettings",
 	"autoApprover",
 	"browserSettings",
+	"cursorRetrievalIndexingPrivacyGate",
 	"focusChainSettings",
 	"callbacks",
 	"coordinator",

@@ -150,6 +150,7 @@ type TaskParams = {
 	cwd: string
 	cursorSandboxPolicy?: CursorSandboxRuntimePolicy
 	getCursorSafeBrowserEvaluateEnabled: () => boolean
+	getCursorRetrievalIndexingPrivacyGate: () => boolean
 	stateManager: StateManager
 	workspaceManager?: WorkspaceRootManager
 	task?: string
@@ -230,6 +231,7 @@ export class Task {
 	private clineIgnoreController: ClineIgnoreController
 	private cursorSandboxPolicy?: CursorSandboxRuntimePolicy
 	private getCursorSafeBrowserEvaluateEnabled: () => boolean
+	private getCursorRetrievalIndexingPrivacyGate: () => boolean
 	private commandPermissionController: CommandPermissionController
 	private toolExecutor: ToolExecutor
 	/**
@@ -293,6 +295,7 @@ export class Task {
 			cwd,
 			cursorSandboxPolicy,
 			getCursorSafeBrowserEvaluateEnabled,
+			getCursorRetrievalIndexingPrivacyGate,
 			stateManager,
 			workspaceManager,
 			task,
@@ -325,6 +328,7 @@ export class Task {
 		this.clineIgnoreController = new ClineIgnoreController(cwd)
 		this.cursorSandboxPolicy = cursorSandboxPolicy
 		this.getCursorSafeBrowserEvaluateEnabled = getCursorSafeBrowserEvaluateEnabled
+		this.getCursorRetrievalIndexingPrivacyGate = getCursorRetrievalIndexingPrivacyGate
 		this.commandPermissionController = new CommandPermissionController(cursorSandboxPolicy?.commandPermissions)
 		this.taskLockAcquired = taskLockAcquired
 		// Determine terminal execution mode and create appropriate terminal manager
@@ -604,6 +608,7 @@ export class Task {
 			this.stateManager,
 			this.cursorSandboxPolicy,
 			this.getCursorSafeBrowserEvaluateEnabled,
+			this.getCursorRetrievalIndexingPrivacyGate,
 			cwd,
 			this.taskId,
 			this.ulid,
@@ -1938,7 +1943,9 @@ export class Task {
 		const clineIgnoreContent = this.clineIgnoreController.clineIgnoreContent
 		let clineIgnoreInstructions: string | undefined
 		if (clineIgnoreContent) {
-			clineIgnoreInstructions = formatResponse.clineIgnoreInstructions(clineIgnoreContent)
+			clineIgnoreInstructions = formatResponse.clineIgnoreInstructions(clineIgnoreContent, {
+				ignoredFilesBehavior: this.getCursorRetrievalIndexingPrivacyGate() ? "omit" : "mark",
+			})
 		}
 
 		// Prepare multi-root workspace information if enabled
@@ -3703,7 +3710,9 @@ export class Task {
 				details += "(Desktop files not shown automatically. Use list_files to explore if needed.)"
 			} else {
 				const [files, didHitLimit] = await listFiles(this.cwd, true, 200)
-				const result = formatResponse.formatFilesList(this.cwd, files, didHitLimit, this.clineIgnoreController)
+				const result = formatResponse.formatFilesList(this.cwd, files, didHitLimit, this.clineIgnoreController, {
+					ignoredFilesBehavior: this.getCursorRetrievalIndexingPrivacyGate() ? "omit" : "mark",
+				})
 				details += result
 			}
 

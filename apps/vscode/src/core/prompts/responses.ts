@@ -162,7 +162,9 @@ Otherwise, if you have not completed the task and do not need additional informa
 		files: string[],
 		didHitLimit: boolean,
 		clineIgnoreController?: ClineIgnoreController,
+		options?: { ignoredFilesBehavior?: "mark" | "omit" },
 	): string => {
+		const ignoredFilesBehavior = options?.ignoredFilesBehavior ?? "mark"
 		const sorted = files
 			.map((file) => {
 				// convert absolute path to relative path
@@ -195,17 +197,17 @@ Otherwise, if you have not completed the task and do not need additional informa
 			})
 
 		const clineIgnoreParsed = clineIgnoreController
-			? sorted.map((filePath) => {
+			? sorted.flatMap((filePath) => {
 					// path is relative to absolute path, not cwd
 					// validateAccess expects either path relative to cwd or absolute path
 					// otherwise, for validating against ignore patterns like "assets/icons", we would end up with just "icons", which would result in the path not being ignored.
 					const absoluteFilePath = path.resolve(absolutePath, filePath)
 					const isIgnored = !clineIgnoreController.validateAccess(absoluteFilePath)
 					if (isIgnored) {
-						return LOCK_TEXT_SYMBOL + " " + filePath
+						return ignoredFilesBehavior === "omit" ? [] : [LOCK_TEXT_SYMBOL + " " + filePath]
 					}
 
-					return filePath
+					return [filePath]
 				})
 			: sorted
 
@@ -309,8 +311,13 @@ Otherwise, if you have not completed the task and do not need additional informa
 	repeatedToolCall: (toolName: string, count: number) =>
 		`Tool [${toolName}] has been called ${count} times consecutively with identical arguments. This is not making progress. Please use a different tool or different arguments instead of repeating the same call.`,
 
-	clineIgnoreInstructions: (content: string) =>
-		`# .clineignore\n\n(The following is provided by a root-level .clineignore file where the user has specified files and directories that should not be accessed. When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. Attempting to access the file's contents e.g. through read_file will result in an error.)\n\n${content}\n.clineignore`,
+	clineIgnoreInstructions: (content: string, options?: { ignoredFilesBehavior?: "mark" | "omit" }) => {
+		const listFilesBehavior =
+			options?.ignoredFilesBehavior === "omit"
+				? "When using list_files, ignored entries are omitted from results. Attempting to access the file's contents e.g. through read_file will result in an error."
+				: `When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. Attempting to access the file's contents e.g. through read_file will result in an error.`
+		return `# .clineignore\n\n(The following is provided by a root-level .clineignore file where the user has specified files and directories that should not be accessed. ${listFilesBehavior})\n\n${content}\n.clineignore`
+	},
 
 	clineRulesGlobalDirectoryInstructions: (globalClineRulesFilePath: string, content: string) =>
 		`# .clinerules/\n\nThe following is provided by a global .clinerules/ directory, located at ${globalClineRulesFilePath.toPosix()}, where the user has specified instructions for all working directories:\n\n${content}`,

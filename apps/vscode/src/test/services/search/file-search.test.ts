@@ -322,6 +322,41 @@ describe("File Search", () => {
 			}
 		})
 
+		it("returns ignored host-index results when Cursor retrieval privacy gate is disabled", async () => {
+			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-host-ignore-off-"))
+			try {
+				await fs.promises.mkdir(path.join(workspace, "private"), { recursive: true })
+				await fs.promises.mkdir(path.join(workspace, "src"), { recursive: true })
+				await fs.promises.writeFile(path.join(workspace, ".cursorignore"), "private/\n")
+				await fs.promises.writeFile(path.join(workspace, "private", "secret.ts"), "secret\n")
+				await fs.promises.writeFile(path.join(workspace, "src", "main.ts"), "main\n")
+
+				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+					SearchWorkspaceItemsResponse.create({
+						items: [
+							{
+								path: "private/secret.ts",
+								type: SearchWorkspaceItemsRequest_SearchItemType.FILE,
+								label: "secret.ts",
+							},
+							{ path: "src/main.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "main.ts" },
+						],
+					}),
+				)
+
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 20, undefined, undefined, {
+					cursorRetrievalIndexingPrivacyGate: false,
+				})
+
+				should(result.source).equal("host_index")
+				result.items.map((item) => item.path).should.containEql("src/main.ts")
+				result.items.map((item) => item.path).should.containEql("private/secret.ts")
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
+		})
+
 		it("filters ripgrep fallback results through Cursor indexing ignore negations", async () => {
 			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-rg-ignore-"))
 			try {

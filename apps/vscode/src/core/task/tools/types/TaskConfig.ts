@@ -59,6 +59,7 @@ export interface TaskConfig {
 	autoApprover: AutoApprove
 	browserSettings: BrowserSettings
 	cursorSandboxPolicy?: CursorSandboxRuntimePolicy
+	cursorRetrievalIndexingPrivacyGate: boolean
 	focusChainSettings: FocusChainSettings
 
 	// Callbacks (strongly typed)
