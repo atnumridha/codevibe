@@ -29,6 +29,9 @@ export interface ScheduleEventRejectedSummary {
 export interface ScheduleEventValidationReport {
 	source: string;
 	defaultSource?: string;
+	allowedSources?: string[];
+	maxLineBytes?: number;
+	maxEvents?: number;
 	eventCount: number;
 	rejectedCount: number;
 	valid: boolean;
@@ -40,6 +43,9 @@ export interface ScheduleEventValidationReport {
 export interface RunScheduleEventValidateOptions {
 	source: string;
 	defaultSource?: string;
+	allowedSources?: string[];
+	maxLineBytes?: number;
+	maxEvents?: number;
 	json?: boolean;
 	strict?: boolean;
 	io: CommandIo;
@@ -137,11 +143,30 @@ export async function runScheduleEventValidateCommand(
 ): Promise<number> {
 	const source = options.source.trim() || "-";
 	const defaultSource = options.defaultSource?.trim() || undefined;
+	const allowedSources = options.allowedSources
+		?.map((value) => value.trim())
+		.filter(Boolean);
+	const maxLineBytes =
+		options.maxLineBytes && options.maxLineBytes > 0
+			? Math.floor(options.maxLineBytes)
+			: undefined;
+	const maxEvents =
+		options.maxEvents && options.maxEvents > 0
+			? Math.floor(options.maxEvents)
+			: undefined;
 	const loaded = await readNdjsonSource(source);
-	const parsed = parseAutomationEventNdjson(loaded.input, { defaultSource });
+	const parsed = parseAutomationEventNdjson(loaded.input, {
+		...(defaultSource ? { defaultSource } : {}),
+		...(allowedSources && allowedSources.length > 0 ? { allowedSources } : {}),
+		...(maxLineBytes ? { maxLineBytes } : {}),
+		...(maxEvents ? { maxEvents } : {}),
+	});
 	const report: ScheduleEventValidationReport = {
 		source: loaded.label,
 		...(defaultSource ? { defaultSource } : {}),
+		...(allowedSources && allowedSources.length > 0 ? { allowedSources } : {}),
+		...(maxLineBytes ? { maxLineBytes } : {}),
+		...(maxEvents ? { maxEvents } : {}),
 		eventCount: parsed.events.length,
 		rejectedCount: parsed.rejected.length,
 		strict: !!options.strict,

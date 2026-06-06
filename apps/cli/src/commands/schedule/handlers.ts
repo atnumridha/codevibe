@@ -418,18 +418,29 @@ export function registerScheduleCommands(
 		.description("Validate Cursor-compatible automation event NDJSON")
 		.argument("[source]", "NDJSON file path, or - for stdin", "-")
 		.option("--default-source <source>", "Default source for source-less events", "cursor")
+		.option("--allowed-sources <list>", "Comma-separated allowed event sources")
+		.option("--max-line-bytes <n>", "Reject NDJSON lines larger than this byte limit")
+		.option("--max-events <n>", "Reject valid events after this count")
 		.option("--strict", "Fail if any input line is rejected")
 		.option("--json", "Output as JSON");
 	validateEventCmd.action(
 		action(async (source: string) => {
 			const opts = validateEventCmd.opts<{
 				defaultSource?: string;
+				allowedSources?: string;
+				maxLineBytes?: string;
+				maxEvents?: string;
 				strict?: boolean;
 				json?: boolean;
 			}>();
 			const code = await runScheduleEventValidateCommand({
 				source,
 				defaultSource: opts.defaultSource,
+				allowedSources: parseList(opts.allowedSources),
+				maxLineBytes: opts.maxLineBytes
+					? toPositiveInt(opts.maxLineBytes, 1)
+					: undefined,
+				maxEvents: opts.maxEvents ? toPositiveInt(opts.maxEvents, 1) : undefined,
 				strict: opts.strict,
 				json: opts.json,
 				io,

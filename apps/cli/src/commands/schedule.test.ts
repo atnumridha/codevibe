@@ -283,6 +283,81 @@ describe("runScheduleCommand event validate", () => {
 		}
 	});
 
+	it("passes source and size limits to Cursor automation NDJSON validation", async () => {
+		const sourcePath = join(
+			tmpdir(),
+			`cline-schedule-event-${Date.now()}-${Math.random()
+				.toString(36)
+				.slice(2)}.ndjson`,
+		);
+		await writeFile(
+			sourcePath,
+			`${JSON.stringify({ id: "evt_1", type: "git.commit.created", source: "cursor" })}\n`,
+			"utf8",
+		);
+		mockParseAutomationEventNdjson.mockReturnValue({
+			events: [
+				{
+					eventId: "evt_1",
+					eventType: "git.commit.created",
+					source: "cursor",
+					occurredAt: "2026-06-06T00:00:00.000Z",
+				},
+			],
+			rejected: [],
+		});
+
+		const output: string[] = [];
+		const errors: string[] = [];
+		try {
+			const code = await runScheduleCommand(
+				[
+					"event",
+					"validate",
+					sourcePath,
+					"--allowed-sources",
+					"cursor,github",
+					"--max-line-bytes",
+					"2048",
+					"--max-events",
+					"5",
+					"--json",
+				],
+				{
+					writeln: (text?: string) => {
+						output.push(text ?? "");
+					},
+					writeErr: (text: string) => {
+						errors.push(text);
+					},
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(errors).toEqual([]);
+			expect(mockParseAutomationEventNdjson).toHaveBeenCalledWith(
+				expect.stringContaining("evt_1"),
+				{
+					defaultSource: "cursor",
+					allowedSources: ["cursor", "github"],
+					maxLineBytes: 2048,
+					maxEvents: 5,
+				},
+			);
+			expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+				source: sourcePath,
+				allowedSources: ["cursor", "github"],
+				maxLineBytes: 2048,
+				maxEvents: 5,
+				eventCount: 1,
+				rejectedCount: 0,
+				valid: true,
+			});
+		} finally {
+			await rm(sourcePath, { force: true });
+		}
+	});
+
 	it("fails strict validation when any NDJSON line is rejected", async () => {
 		const sourcePath = join(
 			tmpdir(),

@@ -3,7 +3,10 @@ import type { AutomationEventEnvelope } from "@cline/shared";
 export type AutomationEventNdjsonRejectReason =
 	| "invalid_json"
 	| "not_object"
-	| "missing_field";
+	| "missing_field"
+	| "source_not_allowed"
+	| "line_too_large"
+	| "too_many_events";
 
 export interface AutomationEventNdjsonRejectedLine {
 	lineNumber: number;
@@ -19,6 +22,9 @@ export interface AutomationEventNdjsonParseResult {
 
 export interface ParseAutomationEventNdjsonOptions {
 	defaultSource?: string;
+	allowedSources?: readonly string[];
+	maxLineBytes?: number;
+	maxEvents?: number;
 	now?: () => number;
 }
 
@@ -55,6 +61,22 @@ function hasEventShape(record: Record<string, unknown>): boolean {
 		!!readString(record, ["eventId", "event_id", "id"]) &&
 		!!readString(record, ["eventType", "event_type", "type"])
 	);
+}
+
+function normalizeAllowedSources(
+	allowedSources: readonly string[] | undefined,
+): Set<string> | undefined {
+	if (!allowedSources || allowedSources.length === 0) return undefined;
+	const normalized = allowedSources
+		.map((source) => source.trim().toLowerCase())
+		.filter(Boolean);
+	return normalized.length > 0 ? new Set(normalized) : undefined;
+}
+
+function normalizePositiveInteger(value: number | undefined): number | undefined {
+	if (value === undefined || !Number.isFinite(value)) return undefined;
+	const normalized = Math.floor(value);
+	return normalized > 0 ? normalized : undefined;
 }
 
 function unwrapAutomationEventCandidate(
@@ -117,10 +139,22 @@ export function parseAutomationEventNdjson(
 	const events: AutomationEventEnvelope[] = [];
 	const rejected: AutomationEventNdjsonRejectedLine[] = [];
 	const lines = input.split(/\r?\n/);
+	const allowedSources = normalizeAllowedSources(options.allowedSources);
+	const maxLineBytes = normalizePositiveInteger(options.maxLineBytes);
+	const maxEvents = normalizePositiveInteger(options.maxEvents);
 
 	lines.forEach((rawLine, index) => {
 		const line = rawLine.trim();
 		if (!line) return;
+		if (maxLineBytes && Buffer.byteLength(line, "utf8") > maxLineBytes) {
+			rejected.push({
+				lineNumber: index + 1,
+				line,
+				reason: "line_too_large",
+				message: `NDJSON automation event line exceeds ${maxLineBytes} byte limit`,
+			});
+			return;
+		}
 
 		let parsed: unknown;
 		try {
@@ -163,6 +197,24 @@ export function parseAutomationEventNdjson(
 				line,
 				reason: "missing_field",
 				message: event.error,
+			});
+			return;
+		}
+		if (allowedSources && !allowedSources.has(event.source.toLowerCase())) {
+			rejected.push({
+				lineNumber: index + 1,
+				line,
+				reason: "source_not_allowed",
+				message: `automation event source "${event.source}" is not allowed`,
+			});
+			return;
+		}
+		if (maxEvents && events.length >= maxEvents) {
+			rejected.push({
+				lineNumber: index + 1,
+				line,
+				reason: "too_many_events",
+				message: `NDJSON automation event input exceeds ${maxEvents} event limit`,
 			});
 			return;
 		}

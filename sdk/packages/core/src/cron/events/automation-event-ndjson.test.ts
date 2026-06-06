@@ -113,4 +113,75 @@ describe("parseAutomationEventNdjson", () => {
 		]);
 		expect(result.rejected.map((entry) => entry.lineNumber)).toEqual([1, 2, 3]);
 	});
+
+	it("rejects sources outside the allowed source list", () => {
+		const result = parseAutomationEventNdjson(
+			[
+				JSON.stringify({
+					eventId: "evt_allowed",
+					eventType: "git.commit.created",
+					source: "cursor",
+				}),
+				JSON.stringify({
+					eventId: "evt_denied",
+					eventType: "git.commit.created",
+					source: "unknown",
+				}),
+			].join("\n"),
+			{
+				allowedSources: ["cursor"],
+				now: () => Date.parse("2026-04-23T10:00:00.000Z"),
+			},
+		);
+
+		expect(result.events.map((event) => event.eventId)).toEqual(["evt_allowed"]);
+		expect(result.rejected).toMatchObject([
+			{
+				lineNumber: 2,
+				reason: "source_not_allowed",
+				message: 'automation event source "unknown" is not allowed',
+			},
+		]);
+	});
+
+	it("rejects oversized lines before parsing JSON", () => {
+		const result = parseAutomationEventNdjson(
+			JSON.stringify({
+				eventId: "evt_large",
+				eventType: "git.commit.created",
+				source: "cursor",
+				payload: { text: "x".repeat(128) },
+			}),
+			{ maxLineBytes: 64 },
+		);
+
+		expect(result.events).toHaveLength(0);
+		expect(result.rejected).toMatchObject([
+			{
+				lineNumber: 1,
+				reason: "line_too_large",
+			},
+		]);
+	});
+
+	it("rejects valid events after the max event limit", () => {
+		const result = parseAutomationEventNdjson(
+			[
+				JSON.stringify({ eventId: "evt_1", eventType: "git.commit.created", source: "cursor" }),
+				JSON.stringify({ eventId: "evt_2", eventType: "git.commit.created", source: "cursor" }),
+			].join("\n"),
+			{
+				maxEvents: 1,
+				now: () => Date.parse("2026-04-23T10:00:00.000Z"),
+			},
+		);
+
+		expect(result.events.map((event) => event.eventId)).toEqual(["evt_1"]);
+		expect(result.rejected).toMatchObject([
+			{
+				lineNumber: 2,
+				reason: "too_many_events",
+			},
+		]);
+	});
 });
