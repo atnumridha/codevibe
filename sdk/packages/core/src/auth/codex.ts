@@ -106,6 +106,17 @@ class OpenAICodexOAuthTokenError extends Error {
 	}
 }
 
+function redactKnownSecret(text: string | undefined, secret: string): string | undefined {
+	if (!text) {
+		return undefined;
+	}
+	const trimmedSecret = secret.trim();
+	if (!trimmedSecret) {
+		return text;
+	}
+	return text.split(trimmedSecret).join("[REDACTED]");
+}
+
 async function exchangeAuthorizationCode(
 	code: string,
 	verifier: string,
@@ -172,8 +183,9 @@ async function refreshAccessToken(
 		if (!response.ok) {
 			const text = await response.text().catch(() => "");
 			const details = parseOAuthError(text);
+			const safeMessage = redactKnownSecret(details.message, refreshToken);
 			throw new OpenAICodexOAuthTokenError(
-				`Token refresh failed: ${response.status}${details.message ? ` - ${details.message}` : ""}`,
+				`Token refresh failed: ${response.status}${safeMessage ? ` - ${safeMessage}` : ""}`,
 				{ status: response.status, errorCode: details.code },
 			);
 		}

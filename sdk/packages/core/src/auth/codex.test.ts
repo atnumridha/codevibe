@@ -119,6 +119,36 @@ describe("auth/codex token lifecycle", () => {
 		nowSpy.mockRestore();
 	});
 
+	it("redacts refresh tokens from refresh error messages", async () => {
+		const refreshToken = "secret-refresh-token";
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(
+				async () =>
+					new Response(
+						JSON.stringify({
+							error: "server_error",
+							error_description: `upstream echoed ${refreshToken}`,
+						}),
+						{
+							status: 500,
+							headers: { "Content-Type": "application/json" },
+						},
+					),
+			),
+		);
+
+		try {
+			await refreshOpenAICodexToken(refreshToken);
+			throw new Error("Expected refreshOpenAICodexToken to fail");
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			expect(message).toContain("[REDACTED]");
+			expect(message).not.toContain(refreshToken);
+			expect(message).not.toContain("error_description");
+		}
+	});
+
 	it("keeps current credentials on non-invalid transient refresh failures when still valid", async () => {
 		const nowSpy = vi.spyOn(Date, "now").mockReturnValue(100_000);
 		vi.stubGlobal(
