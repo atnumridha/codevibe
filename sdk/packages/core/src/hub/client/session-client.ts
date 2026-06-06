@@ -1,4 +1,5 @@
 import type * as LlmsProviders from "@cline/llms";
+import { createSessionId } from "@cline/shared";
 import type {
 	ChatRunTurnRequest,
 	ChatStartSessionRequest,
@@ -8,8 +9,14 @@ import type {
 	TeamProgressProjectionEvent,
 } from "@cline/shared";
 import type { CheckpointEntry } from "../../hooks/checkpoint-hooks";
+import type { RuntimeCapabilities } from "../../runtime/capabilities";
+import { normalizeRuntimeCapabilities } from "../../runtime/capabilities";
 import { isSessionNotFoundError } from "../../runtime/host/runtime-host";
 import { NodeHubClient } from "../client";
+import {
+	buildClientContributionRegistration,
+	type ClientContributionHandler,
+} from "../client-contributions";
 
 type ScheduleClientRecord = Record<string, unknown> & {
 	metadata?: Record<string, unknown>;
@@ -24,6 +31,7 @@ export interface HubSessionClientOptions {
 	workspaceRoot?: string;
 	cwd?: string;
 	metadata?: Record<string, unknown>;
+	capabilities?: RuntimeCapabilities;
 }
 
 export interface HubSessionRow {
@@ -255,6 +263,18 @@ function mapHubEvent(event: HubEventEnvelope): HubStreamEvent | undefined {
 export class HubSessionClient {
 	private readonly client: NodeHubClient;
 	private metadataApplied = false;
+	private readonly sessionClientContributionHandlers = new Map<
+		string,
+		Map<string, ClientContributionHandler>
+	>();
+	private readonly sessionContributionUnsubscribes = new Map<
+		string,
+		() => void
+	>();
+	private readonly activeCapabilityAbortControllers = new Map<
+		string,
+		AbortController
+	>();
 
 	constructor(private readonly options: HubSessionClientOptions) {
 		this.client = new NodeHubClient({
@@ -287,70 +307,276 @@ export class HubSessionClient {
 	}
 
 	close(): void {
+		this.clearContributionState();
 		this.client.close();
 	}
 
 	async dispose(): Promise<void> {
+		this.clearContributionState();
 		await this.client.dispose();
+	}
+
+	private clearContributionState(): void {
+		for (const controller of this.activeCapabilityAbortControllers.values()) {
+			controller.abort("Hub session client is closing.");
+		}
+		this.activeCapabilityAbortControllers.clear();
+		for (const unsubscribe of this.sessionContributionUnsubscribes.values()) {
+			unsubscribe();
+		}
+		this.sessionContributionUnsubscribes.clear();
+		this.sessionClientContributionHandlers.clear();
+	}
+
+	private ensureContributionSubscription(sessionId: string): void {
+		if (this.sessionContributionUnsubscribes.has(sessionId)) {
+			return;
+		}
+		const unsubscribe = this.client.subscribe(
+			(event) => {
+				if (event.event === "capability.requested") {
+					void this.handleCapabilityRequest(event).catch(() => {});
+				} else if (event.event === "capability.resolved") {
+					this.handleCapabilityResolved(event);
+				}
+			},
+			{ sessionId },
+		);
+		this.sessionContributionUnsubscribes.set(sessionId, unsubscribe);
+	}
+
+	private registerSessionContributions(
+		sessionId: string,
+		handlers: Map<string, ClientContributionHandler>,
+	): void {
+		if (handlers.size === 0) {
+			return;
+		}
+		this.sessionClientContributionHandlers.set(sessionId, handlers);
+		this.ensureContributionSubscription(sessionId);
+	}
+
+	private cleanupSessionContributions(sessionId: string): void {
+		this.sessionClientContributionHandlers.delete(sessionId);
+		const unsubscribe = this.sessionContributionUnsubscribes.get(sessionId);
+		if (unsubscribe) {
+			unsubscribe();
+			this.sessionContributionUnsubscribes.delete(sessionId);
+		}
+	}
+
+	private async handleCapabilityRequest(event: HubEventEnvelope): Promise<void> {
+		const sessionId = event.sessionId?.trim();
+		if (!sessionId) {
+			return;
+		}
+		const targetClientId =
+			typeof event.payload?.targetClientId === "string"
+				? event.payload.targetClientId
+				: undefined;
+		if (targetClientId && targetClientId !== this.client.getClientId()) {
+			return;
+		}
+		const requestId =
+			typeof event.payload?.requestId === "string"
+				? event.payload.requestId
+				: "";
+		const capabilityName =
+			typeof event.payload?.capabilityName === "string"
+				? event.payload.capabilityName
+				: "";
+		if (!requestId) {
+			return;
+		}
+		const handler = this.sessionClientContributionHandlers
+			.get(sessionId)
+			?.get(capabilityName);
+		if (!handler) {
+			await this.client
+				.command(
+					"capability.respond",
+					{
+						requestId,
+						ok: false,
+						error: `No client contribution handler registered for capability ${capabilityName} in session ${sessionId}.`,
+					},
+					sessionId,
+				)
+				.catch(() => {});
+			return;
+		}
+		const payload =
+			event.payload?.payload &&
+			typeof event.payload.payload === "object" &&
+			!Array.isArray(event.payload.payload)
+				? (event.payload.payload as Record<string, unknown>)
+				: {};
+		const abortController = new AbortController();
+		this.activeCapabilityAbortControllers.set(requestId, abortController);
+		const progress = (progressPayload: Record<string, unknown>): void => {
+			void this.client
+				.command(
+					"capability.progress",
+					{
+						requestId,
+						payload: progressPayload,
+					},
+					sessionId,
+				)
+				.catch(() => {});
+		};
+		try {
+			const responsePayload = await handler({
+				payload,
+				abortSignal: abortController.signal,
+				progress,
+			});
+			if (abortController.signal.aborted) {
+				return;
+			}
+			await this.client.command(
+				"capability.respond",
+				{
+					requestId,
+					ok: true,
+					payload: responsePayload,
+				},
+				sessionId,
+			);
+		} catch (error) {
+			if (abortController.signal.aborted) {
+				return;
+			}
+			await this.client.command(
+				"capability.respond",
+				{
+					requestId,
+					ok: false,
+					error: error instanceof Error ? error.message : String(error),
+				},
+				sessionId,
+			);
+		} finally {
+			this.activeCapabilityAbortControllers.delete(requestId);
+		}
+	}
+
+	private handleCapabilityResolved(event: HubEventEnvelope): void {
+		if (event.payload?.cancelled !== true) {
+			return;
+		}
+		const requestId =
+			typeof event.payload.requestId === "string"
+				? event.payload.requestId.trim()
+				: "";
+		if (!requestId) {
+			return;
+		}
+		const controller = this.activeCapabilityAbortControllers.get(requestId);
+		if (!controller) {
+			return;
+		}
+		controller.abort(
+			typeof event.payload.error === "string"
+				? event.payload.error
+				: "Capability request was cancelled.",
+		);
 	}
 
 	async startRuntimeSession(
 		request: ChatStartSessionRequest,
 	): Promise<ChatStartSessionResponse> {
 		await this.ensureMetadataApplied();
-		const reply = await this.client.command("session.create", {
-			workspaceRoot: request.workspaceRoot,
-			cwd: request.cwd,
-			sessionConfig: {
-				providerId: request.provider,
-				modelId: request.model,
-				apiKey: request.apiKey,
-				cwd: request.cwd ?? request.workspaceRoot,
+		const capabilities =
+			normalizeRuntimeCapabilities(this.options.capabilities) ?? {};
+		const clientContributions = buildClientContributionRegistration(
+			undefined,
+			capabilities,
+		);
+		const plannedSessionId =
+			request.sessionId?.trim() ||
+			(clientContributions.handlers.size > 0 ? createSessionId() : undefined);
+		if (plannedSessionId) {
+			this.registerSessionContributions(
+				plannedSessionId,
+				clientContributions.handlers,
+			);
+		}
+		let reply: Awaited<ReturnType<NodeHubClient["command"]>>;
+		try {
+			reply = await this.client.command("session.create", {
 				workspaceRoot: request.workspaceRoot,
-				systemPrompt: request.systemPrompt ?? "",
-				mode: request.mode ?? "act",
-				rules: request.rules,
-				maxIterations: request.maxIterations,
-				timeoutSeconds: request.timeoutSeconds,
-				enableTools: request.enableTools,
-				enableSpawnAgent: request.enableSpawn !== false,
-				enableAgentTeams: request.enableTeams !== false,
-				disableMcpSettingsTools: request.disableMcpSettingsTools,
-				missionLogIntervalSteps: request.missionStepInterval,
-				missionLogIntervalMs: request.missionTimeIntervalMs,
-			},
-			metadata: {
-				source: request.source ?? "cli",
-				provider: request.provider,
-				model: request.model,
-				enableTools: request.enableTools,
-				enableSpawn: request.enableSpawn,
-				enableTeams: request.enableTeams,
-				prompt: undefined,
-				interactive: request.interactive !== false,
-			},
-			runtimeOptions: {
-				mode: request.mode,
-				systemPrompt: request.systemPrompt,
-				maxIterations: request.maxIterations,
-				timeoutSeconds: request.timeoutSeconds,
-				enableTools: request.enableTools,
-				enableSpawn: request.enableSpawn,
-				enableTeams: request.enableTeams,
-				autoApproveTools: request.autoApproveTools,
-				toolExecutors: request.toolExecutors,
-				configExtensions: request.configExtensions,
-			},
-			modelSelection: {
-				provider: request.provider,
-				model: request.model,
-				apiKey: request.apiKey,
-			},
-			toolPolicies: request.toolPolicies,
-		});
+				cwd: request.cwd,
+				sessionConfig: {
+					...(plannedSessionId ? { sessionId: plannedSessionId } : {}),
+					providerId: request.provider,
+					modelId: request.model,
+					apiKey: request.apiKey,
+					cwd: request.cwd ?? request.workspaceRoot,
+					workspaceRoot: request.workspaceRoot,
+					systemPrompt: request.systemPrompt ?? "",
+					mode: request.mode ?? "act",
+					rules: request.rules,
+					maxIterations: request.maxIterations,
+					timeoutSeconds: request.timeoutSeconds,
+					enableTools: request.enableTools,
+					enableSpawnAgent: request.enableSpawn !== false,
+					enableAgentTeams: request.enableTeams !== false,
+					disableMcpSettingsTools: request.disableMcpSettingsTools,
+					missionLogIntervalSteps: request.missionStepInterval,
+					missionLogIntervalMs: request.missionTimeIntervalMs,
+				},
+				metadata: {
+					source: request.source ?? "cli",
+					provider: request.provider,
+					model: request.model,
+					enableTools: request.enableTools,
+					enableSpawn: request.enableSpawn,
+					enableTeams: request.enableTeams,
+					prompt: undefined,
+					interactive: request.interactive !== false,
+				},
+				runtimeOptions: {
+					mode: request.mode,
+					systemPrompt: request.systemPrompt,
+					maxIterations: request.maxIterations,
+					timeoutSeconds: request.timeoutSeconds,
+					enableTools: request.enableTools,
+					enableSpawn: request.enableSpawn,
+					enableTeams: request.enableTeams,
+					autoApproveTools: request.autoApproveTools,
+					toolExecutors: request.toolExecutors,
+					configExtensions: request.configExtensions,
+					...(clientContributions.manifest.length > 0
+						? { clientContributions: clientContributions.manifest }
+						: {}),
+				},
+				modelSelection: {
+					provider: request.provider,
+					model: request.model,
+					apiKey: request.apiKey,
+				},
+				toolPolicies: request.toolPolicies,
+			});
+		} catch (error) {
+			if (plannedSessionId) {
+				this.cleanupSessionContributions(plannedSessionId);
+			}
+			throw error;
+		}
 		const row = extractSessionRow(reply.payload);
 		if (!row?.sessionId) {
+			if (plannedSessionId) {
+				this.cleanupSessionContributions(plannedSessionId);
+			}
 			throw new Error("hub session create returned no session id");
+		}
+		if (plannedSessionId && row.sessionId !== plannedSessionId) {
+			this.cleanupSessionContributions(plannedSessionId);
+			this.registerSessionContributions(
+				row.sessionId,
+				clientContributions.handlers,
+			);
 		}
 		return {
 			sessionId: row.sessionId,

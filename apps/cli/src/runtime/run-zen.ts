@@ -97,7 +97,6 @@ export async function runZen(
 			enableSpawn: false,
 			enableTeams: false,
 			autoApproveTools: true,
-			toolExecutors: ["submit"],
 			source: "cline-cli-zen",
 			interactive: false,
 			logger: config.loggerConfig,

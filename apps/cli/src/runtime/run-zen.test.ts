@@ -97,8 +97,10 @@ describe("runZen", () => {
 		expect(startRuntimeSession).toHaveBeenCalledWith(
 			expect.objectContaining({
 				mode: "yolo",
-				toolExecutors: ["submit"],
 			}),
+		);
+		expect(startRuntimeSession.mock.calls[0]?.[0]).not.toHaveProperty(
+			"toolExecutors",
 		);
 		expect(sendRuntimeSession).toHaveBeenCalledOnce();
 		expect(close).toHaveBeenCalledOnce();

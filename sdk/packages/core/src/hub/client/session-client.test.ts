@@ -2,9 +2,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { HubSessionClient } from "./session-client";
 
 type SocketListener = (...args: unknown[]) => void;
+type MockCommandFrame = {
+	kind?: string;
+	envelope?: {
+		requestId?: string;
+		command?: string;
+		payload?: Record<string, unknown>;
+	};
+};
 
 class MockWebSocket {
 	static instances: MockWebSocket[] = [];
+	static sentFrames: MockCommandFrame[] = [];
+	static commandHandler:
+		| ((frame: MockCommandFrame) => Record<string, unknown> | undefined)
+		| undefined;
 
 	readyState = 0;
 	private readonly listeners = new Map<string, SocketListener[]>();
@@ -19,17 +31,18 @@ class MockWebSocket {
 
 	static reset(): void {
 		MockWebSocket.instances = [];
+		MockWebSocket.sentFrames = [];
+		MockWebSocket.commandHandler = undefined;
 	}
 
 	send(data: string): void {
-		const frame = JSON.parse(data) as {
-			kind?: string;
-			envelope?: { requestId?: string; command?: string };
-		};
+		const frame = JSON.parse(data) as MockCommandFrame;
+		MockWebSocket.sentFrames.push(frame);
 		if (frame.kind !== "command" || !frame.envelope?.requestId) {
 			return;
 		}
 		queueMicrotask(() => {
+			const handled = MockWebSocket.commandHandler?.(frame);
 			this.emitFrame({
 				kind: "reply",
 				envelope: {
@@ -37,7 +50,7 @@ class MockWebSocket {
 					requestId: frame.envelope?.requestId,
 					command: frame.envelope?.command,
 					ok: true,
-					payload: {},
+					payload: handled ?? {},
 				},
 			});
 		});
@@ -69,6 +82,138 @@ describe("HubSessionClient", () => {
 	afterEach(() => {
 		MockWebSocket.reset();
 		vi.unstubAllGlobals();
+	});
+
+	it("advertises and handles runtime tool executor capabilities", async () => {
+		vi.stubGlobal("WebSocket", MockWebSocket);
+		const browserSnapshot = vi.fn(async () => ({
+			url: "https://example.test/",
+			title: "Example",
+		}));
+		MockWebSocket.commandHandler = (frame) => {
+			if (frame.envelope?.command !== "session.create") {
+				return undefined;
+			}
+			const payload = frame.envelope.payload ?? {};
+			const sessionConfig =
+				payload.sessionConfig &&
+				typeof payload.sessionConfig === "object" &&
+				!Array.isArray(payload.sessionConfig)
+					? (payload.sessionConfig as Record<string, unknown>)
+					: {};
+			return {
+				session: {
+					sessionId: String(sessionConfig.sessionId),
+					metadata: {},
+				},
+			};
+		};
+		const client = new HubSessionClient({
+			address: "ws://127.0.0.1:25463/hub",
+			clientId: "client-1",
+			capabilities: {
+				toolExecutors: {
+					browserSnapshot,
+				},
+			} as never,
+		});
+
+		const started = await client.startRuntimeSession({
+			workspaceRoot: "/tmp/project",
+			cwd: "/tmp/project",
+			provider: "cline",
+			model: "test-model",
+			enableTools: true,
+		});
+		const createFrameIndex = MockWebSocket.sentFrames.findIndex(
+			(frame) => frame.envelope?.command === "session.create",
+		);
+		const subscribeFrameIndex = MockWebSocket.sentFrames.findIndex(
+			(frame) => frame.kind === "stream.subscribe",
+		);
+		const createFrame = MockWebSocket.sentFrames[createFrameIndex];
+		const createPayload = createFrame?.envelope?.payload as
+			| { sessionConfig?: { sessionId?: unknown }; runtimeOptions?: unknown }
+			| undefined;
+
+		expect(subscribeFrameIndex).toBeGreaterThan(-1);
+		expect(subscribeFrameIndex).toBeLessThan(createFrameIndex);
+		expect(typeof createPayload?.sessionConfig?.sessionId).toBe("string");
+		expect(started.sessionId).toBe(createPayload?.sessionConfig?.sessionId);
+		expect(createPayload?.runtimeOptions).toMatchObject({
+			clientContributions: [
+				{
+					kind: "toolExecutor",
+					executor: "browserSnapshot",
+					capabilityName: "tool_executor.browserSnapshot",
+				},
+			],
+		});
+		const socket = MockWebSocket.instances[0];
+		if (!socket) {
+			throw new Error("expected websocket");
+		}
+
+		socket.emitFrame({
+			kind: "event",
+			envelope: {
+				version: "v1",
+				eventId: "evt-capability",
+				event: "capability.requested",
+				timestamp: Date.now(),
+				sessionId: started.sessionId,
+				payload: {
+					requestId: "capreq-1",
+					targetClientId: "client-1",
+					capabilityName: "tool_executor.browserSnapshot",
+					payload: {
+						args: [{ tab_id: "tab-1", include_logs: true }],
+						context: {
+							agentId: "agent-1",
+							conversationId: "conv-1",
+							iteration: 2,
+							metadata: { source: "test" },
+						},
+					},
+				},
+			},
+		});
+
+		await vi.waitFor(() => {
+			expect(browserSnapshot).toHaveBeenCalledOnce();
+		});
+		await vi.waitFor(() => {
+			expect(
+				MockWebSocket.sentFrames.some(
+					(frame) => frame.envelope?.command === "capability.respond",
+				),
+			).toBe(true);
+		});
+		const respondFrame = MockWebSocket.sentFrames.find(
+			(frame) => frame.envelope?.command === "capability.respond",
+		);
+		expect(browserSnapshot).toHaveBeenCalledWith(
+			{ tab_id: "tab-1", include_logs: true },
+			expect.objectContaining({
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 2,
+				metadata: { source: "test" },
+				signal: expect.any(Object),
+			}),
+		);
+		expect(respondFrame?.envelope?.payload).toMatchObject({
+			requestId: "capreq-1",
+			ok: true,
+			payload: {
+				result: {
+					url: "https://example.test/",
+					title: "Example",
+				},
+			},
+		});
+
+		client.close();
 	});
 
 	it("normalizes run.failed events to include a top-level error", async () => {
