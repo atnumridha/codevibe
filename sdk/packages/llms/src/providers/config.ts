@@ -205,6 +205,9 @@ export interface OcaConfig {
  */
 export interface CodexConfig {
 	clientVersion?: string;
+	accountId?: string;
+	installationId?: string;
+	tokenSource?: string;
 	defaultSettings?: Record<string, unknown>;
 	modelSettings?: Record<string, unknown>;
 }

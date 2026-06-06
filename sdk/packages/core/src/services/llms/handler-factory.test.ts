@@ -243,6 +243,46 @@ describe("createAgentModelFromConfig", () => {
 		);
 	});
 
+	it("forwards OpenAI Codex metadata as gateway provider options", async () => {
+		const { createAgentModelFromConfig } = await import("./handler-factory");
+
+		createAgentModelFromConfig(
+			{
+				providerId: "openai-codex",
+				modelId: "gpt-5.5",
+				systemPrompt: "",
+				tools: [],
+				providerConfig: {
+					providerId: "openai-codex",
+					modelId: "gpt-5.5",
+					codex: {
+						clientVersion: "0.136.0-test",
+						accountId: "acct_123",
+						installationId: "install_123",
+						tokenSource: "codex-home",
+					},
+				},
+			},
+			undefined,
+		);
+
+		expect(gatewayMock.createGateway).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				providerConfigs: [
+					expect.objectContaining({
+						providerId: "openai-codex",
+						options: expect.objectContaining({
+							clientVersion: "0.136.0-test",
+							accountId: "acct_123",
+							installationId: "install_123",
+							tokenSource: "codex-home",
+						}),
+					}),
+				],
+			}),
+		);
+	});
+
 	it("uses a registered handler (adapter) instead of the gateway, building it lazily", async () => {
 		const { createAgentModelFromConfig } = await import("./handler-factory");
 

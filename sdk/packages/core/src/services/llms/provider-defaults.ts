@@ -114,6 +114,7 @@ function toRuntimeCapabilities(
 }
 
 export const DEFAULT_MODELS_CATALOG_URL = "https://models.dev/api.json";
+const OPENAI_CODEX_DEFAULT_CLIENT_VERSION = "0.136.0";
 const DEFAULT_MODELS_CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_PRIVATE_MODELS_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_PRIVATE_MODELS_REQUEST_TIMEOUT_MS = 5_000;
@@ -173,6 +174,7 @@ async function mergeKnownModels(
 	}
 	if (providerId === "openai-codex") {
 		return Llms.sortModelsByReleaseDate({
+			...privateModels,
 			...defaultKnownModels,
 			...Llms.filterOpenAICodexModels(liveModels),
 			...publicModels,
@@ -229,7 +231,18 @@ function resolvePrivateCacheKey(
 	providerId: string,
 	config: ProviderConfig,
 ): string {
-	return `${providerId}:${normalizeBaseUrl(config.baseUrl)}:${fingerprint(resolveAuthToken(config) ?? "")}`;
+	const tokenKey = fingerprint(resolveAuthToken(config) ?? "");
+	if (providerId === "openai-codex") {
+		return [
+			providerId,
+			normalizeBaseUrl(config.baseUrl),
+			tokenKey,
+			config.codex?.clientVersion ?? "",
+			config.codex?.accountId ?? config.accountId ?? "",
+			config.codex?.installationId ?? "",
+		].join(":");
+	}
+	return `${providerId}:${normalizeBaseUrl(config.baseUrl)}:${tokenKey}`;
 }
 
 async function fetchWithTimeout(
@@ -373,6 +386,12 @@ interface PoolsideModelResponse {
 	};
 }
 
+interface OpenAICodexBackendModelResponse {
+	slug?: string;
+	display_name?: string;
+	supported_in_api?: boolean;
+}
+
 function parseOptionalNumber(
 	value: number | string | undefined,
 ): number | undefined {
@@ -415,6 +434,56 @@ async function fetchHicapPrivateModels(
 			name: id,
 			maxInputTokens: 128_000,
 			supportsImages: true,
+			supportsPromptCache: true,
+		});
+	}
+	return models;
+}
+
+async function fetchOpenAICodexPrivateModels(
+	config: ProviderConfig,
+	token: string,
+): Promise<Record<string, ModelInfo>> {
+	const baseUrl =
+		normalizeBaseUrl(config.baseUrl) || "https://chatgpt.com/backend-api/codex";
+	const url = new URL(`${baseUrl.replace(/\/+$/, "")}/models`);
+	url.searchParams.set(
+		"client_version",
+		config.codex?.clientVersion ?? OPENAI_CODEX_DEFAULT_CLIENT_VERSION,
+	);
+
+	const accountId = config.codex?.accountId ?? config.accountId;
+	const installationId = config.codex?.installationId;
+	const response = await fetchWithTimeout(url.toString(), {
+		method: "GET",
+		headers: {
+			Authorization: `Bearer ${token}`,
+			originator: "cline",
+			...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
+			...(installationId
+				? { "x-codex-installation-id": installationId }
+				: {}),
+		},
+	});
+	if (!response.ok) {
+		throw new Error(
+			`OpenAI Codex model refresh failed: HTTP ${response.status}`,
+		);
+	}
+
+	const payload = (await response.json()) as {
+		models?: OpenAICodexBackendModelResponse[];
+	};
+	const entries = payload?.models ?? [];
+	const models: Record<string, ModelInfo> = {};
+	for (const model of entries) {
+		const id = model.slug?.trim();
+		if (!id || model.supported_in_api === false) {
+			continue;
+		}
+		models[id] = buildModelFromPrivateSource(id, {
+			name: model.display_name?.trim() || id,
+			supportsReasoning: true,
 			supportsPromptCache: true,
 		});
 	}
@@ -590,6 +659,7 @@ const PRIVATE_PROVIDER_MODEL_FETCHERS: Record<
 	baseten: fetchBasetenPrivateModels,
 	hicap: fetchHicapPrivateModels,
 	litellm: fetchLiteLlmPrivateModels,
+	"openai-codex": fetchOpenAICodexPrivateModels,
 	poolside: fetchPoolsidePrivateModels,
 };
 

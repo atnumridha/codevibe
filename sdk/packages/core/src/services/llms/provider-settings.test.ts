@@ -31,7 +31,10 @@ describe("provider settings", () => {
 			auth: {
 				accessToken: "access-token",
 				refreshToken: "refresh-token",
+				accountId: "acct_123",
+				installationId: "install_123",
 				clientVersion: "0.136.0-test",
+				tokenSource: "codex-home",
 			},
 		});
 
@@ -45,6 +48,9 @@ describe("provider settings", () => {
 			modelId: "gpt-5.5",
 			codex: {
 				clientVersion: "0.136.0-test",
+				accountId: "acct_123",
+				installationId: "install_123",
+				tokenSource: "codex-home",
 			},
 		});
 	});

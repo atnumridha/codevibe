@@ -244,7 +244,7 @@ describe("resolveProviderConfig", () => {
 	it("resolves ChatGPT OAuth models from the filtered catalog", async () => {
 		const resolved = await resolveProviderConfig(
 			"openai-codex",
-			{ cacheTtlMs: 1 },
+			{ cacheTtlMs: 1, loadPrivateOnAuth: false },
 			{
 				providerId: "openai-codex",
 				modelId: "gpt-5.4",
@@ -271,5 +271,78 @@ describe("resolveProviderConfig", () => {
 			}),
 		);
 		expect(resolved?.knownModels?.["gpt-5.4-nano"]).toBeUndefined();
+	});
+
+	it("loads OpenAI Codex models from the authenticated backend endpoint", async () => {
+		const fetchMock = vi.fn(async () => {
+			return new Response(
+				JSON.stringify({
+					models: [
+						{
+							display_name: "GPT-6 Codex",
+							slug: "gpt-6-codex",
+							supported_in_api: true,
+						},
+						{
+							display_name: "Hidden Codex",
+							slug: "hidden-codex",
+							supported_in_api: false,
+						},
+						{
+							display_name: "Backend GPT-5.5",
+							slug: "gpt-5.5",
+							supported_in_api: true,
+						},
+					],
+				}),
+				{
+					status: 200,
+					headers: { "content-type": "application/json" },
+				},
+			);
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		const resolved = await resolveProviderConfig(
+			"openai-codex",
+			{ cacheTtlMs: 0, failOnError: true },
+			{
+				providerId: "openai-codex",
+				modelId: "gpt-5.5",
+				apiKey: "oauth-token",
+				accountId: "acct_123",
+				codex: {
+					clientVersion: "0.136.0-test",
+					installationId: "install_123",
+				},
+			},
+		);
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"https://chatgpt.com/backend-api/codex/models?client_version=0.136.0-test",
+			expect.objectContaining({
+				method: "GET",
+				headers: expect.objectContaining({
+					Authorization: "Bearer oauth-token",
+					"ChatGPT-Account-Id": "acct_123",
+					"x-codex-installation-id": "install_123",
+					originator: "cline",
+				}),
+			}),
+		);
+		expect(resolved?.knownModels?.["gpt-6-codex"]).toEqual(
+			expect.objectContaining({
+				name: "GPT-6 Codex",
+				capabilities: expect.arrayContaining([
+					"streaming",
+					"tools",
+					"reasoning",
+					"prompt-cache",
+				]),
+				status: "active",
+			}),
+		);
+		expect(resolved?.knownModels?.["hidden-codex"]).toBeUndefined();
+		expect(resolved?.knownModels?.["gpt-5.5"]?.maxInputTokens).toBe(272_000);
 	});
 });

@@ -60,6 +60,10 @@ function buildGatewayProviderOptions(
 		});
 	}
 
+	if (config.providerId === "openai-codex" && config.codex) {
+		Object.assign(options, config.codex);
+	}
+
 	return compactOptions(options);
 }
 
