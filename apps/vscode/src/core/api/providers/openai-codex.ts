@@ -2,11 +2,13 @@ import { ModelInfo, openAiCodexDefaultModelId, openAiCodexModels } from "@shared
 import { normalizeOpenaiReasoningEffort } from "@shared/storage/types"
 import OpenAI from "openai"
 import type { ChatCompletionTool } from "openai/resources/chat/completions"
-import * as os from "os"
 import { MessageEvent as UndiciMessageEvent, WebSocket as UndiciWebSocket } from "undici"
 import { v7 as uuidv7 } from "uuid"
-import { OPENAI_CODEX_BACKEND_CONFIG, openAiCodexOAuthManager } from "@/integrations/openai-codex/oauth"
-import { buildExternalBasicHeaders } from "@/services/EnvUtils"
+import {
+	buildOpenAiCodexBackendHeaders,
+	OPENAI_CODEX_BACKEND_CONFIG,
+	openAiCodexOAuthManager,
+} from "@/integrations/openai-codex/oauth"
 import { featureFlagsService } from "@/services/feature-flags"
 import { ClineStorageMessage } from "@/shared/messages/content"
 import { fetch } from "@/shared/net"
@@ -755,14 +757,11 @@ export class OpenAiCodexHandler implements ApiHandler {
 			openAiCodexOAuthManager.getInstallationId(),
 		])
 
-		return {
-			originator: "cline",
-			session_id: this.sessionId,
-			"User-Agent": `cline/${process.env.npm_package_version || "1.0.0"} (${os.platform()} ${os.release()}; ${os.arch()}) node/${process.version.slice(1)}`,
-			...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
-			...(installationId ? { "x-codex-installation-id": installationId } : {}),
-			...buildExternalBasicHeaders(),
-		}
+		return buildOpenAiCodexBackendHeaders({
+			accountId,
+			installationId,
+			sessionId: this.sessionId,
+		})
 	}
 
 	getModel(): { id: string; info: ModelInfo } {

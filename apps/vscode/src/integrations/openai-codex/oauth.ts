@@ -7,6 +7,7 @@ import { URL } from "url"
 import * as vscode from "vscode"
 import { z } from "zod"
 import { StateManager } from "@/core/storage/StateManager"
+import { buildExternalBasicHeaders } from "@/services/EnvUtils"
 import { fetch } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
 
@@ -66,6 +67,28 @@ export interface OpenAiCodexBackendModel {
 	id: string
 	name?: string
 	supportedInApi?: boolean
+}
+
+export interface OpenAiCodexBackendHeaderOptions {
+	accessToken?: string | null
+	accountId?: string | null
+	installationId?: string | null
+	sessionId?: string | null
+}
+
+export function buildOpenAiCodexBackendHeaders(options: OpenAiCodexBackendHeaderOptions = {}): Record<string, string> {
+	const accountId = options.accountId?.trim()
+	const installationId = options.installationId?.trim()
+	const sessionId = options.sessionId?.trim()
+	const accessToken = options.accessToken?.trim()
+	return {
+		originator: "cline",
+		...(sessionId ? { session_id: sessionId } : {}),
+		...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+		...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
+		...(installationId ? { "x-codex-installation-id": installationId } : {}),
+		...buildExternalBasicHeaders(),
+	}
 }
 
 // Token response schema from OpenAI
@@ -780,16 +803,19 @@ export class OpenAiCodexOAuthManager {
 		}
 
 		const clientVersion = await this.getClientVersion()
-		const installationId = await this.getInstallationId()
+		const [accountId, installationId] = await Promise.all([this.getAccountId(), this.getInstallationId()])
 		const url = new URL(`${OPENAI_CODEX_BACKEND_CONFIG.baseUrl}/models`)
 		url.searchParams.set("client_version", clientVersion)
+		const sessionId = crypto.randomUUID()
 
 		const response = await fetch(url.toString(), {
 			method: "GET",
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-				...(installationId ? { "x-codex-installation-id": installationId } : {}),
-			},
+			headers: buildOpenAiCodexBackendHeaders({
+				accessToken,
+				accountId,
+				installationId,
+				sessionId,
+			}),
 			signal: AbortSignal.timeout(30000),
 		})
 

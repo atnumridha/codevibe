@@ -360,6 +360,7 @@ describe("OpenAI Codex OAuth local profile support", () => {
 			access_token: "access-secret",
 			refresh_token: "refresh-secret",
 			expires: Date.now() + 60_000,
+			accountId: "acct_abc",
 			installationId: "install_abc",
 			clientVersion: "0.136.0-test",
 		}
@@ -387,8 +388,12 @@ describe("OpenAI Codex OAuth local profile support", () => {
 		expect(seenUrl).to.equal("https://chatgpt.com/backend-api/codex/models?client_version=0.136.0-test")
 		expect(seenHeaders).to.deep.include({
 			Authorization: "Bearer access-secret",
+			originator: "cline",
+			"ChatGPT-Account-Id": "acct_abc",
 			"x-codex-installation-id": "install_abc",
 		})
+		expect((seenHeaders as Record<string, string>)?.session_id).to.be.a("string").and.not.equal("")
+		expect((seenHeaders as Record<string, string>)?.["User-Agent"]).to.match(/^Cline\//)
 		expect(models).to.deep.equal([{ id: "gpt-5.5", name: "GPT-5.5", supportedInApi: true }])
 	})
 })
