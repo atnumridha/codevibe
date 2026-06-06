@@ -24,6 +24,7 @@ export interface CursorSandboxConfig {
 	additionalReadonlyPaths: string[]
 	disableTmpWrite: boolean
 	enableSharedBuildCache: boolean
+	blockGitWrites: boolean
 	networkPolicy: CursorSandboxNetworkPolicy
 }
 
@@ -42,6 +43,7 @@ export interface CursorSandboxRuntimePolicy {
 	networkPolicy: CursorSandboxNetworkPolicy
 	disableTmpWrite: boolean
 	enableSharedBuildCache: boolean
+	blockGitWrites: boolean
 	allowReadAutoApprove: boolean
 	allowWriteAutoApprove: boolean
 	allowTerminalAutoApprove: boolean
@@ -132,6 +134,7 @@ const rawCursorSandboxConfigSchema = z
 			additionalReadonlyPaths: value.additionalReadonlyPaths ?? value.additional_readonly_paths ?? [],
 			disableTmpWrite: value.disableTmpWrite ?? value.disable_tmp_write ?? false,
 			enableSharedBuildCache: value.enableSharedBuildCache ?? value.enable_shared_build_cache ?? false,
+			blockGitWrites: value.blockGitWrites ?? value.block_git_writes ?? false,
 			networkPolicy: {
 				default: networkPolicy.default,
 				allow: networkPolicy.allow ?? [],
@@ -159,6 +162,67 @@ const READ_ONLY_COMMAND_ALLOW_PATTERNS = [
 	"git log *",
 	"git show",
 	"git show *",
+] as const
+
+const GIT_WRITE_COMMAND_DENY_PATTERNS = [
+	"git add",
+	"git add *",
+	"git am",
+	"git am *",
+	"git apply",
+	"git apply *",
+	"git branch -d *",
+	"git branch -D *",
+	"git branch --delete *",
+	"git branch -m *",
+	"git branch -M *",
+	"git branch --move *",
+	"git branch -c *",
+	"git branch -C *",
+	"git branch --copy *",
+	"git checkout",
+	"git checkout *",
+	"git cherry-pick",
+	"git cherry-pick *",
+	"git clean",
+	"git clean *",
+	"git clone",
+	"git clone *",
+	"git commit",
+	"git commit *",
+	"git merge",
+	"git merge *",
+	"git mv",
+	"git mv *",
+	"git pull",
+	"git pull *",
+	"git push",
+	"git push *",
+	"git rebase",
+	"git rebase *",
+	"git reset",
+	"git reset *",
+	"git restore",
+	"git restore *",
+	"git revert",
+	"git revert *",
+	"git rm",
+	"git rm *",
+	"git stash",
+	"git stash *",
+	"git submodule add *",
+	"git submodule deinit *",
+	"git submodule set-branch *",
+	"git submodule set-url *",
+	"git submodule sync *",
+	"git submodule update *",
+	"git switch",
+	"git switch *",
+	"git tag *",
+	"git worktree add *",
+	"git worktree move *",
+	"git worktree remove *",
+	"git worktree repair *",
 ] as const
 
 export function normalizeCursorSandboxPolicySetting(value: unknown): CursorSandboxPolicySetting {
@@ -231,6 +295,7 @@ export async function resolveCursorSandboxPolicy(
 				additionalReadonlyPaths: [],
 				disableTmpWrite: true,
 				enableSharedBuildCache: false,
+				blockGitWrites: true,
 				networkPolicy: { default: "deny", allow: [] },
 			},
 			policySetting: "readOnly",
@@ -297,18 +362,35 @@ function createRuntimePolicy(options: {
 		networkPolicy: options.config.networkPolicy,
 		disableTmpWrite: options.config.disableTmpWrite,
 		enableSharedBuildCache: options.config.enableSharedBuildCache,
+		blockGitWrites: options.config.blockGitWrites,
 		allowReadAutoApprove: true,
 		allowWriteAutoApprove,
 		allowTerminalAutoApprove,
 		allowNetworkAutoApprove,
-		commandPermissions:
-			effectiveAccess === "readOnly"
-				? {
-						allow: [...READ_ONLY_COMMAND_ALLOW_PATTERNS],
-						allowRedirects: false,
-					}
-				: undefined,
+		commandPermissions: createCommandPermissions(effectiveAccess, options.config.blockGitWrites),
 	}
+}
+
+function createCommandPermissions(
+	effectiveAccess: CursorSandboxEffectiveAccess,
+	blockGitWrites: boolean,
+): CommandPermissionConfig | undefined {
+	if (effectiveAccess === "readOnly") {
+		return {
+			allow: [...READ_ONLY_COMMAND_ALLOW_PATTERNS],
+			deny: blockGitWrites ? [...GIT_WRITE_COMMAND_DENY_PATTERNS] : undefined,
+			allowRedirects: false,
+		}
+	}
+
+	if (blockGitWrites) {
+		return {
+			deny: [...GIT_WRITE_COMMAND_DENY_PATTERNS],
+			allowRedirects: true,
+		}
+	}
+
+	return undefined
 }
 
 function normalizeSandboxPaths(workspaceRoot: string, paths: ReadonlyArray<string>): string[] {

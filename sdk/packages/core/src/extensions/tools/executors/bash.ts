@@ -13,6 +13,7 @@ import {
 import { TimeoutError } from "../helpers";
 import type { BashExecutor } from "../types";
 import {
+	findCursorSandboxBlockedGitWriteInCommand,
 	findCursorSandboxViolationInCommand,
 	findIgnoredPathInCommand,
 } from "./access-ignore";
@@ -210,6 +211,15 @@ export function createBashExecutor(
 		if (sandboxPath) {
 			throw new Error(
 				`Access to ${sandboxPath} is outside Cursor sandbox read paths from .cursor/sandbox.json.`,
+			);
+		}
+		const blockedGitWrite = findCursorSandboxBlockedGitWriteInCommand(
+			command,
+			context,
+		);
+		if (blockedGitWrite) {
+			throw new Error(
+				`Git write command "${blockedGitWrite}" is blocked by .cursor/sandbox.json blockGitWrites.`,
 			);
 		}
 		const isStructured = typeof command !== "string";

@@ -32,6 +32,7 @@ describe("Cursor sandbox config", () => {
 			additionalReadonlyPaths: [],
 			disableTmpWrite: false,
 			enableSharedBuildCache: false,
+			blockGitWrites: false,
 			networkPolicy: { default: "deny", allow: [] },
 		});
 	});
@@ -43,6 +44,7 @@ describe("Cursor sandbox config", () => {
 			additional_readonly_paths: ["/var/log/project"],
 			disable_tmp_write: true,
 			enable_shared_build_cache: true,
+			block_git_writes: true,
 			network_access: true,
 		});
 
@@ -52,6 +54,7 @@ describe("Cursor sandbox config", () => {
 			additionalReadonlyPaths: ["/var/log/project"],
 			disableTmpWrite: true,
 			enableSharedBuildCache: true,
+			blockGitWrites: true,
 			networkPolicy: { default: "allow", allow: [] },
 		});
 	});
@@ -138,6 +141,7 @@ describe("Cursor sandbox config", () => {
 			allowWriteAutoApprove: false,
 			allowTerminalAutoApprove: false,
 			allowNetworkAutoApprove: false,
+			blockGitWrites: true,
 		});
 		expect(policy?.error).toContain("Invalid .cursor/sandbox.json");
 		expect(logger.warn).toHaveBeenCalledTimes(1);

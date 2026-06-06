@@ -37,6 +37,7 @@ export interface CursorSandboxConfig {
 	additionalReadonlyPaths: string[];
 	disableTmpWrite: boolean;
 	enableSharedBuildCache: boolean;
+	blockGitWrites: boolean;
 	networkPolicy: CursorSandboxNetworkPolicy;
 }
 
@@ -55,6 +56,7 @@ export interface CursorSandboxRuntimePolicy {
 	networkPolicy: CursorSandboxNetworkPolicy;
 	disableTmpWrite: boolean;
 	enableSharedBuildCache: boolean;
+	blockGitWrites: boolean;
 	allowReadAutoApprove: boolean;
 	allowWriteAutoApprove: boolean;
 	allowTerminalAutoApprove: boolean;
@@ -169,6 +171,7 @@ const rawCursorSandboxConfigSchema = z
 			disableTmpWrite: value.disableTmpWrite ?? value.disable_tmp_write ?? false,
 			enableSharedBuildCache:
 				value.enableSharedBuildCache ?? value.enable_shared_build_cache ?? false,
+			blockGitWrites: value.blockGitWrites ?? value.block_git_writes ?? false,
 			networkPolicy: {
 				default: networkPolicy.default,
 				allow: networkPolicy.allow ?? [],
@@ -263,6 +266,7 @@ export async function resolveCursorSandboxPolicy(
 				additionalReadonlyPaths: [],
 				disableTmpWrite: true,
 				enableSharedBuildCache: false,
+				blockGitWrites: true,
 				networkPolicy: { default: "deny", allow: [] },
 			},
 			policySetting: "readOnly",
@@ -399,6 +403,7 @@ function createRuntimePolicy(options: {
 		networkPolicy: options.config.networkPolicy,
 		disableTmpWrite: options.config.disableTmpWrite,
 		enableSharedBuildCache: options.config.enableSharedBuildCache,
+		blockGitWrites: options.config.blockGitWrites,
 		allowReadAutoApprove: true,
 		allowWriteAutoApprove,
 		allowTerminalAutoApprove,

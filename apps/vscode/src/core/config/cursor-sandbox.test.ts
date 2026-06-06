@@ -9,6 +9,7 @@ import {
 	parseCursorSandboxConfig,
 	resolveCursorSandboxPolicy,
 } from "./cursor-sandbox"
+import { CommandPermissionController } from "@core/permissions"
 
 describe("cursor-sandbox config", () => {
 	let tempDir: string
@@ -37,6 +38,7 @@ describe("cursor-sandbox config", () => {
 		config.additionalReadonlyPaths.should.eql([])
 		config.disableTmpWrite.should.equal(false)
 		config.enableSharedBuildCache.should.equal(false)
+		config.blockGitWrites.should.equal(false)
 		config.networkPolicy.should.eql({ default: "deny", allow: [] })
 	})
 
@@ -47,6 +49,7 @@ describe("cursor-sandbox config", () => {
 			additional_readonly_paths: ["/var/log"],
 			disable_tmp_write: true,
 			enable_shared_build_cache: true,
+			block_git_writes: true,
 			network_access: false,
 		})
 
@@ -54,6 +57,7 @@ describe("cursor-sandbox config", () => {
 		config.additionalReadonlyPaths.should.eql(["/var/log"])
 		config.disableTmpWrite.should.equal(true)
 		config.enableSharedBuildCache.should.equal(true)
+		config.blockGitWrites.should.equal(true)
 		config.networkPolicy.should.eql({ default: "deny", allow: [] })
 	})
 
@@ -143,6 +147,31 @@ describe("cursor-sandbox config", () => {
 		policy!.commandPermissions!.allowRedirects!.should.equal(false)
 	})
 
+	it("blockGitWrites maps to command permissions without blocking unrelated redirects", async () => {
+		await writeSandboxConfig({
+			type: "workspace_readwrite",
+			blockGitWrites: true,
+			networkPolicy: { default: "allow" },
+		})
+
+		const policy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			enabled: true,
+			policySetting: "workspace",
+		})
+
+		should(policy).be.ok()
+		policy!.blockGitWrites.should.equal(true)
+		policy!.commandPermissions!.deny!.should.containEql("git commit *")
+		policy!.commandPermissions!.allowRedirects!.should.equal(true)
+
+		const controller = new CommandPermissionController(policy!.commandPermissions)
+		controller.validateCommand("git status --short").allowed.should.equal(true)
+		controller.validateCommand("echo ok > out.txt").allowed.should.equal(true)
+		controller.validateCommand("git commit -m test").allowed.should.equal(false)
+		controller.validateCommand("git push origin main").allowed.should.equal(false)
+	})
+
 	it("invalid config fails closed to read-only policy", async () => {
 		await writeSandboxConfig({ type: "workspace_readwrite", disableTmpWrite: "nope" })
 		const warnings: string[] = []
@@ -160,6 +189,7 @@ describe("cursor-sandbox config", () => {
 		policy!.allowWriteAutoApprove.should.equal(false)
 		policy!.allowTerminalAutoApprove.should.equal(false)
 		policy!.networkPolicy.should.eql({ default: "deny", allow: [] })
+		policy!.blockGitWrites.should.equal(true)
 		warnings.length.should.equal(1)
 	})
 })

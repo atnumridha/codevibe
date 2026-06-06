@@ -22,9 +22,75 @@ type CursorSandboxMetadataPolicy = {
 	readablePaths?: unknown;
 	writablePaths?: unknown;
 	networkPolicy?: unknown;
+	blockGitWrites?: unknown;
 };
 
 export type CursorSandboxAccessKind = "read" | "write";
+
+const GIT_WRITE_SUBCOMMANDS = new Set([
+	"add",
+	"am",
+	"apply",
+	"checkout",
+	"cherry-pick",
+	"clean",
+	"clone",
+	"commit",
+	"merge",
+	"mv",
+	"pull",
+	"push",
+	"rebase",
+	"reset",
+	"restore",
+	"revert",
+	"rm",
+	"stash",
+	"switch",
+]);
+
+const GIT_BRANCH_WRITE_FLAGS = new Set([
+	"-d",
+	"-D",
+	"-m",
+	"-M",
+	"-c",
+	"-C",
+	"--delete",
+	"--move",
+	"--copy",
+	"--edit-description",
+	"--set-upstream-to",
+	"--unset-upstream",
+]);
+
+const GIT_SUBMODULE_WRITE_SUBCOMMANDS = new Set([
+	"add",
+	"absorbgitdirs",
+	"deinit",
+	"set-branch",
+	"set-url",
+	"sync",
+	"update",
+]);
+
+const GIT_WORKTREE_WRITE_SUBCOMMANDS = new Set([
+	"add",
+	"move",
+	"prune",
+	"remove",
+	"repair",
+]);
+
+const GIT_GLOBAL_OPTIONS_WITH_VALUE = new Set([
+	"-c",
+	"--config-env",
+	"--exec-path",
+	"--git-dir",
+	"--namespace",
+	"--super-prefix",
+	"--work-tree",
+]);
 
 function normalizeRelativePath(relativePath: string): string {
 	return relativePath
@@ -230,6 +296,10 @@ function getCursorSandboxAllowedPaths(
 	);
 }
 
+function doesCursorSandboxBlockGitWrites(context: AgentToolContext): boolean {
+	return getCursorSandboxPolicy(context)?.blockGitWrites === true;
+}
+
 function isSamePathOrDescendant(parentPath: string, filePath: string): boolean {
 	const parent = path.resolve(parentPath);
 	const child = path.resolve(filePath);
@@ -323,6 +393,22 @@ export function assertUrlAllowedByCursorSandboxPolicy(
 	}
 }
 
+export function findCursorSandboxBlockedGitWriteInCommand(
+	command: string | StructuredCommandInput,
+	context: AgentToolContext,
+): string | undefined {
+	if (!doesCursorSandboxBlockGitWrites(context)) {
+		return undefined;
+	}
+
+	for (const parts of getCommandSegmentsForGitPolicy(command)) {
+		if (isGitWriteCommand(parts)) {
+			return parts.join(" ");
+		}
+	}
+	return undefined;
+}
+
 function doesNetworkAllowEntryMatch(entry: string, url: URL): boolean {
 	const trimmed = entry.trim().toLowerCase();
 	if (!trimmed) {
@@ -354,6 +440,95 @@ function doesNetworkAllowEntryMatch(entry: string, url: URL): boolean {
 		return url.hostname.toLowerCase().endsWith(suffix);
 	}
 	return url.hostname.toLowerCase() === hostPattern;
+}
+
+function getCommandSegmentsForGitPolicy(
+	command: string | StructuredCommandInput,
+): string[][] {
+	if (typeof command !== "string") {
+		return [[command.command, ...(command.args ?? [])].filter(Boolean)];
+	}
+
+	return command
+		.split(/\s*(?:&&|\|\||[;|])\s*/g)
+		.map((segment) => segment.trim().split(/\s+/).filter(Boolean))
+		.filter((parts) => parts.length > 0);
+}
+
+function isGitWriteCommand(parts: string[]): boolean {
+	const gitIndex = parts.findIndex((part) => getExecutableName(part) === "git");
+	if (gitIndex < 0) {
+		return false;
+	}
+
+	const subcommandIndex = findGitSubcommandIndex(parts, gitIndex + 1);
+	if (subcommandIndex < 0) {
+		return false;
+	}
+
+	const subcommand = normalizeCommandToken(parts[subcommandIndex]);
+	const args = parts.slice(subcommandIndex + 1).map(normalizeCommandToken);
+	if (GIT_WRITE_SUBCOMMANDS.has(subcommand)) {
+		return true;
+	}
+	if (subcommand === "branch") {
+		return isGitBranchWrite(args);
+	}
+	if (subcommand === "submodule") {
+		return GIT_SUBMODULE_WRITE_SUBCOMMANDS.has(args[0] ?? "");
+	}
+	if (subcommand === "tag") {
+		return args.length > 0;
+	}
+	if (subcommand === "worktree") {
+		return GIT_WORKTREE_WRITE_SUBCOMMANDS.has(args[0] ?? "");
+	}
+	return false;
+}
+
+function findGitSubcommandIndex(parts: string[], startIndex: number): number {
+	for (let index = startIndex; index < parts.length; index++) {
+		const token = normalizeCommandToken(parts[index]);
+		if (!token) {
+			continue;
+		}
+		if (token === "--") {
+			continue;
+		}
+		if (GIT_GLOBAL_OPTIONS_WITH_VALUE.has(token)) {
+			index++;
+			continue;
+		}
+		if ([...GIT_GLOBAL_OPTIONS_WITH_VALUE].some((option) => token.startsWith(`${option}=`))) {
+			continue;
+		}
+		if (token.startsWith("-")) {
+			continue;
+		}
+		return index;
+	}
+	return -1;
+}
+
+function isGitBranchWrite(args: string[]): boolean {
+	if (args.length === 0) {
+		return false;
+	}
+	if (args.some((arg) => GIT_BRANCH_WRITE_FLAGS.has(arg))) {
+		return true;
+	}
+	if (args.some((arg) => [...GIT_BRANCH_WRITE_FLAGS].some((flag) => arg.startsWith(`${flag}=`)))) {
+		return true;
+	}
+	return args.some((arg) => !arg.startsWith("-"));
+}
+
+function getExecutableName(command: string): string {
+	return normalizeCommandToken(path.basename(command));
+}
+
+function normalizeCommandToken(value: string | undefined): string {
+	return (value ?? "").replace(/^['"]|['"]$/g, "").toLowerCase();
 }
 
 export async function isPathAllowedByDirectAccessIgnores(

@@ -11,6 +11,18 @@ const ctx: AgentToolContext = {
 	iteration: 1,
 };
 
+const blockGitWritesCtx: AgentToolContext = {
+	...ctx,
+	metadata: {
+		cursorSandboxPolicy: {
+			source: "cursor-sandbox",
+			readablePaths: [process.cwd()],
+			writablePaths: [process.cwd()],
+			blockGitWrites: true,
+		},
+	},
+};
+
 describe("createBashExecutor", () => {
 	it("runs a simple command and returns stdout", async () => {
 		const bash = createBashExecutor();
@@ -79,6 +91,32 @@ describe("createBashExecutor", () => {
 		} finally {
 			await fs.rm(dir, { recursive: true, force: true });
 		}
+	});
+
+	it("blocks git write commands when Cursor sandbox blockGitWrites is enabled", async () => {
+		const bash = createBashExecutor();
+
+		await expect(
+			bash("git commit -m test", process.cwd(), blockGitWritesCtx),
+		).rejects.toThrow(".cursor/sandbox.json blockGitWrites");
+		await expect(
+			bash("cd . && git push origin main", process.cwd(), blockGitWritesCtx),
+		).rejects.toThrow(".cursor/sandbox.json blockGitWrites");
+	});
+
+	it("blocks structured git write commands with global git options", async () => {
+		const bash = createBashExecutor();
+
+		await expect(
+			bash(
+				{
+					command: "git",
+					args: ["-C", process.cwd(), "commit", "-m", "test"],
+				},
+				process.cwd(),
+				blockGitWritesCtx,
+			),
+		).rejects.toThrow(".cursor/sandbox.json blockGitWrites");
 	});
 
 	it("includes stderr in combined output on success", async () => {
