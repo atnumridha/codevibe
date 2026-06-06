@@ -84,6 +84,14 @@ export interface CursorCompatibleAutomationIngestRequest {
 	configKeys: string[]
 }
 
+export interface CursorCompatibleGlassRouteMetadata {
+	glass: true
+	mode: "overlay"
+	hasPrompt: boolean
+	paramKeys: string[]
+	configKeys: string[]
+}
+
 export type CursorCompatibleUriParseResult =
 	| { recognized: false }
 	| { recognized: true; route: CursorCompatibleUriRoute }
@@ -444,6 +452,21 @@ function getConfigRecord(route: CursorCompatibleUriRoute): Record<string, unknow
 		return undefined
 	}
 	return config as Record<string, unknown>
+}
+
+export function buildCursorCompatibleGlassRouteMetadata(
+	route: CursorCompatibleUriRoute,
+): CursorCompatibleGlassRouteMetadata | undefined {
+	if (route.kind !== "glass") {
+		return undefined
+	}
+	return {
+		glass: true,
+		mode: "overlay",
+		hasPrompt: Boolean(getPromptText(route)),
+		paramKeys: Object.keys(route.params).sort(),
+		configKeys: Object.keys(getConfigRecord(route) ?? {}).sort(),
+	}
 }
 
 function formatParamValue(key: string, value: string | Record<string, unknown>): string {

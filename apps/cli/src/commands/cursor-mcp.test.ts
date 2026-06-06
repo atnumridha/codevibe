@@ -1188,7 +1188,7 @@ describe("Cursor MCP install command", () => {
 	it("previews PR review and glass deeplinks", async () => {
 		for (const [uri, route] of [
 			["vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42", "pr-review"],
-			["vscode://cline.cline/glass", "glass"],
+			["vscode://cline.cline/glass?text=Continue%20here", "glass"],
 		]) {
 			const { out, io } = createIo();
 
@@ -1205,6 +1205,16 @@ describe("Cursor MCP install command", () => {
 				requiresAgent: true,
 				taskPrompt: expect.any(String),
 			});
+			if (route === "glass") {
+				expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+					glass: {
+						glass: true,
+						mode: "overlay",
+						hasPrompt: true,
+						paramKeys: ["text"],
+					},
+				});
+			}
 		}
 	});
 

@@ -246,6 +246,24 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should mark Cursor glass routes as overlay prompts in confirmation details", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+				const config = encodeConfig({ placement: "top", token: "secret-value" })
+
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/glass?text=Continue%20here&config=${config}`,
+				)
+
+				expect(result).to.be.true
+				const modal = showMessageStub.firstCall.args[0]
+				expect(modal.message).to.equal("Create Cursor glass prompt task?")
+				expect(modal.options.detail).to.contain("Glass mode: overlay")
+				expect(modal.options.detail).to.contain("Config keys: placement, token")
+				expect(modal.options.detail).not.to.contain("secret-value")
+				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Continue here")
+			})
+
 			it("should confirm and install a Cursor MCP install route", async () => {
 				const result = await SharedUriHandler.handleUri(
 					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",

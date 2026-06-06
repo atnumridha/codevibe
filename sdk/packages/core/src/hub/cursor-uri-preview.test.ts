@@ -70,6 +70,40 @@ describe("hub Cursor URI preview command", () => {
 		});
 	});
 
+	it("previews Cursor Glass routes with dedicated metadata", async () => {
+		const transport = createTransport();
+		const config = encodeConfig({ placement: "top", token: "secret-value" });
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.preview",
+			requestId: "req-glass",
+			clientId: "client-one",
+			payload: {
+				uri: `vscode://cline.cline/glass?text=Continue%20here&config=${config}`,
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: true,
+			payload: {
+				handled: true,
+				route: "glass",
+				path: "/glass",
+				requiresConfirmation: true,
+				hasPrompt: true,
+				glass: {
+					glass: true,
+					mode: "overlay",
+					hasPrompt: true,
+					paramKeys: ["config", "text"],
+					configKeys: ["placement", "token"],
+				},
+			},
+		});
+		expect(JSON.stringify(reply)).not.toContain("secret-value");
+	});
+
 	it("validates automation ingest deeplinks without echoing raw event payloads", async () => {
 		const transport = createTransport();
 		const ndjson = encodeURIComponent(

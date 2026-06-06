@@ -110,6 +110,7 @@ type CursorUriLaunchResponse = {
 	route: string;
 	path?: string;
 	backgroundAgent: boolean;
+	glass?: boolean;
 	backgroundAgentDetails?: JsonRecord;
 	sessionId: string;
 	provider: string;
@@ -1066,6 +1067,12 @@ function getJsonStringArray(value: unknown): string[] {
 		.filter((item) => item.length > 0);
 }
 
+function getJsonRecord(value: unknown): JsonRecord | undefined {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as JsonRecord)
+		: undefined;
+}
+
 function getRouteParamString(
 	params: Record<string, string | Record<string, unknown>>,
 	key: string,
@@ -1165,10 +1172,23 @@ function buildCursorLaunchMetadata(
 		detailConfigKeys.length > 0
 			? detailConfigKeys
 			: getCursorPreviewStringArray(preview, "configKeys");
+	const previewGlass = getJsonRecord(preview.glass);
+	const glass =
+		previewGlass ??
+		(route === "glass" || path === "/glass"
+			? {
+					glass: true,
+					mode: "overlay",
+					hasPrompt: Boolean(getCursorPreviewString(preview, "taskPrompt")),
+					paramKeys,
+					configKeys,
+				}
+			: undefined);
 	const cursor: JsonRecord = {
 		source: "cursor-uri",
 		route,
 		background: backgroundAgent,
+		...(glass ? { glass: true } : {}),
 	};
 	if (path) {
 		cursor.path = path;
@@ -1179,9 +1199,13 @@ function buildCursorLaunchMetadata(
 	if (configKeys.length > 0) {
 		cursor.configKeys = configKeys;
 	}
+	if (glass) {
+		cursor.glassMode = "overlay";
+	}
 	return {
 		cursor,
 		...(backgroundAgent ? { backgroundAgent: true } : {}),
+		...(glass ? { glass } : {}),
 		...(routeDetails?.backgroundAgentDetails
 			? { backgroundAgentDetails: routeDetails.backgroundAgentDetails }
 			: {}),
@@ -1215,6 +1239,7 @@ async function handleCursorUriLaunchCommand(
 	const cwd = workspaceRoot;
 	const metadata = buildCursorLaunchMetadata(preview, input.uri);
 	const backgroundAgent = metadata.backgroundAgent === true;
+	const glass = Boolean(metadata.glass);
 	const backgroundAgentDetails =
 		metadata.backgroundAgentDetails &&
 		typeof metadata.backgroundAgentDetails === "object" &&
@@ -1258,6 +1283,7 @@ async function handleCursorUriLaunchCommand(
 			? { path: getCursorPreviewString(preview, "path") }
 			: {}),
 		backgroundAgent,
+		...(glass ? { glass: true } : {}),
 		...(backgroundAgentDetails ? { backgroundAgentDetails } : {}),
 		sessionId,
 		provider,

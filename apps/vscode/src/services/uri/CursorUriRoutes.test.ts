@@ -2,6 +2,7 @@ import { expect } from "chai"
 import { describe, it } from "mocha"
 import {
 	buildCursorCompatibleAutomationIngestRequest,
+	buildCursorCompatibleGlassRouteMetadata,
 	buildCursorCompatibleTaskPrompt,
 	getCursorCompatibleUriPath,
 	isCursorCompatibleUriPath,
@@ -106,6 +107,24 @@ describe("CursorUriRoutes", () => {
 		const prompt = buildCursorCompatibleTaskPrompt(result.route)
 		expect(prompt).to.contain("Review it with the user before running it")
 		expect(prompt).to.contain("```sh\nnpm install\n```")
+	})
+
+	it("builds dedicated metadata for Cursor glass routes", () => {
+		const config = base64UrlJson({ placement: "top", token: "secret-value" })
+		const result = parseCursorCompatibleUri("/glass", new URLSearchParams(`text=Continue%20here&config=${config}`))
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected glass route to parse")
+		}
+		expect(buildCursorCompatibleGlassRouteMetadata(result.route)).to.deep.equal({
+			glass: true,
+			mode: "overlay",
+			hasPrompt: true,
+			paramKeys: ["config", "text"],
+			configKeys: ["placement", "token"],
+		})
+		expect(JSON.stringify(buildCursorCompatibleGlassRouteMetadata(result.route))).not.to.contain("secret-value")
 	})
 
 	it("validates automation NDJSON ingest routes without leaking raw payload values", () => {

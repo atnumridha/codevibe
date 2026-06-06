@@ -11,6 +11,7 @@ import { getCwd, getDesktopDir } from "@/utils/path"
 import {
 	buildCursorCompatibleAutomationIngestRequest,
 	buildCursorCompatibleBackgroundAgentLaunchRequest,
+	buildCursorCompatibleGlassRouteMetadata,
 	buildCursorCompatibleTaskPrompt,
 	getCursorCompatibleUriPath,
 	parseCursorCompatibleUri,
@@ -435,6 +436,7 @@ function buildCursorTaskCreationDetail(route: CursorCompatibleUriRoute, action: 
 		config && typeof config === "object" && !Array.isArray(config)
 			? Object.keys(config).sort()
 			: []
+	const glass = buildCursorCompatibleGlassRouteMetadata(route)
 	const routeParamKeys = Object.keys(route.params)
 		.filter((key) => key !== "config")
 		.sort()
@@ -444,6 +446,7 @@ function buildCursorTaskCreationDetail(route: CursorCompatibleUriRoute, action: 
 		`Task type: ${getCursorTaskRouteLabel(route)}`,
 		action,
 		"This will create an agent task only. Terminal, network, file, MCP, browser, and git changes still require the normal approvals.",
+		...(glass ? ["Glass mode: overlay"] : []),
 		...(routeParamKeys.length > 0 ? [`Route parameters: ${routeParamKeys.join(", ")}`] : []),
 		...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
 	].join("\n")

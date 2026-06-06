@@ -1217,6 +1217,82 @@ describe("Code sidecar runtime capabilities", () => {
 		});
 	});
 
+	it("marks Cursor glass launches in desktop session metadata", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-glass-"));
+		tempDirs.push(workspace);
+		const startMock = vi.fn(async () => ({ sessionId: "session-glass" }));
+		const sendMock = vi.fn(async () => ({}));
+		const pendingListMock = vi.fn(async () => []);
+		previewCursorUriMock.mockResolvedValue({
+			handled: true,
+			route: "glass",
+			path: "/glass",
+			taskPrompt: "Continue in Glass.",
+			paramKeys: ["text"],
+			glass: {
+				glass: true,
+				mode: "overlay",
+				hasPrompt: true,
+				paramKeys: ["text"],
+				configKeys: [],
+			},
+		});
+		const ctx = createSidecarContext(workspace);
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+			send: sendMock,
+			pendingPrompts: { list: pendingListMock },
+		} as never;
+
+		const result = await handleCommand(ctx, "cursor_uri_launch", {
+			uri: "vscode://cline.cline/glass?text=Continue%20in%20Glass",
+			confirmed: true,
+		});
+
+		expect(startMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				sessionMetadata: expect.objectContaining({
+					glass: expect.objectContaining({
+						glass: true,
+						mode: "overlay",
+						hasPrompt: true,
+					}),
+					cursor: expect.objectContaining({
+						route: "glass",
+						path: "/glass",
+						glass: true,
+						glassMode: "overlay",
+					}),
+				}),
+			}),
+		);
+		expect(sendMock).toHaveBeenCalledWith({
+			sessionId: "session-glass",
+			prompt: "Continue in Glass.",
+			delivery: "queue",
+			userImages: undefined,
+		});
+		expect(result).toMatchObject({
+			handled: true,
+			launched: true,
+			route: "glass",
+			path: "/glass",
+			glass: true,
+			metadata: expect.objectContaining({
+				glass: expect.objectContaining({
+					glass: true,
+					mode: "overlay",
+				}),
+			}),
+		});
+	});
+
 	it("marks background-agent Cursor launches in session metadata", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

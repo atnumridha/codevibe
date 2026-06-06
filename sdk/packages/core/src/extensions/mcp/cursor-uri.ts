@@ -236,6 +236,14 @@ export interface CursorAgentTaskRouteRequest {
 	params: Record<string, string | Record<string, unknown>>;
 }
 
+export interface CursorGlassRouteMetadata {
+	glass: true;
+	mode: "overlay";
+	hasPrompt: boolean;
+	paramKeys: string[];
+	configKeys: string[];
+}
+
 export interface CursorPluginAddRouteRequest {
 	kind: "plugin-add";
 	source?: string;
@@ -352,6 +360,21 @@ function getRecord(value: unknown): Record<string, unknown> | undefined {
 	return value && typeof value === "object" && !Array.isArray(value)
 		? (value as Record<string, unknown>)
 		: undefined;
+}
+
+export function buildCursorGlassRouteMetadata(
+	request: CursorAgentTaskRouteRequest,
+): CursorGlassRouteMetadata | undefined {
+	if (request.kind !== "glass") {
+		return undefined;
+	}
+	return {
+		glass: true,
+		mode: "overlay",
+		hasPrompt: Boolean(request.prompt),
+		paramKeys: Object.keys(request.params).sort(),
+		configKeys: Object.keys(getRecord(request.params.config) ?? {}).sort(),
+	};
 }
 
 function decodeBase64JsonConfig(value: string): Record<string, unknown> {

@@ -3,6 +3,7 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
 	buildCursorAutomationIngestRouteRequest,
 	buildCursorAgentTaskRouteRequest,
+	buildCursorGlassRouteMetadata,
 	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
@@ -605,6 +606,7 @@ function writeAgentTaskRoutePreview(
 ): number {
 	const workspaceRoot = resolve(options.cwd ?? process.cwd());
 	const resolved = resolveAgentTaskRoute(request, workspaceRoot);
+	const glass = buildCursorGlassRouteMetadata(request);
 	if (options.json) {
 		options.io.writeln(
 			JSON.stringify({
@@ -615,6 +617,7 @@ function writeAgentTaskRoutePreview(
 				prompt: request.prompt,
 				taskPrompt: resolved.taskPrompt,
 				paramKeys: Object.keys(request.params).sort(),
+				...(glass ? { glass } : {}),
 				...(request.kind === "background-agent" && options.worktree
 					? { worktree: { requested: true, created: false } }
 					: {}),
@@ -677,6 +680,7 @@ async function launchCursorAgentTask(
 		};
 	}
 	const resolved = resolveAgentTaskRoute(request, workspaceRoot);
+	const glass = buildCursorGlassRouteMetadata(request);
 	const taskPrompt = worktree
 		? buildBackgroundAgentWorktreeTaskPrompt(resolved.taskPrompt, worktree)
 		: resolved.taskPrompt;
@@ -754,6 +758,7 @@ async function launchCursorAgentTask(
 					model: modelId,
 					delivery: "queue",
 					paramKeys: Object.keys(request.params).sort(),
+					...(glass ? { glass } : {}),
 					...(worktree ? { worktree } : {}),
 					...(resolved.commandFile
 						? { commandFile: resolved.commandFile }

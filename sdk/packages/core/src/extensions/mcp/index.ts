@@ -26,6 +26,7 @@ export {
 export {
 	buildCursorAutomationIngestRouteRequest,
 	buildCursorAgentTaskRouteRequest,
+	buildCursorGlassRouteMetadata,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,

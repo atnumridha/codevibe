@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildCursorAutomationIngestRouteRequest,
 	buildCursorAgentTaskRouteRequest,
+	buildCursorGlassRouteMetadata,
 	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
@@ -730,6 +731,26 @@ describe("Cursor MCP install URI parser", () => {
 			path: "/glass",
 		});
 		expect(glass.taskPrompt).toContain("ask me what to do next");
+	});
+
+	it("builds dedicated metadata for Cursor Glass routes", () => {
+		const config = encodeConfig({ placement: "top", token: "secret" });
+		const glass = buildCursorAgentTaskRouteRequest(
+			`vscode://cline.cline/glass?text=Continue%20here&config=${config}`,
+		);
+
+		expect(buildCursorGlassRouteMetadata(glass)).toEqual({
+			glass: true,
+			mode: "overlay",
+			hasPrompt: true,
+			paramKeys: ["config", "text"],
+			configKeys: ["placement", "token"],
+		});
+		expect(
+			buildCursorGlassRouteMetadata(
+				buildCursorAgentTaskRouteRequest("vscode://cline.cline/createchat?prompt=hi"),
+			),
+		).toBeUndefined();
 	});
 
 	it("builds guarded prompts for git helper routes", () => {

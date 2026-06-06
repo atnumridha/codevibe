@@ -20,6 +20,7 @@ import type {
 import {
 	buildCursorAgentTaskRouteRequest,
 	buildCursorAutomationIngestRouteRequest,
+	buildCursorGlassRouteMetadata,
 	buildCursorMcpInstallRequest,
 	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
@@ -756,6 +757,7 @@ function summarizeCursorUriPreview(
 
 	if (CURSOR_AGENT_TASK_ROUTE_PATHS.has(path)) {
 		const request = buildCursorAgentTaskRouteRequest(uri);
+		const glass = buildCursorGlassRouteMetadata(request);
 		const commandFile =
 			(input.workspaceRoot || input.workspaceRoots?.length) &&
 			request.kind === "command"
@@ -793,6 +795,7 @@ function summarizeCursorUriPreview(
 			hasPrompt: Boolean(request.prompt),
 			paramKeys: Object.keys(request.params).sort(),
 			configKeys: getCursorConfigKeys(request.params),
+			...(glass ? { glass } : {}),
 		};
 	}
 
