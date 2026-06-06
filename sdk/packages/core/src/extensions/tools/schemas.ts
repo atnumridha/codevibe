@@ -184,6 +184,29 @@ export const FetchWebContentInputSchema = z.object({
 });
 
 /**
+ * Schema for browser_snapshot tool input
+ */
+export const BrowserSnapshotInputSchema = z
+	.object({
+		tab_id: z
+			.string()
+			.min(1)
+			.optional()
+			.describe("Optional browser tab identifier. Omit to snapshot the active tab."),
+		include_screenshot: z
+			.boolean()
+			.optional()
+			.describe("Whether the snapshot executor should include a screenshot when available."),
+		include_logs: z
+			.boolean()
+			.optional()
+			.describe("Whether the snapshot executor should include recent console logs when available."),
+	})
+	.describe(
+		"Capture a read-only snapshot of the active browser tab or the provided tab id. This tool must not click, type, navigate, evaluate JavaScript, or mutate page state.",
+	);
+
+/**
  * Schema for editor tool input
  */
 export const EditFileInputSchema = z
@@ -318,6 +341,11 @@ export type WebFetchRequest = z.infer<typeof WebFetchRequestSchema>;
  * Input for the fetch_web_content tool
  */
 export type FetchWebContentInput = z.infer<typeof FetchWebContentInputSchema>;
+
+/**
+ * Input for the browser_snapshot tool
+ */
+export type BrowserSnapshotInput = z.infer<typeof BrowserSnapshotInputSchema>;
 
 /**
  * Input for the editor tool

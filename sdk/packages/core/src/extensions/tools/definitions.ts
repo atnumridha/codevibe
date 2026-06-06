@@ -13,6 +13,7 @@ import {
 } from "@cline/shared";
 import { captureRunCommandsTimeout } from "../../services/telemetry/core-events";
 import { getToolContextTelemetry } from "../../services/telemetry/tool-context";
+import { sanitizeBrowserSnapshotResult } from "./browser-redaction";
 import {
 	formatError,
 	formatReadFileQuery,
@@ -29,6 +30,8 @@ import {
 	ApplyPatchInputUnionSchema,
 	type AskQuestionInput,
 	AskQuestionInputSchema,
+	type BrowserSnapshotInput,
+	BrowserSnapshotInputSchema,
 	type EditFileInput,
 	EditFileInputSchema,
 	type FetchWebContentInput,
@@ -54,6 +57,7 @@ import type {
 	ApplyPatchExecutor,
 	AskQuestionExecutor,
 	BashExecutor,
+	BrowserSnapshotExecutor,
 	CreateDefaultToolsOptions,
 	DefaultToolsConfig,
 	EditorExecutor,
@@ -465,6 +469,63 @@ export function createWebFetchTool(
 	});
 }
 
+/**
+ * Create the browser_snapshot tool
+ *
+ * Captures a read-only snapshot of an already managed browser tab through a
+ * host-provided browser executor. The tool contract is intentionally read-only:
+ * interaction, navigation, JavaScript evaluation, and tab lifecycle management
+ * are separate future capabilities.
+ */
+export function createBrowserSnapshotTool(
+	executor: BrowserSnapshotExecutor,
+	config: Pick<DefaultToolsConfig, "browserSnapshotTimeoutMs"> = {},
+): AgentTool<BrowserSnapshotInput, ToolOperationResult> {
+	const timeoutMs = config.browserSnapshotTimeoutMs ?? 10000;
+
+	return createTool<BrowserSnapshotInput, ToolOperationResult>({
+		name: "browser_snapshot",
+		description:
+			"Capture a read-only snapshot of the active browser tab or a provided tab id. " +
+			"Returns page URL, title, text/accessibility nodes, logs, and optionally a screenshot when the executor supports them. " +
+			"Do not use this tool to click, type, navigate, evaluate JavaScript, or mutate page state.",
+		inputSchema: zodToJsonSchema(BrowserSnapshotInputSchema),
+		timeoutMs,
+		retryable: true,
+		maxRetries: 1,
+		execute: async (input, context) => {
+			const validatedInput = validateWithZod(
+				BrowserSnapshotInputSchema,
+				input ?? {},
+			);
+			try {
+				const snapshot = await withTimeout(
+					executor(validatedInput, context),
+					timeoutMs,
+					`browser_snapshot timed out after ${timeoutMs}ms`,
+				);
+				return {
+					query: validatedInput.tab_id
+						? `browser_snapshot:${validatedInput.tab_id}`
+						: "browser_snapshot",
+					result: sanitizeBrowserSnapshotResult(snapshot),
+					success: true,
+				};
+			} catch (error) {
+				const msg = formatError(error);
+				return {
+					query: validatedInput.tab_id
+						? `browser_snapshot:${validatedInput.tab_id}`
+						: "browser_snapshot",
+					result: "",
+					error: `browser_snapshot failed: ${msg}`,
+					success: false,
+				};
+			}
+		},
+	});
+}
+
 const APPLY_PATCH_TOOL_DESC = `Use \`apply_patch\` to edit files with the canonical freeform patch grammar. Pass the patch text directly as the \`input\` string. Prefer the exact format below:
 
 *** Begin Patch
@@ -781,6 +842,7 @@ export function createDefaultTools(
 		enableSearch = true,
 		enableBash = true,
 		enableWebFetch = true,
+		enableBrowserAutomation = false,
 		enableApplyPatch = false,
 		enableEditor = true,
 		enableSkills = true,
@@ -813,6 +875,11 @@ export function createDefaultTools(
 	// Add fetch_web_content tool if enabled and executor provided
 	if (enableWebFetch && executors.webFetch) {
 		tools.push(createWebFetchTool(executors.webFetch, config));
+	}
+
+	// Add read-only browser automation tool if explicitly enabled and executor provided
+	if (enableBrowserAutomation && executors.browserSnapshot) {
+		tools.push(createBrowserSnapshotTool(executors.browserSnapshot, config));
 	}
 
 	// Add editor tool if enabled and executor provided,

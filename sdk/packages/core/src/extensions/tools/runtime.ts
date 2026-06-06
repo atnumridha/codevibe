@@ -58,6 +58,12 @@ const BASE_TOOL_CATALOG: readonly RuntimeToolCatalogEntry[] = [
 		headlessToolNames: ["fetch_web_content"],
 	},
 	{
+		id: "browser",
+		description:
+			"Inspect browser state with read-only snapshots before using browser interaction tools.",
+		headlessToolNames: ["browser_snapshot"],
+	},
+	{
 		id: "skills",
 		description:
 			"Execute a configured skill within the main conversation when a matching skill exists for the task.",
@@ -92,6 +98,7 @@ const TOOL_NAME_TO_FLAG: Partial<
 			| "enableSearch"
 			| "enableBash"
 			| "enableWebFetch"
+			| "enableBrowserAutomation"
 			| "enableApplyPatch"
 			| "enableEditor"
 			| "enableSkills"
@@ -104,6 +111,7 @@ const TOOL_NAME_TO_FLAG: Partial<
 	search_codebase: "enableSearch",
 	run_commands: "enableBash",
 	fetch_web_content: "enableWebFetch",
+	browser: "enableBrowserAutomation",
 	apply_patch: "enableApplyPatch",
 	editor: "enableEditor",
 	skills: "enableSkills",
@@ -122,6 +130,7 @@ type ResolvedToolFlags = Pick<
 	| "enableSearch"
 	| "enableBash"
 	| "enableWebFetch"
+	| "enableBrowserAutomation"
 	| "enableApplyPatch"
 	| "enableEditor"
 	| "enableSkills"

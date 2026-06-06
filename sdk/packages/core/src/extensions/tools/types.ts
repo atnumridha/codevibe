@@ -11,6 +11,7 @@ import type {
 } from "@cline/shared";
 import type {
 	ApplyPatchInput,
+	BrowserSnapshotInput,
 	EditFileInput,
 	ReadFileRequest,
 	StructuredCommandInput,
@@ -37,6 +38,26 @@ export interface ToolOperationResult {
 }
 
 export type FileReadResultContent = string | Array<TextContent | ImageContent>;
+
+export interface BrowserSnapshotNode {
+	ref?: string;
+	role?: string;
+	name?: string;
+	text?: string;
+	value?: string;
+	attributes?: Record<string, string>;
+	children?: BrowserSnapshotNode[];
+}
+
+export interface BrowserSnapshotResult {
+	url?: string;
+	title?: string;
+	text?: string;
+	logs?: string;
+	screenshot?: string | ImageContent;
+	nodes?: BrowserSnapshotNode[];
+	[key: string]: unknown;
+}
 
 // =============================================================================
 // Executor Interfaces
@@ -95,6 +116,17 @@ export type WebFetchExecutor = (
 	prompt: string,
 	context: AgentToolContext,
 ) => Promise<string>;
+
+/**
+ * Executor for capturing a read-only browser snapshot.
+ *
+ * The executor owns browser/tab state. It must not click, type, navigate,
+ * evaluate JavaScript, or mutate page state.
+ */
+export type BrowserSnapshotExecutor = (
+	input: BrowserSnapshotInput,
+	context: AgentToolContext,
+) => Promise<string | BrowserSnapshotResult>;
 
 /**
  * Executor for editing files
@@ -204,6 +236,8 @@ export interface ToolExecutors {
 	bash?: BashExecutor;
 	/** Web content fetching implementation */
 	webFetch?: WebFetchExecutor;
+	/** Read-only browser snapshot implementation */
+	browserSnapshot?: BrowserSnapshotExecutor;
 	/** Filesystem editor implementation */
 	editor?: EditorExecutor;
 	/** Apply patch implementation */
@@ -228,6 +262,7 @@ export type DefaultToolName =
 	| "search_codebase"
 	| "run_commands"
 	| "fetch_web_content"
+	| "browser_snapshot"
 	| "apply_patch"
 	| "editor"
 	| "skills"
@@ -261,6 +296,12 @@ export interface DefaultToolsConfig {
 	 * @default true
 	 */
 	enableWebFetch?: boolean;
+
+	/**
+	 * Enable read-only browser automation tools
+	 * @default false
+	 */
+	enableBrowserAutomation?: boolean;
 
 	/**
 	 * Enable the apply_patch tool
@@ -314,6 +355,12 @@ export interface DefaultToolsConfig {
 	 * @default 30000
 	 */
 	webFetchTimeoutMs?: number;
+
+	/**
+	 * Timeout for browser snapshot operations in milliseconds
+	 * @default 10000
+	 */
+	browserSnapshotTimeoutMs?: number;
 
 	/**
 	 * Timeout for search operations in milliseconds

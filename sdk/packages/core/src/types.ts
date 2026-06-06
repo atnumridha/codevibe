@@ -63,6 +63,10 @@ export {
 	WORKFLOWS_CONFIG_DIRECTORY_NAME,
 } from "./extensions/config";
 export type {
+	BrowserSnapshotExecutor,
+	BrowserSnapshotInput,
+	BrowserSnapshotNode,
+	BrowserSnapshotResult,
 	BuiltinToolAvailabilityContext,
 	ToolCatalogEntry,
 } from "./extensions/tools";

@@ -12,6 +12,7 @@ export { ALL_DEFAULT_TOOL_NAMES, DefaultToolNames } from "./constants";
 export {
 	createApplyPatchTool,
 	createAskQuestionTool,
+	createBrowserSnapshotTool,
 	createBashTool,
 	createDefaultTools,
 	createEditorTool,
@@ -22,6 +23,10 @@ export {
 	createWebFetchTool,
 	createWindowsShellTool,
 } from "./definitions";
+export {
+	redactSensitiveBrowserText,
+	sanitizeBrowserSnapshotResult,
+} from "./browser-redaction";
 // Built-in Executors
 export {
 	type ApplyPatchExecutorOptions,
@@ -68,6 +73,8 @@ export {
 	ApplyPatchInputSchema,
 	type AskQuestionInput,
 	AskQuestionInputSchema,
+	type BrowserSnapshotInput,
+	BrowserSnapshotInputSchema,
 	type EditFileInput,
 	EditFileInputSchema,
 	type FetchWebContentInput,
@@ -92,6 +99,9 @@ export { TEAM_TOOL_NAMES } from "./team/team-tools";
 export type {
 	ApplyPatchExecutor,
 	AskQuestionExecutor,
+	BrowserSnapshotExecutor,
+	BrowserSnapshotNode,
+	BrowserSnapshotResult,
 	BashExecutor,
 	CreateDefaultToolsOptions,
 	DefaultToolName,

@@ -5,6 +5,7 @@ import {
 	getToolContextTelemetry,
 } from "../../services/telemetry/tool-context";
 import {
+	createBrowserSnapshotTool,
 	createBashTool,
 	createDefaultTools,
 	createReadFilesTool,
@@ -339,6 +340,88 @@ describe("default submit_and_exit tool", () => {
 		expect(execute).toHaveBeenCalledWith(
 			"Done and verified with the requested checks.",
 			true,
+			expect.objectContaining({
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			}),
+		);
+	});
+});
+
+describe("default browser_snapshot tool", () => {
+	it("is included only when browser automation is enabled with a snapshot executor", () => {
+		const toolsWithoutFlag = createDefaultTools({
+			executors: {
+				browserSnapshot: async () => ({ title: "Dashboard" }),
+			},
+		});
+		expect(toolsWithoutFlag.map((tool) => tool.name)).not.toContain(
+			"browser_snapshot",
+		);
+
+		const toolsWithoutExecutor = createDefaultTools({
+			executors: {},
+			enableBrowserAutomation: true,
+		});
+		expect(toolsWithoutExecutor.map((tool) => tool.name)).not.toContain(
+			"browser_snapshot",
+		);
+
+		const toolsWithExecutor = createDefaultTools({
+			executors: {
+				browserSnapshot: async () => ({ title: "Dashboard" }),
+			},
+			enableBrowserAutomation: true,
+			enableReadFiles: false,
+			enableSearch: false,
+			enableBash: false,
+			enableWebFetch: false,
+			enableEditor: false,
+			enableSkills: false,
+			enableAskQuestion: false,
+		});
+		expect(toolsWithExecutor.map((tool) => tool.name)).toEqual([
+			"browser_snapshot",
+		]);
+	});
+
+	it("validates input and redacts sensitive snapshot fields", async () => {
+		const execute = vi.fn(async () => ({
+			url: "https://example.test/dashboard?access_token=secret-token-value-1234567890",
+			title: "Dashboard",
+			text: "api_key=sk-secret-value-1234567890",
+			logs: "Authorization: Bearer secret-token-value-1234567890",
+			nodes: [
+				{
+					role: "textbox",
+					value: "password=secret-token-value-1234567890",
+				},
+			],
+		}));
+		const tool = createBrowserSnapshotTool(execute);
+
+		const result = await tool.execute(
+			{ include_logs: true, include_screenshot: false },
+			{
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			},
+		);
+		const payload = JSON.stringify(result);
+
+		expect(result).toEqual(
+			expect.objectContaining({
+				query: "browser_snapshot",
+				success: true,
+			}),
+		);
+		expect(payload).not.toContain("secret-token-value-1234567890");
+		expect(payload).not.toContain("sk-secret-value-1234567890");
+		expect(payload).toContain("[REDACTED]");
+		expect(execute).toHaveBeenCalledWith(
+			{ include_logs: true, include_screenshot: false },
 			expect.objectContaining({
 				agentId: "agent-1",
 				conversationId: "conv-1",

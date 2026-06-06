@@ -42,6 +42,25 @@ describe("builtin tool catalog", () => {
 		expect(names).toContain("team_run_task");
 	});
 
+	it("includes browser catalog entry disabled by default", () => {
+		const catalog = getCoreBuiltinToolCatalog({ mode: "act" });
+		const browserEntry = catalog.find((entry) => entry.id === "browser");
+
+		expect(browserEntry).toMatchObject({
+			defaultEnabled: false,
+			headlessToolNames: ["browser_snapshot"],
+		});
+
+		const selected = resolveCoreSelectedToolIds({
+			enabled: true,
+			allowlist: ["browser"],
+			availabilityContext: { mode: "act" },
+		});
+		expect(getCoreHeadlessToolNames(selected, { mode: "act" })).toEqual([
+			"browser_snapshot",
+		]);
+	});
+
 	it("uses a single editor catalog entry and maps to apply_patch when routed", () => {
 		const actCatalog = getCoreBuiltinToolCatalog({ mode: "act" });
 		expect(actCatalog.some((entry) => entry.id === "apply_patch")).toBe(false);
