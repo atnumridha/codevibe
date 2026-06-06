@@ -6,9 +6,11 @@ import { createScheduleCommand } from "./schedule";
 
 const mockSendHubCommand = vi.hoisted(() => vi.fn());
 const mockEnsureCliHubServer = vi.hoisted(() => vi.fn());
+const mockParseAutomationEventNdjson = vi.hoisted(() => vi.fn());
 
 vi.mock("@cline/core", () => ({
 	sendHubCommand: mockSendHubCommand,
+	parseAutomationEventNdjson: mockParseAutomationEventNdjson,
 }));
 
 vi.mock("../utils/hub-runtime", () => ({
@@ -186,6 +188,214 @@ describe("runScheduleCommand create delivery metadata", () => {
 				}),
 			},
 		);
+	});
+});
+
+describe("runScheduleCommand event validate", () => {
+	afterEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("validates Cursor-style automation NDJSON from a file", async () => {
+		const sourcePath = join(
+			tmpdir(),
+			`cline-schedule-event-${Date.now()}-${Math.random()
+				.toString(36)
+				.slice(2)}.ndjson`,
+		);
+		await writeFile(
+			sourcePath,
+			`${JSON.stringify({ id: "evt_1", type: "git.commit.created" })}\n`,
+			"utf8",
+		);
+		mockParseAutomationEventNdjson.mockReturnValue({
+			events: [
+				{
+					eventId: "evt_1",
+					eventType: "git.commit.created",
+					source: "cursor",
+					occurredAt: "2026-06-06T00:00:00.000Z",
+					workspaceRoot: "/repo",
+					payload: { secret: "secret-value", ref: "main" },
+					attributes: { branch: "main" },
+				},
+			],
+			rejected: [
+				{
+					lineNumber: 2,
+					line: "{bad",
+					reason: "invalid_json",
+					message: "Unexpected token",
+				},
+			],
+		});
+
+		const output: string[] = [];
+		const errors: string[] = [];
+		try {
+			const code = await runScheduleCommand(
+				["event", "validate", sourcePath, "--json"],
+				{
+					writeln: (text?: string) => {
+						output.push(text ?? "");
+					},
+					writeErr: (text: string) => {
+						errors.push(text);
+					},
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(errors).toEqual([]);
+			expect(mockEnsureCliHubServer).not.toHaveBeenCalled();
+			expect(mockSendHubCommand).not.toHaveBeenCalled();
+			expect(mockParseAutomationEventNdjson).toHaveBeenCalledWith(
+				expect.stringContaining("evt_1"),
+				{ defaultSource: "cursor" },
+			);
+			const parsed = JSON.parse(output[0] ?? "{}");
+			expect(parsed).toMatchObject({
+				source: sourcePath,
+				defaultSource: "cursor",
+				eventCount: 1,
+				rejectedCount: 1,
+				valid: true,
+				events: [
+					{
+						eventId: "evt_1",
+						eventType: "git.commit.created",
+						payloadKeys: ["ref", "secret"],
+						attributeKeys: ["branch"],
+					},
+				],
+				rejected: [
+					{
+						lineNumber: 2,
+						reason: "invalid_json",
+						lineLength: 4,
+					},
+				],
+			});
+			expect(output[0]).not.toContain("secret-value");
+			expect(output[0]).not.toContain("{bad");
+		} finally {
+			await rm(sourcePath, { force: true });
+		}
+	});
+
+	it("fails strict validation when any NDJSON line is rejected", async () => {
+		const sourcePath = join(
+			tmpdir(),
+			`cline-schedule-event-${Date.now()}-${Math.random()
+				.toString(36)
+				.slice(2)}.ndjson`,
+		);
+		await writeFile(sourcePath, "{}\n", "utf8");
+		mockParseAutomationEventNdjson.mockReturnValue({
+			events: [
+				{
+					eventId: "evt_1",
+					eventType: "git.commit.created",
+					source: "cursor",
+					occurredAt: "2026-06-06T00:00:00.000Z",
+				},
+			],
+			rejected: [
+				{
+					lineNumber: 1,
+					line: "{}",
+					reason: "missing_field",
+					message: "automation event requires eventId and eventType",
+				},
+			],
+		});
+
+		const output: string[] = [];
+		const errors: string[] = [];
+		try {
+			const code = await runScheduleCommand(
+				["event", "validate", sourcePath, "--strict", "--json"],
+				{
+					writeln: (text?: string) => {
+						output.push(text ?? "");
+					},
+					writeErr: (text: string) => {
+						errors.push(text);
+					},
+				},
+			);
+
+			expect(code).toBe(1);
+			expect(errors).toEqual([]);
+			expect(mockEnsureCliHubServer).not.toHaveBeenCalled();
+			expect(mockSendHubCommand).not.toHaveBeenCalled();
+			expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+				eventCount: 1,
+				rejectedCount: 1,
+				valid: false,
+				strict: true,
+			});
+		} finally {
+			await rm(sourcePath, { force: true });
+		}
+	});
+
+	it("validates Cursor-style automation NDJSON from stdin", async () => {
+		const stdinSpy = vi
+			.spyOn(process.stdin, Symbol.asyncIterator)
+			.mockImplementation(() => {
+				async function* iterator() {
+					yield Buffer.from(
+						`${JSON.stringify({ id: "evt_stdin", type: "git.checkout.completed" })}\n`,
+						"utf8",
+					);
+				}
+				return iterator();
+			});
+		mockParseAutomationEventNdjson.mockReturnValue({
+			events: [
+				{
+					eventId: "evt_stdin",
+					eventType: "git.checkout.completed",
+					source: "cursor",
+					occurredAt: "2026-06-06T00:00:00.000Z",
+				},
+			],
+			rejected: [],
+		});
+
+		const output: string[] = [];
+		const errors: string[] = [];
+		try {
+			const code = await runScheduleCommand(
+				["event", "validate", "-", "--json"],
+				{
+					writeln: (text?: string) => {
+						output.push(text ?? "");
+					},
+					writeErr: (text: string) => {
+						errors.push(text);
+					},
+				},
+			);
+
+			expect(code).toBe(0);
+			expect(errors).toEqual([]);
+			expect(mockEnsureCliHubServer).not.toHaveBeenCalled();
+			expect(mockSendHubCommand).not.toHaveBeenCalled();
+			expect(mockParseAutomationEventNdjson).toHaveBeenCalledWith(
+				expect.stringContaining("evt_stdin"),
+				{ defaultSource: "cursor" },
+			);
+			expect(JSON.parse(output[0] ?? "{}")).toMatchObject({
+				source: "stdin",
+				eventCount: 1,
+				rejectedCount: 0,
+				valid: true,
+			});
+		} finally {
+			stdinSpy.mockRestore();
+		}
 	});
 });
 

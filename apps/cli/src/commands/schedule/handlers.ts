@@ -17,6 +17,7 @@ import {
 	registerScheduleImportCommand,
 	registerScheduleUpdateCommand,
 } from "./import-export";
+import { runScheduleEventValidateCommand } from "./event-validate";
 import type { CommandIo, ScheduleActionWrapper } from "./types";
 
 export function registerScheduleCommands(
@@ -401,6 +402,36 @@ export function registerScheduleCommands(
 				emitJsonOrText(!!opts.json, io, runs);
 			} finally {
 				client.close();
+			}
+		}),
+	);
+
+	const eventCmd = schedule
+		.command("event")
+		.description("Validate automation event inputs");
+	const validateEventCmd = eventCmd
+		.command("validate")
+		.description("Validate Cursor-compatible automation event NDJSON")
+		.argument("[source]", "NDJSON file path, or - for stdin", "-")
+		.option("--default-source <source>", "Default source for source-less events", "cursor")
+		.option("--strict", "Fail if any input line is rejected")
+		.option("--json", "Output as JSON");
+	validateEventCmd.action(
+		action(async (source: string) => {
+			const opts = validateEventCmd.opts<{
+				defaultSource?: string;
+				strict?: boolean;
+				json?: boolean;
+			}>();
+			const code = await runScheduleEventValidateCommand({
+				source,
+				defaultSource: opts.defaultSource,
+				strict: opts.strict,
+				json: opts.json,
+				io,
+			});
+			if (code !== 0) {
+				fail();
 			}
 		}),
 	);

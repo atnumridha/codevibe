@@ -182,6 +182,13 @@ export type {
 	RestoreOptions,
 	RestoreResult,
 } from "./cline-core/types";
+export {
+	parseAutomationEventNdjson,
+	type AutomationEventNdjsonParseResult,
+	type AutomationEventNdjsonRejectedLine,
+	type AutomationEventNdjsonRejectReason,
+	type ParseAutomationEventNdjsonOptions,
+} from "./cron/events/automation-event-ndjson";
 export type {
 	LoadAgentPluginFromPathOptions,
 	PluginInitializationFailure,
