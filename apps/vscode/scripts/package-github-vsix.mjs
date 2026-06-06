@@ -51,13 +51,14 @@ const githubVsixManifestOverrides = {
 
 function usage() {
 	console.error(
-		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--install] [--verify-install] [--code <path>] [--print-metadata]",
+		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--install] [--verify-install] [--code <path>] [--print-metadata]",
 	)
 }
 
 function parseArgs(argv) {
 	const options = {
 		outDir: "dist",
+		outFile: undefined,
 		install: false,
 		verifyInstall: false,
 		code: undefined,
@@ -72,6 +73,12 @@ function parseArgs(argv) {
 				throw new Error("--out-dir requires a value")
 			}
 			options.outDir = outDir
+		} else if (arg === "--out-file") {
+			const outFile = argv[++index]
+			if (!outFile) {
+				throw new Error("--out-file requires a value")
+			}
+			options.outFile = outFile
 		} else if (arg === "--install") {
 			options.install = true
 		} else if (arg === "--verify-install") {
@@ -185,6 +192,32 @@ function runCommand(candidates, args, options = {}) {
 	throw lastError ?? new Error(`Unable to find command: ${candidates.join(" or ")}`)
 }
 
+function installSignalCleanup(cleanup) {
+	let interrupted = false
+	const cleanupOnSignal = (exitCode) => () => {
+		interrupted = true
+		try {
+			cleanup()
+		} catch (error) {
+			console.error(`package-github-vsix: failed to restore package inputs on signal: ${error instanceof Error ? error.message : String(error)}`)
+		}
+		process.exit(exitCode)
+	}
+	const onSigint = cleanupOnSignal(130)
+	const onSigterm = cleanupOnSignal(143)
+	process.on("SIGINT", onSigint)
+	process.on("SIGTERM", onSigterm)
+	return {
+		get interrupted() {
+			return interrupted
+		},
+		remove() {
+			process.off("SIGINT", onSigint)
+			process.off("SIGTERM", onSigterm)
+		},
+	}
+}
+
 function readPackageJson() {
 	return JSON.parse(fs.readFileSync(packageJsonPath, "utf8"))
 }
@@ -215,6 +248,14 @@ function readPackageMetadata(packageJson = readPackageJson()) {
 		extensionId: `${packageJson.publisher.trim()}.${packageJson.name.trim()}`,
 		version: packageJson.version.trim(),
 	}
+}
+
+function resolveOutputPath(options, metadata) {
+	if (options.outFile) {
+		return path.resolve(projectRoot, options.outFile)
+	}
+	const outDir = path.resolve(projectRoot, options.outDir)
+	return path.join(outDir, `codevibe-${metadata.version}.vsix`)
 }
 
 function verifyInstalledExtension(listOutput, expectedExtension) {
@@ -313,6 +354,9 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	}
 	if (properties["cline.cursorCompatibility.safeBrowserEvaluate.enabled"].default !== false) {
 		throw new Error(`${label} must default safe browser evaluate to false`)
+	}
+	if (properties["cline.cursorCompatibility.sandboxPolicy"].default !== "prompt") {
+		throw new Error(`${label} must default cline.cursorCompatibility.sandboxPolicy to prompt`)
 	}
 	for (const value of ["prompt", "workspace", "readOnly", "disabled"]) {
 		assertArrayIncludes(
@@ -469,8 +513,17 @@ function assertPackagedVsix(outPath) {
 	if (!zip.entries.has("extension/dist/extension.js")) {
 		throw new Error("VSIX artifact is missing extension/dist/extension.js")
 	}
+	if (![...zip.entries.keys()].some((entryName) => entryName.startsWith("extension/webview-ui/build/"))) {
+		throw new Error("VSIX artifact is missing extension/webview-ui/build assets")
+	}
 	const packagedPackageJson = JSON.parse(readZipEntry(zip, "extension/package.json").toString("utf8"))
 	assertCursorParityManifest(packagedPackageJson, "packaged VSIX manifest")
+	for (const assetPath of collectManifestAssetPaths(packagedPackageJson)) {
+		const entryName = `extension/${assetPath.replace(/\\/g, "/")}`
+		if (!zip.entries.has(entryName)) {
+			throw new Error(`VSIX artifact is missing manifest asset ${entryName}`)
+		}
+	}
 }
 
 async function verifyInstallWithCode(outPath, metadata, codePath) {
@@ -506,8 +559,7 @@ async function main() {
 	const originalPackageJson = JSON.parse(originalPackageJsonText)
 	const githubVsixPackageJson = createGithubVsixPackageJson(originalPackageJson)
 	const metadata = readPackageMetadata(githubVsixPackageJson)
-	const outDir = path.resolve(projectRoot, options.outDir)
-	const outPath = path.join(outDir, `codevibe-${metadata.version}.vsix`)
+	const outPath = resolveOutputPath(options, metadata)
 	assertManifestInputs(githubVsixPackageJson)
 	if (options.printMetadata) {
 		console.log(
@@ -524,11 +576,16 @@ async function main() {
 		return
 	}
 
+	const restorePackageInputs = () => {
+		fs.writeFileSync(packageJsonPath, originalPackageJsonText)
+		restoreMarketplaceReadme()
+	}
+	const signalCleanup = installSignalCleanup(restorePackageInputs)
 	try {
 		swapInMarketplaceReadme()
 		writePackageJson(githubVsixPackageJson)
 		assertPackageInputs(githubVsixPackageJson)
-		fs.mkdirSync(outDir, { recursive: true })
+		fs.mkdirSync(path.dirname(outPath), { recursive: true })
 		runCommand(commandCandidates("vsce"), ["package", "--allow-package-secrets", "sendgrid", "--out", outPath])
 		assertBuildOutputs()
 		assertPackagedVsix(outPath)
@@ -542,8 +599,10 @@ async function main() {
 			await verifyInstallWithCode(outPath, metadata, options.code)
 		}
 	} finally {
-		fs.writeFileSync(packageJsonPath, originalPackageJsonText)
-		restoreMarketplaceReadme()
+		signalCleanup.remove()
+		if (!signalCleanup.interrupted) {
+			restorePackageInputs()
+		}
 	}
 }
 

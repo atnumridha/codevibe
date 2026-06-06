@@ -68,6 +68,34 @@ trap "rm -rf $TEMP_DIR" EXIT
 echo "Extracting VSIX..."
 unzip -q "$SOURCE_VSIX" -d "$TEMP_DIR"
 
+PACKAGE_JSON="$TEMP_DIR/extension/package.json"
+if [ ! -f "$PACKAGE_JSON" ]; then
+    echo "Error: VSIX is missing extension/package.json"
+    exit 1
+fi
+
+if ! jq -e '.name == "codevibe" and .publisher == "atnumridha" and .displayName == "CodeVibe"' "$PACKAGE_JSON" > /dev/null 2>&1; then
+    echo "Error: VSIX package manifest is not the CodeVibe Cursor-parity manifest"
+    exit 1
+fi
+
+REQUIRED_CONFIG_KEYS=(
+    "cline.openAiCodex.authSource"
+    "cline.cursorCompatibility.enabled"
+    "cline.cursorCompatibility.deepLinks.enabled"
+    "cline.cursorCompatibility.retrievalIndexing.privacyGate"
+    "cline.cursorCompatibility.sandboxPolicy"
+    "cline.cursorCompatibility.safeBrowserEvaluate.enabled"
+)
+for key in "${REQUIRED_CONFIG_KEYS[@]}"; do
+    if ! jq -e --arg key "$key" '.contributes.configuration.properties[$key]' "$PACKAGE_JSON" > /dev/null 2>&1; then
+        echo "Error: VSIX package manifest is missing Cursor-parity config key: $key"
+        exit 1
+    fi
+done
+
+echo "✓ Validated CodeVibe Cursor-parity VSIX manifest"
+
 # Copy endpoints.json to extension directory
 echo "Adding endpoints.json to extension/..."
 cp "$ENDPOINTS_JSON" "$TEMP_DIR/extension/endpoints.json"
@@ -81,4 +109,4 @@ cd - > /dev/null
 echo "✓ Successfully created $OUTPUT_VSIX with bundled endpoints.json"
 echo ""
 echo "The package is ready for enterprise distribution."
-echo "When installed, Cline will automatically use the bundled configuration."
+echo "When installed, CodeVibe will automatically use the bundled configuration."
