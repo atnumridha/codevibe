@@ -60,8 +60,12 @@ const BASE_TOOL_CATALOG: readonly RuntimeToolCatalogEntry[] = [
 	{
 		id: "browser",
 		description:
-			"Inspect browser state with read-only snapshots before using browser interaction tools.",
-		headlessToolNames: ["browser_snapshot"],
+			"Inspect and interact with browser state through host-provided snapshot, action, and screenshot tools.",
+		headlessToolNames: [
+			"browser_snapshot",
+			"browser_action",
+			"browser_screenshot",
+		],
 	},
 	{
 		id: "skills",

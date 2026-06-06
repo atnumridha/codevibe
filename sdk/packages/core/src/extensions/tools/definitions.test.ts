@@ -5,6 +5,8 @@ import {
 	getToolContextTelemetry,
 } from "../../services/telemetry/tool-context";
 import {
+	createBrowserActionTool,
+	createBrowserScreenshotTool,
 	createBrowserSnapshotTool,
 	createBashTool,
 	createDefaultTools,
@@ -349,11 +351,13 @@ describe("default submit_and_exit tool", () => {
 	});
 });
 
-describe("default browser_snapshot tool", () => {
-	it("is included only when browser automation is enabled with a snapshot executor", () => {
+describe("default browser tools", () => {
+	it("includes browser tools only when browser automation is enabled with matching executors", () => {
 		const toolsWithoutFlag = createDefaultTools({
 			executors: {
 				browserSnapshot: async () => ({ title: "Dashboard" }),
+				browserAction: async () => ({ title: "Clicked" }),
+				browserScreenshot: async () => ({ screenshot: "data:image/png;base64,abc" }),
 			},
 		});
 		expect(toolsWithoutFlag.map((tool) => tool.name)).not.toContain(
@@ -371,6 +375,10 @@ describe("default browser_snapshot tool", () => {
 		const toolsWithExecutor = createDefaultTools({
 			executors: {
 				browserSnapshot: async () => ({ title: "Dashboard" }),
+				browserAction: async () => ({ title: "Clicked" }),
+				browserScreenshot: async () => ({
+					screenshot: "data:image/png;base64,abc",
+				}),
 			},
 			enableBrowserAutomation: true,
 			enableReadFiles: false,
@@ -383,6 +391,8 @@ describe("default browser_snapshot tool", () => {
 		});
 		expect(toolsWithExecutor.map((tool) => tool.name)).toEqual([
 			"browser_snapshot",
+			"browser_action",
+			"browser_screenshot",
 		]);
 	});
 
@@ -422,6 +432,100 @@ describe("default browser_snapshot tool", () => {
 		expect(payload).toContain("[REDACTED]");
 		expect(execute).toHaveBeenCalledWith(
 			{ include_logs: true, include_screenshot: false },
+			expect.objectContaining({
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			}),
+		);
+	});
+
+	it("blocks browser evaluate unless explicitly enabled", async () => {
+		const execute = vi.fn(async () => ({
+			evaluationResult: "access_token=secret-token-value-1234567890",
+		}));
+		const tool = createBrowserActionTool(execute);
+
+		const result = await tool.execute(
+			{
+				action: "evaluate",
+				text: "window.localStorage.getItem('access_token')",
+			},
+			{
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			},
+		);
+
+		expect(result).toMatchObject({
+			query: "browser_action:evaluate",
+			success: false,
+		});
+		expect(execute).not.toHaveBeenCalled();
+	});
+
+	it("runs browser actions when enabled and redacts sensitive results", async () => {
+		const execute = vi.fn(async () => ({
+			evaluationResult: "api_key=sk-secret-value-1234567890",
+			logs: "Authorization: Bearer secret-token-value-1234567890",
+		}));
+		const tool = createBrowserActionTool(execute, {
+			enableSafeBrowserEvaluate: true,
+		});
+
+		const result = await tool.execute(
+			{ action: "evaluate", text: "document.title", tab_id: "tab-1" },
+			{
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			},
+		);
+		const payload = JSON.stringify(result);
+
+		expect(result).toMatchObject({
+			query: "browser_action:evaluate:tab-1",
+			success: true,
+		});
+		expect(payload).not.toContain("secret-token-value-1234567890");
+		expect(payload).not.toContain("sk-secret-value-1234567890");
+		expect(payload).toContain("[REDACTED]");
+		expect(execute).toHaveBeenCalledWith(
+			{ action: "evaluate", text: "document.title", tab_id: "tab-1" },
+			expect.objectContaining({
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			}),
+		);
+	});
+
+	it("captures browser screenshots through host executors", async () => {
+		const execute = vi.fn(async () => ({
+			screenshot: "data:image/png;base64,abc",
+			title: "token=secret-token-value-1234567890",
+		}));
+		const tool = createBrowserScreenshotTool(execute);
+
+		const result = await tool.execute(
+			{ tab_id: "tab-1", full_page: true },
+			{
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			},
+		);
+		const payload = JSON.stringify(result);
+
+		expect(result).toMatchObject({
+			query: "browser_screenshot:tab-1",
+			success: true,
+		});
+		expect(payload).not.toContain("secret-token-value-1234567890");
+		expect(payload).toContain("[REDACTED]");
+		expect(execute).toHaveBeenCalledWith(
+			{ tab_id: "tab-1", full_page: true },
 			expect.objectContaining({
 				agentId: "agent-1",
 				conversationId: "conv-1",

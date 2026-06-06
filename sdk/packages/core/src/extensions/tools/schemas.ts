@@ -206,6 +206,93 @@ export const BrowserSnapshotInputSchema = z
 		"Capture a read-only snapshot of the active browser tab or the provided tab id. This tool must not click, type, navigate, evaluate JavaScript, or mutate page state.",
 	);
 
+export const BrowserActionNameSchema = z.enum([
+	"launch",
+	"click",
+	"type",
+	"scroll_down",
+	"scroll_up",
+	"evaluate",
+	"close",
+]);
+
+/**
+ * Schema for browser_action tool input
+ */
+export const BrowserActionInputSchema = z
+	.object({
+		action: BrowserActionNameSchema.describe("Browser action to perform."),
+		tab_id: z
+			.string()
+			.min(1)
+			.optional()
+			.describe("Optional browser tab identifier. Omit to use the active tab."),
+		url: z
+			.string()
+			.url()
+			.optional()
+			.describe("URL to open when action is launch."),
+		coordinate: z
+			.string()
+			.min(1)
+			.optional()
+			.describe("Screen coordinate or element reference for click actions."),
+		text: z
+			.string()
+			.min(1)
+			.max(INPUT_ARG_CHAR_LIMIT)
+			.optional()
+			.describe("Text to type, or JavaScript to evaluate when explicitly enabled."),
+	})
+	.superRefine((value, ctx) => {
+		if (value.action === "launch" && !value.url) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["url"],
+				message: "url is required for launch",
+			});
+		}
+		if (value.action === "click" && !value.coordinate) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["coordinate"],
+				message: "coordinate is required for click",
+			});
+		}
+		if (
+			(value.action === "type" || value.action === "evaluate") &&
+			!value.text
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["text"],
+				message: "text is required for type and evaluate",
+			});
+		}
+	})
+	.describe(
+		"Perform a Cursor-compatible browser action through a host-provided executor. JavaScript evaluation is disabled unless enableSafeBrowserEvaluate is explicitly true.",
+	);
+
+/**
+ * Schema for browser_screenshot tool input
+ */
+export const BrowserScreenshotInputSchema = z
+	.object({
+		tab_id: z
+			.string()
+			.min(1)
+			.optional()
+			.describe("Optional browser tab identifier. Omit to screenshot the active tab."),
+		full_page: z
+			.boolean()
+			.optional()
+			.describe("Whether to capture the full page when supported by the executor."),
+	})
+	.describe(
+		"Capture a screenshot of the active browser tab or provided tab id through a host-provided executor.",
+	);
+
 /**
  * Schema for editor tool input
  */
@@ -346,6 +433,18 @@ export type FetchWebContentInput = z.infer<typeof FetchWebContentInputSchema>;
  * Input for the browser_snapshot tool
  */
 export type BrowserSnapshotInput = z.infer<typeof BrowserSnapshotInputSchema>;
+
+/**
+ * Input for the browser_action tool
+ */
+export type BrowserActionInput = z.infer<typeof BrowserActionInputSchema>;
+
+/**
+ * Input for the browser_screenshot tool
+ */
+export type BrowserScreenshotInput = z.infer<
+	typeof BrowserScreenshotInputSchema
+>;
 
 /**
  * Input for the editor tool

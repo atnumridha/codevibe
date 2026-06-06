@@ -90,6 +90,13 @@ describe("HubSessionClient", () => {
 			url: "https://example.test/",
 			title: "Example",
 		}));
+		const browserAction = vi.fn(async () => ({
+			url: "https://example.test/",
+			title: "Clicked",
+		}));
+		const browserScreenshot = vi.fn(async () => ({
+			screenshot: "data:image/png;base64,abc",
+		}));
 		MockWebSocket.commandHandler = (frame) => {
 			if (frame.envelope?.command !== "session.create") {
 				return undefined;
@@ -114,6 +121,8 @@ describe("HubSessionClient", () => {
 			capabilities: {
 				toolExecutors: {
 					browserSnapshot,
+					browserAction,
+					browserScreenshot,
 				},
 			} as never,
 		});
@@ -146,6 +155,16 @@ describe("HubSessionClient", () => {
 					kind: "toolExecutor",
 					executor: "browserSnapshot",
 					capabilityName: "tool_executor.browserSnapshot",
+				},
+				{
+					kind: "toolExecutor",
+					executor: "browserAction",
+					capabilityName: "tool_executor.browserAction",
+				},
+				{
+					kind: "toolExecutor",
+					executor: "browserScreenshot",
+					capabilityName: "tool_executor.browserScreenshot",
 				},
 			],
 		});

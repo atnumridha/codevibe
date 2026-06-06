@@ -13,7 +13,10 @@ import {
 } from "@cline/shared";
 import { captureRunCommandsTimeout } from "../../services/telemetry/core-events";
 import { getToolContextTelemetry } from "../../services/telemetry/tool-context";
-import { sanitizeBrowserSnapshotResult } from "./browser-redaction";
+import {
+	redactSensitiveBrowserText,
+	sanitizeBrowserSnapshotResult,
+} from "./browser-redaction";
 import {
 	formatError,
 	formatReadFileQuery,
@@ -30,8 +33,12 @@ import {
 	ApplyPatchInputUnionSchema,
 	type AskQuestionInput,
 	AskQuestionInputSchema,
+	type BrowserActionInput,
+	BrowserActionInputSchema,
 	type BrowserSnapshotInput,
 	BrowserSnapshotInputSchema,
+	type BrowserScreenshotInput,
+	BrowserScreenshotInputSchema,
 	type EditFileInput,
 	EditFileInputSchema,
 	type FetchWebContentInput,
@@ -57,7 +64,9 @@ import type {
 	ApplyPatchExecutor,
 	AskQuestionExecutor,
 	BashExecutor,
+	BrowserActionExecutor,
 	BrowserSnapshotExecutor,
+	BrowserScreenshotExecutor,
 	CreateDefaultToolsOptions,
 	DefaultToolsConfig,
 	EditorExecutor,
@@ -526,6 +535,122 @@ export function createBrowserSnapshotTool(
 	});
 }
 
+/**
+ * Create the browser_action tool.
+ *
+ * Performs Cursor-compatible browser interactions through a host-provided
+ * executor. JavaScript evaluation is disabled unless explicitly enabled in
+ * config so hosts can expose click/type/navigation without widening to eval.
+ */
+export function createBrowserActionTool(
+	executor: BrowserActionExecutor,
+	config: Pick<
+		DefaultToolsConfig,
+		"browserActionTimeoutMs" | "enableSafeBrowserEvaluate"
+	> = {},
+): AgentTool<BrowserActionInput, ToolOperationResult> {
+	const timeoutMs = config.browserActionTimeoutMs ?? 10000;
+
+	return createTool<BrowserActionInput, ToolOperationResult>({
+		name: "browser_action",
+		description:
+			"Perform a Cursor-compatible browser action through a host-provided browser executor. " +
+			"Supports launch, click, type, scroll_down, scroll_up, evaluate, and close. " +
+			"JavaScript evaluation is disabled unless enableSafeBrowserEvaluate is explicitly true.",
+		inputSchema: zodToJsonSchema(BrowserActionInputSchema),
+		timeoutMs,
+		retryable: true,
+		maxRetries: 1,
+		execute: async (input, context) => {
+			const validatedInput = validateWithZod(BrowserActionInputSchema, input);
+			const query = validatedInput.tab_id
+				? `browser_action:${validatedInput.action}:${validatedInput.tab_id}`
+				: `browser_action:${validatedInput.action}`;
+			if (
+				validatedInput.action === "evaluate" &&
+				config.enableSafeBrowserEvaluate !== true
+			) {
+				return {
+					query,
+					result: "",
+					error:
+						"browser_action evaluate is disabled. Enable safe browser evaluate before running JavaScript in a page.",
+					success: false,
+				};
+			}
+			try {
+				const result = await withTimeout(
+					executor(validatedInput, context),
+					timeoutMs,
+					`browser_action timed out after ${timeoutMs}ms`,
+				);
+				return {
+					query,
+					result: sanitizeBrowserSnapshotResult(result),
+					success: true,
+				};
+			} catch (error) {
+				const msg = redactSensitiveBrowserText(formatError(error)) ?? "";
+				return {
+					query,
+					result: "",
+					error: `browser_action failed: ${msg}`,
+					success: false,
+				};
+			}
+		},
+	});
+}
+
+/**
+ * Create the browser_screenshot tool.
+ */
+export function createBrowserScreenshotTool(
+	executor: BrowserScreenshotExecutor,
+	config: Pick<DefaultToolsConfig, "browserScreenshotTimeoutMs"> = {},
+): AgentTool<BrowserScreenshotInput, ToolOperationResult> {
+	const timeoutMs = config.browserScreenshotTimeoutMs ?? 10000;
+
+	return createTool<BrowserScreenshotInput, ToolOperationResult>({
+		name: "browser_screenshot",
+		description:
+			"Capture a screenshot of the active browser tab or a provided tab id through a host-provided browser executor.",
+		inputSchema: zodToJsonSchema(BrowserScreenshotInputSchema),
+		timeoutMs,
+		retryable: true,
+		maxRetries: 1,
+		execute: async (input, context) => {
+			const validatedInput = validateWithZod(
+				BrowserScreenshotInputSchema,
+				input ?? {},
+			);
+			const query = validatedInput.tab_id
+				? `browser_screenshot:${validatedInput.tab_id}`
+				: "browser_screenshot";
+			try {
+				const screenshot = await withTimeout(
+					executor(validatedInput, context),
+					timeoutMs,
+					`browser_screenshot timed out after ${timeoutMs}ms`,
+				);
+				return {
+					query,
+					result: sanitizeBrowserSnapshotResult(screenshot),
+					success: true,
+				};
+			} catch (error) {
+				const msg = redactSensitiveBrowserText(formatError(error)) ?? "";
+				return {
+					query,
+					result: "",
+					error: `browser_screenshot failed: ${msg}`,
+					success: false,
+				};
+			}
+		},
+	});
+}
+
 const APPLY_PATCH_TOOL_DESC = `Use \`apply_patch\` to edit files with the canonical freeform patch grammar. Pass the patch text directly as the \`input\` string. Prefer the exact format below:
 
 *** Begin Patch
@@ -877,9 +1002,17 @@ export function createDefaultTools(
 		tools.push(createWebFetchTool(executors.webFetch, config));
 	}
 
-	// Add read-only browser automation tool if explicitly enabled and executor provided
-	if (enableBrowserAutomation && executors.browserSnapshot) {
-		tools.push(createBrowserSnapshotTool(executors.browserSnapshot, config));
+	// Add browser automation tools if explicitly enabled and executors are provided
+	if (enableBrowserAutomation) {
+		if (executors.browserSnapshot) {
+			tools.push(createBrowserSnapshotTool(executors.browserSnapshot, config));
+		}
+		if (executors.browserAction) {
+			tools.push(createBrowserActionTool(executors.browserAction, config));
+		}
+		if (executors.browserScreenshot) {
+			tools.push(createBrowserScreenshotTool(executors.browserScreenshot, config));
+		}
 	}
 
 	// Add editor tool if enabled and executor provided,

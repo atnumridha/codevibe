@@ -48,7 +48,11 @@ describe("builtin tool catalog", () => {
 
 		expect(browserEntry).toMatchObject({
 			defaultEnabled: false,
-			headlessToolNames: ["browser_snapshot"],
+			headlessToolNames: [
+				"browser_snapshot",
+				"browser_action",
+				"browser_screenshot",
+			],
 		});
 
 		const selected = resolveCoreSelectedToolIds({
@@ -58,6 +62,8 @@ describe("builtin tool catalog", () => {
 		});
 		expect(getCoreHeadlessToolNames(selected, { mode: "act" })).toEqual([
 			"browser_snapshot",
+			"browser_action",
+			"browser_screenshot",
 		]);
 	});
 

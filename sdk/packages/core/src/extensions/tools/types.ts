@@ -11,7 +11,9 @@ import type {
 } from "@cline/shared";
 import type {
 	ApplyPatchInput,
+	BrowserActionInput,
 	BrowserSnapshotInput,
+	BrowserScreenshotInput,
 	EditFileInput,
 	ReadFileRequest,
 	StructuredCommandInput,
@@ -57,6 +59,10 @@ export interface BrowserSnapshotResult {
 	screenshot?: string | ImageContent;
 	nodes?: BrowserSnapshotNode[];
 	[key: string]: unknown;
+}
+
+export interface BrowserActionResult extends BrowserSnapshotResult {
+	evaluationResult?: string;
 }
 
 // =============================================================================
@@ -127,6 +133,26 @@ export type BrowserSnapshotExecutor = (
 	input: BrowserSnapshotInput,
 	context: AgentToolContext,
 ) => Promise<string | BrowserSnapshotResult>;
+
+/**
+ * Executor for Cursor-compatible browser interactions.
+ *
+ * The executor owns browser/tab state and must enforce host-side approval,
+ * origin, and tab lifecycle constraints. JavaScript evaluation is gated before
+ * this executor is called unless explicitly enabled by config.
+ */
+export type BrowserActionExecutor = (
+	input: BrowserActionInput,
+	context: AgentToolContext,
+) => Promise<string | BrowserActionResult>;
+
+/**
+ * Executor for capturing browser screenshots.
+ */
+export type BrowserScreenshotExecutor = (
+	input: BrowserScreenshotInput,
+	context: AgentToolContext,
+) => Promise<string | ImageContent | BrowserSnapshotResult>;
 
 /**
  * Executor for editing files
@@ -238,6 +264,10 @@ export interface ToolExecutors {
 	webFetch?: WebFetchExecutor;
 	/** Read-only browser snapshot implementation */
 	browserSnapshot?: BrowserSnapshotExecutor;
+	/** Cursor-compatible browser action implementation */
+	browserAction?: BrowserActionExecutor;
+	/** Browser screenshot implementation */
+	browserScreenshot?: BrowserScreenshotExecutor;
 	/** Filesystem editor implementation */
 	editor?: EditorExecutor;
 	/** Apply patch implementation */
@@ -263,6 +293,8 @@ export type DefaultToolName =
 	| "run_commands"
 	| "fetch_web_content"
 	| "browser_snapshot"
+	| "browser_action"
+	| "browser_screenshot"
 	| "apply_patch"
 	| "editor"
 	| "skills"
@@ -298,10 +330,16 @@ export interface DefaultToolsConfig {
 	enableWebFetch?: boolean;
 
 	/**
-	 * Enable read-only browser automation tools
+	 * Enable browser automation tools
 	 * @default false
 	 */
 	enableBrowserAutomation?: boolean;
+
+	/**
+	 * Enable JavaScript evaluation through browser_action.
+	 * @default false
+	 */
+	enableSafeBrowserEvaluate?: boolean;
 
 	/**
 	 * Enable the apply_patch tool
@@ -361,6 +399,18 @@ export interface DefaultToolsConfig {
 	 * @default 10000
 	 */
 	browserSnapshotTimeoutMs?: number;
+
+	/**
+	 * Timeout for browser action operations in milliseconds
+	 * @default 10000
+	 */
+	browserActionTimeoutMs?: number;
+
+	/**
+	 * Timeout for browser screenshot operations in milliseconds
+	 * @default 10000
+	 */
+	browserScreenshotTimeoutMs?: number;
 
 	/**
 	 * Timeout for search operations in milliseconds
