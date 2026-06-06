@@ -5,7 +5,7 @@ import type { ChatCompletionTool } from "openai/resources/chat/completions"
 import * as os from "os"
 import { MessageEvent as UndiciMessageEvent, WebSocket as UndiciWebSocket } from "undici"
 import { v7 as uuidv7 } from "uuid"
-import { openAiCodexOAuthManager } from "@/integrations/openai-codex/oauth"
+import { OPENAI_CODEX_BACKEND_CONFIG, openAiCodexOAuthManager } from "@/integrations/openai-codex/oauth"
 import { buildExternalBasicHeaders } from "@/services/EnvUtils"
 import { featureFlagsService } from "@/services/feature-flags"
 import { ClineStorageMessage } from "@/shared/messages/content"
@@ -21,7 +21,7 @@ import { ApiStream, ApiStreamUsageChunk } from "../transform/stream"
  * OpenAI Codex base URL for API requests
  * Routes to chatgpt.com/backend-api/codex
  */
-const CODEX_API_BASE_URL = "https://chatgpt.com/backend-api/codex"
+const CODEX_API_BASE_URL = OPENAI_CODEX_BACKEND_CONFIG.baseUrl
 const CODEX_RESPONSES_WEBSOCKET_URL = "wss://chatgpt.com/backend-api/codex/responses"
 
 interface OpenAiCodexHandlerOptions extends CommonApiHandlerOptions {
@@ -206,17 +206,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 		this.abortController = new AbortController()
 
 		try {
-			// Get ChatGPT account ID for organization subscriptions
-			const accountId = await openAiCodexOAuthManager.getAccountId()
-
-			// Build Codex-specific headers
-			const codexHeaders: Record<string, string> = {
-				originator: "cline",
-				session_id: this.sessionId,
-				"User-Agent": `cline/${process.env.npm_package_version || "1.0.0"} (${os.platform()} ${os.release()}; ${os.arch()}) node/${process.version.slice(1)}`,
-				...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
-				...buildExternalBasicHeaders(),
-			}
+			const codexHeaders = await this.buildCodexHeaders()
 
 			if (useWebsocketMode) {
 				try {
@@ -486,21 +476,11 @@ export class OpenAiCodexHandler implements ApiHandler {
 	private async *makeCodexRequest(requestBody: any, model: { id: string; info: ModelInfo }, accessToken: string): ApiStream {
 		const url = `${CODEX_API_BASE_URL}/responses`
 
-		// Get ChatGPT account ID for organization subscriptions
-		const accountId = await openAiCodexOAuthManager.getAccountId()
-
 		// Build headers with required Codex-specific fields
 		const headers: Record<string, string> = {
 			"Content-Type": "application/json",
 			Authorization: `Bearer ${accessToken}`,
-			originator: "cline",
-			session_id: this.sessionId,
-			"User-Agent": `cline/${process.env.npm_package_version || "1.0.0"} (${os.platform()} ${os.release()}; ${os.arch()}) node/${process.version.slice(1)}`,
-		}
-
-		// Add ChatGPT-Account-Id if available
-		if (accountId) {
-			headers["ChatGPT-Account-Id"] = accountId
+			...(await this.buildCodexHeaders()),
 		}
 
 		try {
@@ -718,6 +698,22 @@ export class OpenAiCodexHandler implements ApiHandler {
 	abort(): void {
 		this.closeResponsesWebsocket()
 		this.abortController?.abort()
+	}
+
+	private async buildCodexHeaders(): Promise<Record<string, string>> {
+		const [accountId, installationId] = await Promise.all([
+			openAiCodexOAuthManager.getAccountId(),
+			openAiCodexOAuthManager.getInstallationId(),
+		])
+
+		return {
+			originator: "cline",
+			session_id: this.sessionId,
+			"User-Agent": `cline/${process.env.npm_package_version || "1.0.0"} (${os.platform()} ${os.release()}; ${os.arch()}) node/${process.version.slice(1)}`,
+			...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
+			...(installationId ? { "x-codex-installation-id": installationId } : {}),
+			...buildExternalBasicHeaders(),
+		}
 	}
 
 	getModel(): { id: OpenAiCodexModelId; info: ModelInfo } {

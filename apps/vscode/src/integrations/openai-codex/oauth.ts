@@ -1,5 +1,8 @@
 import * as crypto from "crypto"
+import { readFile } from "fs/promises"
 import * as http from "http"
+import * as os from "os"
+import * as path from "path"
 import { URL } from "url"
 import { z } from "zod"
 import { StateManager } from "@/core/storage/StateManager"
@@ -25,6 +28,11 @@ export const OPENAI_CODEX_OAUTH_CONFIG = {
 	callbackPort: 1455,
 } as const
 
+export const OPENAI_CODEX_BACKEND_CONFIG = {
+	baseUrl: "https://chatgpt.com/backend-api/codex",
+	defaultClientVersion: "0.136.0",
+} as const
+
 // Token storage key - must match the key in SECRETS_KEYS (state-keys.ts)
 const OPENAI_CODEX_CREDENTIALS_KEY = "openai-codex-oauth-credentials"
 
@@ -33,14 +41,25 @@ const openAiCodexCredentialsSchema = z.object({
 	type: z.literal("openai-codex"),
 	access_token: z.string().min(1),
 	refresh_token: z.string().min(1),
+	id_token: z.string().min(1).optional(),
 	// expires is in milliseconds since epoch
 	expires: z.number(),
 	email: z.string().optional(),
 	// ChatGPT account ID extracted from JWT claims (for ChatGPT-Account-Id header)
 	accountId: z.string().optional(),
+	tokenSource: z.enum(["oauth", "codex-home"]).optional(),
+	installationId: z.string().min(1).optional(),
+	clientVersion: z.string().min(1).optional(),
+	authMode: z.string().min(1).optional(),
 })
 
 export type OpenAiCodexCredentials = z.infer<typeof openAiCodexCredentialsSchema>
+
+export interface OpenAiCodexBackendModel {
+	id: string
+	name?: string
+	supportedInApi?: boolean
+}
 
 // Token response schema from OpenAI
 const tokenResponseSchema = z.object({
@@ -59,16 +78,50 @@ interface IdTokenClaims {
 	chatgpt_account_id?: string
 	organizations?: Array<{ id: string }>
 	email?: string
+	exp?: number
 	"https://api.openai.com/auth"?: {
 		chatgpt_account_id?: string
 	}
 }
 
+const codexAuthJsonSchema = z
+	.object({
+		auth_mode: z.string().optional(),
+		tokens: z
+			.object({
+				access_token: z.string().min(1).optional(),
+				refresh_token: z.string().min(1).optional(),
+				id_token: z.string().min(1).optional(),
+			})
+			.passthrough(),
+	})
+	.passthrough()
+
+const codexModelsCacheSchema = z
+	.object({
+		client_version: z.string().min(1).optional(),
+	})
+	.passthrough()
+
+const codexBackendModelsSchema = z
+	.object({
+		models: z.array(
+			z
+				.object({
+					slug: z.string().min(1),
+					display_name: z.string().min(1).optional(),
+					supported_in_api: z.boolean().optional(),
+				})
+				.passthrough(),
+		),
+	})
+	.passthrough()
+
 /**
  * Parse JWT claims from a token
  * Returns undefined if the token is invalid or cannot be parsed
  */
-function parseJwtClaims(token: string): IdTokenClaims | undefined {
+export function parseJwtClaims(token: string): IdTokenClaims | undefined {
 	const parts = token.split(".")
 	if (parts.length !== 3) return undefined
 	try {
@@ -108,6 +161,76 @@ function extractAccountId(tokens: { id_token?: string; access_token: string }): 
 		return claims ? extractAccountIdFromClaims(claims) : undefined
 	}
 	return undefined
+}
+
+function extractEmail(tokens: { id_token?: string; access_token: string }): string | undefined {
+	const idClaims = tokens.id_token ? parseJwtClaims(tokens.id_token) : undefined
+	if (idClaims?.email) return idClaims.email
+	const accessClaims = parseJwtClaims(tokens.access_token)
+	return accessClaims?.email
+}
+
+function extractExpiryMs(accessToken: string, now: () => number = Date.now): number {
+	const claims = parseJwtClaims(accessToken)
+	if (typeof claims?.exp === "number" && Number.isFinite(claims.exp) && claims.exp > 0) {
+		return claims.exp * 1000
+	}
+	return now() + 55 * 60 * 1000
+}
+
+function getCodexHomePath(codexHome?: string): string {
+	return codexHome || process.env.CODEX_HOME || path.join(os.homedir(), ".codex")
+}
+
+async function readOptionalText(filePath: string): Promise<string | undefined> {
+	try {
+		return await readFile(filePath, "utf8")
+	} catch (error) {
+		if (typeof error === "object" && error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+			return undefined
+		}
+		throw error
+	}
+}
+
+export async function loadCodexHomeCredentials(options?: {
+	codexHome?: string
+	now?: () => number
+}): Promise<OpenAiCodexCredentials | null> {
+	const codexHome = getCodexHomePath(options?.codexHome)
+	const authJsonText = await readOptionalText(path.join(codexHome, "auth.json"))
+	if (!authJsonText) {
+		return null
+	}
+
+	const authJson = codexAuthJsonSchema.parse(JSON.parse(authJsonText))
+	const accessToken = authJson.tokens.access_token
+	const refreshToken = authJson.tokens.refresh_token
+	if (!accessToken || !refreshToken) {
+		return null
+	}
+
+	const installationId = (await readOptionalText(path.join(codexHome, "installation_id")))?.trim() || undefined
+	const modelsCacheText = await readOptionalText(path.join(codexHome, "models_cache.json"))
+	const clientVersion = modelsCacheText ? codexModelsCacheSchema.parse(JSON.parse(modelsCacheText)).client_version : undefined
+	const tokens = {
+		id_token: authJson.tokens.id_token,
+		access_token: accessToken,
+	}
+
+	return {
+		type: "openai-codex",
+		access_token: accessToken,
+		refresh_token: refreshToken,
+		id_token: authJson.tokens.id_token,
+		expires: extractExpiryMs(accessToken, options?.now),
+		email: extractEmail(tokens),
+		accountId: extractAccountId(tokens),
+		tokenSource: "codex-home",
+		installationId,
+		clientVersion,
+		authMode: authJson.auth_mode,
+	}
 }
 
 class OpenAiCodexOAuthTokenError extends Error {
@@ -263,9 +386,11 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string):
 		type: "openai-codex",
 		access_token: tokenResponse.access_token,
 		refresh_token: tokenResponse.refresh_token,
+		id_token: tokenResponse.id_token,
 		expires: expiresAt,
 		email: tokenResponse.email,
 		accountId,
+		tokenSource: "oauth",
 	}
 }
 
@@ -315,10 +440,15 @@ export async function refreshAccessToken(credentials: OpenAiCodexCredentials): P
 		type: "openai-codex",
 		access_token: tokenResponse.access_token,
 		refresh_token: tokenResponse.refresh_token ?? credentials.refresh_token,
+		id_token: tokenResponse.id_token ?? credentials.id_token,
 		expires: expiresAt,
 		email: tokenResponse.email ?? credentials.email,
 		// Prefer newly extracted accountId, fall back to existing
 		accountId: newAccountId ?? credentials.accountId,
+		tokenSource: credentials.tokenSource,
+		installationId: credentials.installationId,
+		clientVersion: credentials.clientVersion,
+		authMode: credentials.authMode,
 	}
 }
 
@@ -385,12 +515,13 @@ export class OpenAiCodexOAuthManager {
 			const stateManager = StateManager.get()
 			const credentialsJson = stateManager.getSecretKey("openai-codex-oauth-credentials")
 
-			if (!credentialsJson) {
-				return null
+			if (credentialsJson) {
+				const parsed = JSON.parse(credentialsJson)
+				this.credentials = openAiCodexCredentialsSchema.parse(parsed)
+				return this.credentials
 			}
 
-			const parsed = JSON.parse(credentialsJson)
-			this.credentials = openAiCodexCredentialsSchema.parse(parsed)
+			this.credentials = await loadCodexHomeCredentials()
 			return this.credentials
 		} catch (error) {
 			Logger.error("[openai-codex-oauth] Failed to load credentials:", error)
@@ -477,6 +608,54 @@ export class OpenAiCodexOAuthManager {
 			await this.loadCredentials()
 		}
 		return this.credentials?.accountId || null
+	}
+
+	async getInstallationId(): Promise<string | null> {
+		if (!this.credentials) {
+			await this.loadCredentials()
+		}
+		return this.credentials?.installationId || null
+	}
+
+	async getClientVersion(): Promise<string> {
+		if (!this.credentials) {
+			await this.loadCredentials()
+		}
+		return this.credentials?.clientVersion || OPENAI_CODEX_BACKEND_CONFIG.defaultClientVersion
+	}
+
+	async listBackendModels(): Promise<OpenAiCodexBackendModel[]> {
+		const accessToken = await this.getAccessToken()
+		if (!accessToken) {
+			return []
+		}
+
+		const clientVersion = await this.getClientVersion()
+		const installationId = await this.getInstallationId()
+		const url = new URL(`${OPENAI_CODEX_BACKEND_CONFIG.baseUrl}/models`)
+		url.searchParams.set("client_version", clientVersion)
+
+		const response = await fetch(url.toString(), {
+			method: "GET",
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+				...(installationId ? { "x-codex-installation-id": installationId } : {}),
+			},
+			signal: AbortSignal.timeout(30000),
+		})
+
+		if (!response.ok) {
+			return []
+		}
+
+		const parsed = codexBackendModelsSchema.parse(await response.json())
+		return parsed.models
+			.filter((model) => model.supported_in_api !== false)
+			.map((model) => ({
+				id: model.slug,
+				name: model.display_name,
+				supportedInApi: model.supported_in_api,
+			}))
 	}
 
 	/**

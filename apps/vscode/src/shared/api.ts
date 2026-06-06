@@ -45,7 +45,7 @@ export type ApiProvider =
 	| "nousResearch"
 	| "wandb"
 
-export const DEFAULT_API_PROVIDER = "openrouter" as ApiProvider
+export const DEFAULT_API_PROVIDER = "openai-codex" as ApiProvider
 
 export interface ApiHandlerOptions extends Partial<ApiHandlerSettings> {
 	ulid?: string // Used to identify the task in API requests
@@ -2213,7 +2213,7 @@ export const openAiNativeModels = {
 // Uses OAuth authentication via ChatGPT, routes to chatgpt.com/backend-api/codex/responses
 // Subscription-based pricing (all costs are $0)
 export type OpenAiCodexModelId = keyof typeof openAiCodexModels
-export const openAiCodexDefaultModelId: OpenAiCodexModelId = "gpt-5.3-codex"
+export const openAiCodexDefaultModelId: OpenAiCodexModelId = "gpt-5.5"
 export const openAiCodexModels = {
 	"gpt-5.5": {
 		maxTokens: 128_000,
