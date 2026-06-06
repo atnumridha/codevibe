@@ -54,6 +54,18 @@ describe("Cursor MCP install URI parser", () => {
 		).toBe("/createchat");
 	});
 
+	it("normalizes native codevibe:// route hosts into Cursor-compatible route paths", () => {
+		expect(getCursorCompatibleUriPath("codevibe://createchat?prompt=hi")).toBe(
+			"/createchat",
+		);
+		expect(getCursorCompatibleUriPath("codevibe://mcp/install?name=docs")).toBe(
+			"/mcp/install",
+		);
+		expect(
+			getCursorCompatibleUriPath("codevibe://atnumridha.codevibe/background-agent?prompt=hi"),
+		).toBe("/background-agent");
+	});
+
 	it("builds a direct streamable HTTP server request", () => {
 		const request = buildCursorMcpInstallRequest(
 			route({ name: "docs", url: "https://mcp.example.com/context" }),

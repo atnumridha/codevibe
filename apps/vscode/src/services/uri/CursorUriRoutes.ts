@@ -322,13 +322,18 @@ function isCursorCompatibleUriHostAlias(host: string): host is CursorCompatibleU
 	return (CURSOR_COMPATIBLE_URI_HOST_ALIASES as readonly string[]).includes(host)
 }
 
+function supportsRouteHostPath(url: URL): boolean {
+	const protocol = url.protocol.toLowerCase()
+	return protocol === "cursor:" || protocol === "codevibe:"
+}
+
 export function getCursorCompatibleUriPath(url: URL): string {
 	const pathname = url.pathname || "/"
 	if (isCursorCompatibleUriPath(pathname)) {
 		return pathname
 	}
 
-	if (url.protocol.toLowerCase() === "cursor:") {
+	if (supportsRouteHostPath(url)) {
 		const host = url.hostname.toLowerCase()
 		if (host && !isCursorCompatibleUriHostAlias(host)) {
 			const combinedPath = `/${host}${pathname === "/" ? "" : pathname}`

@@ -70,7 +70,8 @@ function getCursorCompatibleNativeUriPath(parsed: URL): string {
 		return pathname;
 	}
 
-	if (parsed.protocol.toLowerCase() === "cursor:") {
+	const protocol = parsed.protocol.toLowerCase();
+	if (protocol === "cursor:" || protocol === "codevibe:") {
 		const host = parsed.hostname.toLowerCase();
 		if (host && !CURSOR_COMPATIBLE_NATIVE_URI_HOSTS.has(host)) {
 			const combinedPath = `/${host}${pathname === "/" ? "" : pathname}`;
@@ -108,7 +109,11 @@ function isCursorCompatibleNativeUri(uri: string): boolean {
 	try {
 		const parsed = new URL(uri);
 		const protocol = parsed.protocol.toLowerCase();
-		if (protocol !== "vscode:" && protocol !== "cursor:") {
+		if (
+			protocol !== "vscode:" &&
+			protocol !== "cursor:" &&
+			protocol !== "codevibe:"
+		) {
 			return false;
 		}
 		if (

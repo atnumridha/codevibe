@@ -32,6 +32,14 @@ describe("CursorUriRoutes", () => {
 		).to.equal("/createchat")
 	})
 
+	it("normalizes native codevibe:// route hosts into Cursor-compatible route paths", () => {
+		expect(getCursorCompatibleUriPath(new URL("codevibe://createchat?prompt=hi"))).to.equal("/createchat")
+		expect(getCursorCompatibleUriPath(new URL("codevibe://mcp/install?name=docs"))).to.equal("/mcp/install")
+		expect(getCursorCompatibleUriPath(new URL("codevibe://atnumridha.codevibe/background-agent?prompt=hi"))).to.equal(
+			"/background-agent",
+		)
+	})
+
 	it("parses createchat and prompt routes into task prompts", () => {
 		const result = parseCursorCompatibleUri("/createchat", new URLSearchParams("prompt=Fix%20the%20tests"))
 

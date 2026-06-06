@@ -187,6 +187,11 @@ function combineCursorSchemeHostAndPath(parsedUrl: URL): string | undefined {
 	return `/${host}${pathname === "/" ? "" : pathname}`;
 }
 
+function supportsRouteHostPath(parsedUrl: URL): boolean {
+	const protocol = parsedUrl.protocol.toLowerCase();
+	return protocol === "cursor:" || protocol === "codevibe:";
+}
+
 export function getCursorCompatibleUriPath(uriOrUrl: string | URL): string {
 	const parsedUrl = typeof uriOrUrl === "string" ? new URL(uriOrUrl) : uriOrUrl;
 	const pathname = parsedUrl.pathname || "/";
@@ -194,7 +199,7 @@ export function getCursorCompatibleUriPath(uriOrUrl: string | URL): string {
 		return pathname;
 	}
 
-	if (parsedUrl.protocol.toLowerCase() === "cursor:") {
+	if (supportsRouteHostPath(parsedUrl)) {
 		const combinedPath = combineCursorSchemeHostAndPath(parsedUrl);
 		if (combinedPath && CURSOR_COMPATIBLE_URI_PATHS.has(combinedPath)) {
 			return combinedPath;

@@ -38,7 +38,7 @@
 	"plugins": {
 		"deep-link": {
 			"desktop": {
-				"schemes": ["vscode", "cursor"]
+				"schemes": ["vscode", "cursor", "codevibe"]
 			}
 		}
 	}
