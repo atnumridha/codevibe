@@ -1,15 +1,22 @@
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384;
 const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024;
 const MAX_MCP_SERVER_NAME_LENGTH = 128;
+const MAX_GIT_REF_LENGTH = 255;
+const MAX_COMMIT_MESSAGE_LENGTH = 16_384;
 const CURSOR_RULES_DIR = ".cursor/rules";
 const CURSOR_RULES_FILE = ".cursorrules";
 const CURSOR_RULE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
 const SECRET_PARAM_PATTERN = /(token|secret|password|authorization|api[-_]?key|credential)/i;
+const GIT_REF_ALLOWED_CHARS = /^[A-Za-z0-9._/-]+$/;
+const GIT_REF_FORBIDDEN_CHARS = /[\x00-\x20~^:?*[\\]/;
+const GIT_HEX_OBJECT_PATTERN = /^[0-9a-f]{7,64}$/i;
+const CURSOR_BOOLEAN_STRING_VALUES = new Set(["true", "false", "1", "0", "yes", "no"]);
 const RESERVED_MCP_SERVER_NAMES = new Set([
 	"__proto__",
 	"constructor",
 	"prototype",
 ]);
+const SYMBOLIC_GIT_REFS = new Set(["HEAD", "FETCH_HEAD", "MERGE_HEAD", "ORIG_HEAD"]);
 
 export type CursorAgentTaskRoutePath =
 	| "/createchat"
@@ -18,7 +25,10 @@ export type CursorAgentTaskRoutePath =
 	| "/command"
 	| "/pr-review"
 	| "/plugin/add"
-	| "/glass";
+	| "/glass"
+	| "/git/checkout"
+	| "/git/branch"
+	| "/git/commit";
 
 export type CursorAgentTaskRouteKind =
 	| "createchat"
@@ -27,7 +37,10 @@ export type CursorAgentTaskRouteKind =
 	| "command"
 	| "pr-review"
 	| "plugin-add"
-	| "glass";
+	| "glass"
+	| "git-checkout"
+	| "git-branch"
+	| "git-commit";
 
 interface CursorAgentTaskRouteDefinition {
 	kind: CursorAgentTaskRouteKind;
@@ -87,6 +100,46 @@ const CURSOR_AGENT_TASK_ROUTE_DEFINITIONS: Record<
 	"/glass": {
 		kind: "glass",
 		allowed: ["prompt", "text", "message", "config"],
+	},
+	"/git/checkout": {
+		kind: "git-checkout",
+		allowed: ["branch", "ref", "target", "repo", "repository", "cwd", "workspace", "config"],
+		requiredAny: ["branch", "ref", "target"],
+		requiredMessage: "branch, ref, or target is required",
+	},
+	"/git/branch": {
+		kind: "git-branch",
+		allowed: [
+			"name",
+			"branch",
+			"base",
+			"baseBranch",
+			"checkout",
+			"repo",
+			"repository",
+			"cwd",
+			"workspace",
+			"config",
+		],
+		requiredAny: ["name", "branch"],
+		requiredMessage: "name or branch is required",
+	},
+	"/git/commit": {
+		kind: "git-commit",
+		allowed: [
+			"message",
+			"summary",
+			"files",
+			"staged",
+			"all",
+			"amend",
+			"push",
+			"repo",
+			"repository",
+			"cwd",
+			"workspace",
+			"config",
+		],
 	},
 };
 
@@ -269,6 +322,73 @@ function normalizeCursorRuleTarget(
 		filename,
 		relativePath: `${CURSOR_RULES_DIR}/${filename}`,
 	};
+}
+
+function normalizeGitRefName(value: string, label: string): string {
+	const normalized = value.trim();
+
+	if (!normalized) {
+		throw new CursorUriError(`${label} is required`);
+	}
+	if (normalized.length > MAX_GIT_REF_LENGTH) {
+		throw new CursorUriError(`${label} must be ${MAX_GIT_REF_LENGTH} characters or fewer`);
+	}
+	if (normalized.startsWith("-")) {
+		throw new CursorUriError(`${label} cannot start with '-'`);
+	}
+	if (normalized.startsWith("/") || normalized.endsWith("/") || normalized.includes("//")) {
+		throw new CursorUriError(`${label} cannot contain empty path segments`);
+	}
+	if (normalized.endsWith(".")) {
+		throw new CursorUriError(`${label} cannot end with '.'`);
+	}
+	if (normalized.includes("..")) {
+		throw new CursorUriError(`${label} cannot contain '..'`);
+	}
+	if (normalized.includes("@{") || normalized === "@") {
+		throw new CursorUriError(`${label} cannot contain git reflog syntax`);
+	}
+	if (GIT_REF_FORBIDDEN_CHARS.test(normalized)) {
+		throw new CursorUriError(`${label} contains characters that are unsafe for git refs`);
+	}
+	if (!GIT_REF_ALLOWED_CHARS.test(normalized)) {
+		throw new CursorUriError(`${label} may only contain letters, numbers, '.', '_', '-', and '/'`);
+	}
+
+	for (const segment of normalized.split("/")) {
+		if (!segment || segment.startsWith(".") || segment.endsWith(".lock")) {
+			throw new CursorUriError(`${label} contains an invalid ref segment`);
+		}
+	}
+
+	return normalized;
+}
+
+function normalizeGitBranchName(value: string, label: string): string {
+	const normalized = normalizeGitRefName(value, label);
+	if (SYMBOLIC_GIT_REFS.has(normalized.toUpperCase())) {
+		throw new CursorUriError(`${label} must be a branch name, not ${normalized}`);
+	}
+	return normalized;
+}
+
+function normalizeGitCheckoutTarget(value: string, label: string): string {
+	const normalized = value.trim();
+	if (SYMBOLIC_GIT_REFS.has(normalized.toUpperCase()) || GIT_HEX_OBJECT_PATTERN.test(normalized)) {
+		return normalized;
+	}
+	return normalizeGitRefName(value, label);
+}
+
+function normalizeGitCommitMessage(value: string, label: string): string {
+	const normalized = value.trim();
+	if (!normalized) {
+		throw new CursorUriError(`${label} is required`);
+	}
+	if (normalized.length > MAX_COMMIT_MESSAGE_LENGTH) {
+		throw new CursorUriError(`${label} must be ${MAX_COMMIT_MESSAGE_LENGTH} characters or fewer`);
+	}
+	return normalized;
 }
 
 function normalizeMcpServerName(value: string | undefined, required: true): string;
@@ -603,6 +723,74 @@ function assertRequiredParams(
 	}
 }
 
+function validateCursorBooleanParam(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): void {
+	const value = getRouteStringParam(params, key);
+	if (value && !CURSOR_BOOLEAN_STRING_VALUES.has(value)) {
+		throw new CursorUriError(`${key} must be one of true, false, 1, 0, yes, or no`);
+	}
+}
+
+function normalizeStringParam(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+	normalize: (value: string) => string,
+): void {
+	const value = getRouteStringParam(params, key);
+	if (value) {
+		params[key] = normalize(value);
+	}
+}
+
+function normalizeGitRouteParams(
+	path: CursorAgentTaskRoutePath,
+	params: Record<string, string | Record<string, unknown>>,
+): void {
+	if (path === "/git/checkout") {
+		normalizeStringParam(params, "branch", (value) =>
+			normalizeGitCheckoutTarget(value, "Checkout branch"),
+		);
+		normalizeStringParam(params, "ref", (value) =>
+			normalizeGitCheckoutTarget(value, "Checkout ref"),
+		);
+		normalizeStringParam(params, "target", (value) =>
+			normalizeGitCheckoutTarget(value, "Checkout target"),
+		);
+		return;
+	}
+
+	if (path === "/git/branch") {
+		normalizeStringParam(params, "name", (value) =>
+			normalizeGitBranchName(value, "Branch name"),
+		);
+		normalizeStringParam(params, "branch", (value) =>
+			normalizeGitBranchName(value, "Branch name"),
+		);
+		normalizeStringParam(params, "base", (value) =>
+			normalizeGitCheckoutTarget(value, "Base ref"),
+		);
+		normalizeStringParam(params, "baseBranch", (value) =>
+			normalizeGitCheckoutTarget(value, "Base branch"),
+		);
+		validateCursorBooleanParam(params, "checkout");
+		return;
+	}
+
+	if (path === "/git/commit") {
+		normalizeStringParam(params, "message", (value) =>
+			normalizeGitCommitMessage(value, "Commit message"),
+		);
+		normalizeStringParam(params, "summary", (value) =>
+			normalizeGitCommitMessage(value, "Commit summary"),
+		);
+		for (const key of ["staged", "all", "amend", "push"]) {
+			validateCursorBooleanParam(params, key);
+		}
+	}
+}
+
 function buildCursorAgentTaskPrompt(
 	kind: CursorAgentTaskRouteKind,
 	params: Record<string, string | Record<string, unknown>>,
@@ -636,6 +824,58 @@ function buildCursorAgentTaskPrompt(
 		].join("\n");
 	}
 
+	if (kind === "git-checkout") {
+		const target =
+			getRouteStringParam(params, "branch") ??
+			getRouteStringParam(params, "ref") ??
+			getRouteStringParam(params, "target") ??
+			"";
+		const targetLabel = getRouteStringParam(params, "branch")
+			? "branch"
+			: getRouteStringParam(params, "ref")
+				? "ref"
+				: "target";
+		return [
+			"A Cursor-compatible git checkout helper was opened. Treat this as a request to review a checkout or switch operation, not permission to run it.",
+			"",
+			"Before changing branches, inspect the current repository state with existing git status, diff, and checkpoint context. Warn if uncommitted changes could be overwritten, and ask the user to confirm the exact checkout command before running it.",
+			"",
+			"Requested checkout target:",
+			`- ${targetLabel}: ${target}`,
+			"",
+			"Route details:",
+			formatRouteDetails(params, ["branch", "ref", "target"]),
+		].join("\n");
+	}
+
+	if (kind === "git-branch") {
+		const branch = getRouteStringParam(params, "name") ?? getRouteStringParam(params, "branch");
+		const base = getRouteStringParam(params, "baseBranch") ?? getRouteStringParam(params, "base");
+		return [
+			"A Cursor-compatible git branch helper was opened. Treat this as a request to review branch creation or branch switching, not permission to mutate git state.",
+			"",
+			"Inspect existing branches and the working tree first. Ask for confirmation before creating or checking out a branch, and stop if the current work would be at risk.",
+			"",
+			"Requested branch operation:",
+			`- branch: ${branch}`,
+			...(base ? [`- base: ${base}`] : []),
+			"",
+			"Route details:",
+			formatRouteDetails(params, ["name", "branch", "base", "baseBranch"]),
+		].join("\n");
+	}
+
+	if (kind === "git-commit") {
+		return [
+			"A Cursor-compatible git commit helper was opened. Treat this as a request to prepare and review a commit, not permission to stage files, commit, or push.",
+			"",
+			"Use the existing git diff helper behavior by inspecting staged changes first, then unstaged changes if needed. Summarize the changes and ask for explicit confirmation before any staging or commit command. Do not push unless the user separately confirms it.",
+			"",
+			"Route details:",
+			formatRouteDetails(params),
+		].join("\n");
+	}
+
 	const title = {
 		"background-agent": "background agent",
 		"pr-review": "pull request review",
@@ -663,6 +903,7 @@ export function buildCursorAgentTaskRouteRequest(
 	const params = parseCursorRouteParams(uri, path);
 	assertAllowedParams(path, params);
 	assertRequiredParams(path, params);
+	normalizeGitRouteParams(path, params);
 	const kind = CURSOR_AGENT_TASK_ROUTE_DEFINITIONS[path].kind;
 	const prompt = getPromptText(params);
 	return {

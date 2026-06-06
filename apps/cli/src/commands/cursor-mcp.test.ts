@@ -308,6 +308,39 @@ describe("Cursor MCP install command", () => {
 		}
 	});
 
+	it("previews git helper deeplinks without mutating git", async () => {
+		for (const [uri, route] of [
+			[
+				"vscode://cline.cline/git/checkout?branch=feature%2Fcursor-parity",
+				"git-checkout",
+			],
+			[
+				"vscode://cline.cline/git/branch?name=feature%2Fsafe&baseBranch=main",
+				"git-branch",
+			],
+			[
+				"vscode://cline.cline/git/commit?message=fix%3A%20safe%20git%20helpers&staged=true",
+				"git-commit",
+			],
+		]) {
+			const { out, io } = createIo();
+
+			const code = await runCursorUriCommand({
+				uri,
+				json: true,
+				io,
+			});
+
+			expect(code).toBe(0);
+			expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+				handled: true,
+				route,
+				requiresAgent: true,
+				taskPrompt: expect.stringContaining("not permission"),
+			});
+		}
+	});
+
 	it("returns generic JSON errors for invalid URI dispatch", async () => {
 		const { out, io } = createIo();
 

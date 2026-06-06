@@ -202,4 +202,50 @@ describe("Cursor MCP install URI parser", () => {
 		});
 		expect(glass.taskPrompt).toContain("ask me what to do next");
 	});
+
+	it("builds guarded prompts for git helper routes", () => {
+		const checkout = buildCursorAgentTaskRouteRequest(
+			"vscode://cline.cline/git/checkout?branch=feature%2Fcursor-parity",
+		);
+		expect(checkout).toMatchObject({
+			kind: "git-checkout",
+			path: "/git/checkout",
+		});
+		expect(checkout.taskPrompt).toContain("not permission to run it");
+		expect(checkout.taskPrompt).toContain("- branch: feature/cursor-parity");
+
+		const branch = buildCursorAgentTaskRouteRequest(
+			"vscode://cline.cline/git/branch?name=feature%2Fsafe&baseBranch=main&checkout=yes",
+		);
+		expect(branch).toMatchObject({
+			kind: "git-branch",
+			path: "/git/branch",
+		});
+		expect(branch.taskPrompt).toContain("not permission to mutate git state");
+		expect(branch.taskPrompt).toContain("- base: main");
+
+		const commit = buildCursorAgentTaskRouteRequest(
+			"vscode://cline.cline/git/commit?message=fix%3A%20safe%20git%20helpers&staged=true",
+		);
+		expect(commit).toMatchObject({
+			kind: "git-commit",
+			path: "/git/commit",
+		});
+		expect(commit.taskPrompt).toContain("not permission to stage files, commit, or push");
+		expect(commit.taskPrompt).toContain("message: fix: safe git helpers");
+	});
+
+	it("rejects unsafe git helper route parameters", () => {
+		expect(() =>
+			buildCursorAgentTaskRouteRequest("vscode://cline.cline/git/checkout?branch=--detach"),
+		).toThrow("Checkout branch cannot start with '-'");
+
+		expect(() =>
+			buildCursorAgentTaskRouteRequest("vscode://cline.cline/git/branch?name=HEAD"),
+		).toThrow("Branch name must be a branch name");
+
+		expect(() =>
+			buildCursorAgentTaskRouteRequest("vscode://cline.cline/git/commit?staged=eventually"),
+		).toThrow("staged must be one of true, false, 1, 0, yes, or no");
+	});
 });
