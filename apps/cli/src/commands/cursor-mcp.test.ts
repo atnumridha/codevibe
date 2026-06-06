@@ -96,7 +96,7 @@ describe("Cursor MCP install command", () => {
 		});
 	});
 
-	it("dispatches generic URI installs and rejects unsupported routes", async () => {
+	it("dispatches generic URI installs and agent task route previews", async () => {
 		const settingsPath = await useTempSettingsPath();
 		const install = createIo();
 
@@ -110,17 +110,37 @@ describe("Cursor MCP install command", () => {
 
 		await expect(readFile(settingsPath, "utf8")).resolves.toContain("docs");
 
-		const unsupported = createIo();
+		const agentTask = createIo();
 		await expect(
 			runCursorUriCommand({
 				uri: "vscode://cline.cline/createchat?prompt=hi",
+				json: true,
+				io: agentTask.io,
+			}),
+		).resolves.toBe(0);
+		expect(JSON.parse(agentTask.out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "createchat",
+			path: "/createchat",
+			requiresAgent: true,
+			prompt: "hi",
+			taskPrompt: "hi",
+		});
+	});
+
+	it("rejects unsupported generic URI routes", async () => {
+		const unsupported = createIo();
+
+		await expect(
+			runCursorUriCommand({
+				uri: "vscode://cline.cline/unknown?prompt=hi",
 				json: true,
 				io: unsupported.io,
 			}),
 		).resolves.toBe(1);
 		expect(JSON.parse(unsupported.out[0] ?? "{}")).toMatchObject({
 			handled: false,
-			error: "Unsupported Cursor URI route for CLI: /createchat",
+			error: "Unsupported Cursor URI route for CLI: /unknown",
 		});
 	});
 
@@ -221,6 +241,50 @@ describe("Cursor MCP install command", () => {
 			name: "team-style",
 		});
 		await expect(readFile(join(workspace, ".cursor", "rules", "team-style.mdc"), "utf8")).rejects.toThrow();
+	});
+
+	it("previews command deeplinks without executing them", async () => {
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: `vscode://cline.cline/command?command=npm%20install&config=${encodeConfig({ token: "secret-value" })}`,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "command",
+			requiresAgent: true,
+			taskPrompt: expect.stringContaining("Review it with the user before running it"),
+			paramKeys: ["command", "config"],
+		});
+		expect(out[0]).not.toContain("secret-value");
+	});
+
+	it("previews PR review, plugin add, and glass deeplinks", async () => {
+		for (const [uri, route] of [
+			["vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42", "pr-review"],
+			["vscode://cline.cline/plugin/add?id=docs-helper", "plugin-add"],
+			["vscode://cline.cline/glass", "glass"],
+		]) {
+			const { out, io } = createIo();
+
+			const code = await runCursorUriCommand({
+				uri,
+				json: true,
+				io,
+			});
+
+			expect(code).toBe(0);
+			expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+				handled: true,
+				route,
+				requiresAgent: true,
+				taskPrompt: expect.any(String),
+			});
+		}
 	});
 
 	it("returns generic JSON errors for invalid URI dispatch", async () => {

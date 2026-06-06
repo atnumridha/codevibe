@@ -23,6 +23,7 @@ export {
 	updateMcpServerOAuthState,
 } from "./config-loader";
 export {
+	buildCursorAgentTaskRouteRequest,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
@@ -31,6 +32,9 @@ export {
 	formatCursorMcpInstallDetail,
 } from "./cursor-uri";
 export type {
+	CursorAgentTaskRouteKind,
+	CursorAgentTaskRoutePath,
+	CursorAgentTaskRouteRequest,
 	CursorMcpInstallRequest,
 	CursorRuleRouteRequest,
 	CursorSettingsRouteRequest,

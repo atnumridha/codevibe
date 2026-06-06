@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
+	buildCursorAgentTaskRouteRequest,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
@@ -152,6 +153,29 @@ function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
 	return 0;
 }
 
+function writeAgentTaskRoute(options: CursorMcpInstallCommandOptions): number {
+	const request = buildCursorAgentTaskRouteRequest(options.uri);
+	if (options.json) {
+		options.io.writeln(
+			JSON.stringify({
+				handled: true,
+				route: request.kind,
+				path: request.path,
+				requiresAgent: true,
+				prompt: request.prompt,
+				taskPrompt: request.taskPrompt,
+				paramKeys: Object.keys(request.params).sort(),
+			}),
+		);
+		return 0;
+	}
+
+	options.io.writeln(`Cursor ${request.kind} deeplink requires an agent task.`);
+	options.io.writeln("");
+	options.io.writeln(request.taskPrompt);
+	return 0;
+}
+
 export async function runCursorMcpInstallCommand(
 	options: CursorMcpInstallCommandOptions,
 ): Promise<number> {
@@ -234,6 +258,15 @@ export async function runCursorUriCommand(
 			return writeCursorRuleRoute(options);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
+			return writeUriError(options, message);
+		}
+	}
+
+	try {
+		return writeAgentTaskRoute(options);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (!message.startsWith("Unsupported Cursor agent task route:")) {
 			return writeUriError(options, message);
 		}
 	}

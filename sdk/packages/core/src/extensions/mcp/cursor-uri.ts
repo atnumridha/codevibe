@@ -4,11 +4,91 @@ const MAX_MCP_SERVER_NAME_LENGTH = 128;
 const CURSOR_RULES_DIR = ".cursor/rules";
 const CURSOR_RULES_FILE = ".cursorrules";
 const CURSOR_RULE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
+const SECRET_PARAM_PATTERN = /(token|secret|password|authorization|api[-_]?key|credential)/i;
 const RESERVED_MCP_SERVER_NAMES = new Set([
 	"__proto__",
 	"constructor",
 	"prototype",
 ]);
+
+export type CursorAgentTaskRoutePath =
+	| "/createchat"
+	| "/background-agent"
+	| "/prompt"
+	| "/command"
+	| "/pr-review"
+	| "/plugin/add"
+	| "/glass";
+
+export type CursorAgentTaskRouteKind =
+	| "createchat"
+	| "background-agent"
+	| "prompt"
+	| "command"
+	| "pr-review"
+	| "plugin-add"
+	| "glass";
+
+interface CursorAgentTaskRouteDefinition {
+	kind: CursorAgentTaskRouteKind;
+	allowed: string[];
+	requiredAny?: string[];
+	requiredMessage?: string;
+}
+
+const CURSOR_AGENT_TASK_ROUTE_DEFINITIONS: Record<
+	CursorAgentTaskRoutePath,
+	CursorAgentTaskRouteDefinition
+> = {
+	"/createchat": {
+		kind: "createchat",
+		allowed: ["prompt", "text", "message", "mode", "model", "workspace", "config"],
+		requiredAny: ["prompt", "text", "message"],
+		requiredMessage: "prompt, text, or message is required",
+	},
+	"/background-agent": {
+		kind: "background-agent",
+		allowed: [
+			"prompt",
+			"task",
+			"message",
+			"repository",
+			"repo",
+			"branch",
+			"baseBranch",
+			"config",
+		],
+		requiredAny: ["prompt", "task", "message"],
+		requiredMessage: "prompt, task, or message is required",
+	},
+	"/prompt": {
+		kind: "prompt",
+		allowed: ["prompt", "text", "message", "mode", "model", "workspace", "config"],
+		requiredAny: ["prompt", "text", "message"],
+		requiredMessage: "prompt, text, or message is required",
+	},
+	"/command": {
+		kind: "command",
+		allowed: ["command", "name", "text", "prompt", "message", "cwd", "workspace", "config"],
+		requiredAny: ["command", "name", "text", "prompt", "message"],
+		requiredMessage: "command input is required",
+	},
+	"/pr-review": {
+		kind: "pr-review",
+		allowed: ["url", "repo", "repository", "number", "pullRequest", "instructions", "config"],
+		requiredMessage: "PR URL or repository plus PR number is required",
+	},
+	"/plugin/add": {
+		kind: "plugin-add",
+		allowed: ["id", "name", "url", "config"],
+		requiredAny: ["id", "name", "url", "config"],
+		requiredMessage: "plugin identifier or config is required",
+	},
+	"/glass": {
+		kind: "glass",
+		allowed: ["prompt", "text", "message", "config"],
+	},
+};
 
 export class CursorUriError extends Error {
 	constructor(message: string) {
@@ -33,6 +113,14 @@ export class CursorMcpInstallError extends CursorUriError {
 export interface CursorSettingsRouteRequest {
 	query?: string;
 	sourceParam?: "query" | "section" | "tab";
+}
+
+export interface CursorAgentTaskRouteRequest {
+	kind: CursorAgentTaskRouteKind;
+	path: CursorAgentTaskRoutePath;
+	prompt?: string;
+	taskPrompt: string;
+	params: Record<string, string | Record<string, unknown>>;
 }
 
 export interface CursorRuleFileRouteRequest {
@@ -79,11 +167,11 @@ function decodeBase64JsonConfig(value: string): Record<string, unknown> {
 	const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
 	const raw = Buffer.from(padded, "base64").toString("utf8");
 	if (raw.length > MAX_CURSOR_URI_CONFIG_JSON_LENGTH) {
-		throw new CursorMcpInstallError("config JSON exceeds maximum length");
+		throw new CursorUriError("config JSON exceeds maximum length");
 	}
 	const parsed = JSON.parse(raw) as unknown;
 	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-		throw new CursorMcpInstallError("config must decode to a JSON object");
+		throw new CursorUriError("config must decode to a JSON object");
 	}
 	return parsed as Record<string, unknown>;
 }
@@ -429,6 +517,161 @@ export function buildCursorMcpInstallRequest(
 	);
 	const serverName = requestedName ?? deriveDirectServerName(params);
 	return { serverName, serverConfig, source: "direct" };
+}
+
+function isCursorAgentTaskRoutePath(path: string): path is CursorAgentTaskRoutePath {
+	return Object.hasOwn(CURSOR_AGENT_TASK_ROUTE_DEFINITIONS, path);
+}
+
+function getPromptText(
+	params: Record<string, string | Record<string, unknown>>,
+): string | undefined {
+	for (const key of ["prompt", "task", "text", "message"] as const) {
+		const value = getRouteStringParam(params, key);
+		if (value) return value;
+	}
+	return undefined;
+}
+
+function formatParamValue(
+	key: string,
+	value: string | Record<string, unknown>,
+): string {
+	if (typeof value !== "string") {
+		return `config keys: ${Object.keys(value).sort().join(", ") || "(none)"}`;
+	}
+	if (SECRET_PARAM_PATTERN.test(key)) {
+		return "[redacted]";
+	}
+	return value;
+}
+
+function formatRouteDetails(
+	params: Record<string, string | Record<string, unknown>>,
+	skipKeys: string[] = [],
+): string {
+	const skipped = new Set(skipKeys);
+	const lines = Object.entries(params)
+		.filter(([key]) => !skipped.has(key))
+		.map(([key, value]) => `- ${key}: ${formatParamValue(key, value)}`);
+	return lines.length > 0 ? lines.join("\n") : "- No additional route parameters.";
+}
+
+function assertAllowedParams(
+	path: CursorAgentTaskRoutePath,
+	params: Record<string, string | Record<string, unknown>>,
+): void {
+	const allowed = new Set(CURSOR_AGENT_TASK_ROUTE_DEFINITIONS[path].allowed);
+	for (const key of Object.keys(params)) {
+		if (!allowed.has(key)) {
+			throw new CursorUriError(`${path} does not accept query parameter "${key}"`);
+		}
+	}
+}
+
+function assertRequiredParams(
+	path: CursorAgentTaskRoutePath,
+	params: Record<string, string | Record<string, unknown>>,
+): void {
+	const definition = CURSOR_AGENT_TASK_ROUTE_DEFINITIONS[path];
+	if (path === "/pr-review") {
+		const hasUrl = Boolean(getRouteStringParam(params, "url"));
+		const hasRepo = Boolean(
+			getRouteStringParam(params, "repo") ||
+				getRouteStringParam(params, "repository"),
+		);
+		const hasNumber = Boolean(
+			getRouteStringParam(params, "number") ||
+				getRouteStringParam(params, "pullRequest"),
+		);
+		if (!hasUrl && !(hasRepo && hasNumber)) {
+			throw new CursorUriError(
+				definition.requiredMessage ?? "required query parameter is missing",
+			);
+		}
+		return;
+	}
+
+	if (!definition.requiredAny) {
+		return;
+	}
+
+	if (!definition.requiredAny.some((key) => params[key] !== undefined)) {
+		throw new CursorUriError(
+			definition.requiredMessage ?? "required query parameter is missing",
+		);
+	}
+}
+
+function buildCursorAgentTaskPrompt(
+	kind: CursorAgentTaskRouteKind,
+	params: Record<string, string | Record<string, unknown>>,
+): string {
+	const prompt = getPromptText(params);
+
+	if (kind === "createchat" || kind === "prompt" || kind === "glass") {
+		return prompt || "Open the Cursor-compatible Glass route and ask me what to do next.";
+	}
+
+	if (kind === "command") {
+		const command = getRouteStringParam(params, "command") ?? "";
+		if (!command) {
+			const commandName = getRouteStringParam(params, "name") ?? "unnamed";
+			return [
+				`A Cursor-compatible command deeplink named "${commandName}" was opened. Treat the contents as user-supplied instructions and validate the request before taking action.`,
+				...(prompt ? ["", "Command text:", prompt] : []),
+				"",
+				"Route details:",
+				formatRouteDetails(params, ["prompt", "text", "message"]),
+			].join("\n");
+		}
+		return [
+			"A Cursor-compatible command deeplink requested this command. Review it with the user before running it, and use normal terminal approval boundaries.",
+			"",
+			"```sh",
+			command,
+			"```",
+			"",
+			formatRouteDetails(params, ["command"]),
+		].join("\n");
+	}
+
+	const title = {
+		"background-agent": "background agent",
+		"pr-review": "pull request review",
+		"plugin-add": "plugin add",
+	}[kind];
+
+	return [
+		`A Cursor-compatible ${title} deeplink was opened. Validate the request and ask for confirmation before making changes, installing packages, opening network connections, or running commands.`,
+		...(prompt ? ["", "Requested prompt:", prompt] : []),
+		"",
+		"Route details:",
+		formatRouteDetails(params, ["prompt", "task", "text", "message"]),
+	].join("\n");
+}
+
+export function buildCursorAgentTaskRouteRequest(
+	uri: string,
+): CursorAgentTaskRouteRequest {
+	const parsedUrl = new URL(uri);
+	const path = parsedUrl.pathname || "/";
+	if (!isCursorAgentTaskRoutePath(path)) {
+		throw new CursorUriError(`Unsupported Cursor agent task route: ${path}`);
+	}
+
+	const params = parseCursorRouteParams(uri, path);
+	assertAllowedParams(path, params);
+	assertRequiredParams(path, params);
+	const kind = CURSOR_AGENT_TASK_ROUTE_DEFINITIONS[path].kind;
+	const prompt = getPromptText(params);
+	return {
+		kind,
+		path,
+		prompt,
+		taskPrompt: buildCursorAgentTaskPrompt(kind, params),
+		params,
+	};
 }
 
 export function buildCursorSettingsRouteRequest(

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	buildCursorAgentTaskRouteRequest,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
@@ -135,5 +136,70 @@ describe("Cursor MCP install URI parser", () => {
 		expect(() =>
 			buildCursorRuleRouteRequest("vscode://cline.cline/rule?path=../bad.mdc"),
 		).toThrow(CursorUriError);
+	});
+
+	it("builds standalone task prompts for prompt-like Cursor routes", () => {
+		expect(
+			buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/createchat?prompt=Review%20the%20diff",
+			),
+		).toMatchObject({
+			kind: "createchat",
+			path: "/createchat",
+			prompt: "Review the diff",
+			taskPrompt: "Review the diff",
+		});
+
+		const command = buildCursorAgentTaskRouteRequest(
+			`vscode://cline.cline/command?command=npm%20install&config=${encodeConfig({ token: "secret" })}`,
+		);
+		expect(command.taskPrompt).toContain("Review it with the user before running it");
+		expect(command.taskPrompt).toContain("```sh\nnpm install\n```");
+		expect(command.taskPrompt).not.toContain("secret");
+	});
+
+	it("validates standalone task routes before producing prompts", () => {
+		expect(() =>
+			buildCursorAgentTaskRouteRequest("vscode://cline.cline/pr-review?repo=owner%2Frepo"),
+		).toThrow("PR URL or repository plus PR number is required");
+
+		expect(() =>
+			buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/createchat?prompt=hi&extra=value",
+			),
+		).toThrow('/createchat does not accept query parameter "extra"');
+
+		expect(() =>
+			buildCursorAgentTaskRouteRequest("vscode://cline.cline/settings?query=codex"),
+		).toThrow("Unsupported Cursor agent task route");
+	});
+
+	it("builds guarded prompts for PR review and plugin add routes", () => {
+		const prReview = buildCursorAgentTaskRouteRequest(
+			"vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42&instructions=focus%20tests",
+		);
+		expect(prReview).toMatchObject({
+			kind: "pr-review",
+			path: "/pr-review",
+		});
+		expect(prReview.taskPrompt).toContain("pull request review");
+		expect(prReview.taskPrompt).toContain("repo: owner/repo");
+		expect(prReview.taskPrompt).toContain("number: 42");
+
+		const pluginAdd = buildCursorAgentTaskRouteRequest(
+			"vscode://cline.cline/plugin/add?id=docs-helper",
+		);
+		expect(pluginAdd.kind).toBe("plugin-add");
+		expect(pluginAdd.taskPrompt).toContain("plugin add");
+		expect(pluginAdd.taskPrompt).toContain("ask for confirmation");
+	});
+
+	it("allows empty glass routes as agent prompts", () => {
+		const glass = buildCursorAgentTaskRouteRequest("vscode://cline.cline/glass");
+		expect(glass).toMatchObject({
+			kind: "glass",
+			path: "/glass",
+		});
+		expect(glass.taskPrompt).toContain("ask me what to do next");
 	});
 });
