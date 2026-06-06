@@ -49,6 +49,12 @@ function encodeCursorConfig(config: Record<string, unknown>): string {
 		.replace(/=+$/g, "");
 }
 
+function jwt(payload: Record<string, unknown>): string {
+	const encode = (value: Record<string, unknown>) =>
+		Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+	return `${encode({ alg: "none", typ: "JWT" })}.${encode(payload)}.`;
+}
+
 function runGit(cwd: string, args: string[]): string {
 	return execFileSync("git", args, {
 		cwd,
@@ -73,9 +79,13 @@ async function createGitWorkspace(tempDirs: string[]): Promise<string> {
 describe("Code sidecar runtime capabilities", () => {
 	const tempDirs: string[] = [];
 	let previousMcpSettingsPath: string | undefined;
+	let previousProviderSettingsPath: string | undefined;
+	let previousCodexHome: string | undefined;
 
 	beforeEach(() => {
 		previousMcpSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
+		previousProviderSettingsPath = process.env.CLINE_PROVIDER_SETTINGS_PATH;
+		previousCodexHome = process.env.CODEX_HOME;
 		delete process.env.CLINE_MCP_SETTINGS_PATH;
 		createCoreMock.mockReset();
 		connectMock.mockReset();
@@ -96,6 +106,16 @@ describe("Code sidecar runtime capabilities", () => {
 			delete process.env.CLINE_MCP_SETTINGS_PATH;
 		} else {
 			process.env.CLINE_MCP_SETTINGS_PATH = previousMcpSettingsPath;
+		}
+		if (previousProviderSettingsPath === undefined) {
+			delete process.env.CLINE_PROVIDER_SETTINGS_PATH;
+		} else {
+			process.env.CLINE_PROVIDER_SETTINGS_PATH = previousProviderSettingsPath;
+		}
+		if (previousCodexHome === undefined) {
+			delete process.env.CODEX_HOME;
+		} else {
+			process.env.CODEX_HOME = previousCodexHome;
 		}
 		await Promise.all(
 			tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
@@ -260,6 +280,63 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(
 			await handleCommand(ctx, "poll_tool_approvals", { sessionId: "sess-1" }),
 		).toEqual([]);
+	});
+
+	it("reports Codex home auth status when provider settings are empty", async () => {
+		const { handleCommand } = await import("./commands");
+
+		const tempRoot = await mkdtemp(join(tmpdir(), "codevibe-codex-status-"));
+		const codexHome = join(tempRoot, ".codex");
+		tempDirs.push(tempRoot);
+		process.env.CLINE_PROVIDER_SETTINGS_PATH = join(
+			tempRoot,
+			"providers.json",
+		);
+		process.env.CODEX_HOME = codexHome;
+		await mkdir(codexHome, { recursive: true });
+		await writeFile(
+			join(codexHome, "auth.json"),
+			JSON.stringify({
+				tokens: {
+					access_token: jwt({
+						exp: 2_000_000_000,
+						"https://api.openai.com/auth": {
+							chatgpt_account_id: "acct_codex_home",
+						},
+					}),
+					refresh_token: "codex-refresh-secret",
+					id_token: jwt({ email: "codex@example.invalid" }),
+				},
+				auth_mode: "chatgpt",
+			}),
+		);
+		await writeFile(join(codexHome, "installation_id"), "install_home\n");
+		await writeFile(
+			join(codexHome, "models_cache.json"),
+			JSON.stringify({ client_version: "0.136.0-test" }),
+		);
+
+		const status = await handleCommand(
+			{ workspaceRoot: tempRoot } as never,
+			"openai_codex_auth_status",
+		);
+
+		expect(status).toMatchObject({
+			provider: "openai-codex",
+			connected: true,
+			accessTokenPresent: true,
+			refreshTokenPresent: true,
+			apiKeyPresent: false,
+			tokenSource: "codex-home",
+			accountId: "acct_codex_home",
+			installationIdPresent: true,
+			clientVersion: "0.136.0-test",
+			authMode: "chatgpt",
+			codexHomePath: codexHome,
+			lastUsed: false,
+			updatedAt: undefined,
+		});
+		expect(JSON.stringify(status)).not.toContain("codex-refresh-secret");
 	});
 
 	it("previews Cursor deeplinks through the hub client", async () => {

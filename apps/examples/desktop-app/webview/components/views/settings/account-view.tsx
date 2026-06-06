@@ -56,6 +56,7 @@ type OpenAICodexAuthStatus = {
 	installationIdPresent?: boolean;
 	clientVersion?: string;
 	authMode?: string;
+	codexHomePath?: string;
 	lastUsed?: boolean;
 	settingsPath?: string;
 	updatedAt?: string;
@@ -535,6 +536,11 @@ export function AccountView() {
 							"Settings",
 							formatCompactPath(codexAuth.settingsPath),
 							codexAuth.settingsPath,
+						)}
+						{renderCodexDetail(
+							"Codex home",
+							formatCompactPath(codexAuth.codexHomePath),
+							codexAuth.codexHomePath,
 						)}
 						{renderCodexDetail(
 							"Updated",

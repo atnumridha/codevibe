@@ -7,6 +7,7 @@ import {
 	rmSync,
 	writeFileSync,
 } from "node:fs";
+import { homedir } from "node:os";
 import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import type {
 	ClineAutomationNdjsonIngressResult,
@@ -40,6 +41,7 @@ import {
 	getLocalProviderModels,
 	HubScheduleCommandService,
 	HubScheduleService,
+	loadOpenAICodexHomeCredentialsSync,
 	listHookConfigFiles,
 	listLocalProviders,
 	listPluginTools,
@@ -228,6 +230,11 @@ function presentTrimmed(value: unknown): string | undefined {
 		: undefined;
 }
 
+function resolveCodexHomeStatusPath(): string {
+	const configured = process.env.CODEX_HOME?.trim();
+	return configured || join(homedir(), ".codex");
+}
+
 function readOpenAICodexAuthStatus(): JsonRecord {
 	const manager = new ProviderSettingsManager();
 	const state = manager.read();
@@ -237,16 +244,50 @@ function readOpenAICodexAuthStatus(): JsonRecord {
 	const accessToken = presentTrimmed(auth?.accessToken);
 	const refreshToken = presentTrimmed(auth?.refreshToken);
 	const apiKey = presentTrimmed(settings?.apiKey);
-	const installationId = presentTrimmed(auth?.installationId);
-	const clientVersion = presentTrimmed(auth?.clientVersion);
-	const authMode = presentTrimmed(auth?.authMode);
-	const tokenSource =
+	let accessTokenPresent = Boolean(accessToken);
+	let refreshTokenPresent = Boolean(refreshToken);
+	let installationId = presentTrimmed(auth?.installationId);
+	let clientVersion = presentTrimmed(auth?.clientVersion);
+	let authMode = presentTrimmed(auth?.authMode);
+	let tokenSource =
 		presentTrimmed(auth?.tokenSource) ?? presentTrimmed(entry?.tokenSource);
-	const accountId = presentTrimmed(auth?.accountId);
-	const expiresAt =
+	let accountId = presentTrimmed(auth?.accountId);
+	let expiresAt =
 		typeof auth?.expiresAt === "number" && Number.isFinite(auth.expiresAt)
 			? auth.expiresAt
 			: undefined;
+	let codexHomePath: string | undefined;
+
+	if (!accessToken && !apiKey) {
+		try {
+			const credentials = loadOpenAICodexHomeCredentialsSync();
+			if (credentials) {
+				const metadata =
+					credentials.metadata &&
+					typeof credentials.metadata === "object" &&
+					!Array.isArray(credentials.metadata)
+						? (credentials.metadata as JsonRecord)
+						: {};
+				accessTokenPresent = Boolean(presentTrimmed(credentials.access));
+				refreshTokenPresent = Boolean(presentTrimmed(credentials.refresh));
+				accountId = presentTrimmed(credentials.accountId);
+				expiresAt =
+					typeof credentials.expires === "number" &&
+					Number.isFinite(credentials.expires)
+						? credentials.expires
+						: expiresAt;
+				installationId = presentTrimmed(metadata.installationId);
+				clientVersion = presentTrimmed(metadata.clientVersion);
+				authMode = presentTrimmed(metadata.authMode);
+				tokenSource = presentTrimmed(metadata.tokenSource) ?? "codex-home";
+				codexHomePath = resolveCodexHomeStatusPath();
+			}
+		} catch {
+			// Ignore malformed or partially-written Codex home files in status UI.
+			// Session startup uses the same best-effort fallback behavior.
+		}
+	}
+
 	const expiresAtIso =
 		typeof expiresAt === "number"
 			? new Date(expiresAt).toISOString()
@@ -254,9 +295,9 @@ function readOpenAICodexAuthStatus(): JsonRecord {
 
 	return {
 		provider: DEFAULT_CODEVIBE_PROVIDER_ID,
-		connected: Boolean(accessToken ?? apiKey),
-		accessTokenPresent: Boolean(accessToken),
-		refreshTokenPresent: Boolean(refreshToken),
+		connected: accessTokenPresent || Boolean(apiKey),
+		accessTokenPresent,
+		refreshTokenPresent,
 		apiKeyPresent: Boolean(apiKey),
 		tokenSource,
 		accountId,
@@ -266,6 +307,7 @@ function readOpenAICodexAuthStatus(): JsonRecord {
 		installationIdPresent: Boolean(installationId),
 		clientVersion,
 		authMode,
+		codexHomePath,
 		lastUsed: state.lastUsedProvider === DEFAULT_CODEVIBE_PROVIDER_ID,
 		settingsPath: manager.getFilePath(),
 		updatedAt: entry?.updatedAt,
