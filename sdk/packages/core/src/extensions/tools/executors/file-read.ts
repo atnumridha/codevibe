@@ -10,6 +10,10 @@ import type { AgentToolContext } from "@cline/shared";
 import { resolveExistingFilePath } from "@cline/shared/storage";
 import type { ReadFileRequest } from "../schemas";
 import type { FileReadExecutor } from "../types";
+import {
+	assertPathAllowedByDirectAccessIgnores,
+	getToolCwd,
+} from "./access-ignore";
 
 const IMAGE_MEDIA_TYPES = new Map<string, string>([
 	[".gif", "image/gif"],
@@ -71,13 +75,15 @@ export function createFileReadExecutor(
 
 	return async (request: ReadFileRequest, context: AgentToolContext) => {
 		const { path: filePath, start_line, end_line } = request;
+		const cwd = getToolCwd(context);
 		const initialPath = path.isAbsolute(filePath)
 			? path.normalize(filePath)
-			: path.resolve(process.cwd(), filePath);
+			: path.resolve(cwd, filePath);
 		// Tolerate Unicode-whitespace mismatches (e.g. macOS Sonoma+
 		// screenshot paths where the on-disk filename contains U+202F but
 		// the caller's string has a regular space).
 		const resolvedPath = resolveExistingFilePath(initialPath) ?? initialPath;
+		await assertPathAllowedByDirectAccessIgnores(cwd, resolvedPath);
 		const extension = path.extname(resolvedPath).toLowerCase();
 		const imageMediaType = IMAGE_MEDIA_TYPES.get(extension);
 

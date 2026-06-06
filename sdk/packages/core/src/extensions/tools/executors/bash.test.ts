@@ -1,3 +1,6 @@
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import type { AgentToolContext } from "@cline/shared";
 import { describe, expect, it } from "vitest";
 import { createBashExecutor } from "./bash";
@@ -18,6 +21,39 @@ describe("createBashExecutor", () => {
 	it("rejects on non-zero exit code", async () => {
 		const bash = createBashExecutor();
 		await expect(bash("exit 1", process.cwd(), ctx)).rejects.toThrow();
+	});
+
+	it("blocks known file-reading commands for files ignored by .cursorignore", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-bash-"));
+		await fs.mkdir(path.join(dir, "secrets"), { recursive: true });
+		await fs.writeFile(path.join(dir, ".cursorignore"), "secrets/\n", "utf-8");
+		await fs.writeFile(path.join(dir, "secrets", "token.txt"), "secret", "utf-8");
+
+		try {
+			const bash = createBashExecutor();
+			await expect(bash("cat secrets/token.txt", dir, ctx)).rejects.toThrow(
+				"blocked by direct-access ignore settings",
+			);
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("blocks absolute paths inside cwd for known file-reading commands", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-bash-"));
+		const ignoredFile = path.join(dir, "secrets", "token.txt");
+		await fs.mkdir(path.dirname(ignoredFile), { recursive: true });
+		await fs.writeFile(path.join(dir, ".cursorignore"), "secrets/\n", "utf-8");
+		await fs.writeFile(ignoredFile, "secret", "utf-8");
+
+		try {
+			const bash = createBashExecutor();
+			await expect(bash(`cat ${ignoredFile}`, dir, ctx)).rejects.toThrow(
+				"blocked by direct-access ignore settings",
+			);
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
 	});
 
 	it("includes stderr in combined output on success", async () => {

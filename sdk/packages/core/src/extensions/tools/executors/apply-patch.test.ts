@@ -58,6 +58,31 @@ describe("createApplyPatchExecutor", () => {
 		expect(result).toContain("page.tsx");
 	});
 
+	it("blocks patches touching files ignored by .cursorignore", async () => {
+		const filePath = path.join(tempDir, "secrets", "token.txt");
+		await fs.mkdir(path.dirname(filePath), { recursive: true });
+		await fs.writeFile(path.join(tempDir, ".cursorignore"), "secrets/\n", "utf-8");
+		await fs.writeFile(filePath, "old", "utf-8");
+
+		const execute = createApplyPatchExecutor();
+
+		await expect(
+			execute(
+				{
+					input: [
+						"*** Update File: secrets/token.txt",
+						"@@",
+						"-old",
+						"+new",
+					].join("\n"),
+				},
+				tempDir,
+				{} as never,
+			),
+		).rejects.toThrow("blocked by direct-access ignore settings");
+		await expect(fs.readFile(filePath, "utf-8")).resolves.toBe("old");
+	});
+
 	it("accepts the legacy shell wrapper around the patch", async () => {
 		const filePath = path.join(tempDir, "note.txt");
 		const execute = createApplyPatchExecutor();

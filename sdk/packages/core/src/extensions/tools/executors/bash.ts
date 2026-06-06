@@ -12,6 +12,7 @@ import {
 } from "@cline/shared";
 import { TimeoutError } from "../helpers";
 import type { BashExecutor } from "../types";
+import { findIgnoredPathInCommand } from "./access-ignore";
 
 /**
  * Options for the bash executor
@@ -191,7 +192,13 @@ export function createBashExecutor(
 		combineOutput = true,
 	} = options;
 
-	return (command, cwd, context) => {
+	return async (command, cwd, context) => {
+		const ignoredPath = await findIgnoredPathInCommand(command, cwd);
+		if (ignoredPath) {
+			throw new Error(
+				`Access to ${ignoredPath} is blocked by direct-access ignore settings (.clineignore, .cursorignore, or .cursorindexingignore).`,
+			);
+		}
 		const isStructured = typeof command !== "string";
 		return spawnAndCollect(
 			{

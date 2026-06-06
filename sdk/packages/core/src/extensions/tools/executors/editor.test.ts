@@ -33,6 +33,34 @@ describe("createEditorExecutor", () => {
 		}
 	});
 
+	it("blocks writes to files ignored by .cursorignore", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-editor-"));
+		const filePath = path.join(dir, "secrets", "token.txt");
+		await fs.mkdir(path.dirname(filePath), { recursive: true });
+		await fs.writeFile(path.join(dir, ".cursorignore"), "secrets/\n", "utf-8");
+
+		try {
+			const editor = createEditorExecutor();
+			await expect(
+				editor(
+					{
+						path: "secrets/token.txt",
+						new_text: "blocked",
+					},
+					dir,
+					{
+						agentId: "agent-1",
+						conversationId: "conv-1",
+						iteration: 1,
+					},
+				),
+			).rejects.toThrow("blocked by direct-access ignore settings");
+			await expect(fs.readFile(filePath, "utf-8")).rejects.toThrow();
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("inserts before a one-based line and appends at the EOF boundary", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-editor-"));
 		const filePath = path.join(dir, "example.txt");
