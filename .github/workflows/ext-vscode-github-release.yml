@@ -127,10 +127,7 @@ jobs:
                   CLINE_ENVIRONMENT: production
                   TELEMETRY_SERVICE_API_KEY: ${{ secrets.TELEMETRY_SERVICE_API_KEY }}
                   ERROR_SERVICE_API_KEY: ${{ secrets.ERROR_SERVICE_API_KEY }}
-              run: |
-                  node scripts/marketplace-readme.mjs swap-in
-                  trap 'node scripts/marketplace-readme.mjs restore' EXIT
-                  node scripts/package-github-vsix.mjs --out-dir . --verify-install
+              run: node scripts/package-github-vsix.mjs --out-dir . --verify-install
 
             - name: Get Previous Tag
               id: prev_tag

@@ -5,6 +5,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { restore as restoreMarketplaceReadme, swapIn as swapInMarketplaceReadme } from "./marketplace-readme.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -209,6 +210,86 @@ function verifyInstalledExtension(listOutput, expectedExtension) {
 	}
 }
 
+function assertFileExists(filePath, label, options = {}) {
+	if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
+		throw new Error(`Missing ${label}: ${path.relative(projectRoot, filePath)}`)
+	}
+	if (options.nonEmpty && fs.statSync(filePath).size === 0) {
+		throw new Error(`Empty ${label}: ${path.relative(projectRoot, filePath)}`)
+	}
+}
+
+function assertDirectoryHasFiles(dirPath, label) {
+	if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+		throw new Error(`Missing ${label}: ${path.relative(projectRoot, dirPath)}`)
+	}
+	const entries = fs.readdirSync(dirPath)
+	if (entries.length === 0) {
+		throw new Error(`Empty ${label}: ${path.relative(projectRoot, dirPath)}`)
+	}
+}
+
+function addManifestAsset(assetPaths, value) {
+	if (typeof value === "string" && value.trim()) {
+		assetPaths.add(value.trim())
+	}
+}
+
+function collectManifestAssetPaths(packageJson) {
+	const assetPaths = new Set()
+	addManifestAsset(assetPaths, packageJson.icon)
+
+	for (const icon of Object.values(packageJson.contributes?.icons ?? {})) {
+		addManifestAsset(assetPaths, icon?.default?.fontPath)
+	}
+
+	for (const containerGroup of Object.values(packageJson.contributes?.viewsContainers ?? {})) {
+		for (const container of Array.isArray(containerGroup) ? containerGroup : []) {
+			addManifestAsset(assetPaths, container?.icon)
+		}
+	}
+
+	for (const viewGroup of Object.values(packageJson.contributes?.views ?? {})) {
+		for (const view of Array.isArray(viewGroup) ? viewGroup : []) {
+			addManifestAsset(assetPaths, view?.icon)
+		}
+	}
+
+	for (const walkthrough of packageJson.contributes?.walkthroughs ?? []) {
+		for (const step of walkthrough?.steps ?? []) {
+			addManifestAsset(assetPaths, step?.media?.markdown)
+			addManifestAsset(assetPaths, step?.content?.path)
+		}
+	}
+
+	return Array.from(assetPaths).sort()
+}
+
+function assertManifestAssets(packageJson) {
+	for (const assetPath of collectManifestAssetPaths(packageJson)) {
+		assertFileExists(path.join(projectRoot, assetPath), `manifest asset "${assetPath}"`)
+	}
+}
+
+function assertPackageInputs(packageJson) {
+	assertFileExists(path.join(projectRoot, "README.md"), "packaged README.md", { nonEmpty: true })
+	assertManifestAssets(packageJson)
+}
+
+function assertBuildOutputs() {
+	assertFileExists(path.join(projectRoot, "dist", "extension.js"), "extension bundle dist/extension.js", {
+		nonEmpty: true,
+	})
+	assertDirectoryHasFiles(path.join(projectRoot, "webview-ui", "build"), "webview-ui build")
+}
+
+function assertPackagedVsix(outPath) {
+	assertFileExists(outPath, "GitHub VSIX artifact", { nonEmpty: true })
+	if (fs.statSync(outPath).size < 1024) {
+		throw new Error(`GitHub VSIX artifact is unexpectedly small: ${outPath}`)
+	}
+}
+
 async function verifyInstallWithCode(outPath, metadata, codePath) {
 	const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codevibe-vsix-smoke-"))
 	const userDataDir = path.join(tempRoot, "user-data")
@@ -260,9 +341,13 @@ async function main() {
 	}
 
 	try {
+		swapInMarketplaceReadme()
 		writePackageJson(githubVsixPackageJson)
+		assertPackageInputs(githubVsixPackageJson)
 		fs.mkdirSync(outDir, { recursive: true })
 		runCommand(commandCandidates("vsce"), ["package", "--allow-package-secrets", "sendgrid", "--out", outPath])
+		assertBuildOutputs()
+		assertPackagedVsix(outPath)
 		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
 
 		if (options.install) {
@@ -274,6 +359,7 @@ async function main() {
 		}
 	} finally {
 		fs.writeFileSync(packageJsonPath, originalPackageJsonText)
+		restoreMarketplaceReadme()
 	}
 }
 

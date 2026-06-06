@@ -161,9 +161,6 @@ jobs:
                   # release artifact (vsce package below) and the marketplace
                   # publish (npm run publish:marketplace below, which swaps
                   # internally as an idempotent no-op) ship the same README.
-                  node scripts/marketplace-readme.mjs swap-in
-                  trap 'node scripts/marketplace-readme.mjs restore' EXIT
-
                   # Required to generate the GitHub Release .vsix
                   node scripts/package-github-vsix.mjs --out-dir . --verify-install
 
