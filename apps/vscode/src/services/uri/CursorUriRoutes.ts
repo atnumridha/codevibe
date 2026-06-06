@@ -30,6 +30,7 @@ export const CURSOR_COMPATIBLE_URI_PATHS = [
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384
 const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024
 const SECRET_PARAM_PATTERN = /(token|secret|password|authorization|api[-_]?key|credential)/i
+const CURSOR_BOOLEAN_STRING_VALUES = new Set(["true", "false", "1", "0", "yes", "no"])
 
 type CursorCompatibleUriPath = (typeof CURSOR_COMPATIBLE_URI_PATHS)[number]
 
@@ -395,12 +396,17 @@ function hasStringConfigValue(config: unknown, key: string): boolean {
 }
 
 function getConfigString(route: CursorCompatibleUriRoute, key: string): string | undefined {
+	const config = getConfigRecord(route)
+	const value = config?.[key]
+	return typeof value === "string" && value.trim() ? value.trim() : undefined
+}
+
+function getConfigRecord(route: CursorCompatibleUriRoute): Record<string, unknown> | undefined {
 	const config = route.params.config
 	if (!config || typeof config !== "object" || Array.isArray(config)) {
 		return undefined
 	}
-	const value = (config as Record<string, unknown>)[key]
-	return typeof value === "string" && value.trim() ? value.trim() : undefined
+	return config as Record<string, unknown>
 }
 
 function formatParamValue(key: string, value: string | Record<string, unknown>): string {
@@ -534,27 +540,51 @@ function getAutomationNdjson(route: CursorCompatibleUriRoute): string {
 	return value
 }
 
-function getPositiveIntegerParam(route: CursorCompatibleUriRoute, key: string): number | undefined {
-	const value = getStringParam(route, key) || getConfigString(route, key)
-	if (!value) {
+function getPositiveIntegerParam(route: CursorCompatibleUriRoute, key: "maxLineBytes" | "maxEvents"): number | undefined {
+	const value = getStringParam(route, key) ?? getConfigRecord(route)?.[key]
+	if (value === undefined) {
 		return undefined
 	}
-	const parsed = Number.parseInt(value, 10)
-	return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+	const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN
+	if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+		throw new Error(`${key} must be a positive integer`)
+	}
+	return parsed
 }
 
 function getBooleanParam(route: CursorCompatibleUriRoute, key: string): boolean {
-	const value = getStringParam(route, key) || getConfigString(route, key)
-	if (!value) {
+	const value = getStringParam(route, key) ?? getConfigRecord(route)?.[key]
+	if (value === undefined) {
 		return false
 	}
-	return ["true", "1", "yes"].includes(value.toLowerCase())
+	if (typeof value === "boolean") {
+		return value
+	}
+	const normalized = typeof value === "string" ? value.toLowerCase() : undefined
+	if (!normalized || !CURSOR_BOOLEAN_STRING_VALUES.has(normalized)) {
+		throw new Error(`${key} must be one of true, false, 1, 0, yes, or no`)
+	}
+	return ["true", "1", "yes"].includes(normalized)
 }
 
 function getAllowedSources(route: CursorCompatibleUriRoute): string[] | undefined {
-	const value = getStringParam(route, "allowedSources") || getConfigString(route, "allowedSources")
-	const sources = value
-		?.split(",")
+	const paramValue = getStringParam(route, "allowedSources")
+	const configValue = getConfigRecord(route)?.allowedSources
+	const rawSources =
+		paramValue !== undefined
+			? paramValue.split(",")
+			: Array.isArray(configValue)
+				? configValue
+				: typeof configValue === "string"
+					? configValue.split(",")
+					: undefined
+	if (rawSources === undefined) {
+		return undefined
+	}
+	if (rawSources.some((source) => typeof source !== "string")) {
+		throw new Error("allowedSources must contain only strings")
+	}
+	const sources = rawSources
 		.map((source) => source.trim())
 		.filter(Boolean)
 	return sources && sources.length > 0 ? sources : undefined

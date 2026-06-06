@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import { describe, it } from "mocha"
 import {
+	buildCursorCompatibleAutomationIngestRequest,
 	buildCursorCompatibleTaskPrompt,
 	isCursorCompatibleUriPath,
 	parseCursorCompatibleUri,
@@ -117,5 +118,57 @@ describe("CursorUriRoutes", () => {
 		expect(prompt).to.contain("payload keys: branch, token")
 		expect(prompt).to.contain("source_not_allowed")
 		expect(prompt).not.to.contain("secret-value")
+	})
+
+	it("accepts typed automation ingest options from config payloads", () => {
+		const ndjson = [
+			JSON.stringify({
+				eventId: "evt-1",
+				eventType: "git.commit.created",
+				source: "cursor",
+			}),
+			JSON.stringify({
+				eventId: "evt-2",
+				eventType: "git.commit.created",
+				source: "github",
+			}),
+		].join("\n")
+		const config = base64UrlJson({
+			ndjson,
+			allowedSources: ["cursor"],
+			maxEvents: 1,
+			strict: true,
+		})
+		const result = parseCursorCompatibleUri("/automation/ingest", new URLSearchParams(`config=${config}`))
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected automation ingest config route to parse")
+		}
+		const request = buildCursorCompatibleAutomationIngestRequest(result.route)
+		expect(request.strict).to.equal(true)
+		expect(request.options).to.deep.include({
+			allowedSources: ["cursor"],
+			maxEvents: 1,
+		})
+		expect(request.validation.events).to.have.length(1)
+		expect(request.validation.rejected).to.have.length(1)
+		expect(request.configKeys).to.deep.equal(["allowedSources", "maxEvents", "ndjson", "strict"])
+	})
+
+	it("rejects invalid numeric automation ingest config values", () => {
+		const config = base64UrlJson({
+			ndjson: "{}",
+			maxEvents: 0,
+		})
+		const result = parseCursorCompatibleUri("/automation/ingest", new URLSearchParams(`config=${config}`))
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected automation ingest config route to parse")
+		}
+		expect(() => buildCursorCompatibleAutomationIngestRequest(result.route)).to.throw(
+			"maxEvents must be a positive integer",
+		)
 	})
 })
