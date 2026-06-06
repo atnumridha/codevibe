@@ -391,11 +391,13 @@ export async function runCli(): Promise<void> {
 		.description("Preview or import MCP servers from workspace .cursor/mcp.json")
 		.option("--yes", "Write the Cursor MCP servers to native MCP settings")
 		.option("--json", "Output the import result as JSON")
+		.option("--global", "Import MCP servers from ~/.cursor/mcp.json")
 		.option("-c, --cwd <path>", "Workspace directory containing .cursor/mcp.json")
 		.action(async () => {
 			const opts = mcpImportCursorCmd.opts<{
 				yes?: boolean;
 				json?: boolean;
+				global?: boolean;
 				cwd?: string;
 			}>();
 			const rootOpts = program.opts<{ cwd?: string }>();
@@ -410,6 +412,7 @@ export async function runCli(): Promise<void> {
 				confirmed: opts.yes,
 				json: opts.json,
 				cwd: opts.cwd ?? rootOpts.cwd,
+				cursorMcpSource: opts.global ? "global" : "workspace",
 				io,
 			});
 		});

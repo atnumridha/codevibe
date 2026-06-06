@@ -15,6 +15,7 @@ import {
 	installPlugin,
 	loadMcpSettingsFile,
 	resolveCursorMcpSettingsPath,
+	resolveGlobalCursorMcpSettingsPath,
 	resolveCursorCommandFileRouteRequest,
 	type ClineAutomationNdjsonIngestOptions,
 	type ClineAutomationNdjsonIngressResult,
@@ -91,6 +92,8 @@ export interface CursorMcpInstallCommandOptions {
 	createAutomationIngestCore?: (
 		options: AutomationIngestCoreFactoryOptions,
 	) => Promise<AutomationIngestCore>;
+	cursorMcpSource?: "workspace" | "global";
+	cursorMcpHome?: string;
 	io: {
 		writeln: (text?: string) => void;
 		writeErr: (text: string) => void;
@@ -699,15 +702,26 @@ export function runCursorMcpImportCommand(
 	options: CursorMcpInstallCommandOptions,
 ): number {
 	try {
+		const sourceKind = options.cursorMcpSource ?? "workspace";
 		const workspaceRoot = resolve(options.cwd ?? process.cwd());
-		const sourcePath = resolveCursorMcpSettingsPath(workspaceRoot);
+		const sourcePath =
+			sourceKind === "global"
+				? resolveGlobalCursorMcpSettingsPath(options.cursorMcpHome)
+				: resolveCursorMcpSettingsPath(workspaceRoot);
 		if (!existsSync(sourcePath)) {
-			throw new Error("No .cursor/mcp.json found in the active workspace");
+			throw new Error(
+				sourceKind === "global"
+					? "No global ~/.cursor/mcp.json found"
+					: "No .cursor/mcp.json found in the active workspace",
+			);
 		}
 
 		const cursorSettings = loadMcpSettingsFile({
 			filePath: sourcePath,
-			workspaceRoot,
+			...(sourceKind === "global" && options.cursorMcpHome
+				? { userHome: options.cursorMcpHome }
+				: {}),
+			...(sourceKind === "workspace" ? { workspaceRoot } : {}),
 		});
 		const serverNames = Object.keys(cursorSettings.mcpServers).sort();
 		if (serverNames.length === 0) {
@@ -754,8 +768,10 @@ export function runCursorMcpImportCommand(
 				metadata: {
 					...metadata,
 					cursor: {
-						source: "workspace-mcp",
-						path: ".cursor/mcp.json",
+						source:
+							sourceKind === "global" ? "global-cursor-mcp" : "workspace-mcp",
+						path:
+							sourceKind === "global" ? "~/.cursor/mcp.json" : ".cursor/mcp.json",
 						importedAt,
 					},
 				},

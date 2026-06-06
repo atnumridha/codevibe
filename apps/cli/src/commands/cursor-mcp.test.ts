@@ -306,6 +306,70 @@ describe("Cursor MCP install command", () => {
 		).toEqual(expect.any(String));
 	});
 
+	it("imports global ~/.cursor/mcp.json without requiring a workspace Cursor file", async () => {
+		const settingsPath = await useTempSettingsPath();
+		const cursorHome = await mkdtemp(join(tmpdir(), "cline-cursor-home-"));
+		tempDirs.push(cursorHome);
+		await mkdir(join(cursorHome, ".cursor"), { recursive: true });
+		await writeFile(
+			join(cursorHome, ".cursor", "mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					globalDocs: {
+						command: "node",
+						args: ["${userHome}/global-server.js"],
+						env: {
+							TOKEN: "secret-value",
+						},
+					},
+				},
+			}),
+			"utf8",
+		);
+		const { out, io } = createIo();
+
+		const code = runCursorMcpImportCommand({
+			uri: "cursor://mcp/import",
+			cursorMcpSource: "global",
+			cursorMcpHome: cursorHome,
+			confirmed: true,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(out[0]).not.toContain("secret-value");
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "cursor-mcp-import",
+			confirmed: true,
+			imported: true,
+			sourcePath: join(cursorHome, ".cursor", "mcp.json"),
+			serverNames: ["globalDocs"],
+			importedCount: 1,
+			replacedNames: [],
+		});
+		const parsed = JSON.parse(await readFile(settingsPath, "utf8")) as {
+			mcpServers?: Record<string, Record<string, unknown>>;
+		};
+		expect(parsed.mcpServers?.globalDocs).toMatchObject({
+			transport: {
+				type: "stdio",
+				command: "node",
+				args: [join(cursorHome, "global-server.js")],
+				env: {
+					TOKEN: "secret-value",
+				},
+			},
+			metadata: {
+				cursor: {
+					source: "global-cursor-mcp",
+					path: "~/.cursor/mcp.json",
+				},
+			},
+		});
+	});
+
 	it("dispatches native CodeVibe route-host deeplinks through the CLI", async () => {
 		const settingsPath = await useTempSettingsPath();
 		const install = createIo();

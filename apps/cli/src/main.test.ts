@@ -369,6 +369,7 @@ describe("runCli lightweight command dispatch", () => {
 			"src/index.ts",
 			"mcp",
 			"import-cursor",
+			"--global",
 			"--cwd",
 			"/tmp/cursor-mcp-workspace",
 			"--yes",
@@ -385,6 +386,7 @@ describe("runCli lightweight command dispatch", () => {
 				confirmed: true,
 				json: true,
 				cwd: "/tmp/cursor-mcp-workspace",
+				cursorMcpSource: "global",
 			}),
 		);
 		expect(mockState.runAgentImports).toBe(0);
