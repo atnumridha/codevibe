@@ -130,7 +130,7 @@ jobs:
               run: |
                   node scripts/marketplace-readme.mjs swap-in
                   trap 'node scripts/marketplace-readme.mjs restore' EXIT
-                  node scripts/package-github-vsix.mjs --out-dir .
+                  node scripts/package-github-vsix.mjs --out-dir . --verify-install
 
             - name: Get Previous Tag
               id: prev_tag

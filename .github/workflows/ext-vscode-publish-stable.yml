@@ -165,7 +165,7 @@ jobs:
                   trap 'node scripts/marketplace-readme.mjs restore' EXIT
 
                   # Required to generate the GitHub Release .vsix
-                  node scripts/package-github-vsix.mjs --out-dir .
+                  node scripts/package-github-vsix.mjs --out-dir . --verify-install
 
                   if [ "$RELEASE_TYPE" = "pre-release" ]; then
                     npm run publish:marketplace:prerelease
