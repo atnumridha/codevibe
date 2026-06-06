@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import type { McpHub } from "@/services/mcp/McpHub"
 import { ModelFamily } from "@/shared/prompts"
+import { ClineDefaultTool } from "@/shared/tools"
 import { PromptRegistry } from "../registry/PromptRegistry"
 import type { SystemPromptContext } from "../types"
 import { mockProviderInfo } from "./integration.test"
@@ -104,6 +105,14 @@ describe("PromptRegistry", () => {
 	})
 
 	describe("native tools", () => {
+		const getNativeToolNames = (nativeTools: unknown[]): Array<string | undefined> =>
+			nativeTools.map((tool: any) => {
+				if (tool?.type === "function") {
+					return tool.function?.name
+				}
+				return tool?.name
+			})
+
 		it("should not include focus_chain in native tools output", async () => {
 			const nativeContext: SystemPromptContext = {
 				...mockContext,
@@ -121,15 +130,48 @@ describe("PromptRegistry", () => {
 			expect(nativeTools).to.be.an("array").that.is.not.empty
 
 			// OpenAI-native tools are function tools; keep a fallback for other providers.
-			const toolNames = (nativeTools as any[]).map((tool) => {
-				if (tool?.type === "function") {
-					return tool.function?.name
-				}
-				return tool?.name
-			})
+			const toolNames = getNativeToolNames(nativeTools as unknown[])
 
 			expect(toolNames).to.not.include("focus_chain")
 			expect(JSON.stringify(nativeTools)).to.not.include('"focus_chain"')
+		})
+
+		it("should include read-only browser_snapshot with browser_action in native tools output", async () => {
+			const nativeContext: SystemPromptContext = {
+				...mockContext,
+				enableNativeToolCalls: true,
+				supportsBrowserUse: true,
+				providerInfo: {
+					...mockProviderInfo,
+					providerId: "openai-native",
+					model: { ...mockProviderInfo.model, id: "gpt-5" },
+				},
+			}
+
+			await registry.get(nativeContext)
+			const toolNames = getNativeToolNames(registry.nativeTools as unknown[])
+
+			expect(toolNames).to.include(ClineDefaultTool.BROWSER)
+			expect(toolNames).to.include(ClineDefaultTool.BROWSER_SNAPSHOT)
+		})
+
+		it("should omit browser native tools when browser use is disabled", async () => {
+			const nativeContext: SystemPromptContext = {
+				...mockContext,
+				enableNativeToolCalls: true,
+				supportsBrowserUse: false,
+				providerInfo: {
+					...mockProviderInfo,
+					providerId: "openai-native",
+					model: { ...mockProviderInfo.model, id: "gpt-5" },
+				},
+			}
+
+			await registry.get(nativeContext)
+			const toolNames = getNativeToolNames(registry.nativeTools as unknown[])
+
+			expect(toolNames).to.not.include(ClineDefaultTool.BROWSER)
+			expect(toolNames).to.not.include(ClineDefaultTool.BROWSER_SNAPSHOT)
 		})
 	})
 
