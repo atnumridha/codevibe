@@ -21,10 +21,14 @@ const mockState = vi.hoisted(() => ({
 	runAgentCalls: 0,
 }));
 const authMocks = vi.hoisted(() => ({
+	DEFAULT_CLI_MODEL_ID: "gpt-5.5",
+	DEFAULT_CLI_PROVIDER_ID: "openai-codex",
 	ensureOAuthProviderApiKey: vi.fn(),
 	getPersistedProviderApiKey: vi.fn(() => undefined),
 	isOAuthProvider: vi.fn(() => false),
-	normalizeProviderId: vi.fn((providerId?: string) => providerId ?? "cline"),
+	normalizeProviderId: vi.fn(
+		(providerId?: string) => providerId ?? "openai-codex",
+	),
 	parseAuthCommandArgs: vi.fn(),
 	runAuthCommand: vi.fn(),
 }));
@@ -231,7 +235,7 @@ describe("runCli lightweight command dispatch", () => {
 		authMocks.isOAuthProvider.mockReturnValue(false);
 		authMocks.normalizeProviderId.mockReset();
 		authMocks.normalizeProviderId.mockImplementation(
-			(providerId?: string) => providerId ?? "cline",
+			(providerId?: string) => providerId ?? "openai-codex",
 		);
 		authMocks.parseAuthCommandArgs.mockReset();
 		authMocks.runAuthCommand.mockReset();
@@ -650,6 +654,7 @@ describe("runCli lightweight command dispatch", () => {
 
 	it("loads live catalog models for default interactive model selection", async () => {
 		llmMocks.resolveProviderConfig.mockResolvedValue({
+			modelId: "gpt-codex-default",
 			knownModels: {
 				"live-only-model": {
 					id: "live-only-model",
@@ -663,7 +668,7 @@ describe("runCli lightweight command dispatch", () => {
 
 		await expect(runCli()).resolves.toBeUndefined();
 		expect(llmMocks.resolveProviderConfig).toHaveBeenCalledWith(
-			"cline",
+			"openai-codex",
 			{
 				loadLatestOnInit: true,
 				loadPrivateOnAuth: true,
@@ -673,6 +678,8 @@ describe("runCli lightweight command dispatch", () => {
 		);
 		expect(runtimeMocks.runInteractive).toHaveBeenCalledWith(
 			expect.objectContaining({
+				providerId: "openai-codex",
+				modelId: "gpt-codex-default",
 				knownModels: expect.objectContaining({
 					"live-only-model": expect.objectContaining({
 						name: "Live Only Model",
@@ -692,7 +699,7 @@ describe("runCli lightweight command dispatch", () => {
 
 		await expect(runCli()).resolves.toBeUndefined();
 		expect(llmMocks.resolveProviderConfig).toHaveBeenCalledWith(
-			"cline",
+			"openai-codex",
 			{
 				loadLatestOnInit: true,
 				loadPrivateOnAuth: true,
@@ -720,11 +727,18 @@ describe("runCli lightweight command dispatch", () => {
 
 		await expect(runCli()).resolves.toBeUndefined();
 		expect(llmMocks.resolveProviderConfig).toHaveBeenCalledWith(
-			"cline",
+			"openai-codex",
 			undefined,
 			undefined,
 		);
 		expect(runtimeMocks.runAgent).toHaveBeenCalledTimes(1);
+		expect(runtimeMocks.runAgent).toHaveBeenCalledWith(
+			"hello",
+			expect.objectContaining({
+				providerId: "openai-codex",
+			}),
+			expect.anything(),
+		);
 		expect(runtimeMocks.runInteractive).not.toHaveBeenCalled();
 	});
 

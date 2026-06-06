@@ -9,9 +9,11 @@ import {
 	saveLocalProviderOAuthCredentials,
 	saveLocalProviderSettings,
 } from "@cline/core";
-import type {
-	WebviewInboundMessage,
-	WebviewProviderModel,
+import {
+	DEFAULT_HUB_MODEL_ID,
+	DEFAULT_HUB_PROVIDER_ID,
+	type WebviewInboundMessage,
+	type WebviewProviderModel,
 } from "../webview-protocol";
 import { providerSettingsManager, workspaceRoot } from "./deps";
 import type { HubContext } from "./state";
@@ -25,15 +27,17 @@ export function resolveBrowserDefaults(ctx: HubContext): {
 	cwd: string;
 } {
 	const lastUsed = providerSettingsManager.getLastUsedProviderSettings();
+	const envProvider = process.env.CLINE_PROVIDER?.trim();
+	const envModel = process.env.CLINE_MODEL?.trim();
 	return {
 		provider:
 			lastUsed?.provider ??
 			ctx.lastSessionContext?.providerId ??
-			process.env.CLINE_PROVIDER?.trim(),
+			(envProvider || DEFAULT_HUB_PROVIDER_ID),
 		model:
 			lastUsed?.model ??
 			ctx.lastSessionContext?.modelId ??
-			process.env.CLINE_MODEL?.trim(),
+			(envModel || DEFAULT_HUB_MODEL_ID),
 		workspaceRoot: ctx.lastSessionContext?.workspaceRoot ?? workspaceRoot,
 		cwd:
 			ctx.lastSessionContext?.cwd ??

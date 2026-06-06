@@ -4,6 +4,10 @@ import {
 	type HubScheduleClient,
 } from "../../commands/schedule/client";
 import { resolveAddress } from "../../commands/schedule/common";
+import {
+	DEFAULT_CLI_MODEL_ID,
+	DEFAULT_CLI_PROVIDER_ID,
+} from "../../utils/provider-auth";
 import { CRON_PRESETS } from "./cron-presets";
 
 function isCancel(value: unknown): value is symbol {
@@ -213,8 +217,8 @@ async function actionCreate(client: HubScheduleClient): Promise<void> {
 		name: (name as string).trim(),
 		cronPattern,
 		prompt: (prompt as string).trim(),
-		provider: provider ?? "cline",
-		model: model ?? "openai/gpt-5.3-codex",
+		provider: provider ?? DEFAULT_CLI_PROVIDER_ID,
+		model: model ?? DEFAULT_CLI_MODEL_ID,
 		mode: (mode as string) === "plan" ? "plan" : "act",
 		workspaceRoot: (workspace as string).trim(),
 		systemPrompt,

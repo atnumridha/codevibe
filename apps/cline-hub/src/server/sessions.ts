@@ -5,7 +5,12 @@ import {
 	SessionSource,
 } from "@cline/core";
 import type { Message } from "@cline/llms";
-import type { WebviewConfig, WebviewReasonLevel } from "../webview-protocol";
+import {
+	DEFAULT_HUB_MODEL_ID,
+	DEFAULT_HUB_PROVIDER_ID,
+	type WebviewConfig,
+	type WebviewReasonLevel,
+} from "../webview-protocol";
 import { rejectPendingApprovalsForSession } from "./approvals";
 import { providerSettingsManager, workspaceRoot } from "./deps";
 import {
@@ -44,29 +49,24 @@ export function resolveLaunchContext(
 	ctx: HubContext,
 	override?: Partial<SessionContext> & WebviewConfig,
 ): SessionContext {
+	const envProvider = process.env.CLINE_PROVIDER?.trim();
+	const envModel = process.env.CLINE_MODEL?.trim();
 	const providerId =
 		override?.provider ??
 		override?.providerId ??
 		ctx.lastSessionContext?.providerId ??
 		providerSettingsManager.getLastUsedProviderSettings()?.provider ??
-		process.env.CLINE_PROVIDER?.trim() ??
-		"";
+		(envProvider || DEFAULT_HUB_PROVIDER_ID);
 	const modelId =
 		override?.model ??
 		override?.modelId ??
 		ctx.lastSessionContext?.modelId ??
 		providerSettingsManager.getLastUsedProviderSettings()?.model ??
-		process.env.CLINE_MODEL?.trim() ??
-		"";
+		(envModel || DEFAULT_HUB_MODEL_ID);
 	const root =
 		override?.workspaceRoot ??
 		ctx.lastSessionContext?.workspaceRoot ??
 		workspaceRoot;
-	if (!providerId || !modelId) {
-		throw new Error(
-			"No provider/model available. Start a session in another Cline client first, or set CLINE_PROVIDER and CLINE_MODEL.",
-		);
-	}
 	return {
 		workspaceRoot: root,
 		cwd: override?.cwd ?? ctx.lastSessionContext?.cwd ?? root,

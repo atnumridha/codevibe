@@ -1,6 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import type { Command } from "commander";
+import {
+	DEFAULT_CLI_MODEL_ID,
+	DEFAULT_CLI_PROVIDER_ID,
+} from "../../utils/provider-auth";
 import { ensureSchedulerHub } from "./client";
 import {
 	addAutonomousOptions,
@@ -33,13 +37,13 @@ function resolveImportedModelSelection(parsed: Record<string, unknown>): {
 		modelSelection?.providerId ??
 			parsed.providerId ??
 			parsed.provider ??
-			"cline",
+			DEFAULT_CLI_PROVIDER_ID,
 	).trim();
 	const model = String(
 		modelSelection?.modelId ??
 			parsed.modelId ??
 			parsed.model ??
-			"openai/gpt-5.3-codex",
+			DEFAULT_CLI_MODEL_ID,
 	).trim();
 	return { provider, model };
 }

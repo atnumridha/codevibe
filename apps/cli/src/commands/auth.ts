@@ -13,6 +13,8 @@ import open from "open";
 import React from "react";
 import { disableOpenTuiGraphicsProbe } from "../tui/opentui-env";
 import {
+	DEFAULT_CLI_MODEL_ID,
+	DEFAULT_CLI_PROVIDER_ID,
 	getPersistedProviderApiKey,
 	isOAuthProvider,
 	normalizeAuthProviderId,
@@ -22,6 +24,8 @@ import {
 } from "../utils/provider-auth";
 
 export {
+	DEFAULT_CLI_MODEL_ID,
+	DEFAULT_CLI_PROVIDER_ID,
 	getPersistedProviderApiKey,
 	isOAuthProvider,
 	normalizeAuthProviderId,

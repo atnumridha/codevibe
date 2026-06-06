@@ -32,6 +32,8 @@ import {
 	writeln,
 } from "./utils/output";
 import {
+	DEFAULT_CLI_MODEL_ID,
+	DEFAULT_CLI_PROVIDER_ID,
 	ensureOAuthProviderApiKey,
 	getPersistedProviderApiKey,
 	isOAuthProvider,
@@ -880,7 +882,9 @@ export async function runCli(): Promise<void> {
 		const lastUsedProviderSettings =
 			providerSettingsManager.getLastUsedProviderSettings();
 		const provider = normalizeProviderId(
-			args.provider?.trim() || lastUsedProviderSettings?.provider || "cline",
+			args.provider?.trim() ||
+				lastUsedProviderSettings?.provider ||
+				DEFAULT_CLI_PROVIDER_ID,
 		);
 		let selectedProviderSettings =
 			providerSettingsManager.getProviderSettings(provider);
@@ -918,6 +922,7 @@ export async function runCli(): Promise<void> {
 		}
 
 		let knownModels: Config["knownModels"];
+		let resolvedDefaultModelId: string | undefined;
 		try {
 			const persistedProviderConfig = providerSettingsManager.getProviderConfig(
 				provider,
@@ -938,6 +943,7 @@ export async function runCli(): Promise<void> {
 				persistedProviderConfig,
 			);
 			knownModels = resolvedProviderConfig?.knownModels;
+			resolvedDefaultModelId = resolvedProviderConfig?.modelId;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			writeln(
@@ -974,8 +980,9 @@ export async function runCli(): Promise<void> {
 			modelId:
 				args.model ??
 				selectedProviderSettings?.model ??
+				resolvedDefaultModelId ??
 				knownModelIds[0] ??
-				"anthropic/claude-sonnet-4.6",
+				DEFAULT_CLI_MODEL_ID,
 			apiKey: apiKey ?? "",
 			knownModels,
 			systemPrompt: await resolveSystemPrompt({

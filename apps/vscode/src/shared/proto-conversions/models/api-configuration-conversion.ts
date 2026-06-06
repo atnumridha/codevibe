@@ -13,6 +13,7 @@ import {
 	LiteLLMModelInfo as AppLiteLLMModelInfo,
 	OpenAiCompatibleModelInfo as AppOpenAiCompatibleModelInfo,
 	BedrockModelId,
+	DEFAULT_API_PROVIDER,
 	ModelInfo,
 	OcaModelInfo,
 } from "../../api"
@@ -329,7 +330,7 @@ function convertApiProviderToProto(provider: string | undefined): ProtoApiProvid
 		case "openai-codex":
 			return ProtoApiProvider.OPENAI_CODEX
 		default:
-			return ProtoApiProvider.ANTHROPIC
+			return ProtoApiProvider.OPENAI_CODEX
 	}
 }
 
@@ -421,7 +422,7 @@ export function convertProtoToApiProvider(provider: ProtoApiProvider): ApiProvid
 		case ProtoApiProvider.OPENAI_CODEX:
 			return "openai-codex"
 		default:
-			return "anthropic"
+			return DEFAULT_API_PROVIDER
 	}
 }
 
@@ -516,7 +517,7 @@ export function convertApiConfigurationToProto(config: ApiConfiguration): ProtoA
 		hicapModelId: config.hicapModelId,
 
 		// Plan mode configurations
-		planModeApiProvider: config.planModeApiProvider ? convertApiProviderToProto(config.planModeApiProvider) : undefined,
+		planModeApiProvider: convertApiProviderToProto(config.planModeApiProvider ?? DEFAULT_API_PROVIDER),
 		planModeApiModelId: config.planModeApiModelId,
 		planModeThinkingBudgetTokens: config.planModeThinkingBudgetTokens,
 		geminiPlanModeThinkingLevel: config.geminiPlanModeThinkingLevel,
@@ -560,7 +561,7 @@ export function convertApiConfigurationToProto(config: ApiConfiguration): ProtoA
 		planModeVercelAiGatewayModelInfo: convertModelInfoToProtoOpenRouter(config.planModeVercelAiGatewayModelInfo),
 
 		// Act mode configurations
-		actModeApiProvider: config.actModeApiProvider ? convertApiProviderToProto(config.actModeApiProvider) : undefined,
+		actModeApiProvider: convertApiProviderToProto(config.actModeApiProvider ?? DEFAULT_API_PROVIDER),
 		actModeApiModelId: config.actModeApiModelId,
 		actModeThinkingBudgetTokens: config.actModeThinkingBudgetTokens,
 		geminiActModeThinkingLevel: config.geminiActModeThinkingLevel,
@@ -699,7 +700,7 @@ export function convertProtoToApiConfiguration(protoConfig: ProtoApiConfiguratio
 		planModeApiProvider:
 			protoConfig.planModeApiProvider !== undefined
 				? convertProtoToApiProvider(protoConfig.planModeApiProvider)
-				: undefined,
+				: DEFAULT_API_PROVIDER,
 		planModeApiModelId: protoConfig.planModeApiModelId,
 		planModeThinkingBudgetTokens: protoConfig.planModeThinkingBudgetTokens,
 		geminiPlanModeThinkingLevel: protoConfig.geminiPlanModeThinkingLevel,
@@ -744,7 +745,9 @@ export function convertProtoToApiConfiguration(protoConfig: ProtoApiConfiguratio
 
 		// Act mode configurations
 		actModeApiProvider:
-			protoConfig.actModeApiProvider !== undefined ? convertProtoToApiProvider(protoConfig.actModeApiProvider) : undefined,
+			protoConfig.actModeApiProvider !== undefined
+				? convertProtoToApiProvider(protoConfig.actModeApiProvider)
+				: DEFAULT_API_PROVIDER,
 		actModeApiModelId: protoConfig.actModeApiModelId,
 		actModeThinkingBudgetTokens: protoConfig.actModeThinkingBudgetTokens,
 		geminiActModeThinkingLevel: protoConfig.geminiActModeThinkingLevel,

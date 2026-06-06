@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
 	getOAuthProviderLabel,
+	MAIN_MENU,
 	toModelEntriesFromKnownModels,
 	toModelEntry,
 	toProviderEntry,
 } from "./model";
 
 describe("onboarding model helpers", () => {
+	it("presents ChatGPT as the first onboarding auth choice", () => {
+		expect(MAIN_MENU[0]?.value).toBe("openai-codex");
+	});
+
 	it("maps provider catalog entries into onboarding provider entries", () => {
 		expect(
 			toProviderEntry({

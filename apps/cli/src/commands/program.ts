@@ -41,7 +41,7 @@ export function addRootOptions(cmd: Command): Command {
 				"Open the terminal user interface (TUI) for interactive sessions",
 			)
 			.option("--id <session-id>", "Resume an existing session by ID")
-			.option("-P, --provider <id>", "Provider id (default: cline)")
+			.option("-P, --provider <id>", "Provider id (default: openai-codex)")
 			.option("-k, --key <api-key>", "API key override for this run")
 			.option(
 				"-m, --model <model-id>",

@@ -1,4 +1,8 @@
 import type { Command } from "commander";
+import {
+	DEFAULT_CLI_MODEL_ID,
+	DEFAULT_CLI_PROVIDER_ID,
+} from "../../utils/provider-auth";
 import { ensureSchedulerHub } from "./client";
 import {
 	addAutonomousOptions,
@@ -65,8 +69,8 @@ export function registerScheduleCommands(
 		.option("--max-parallel <n>", "Max parallel executions", "1")
 		.option("--metadata-json <json>", "Metadata as JSON object")
 		.option("--mode <act|plan>", "Execution mode")
-		.option("--model <model>", "Model to use", "openai/gpt-5.3-codex")
-		.option("--provider <id>", "Provider ID", "cline")
+		.option("--model <model>", "Model to use", DEFAULT_CLI_MODEL_ID)
+		.option("--provider <id>", "Provider ID", DEFAULT_CLI_PROVIDER_ID)
 		.option("--system-prompt <text>", "System prompt override")
 		.option("--tags <list>", "Comma-separated tags")
 		.option("--timeout <seconds>", "Timeout in seconds");

@@ -1,4 +1,8 @@
-import type { ModelInfo } from "@shared/api"
+import {
+	DEFAULT_API_PROVIDER,
+	openAiCodexDefaultModelId,
+	type ModelInfo,
+} from "@shared/api"
 import type { OnboardingModel, OnboardingModelGroup, OpenRouterModelInfo } from "@shared/proto/index.cline"
 import { AlertCircleIcon, CircleCheckIcon, CircleIcon, ListIcon, LoaderCircleIcon, ZapIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -309,12 +313,14 @@ const OnboardingViewContent = ({ onboardingModels }: { onboardingModels: Onboard
 			const modelSelected = (updateModelId && selectedModelId) || undefined
 			if (modelSelected) {
 				await handleFieldsChange({
+					planModeApiModelId: openAiCodexDefaultModelId,
+					actModeApiModelId: openAiCodexDefaultModelId,
 					planModeOpenRouterModelId: selectedModelId,
 					actModeOpenRouterModelId: selectedModelId,
 					planModeOpenRouterModelInfo: openRouterModels[selectedModelId],
 					actModeOpenRouterModelInfo: openRouterModels[selectedModelId],
-					planModeApiProvider: "cline",
-					actModeApiProvider: "cline",
+					planModeApiProvider: DEFAULT_API_PROVIDER,
+					actModeApiProvider: DEFAULT_API_PROVIDER,
 				})
 			}
 			hideAccount()

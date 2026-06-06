@@ -12,8 +12,8 @@ import { writeDiagnostic } from "../utils/output";
  * Supported ACP OAuth provider IDs.
  */
 export const ACP_AUTH_METHODS = [
-	{ id: "cline", name: "Sign in with Cline" },
 	{ id: "openai-codex", name: "Sign in with ChatGPT Subscription" },
+	{ id: "cline", name: "Sign in with Cline" },
 ] as const;
 
 export type AcpAuthMethodId = (typeof ACP_AUTH_METHODS)[number]["id"];

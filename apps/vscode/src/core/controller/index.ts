@@ -9,7 +9,7 @@ import type { WorkspaceRootManager } from "@core/workspace/WorkspaceRootManager"
 import { cleanupLegacyCheckpoints } from "@integrations/checkpoints/CheckpointMigration"
 import { ClineAccountService } from "@services/account/ClineAccountService"
 import { McpHub } from "@services/mcp/McpHub"
-import type { ApiProvider, ModelInfo } from "@shared/api"
+import { DEFAULT_API_PROVIDER, type ApiProvider, type ModelInfo } from "@shared/api"
 import type { ChatContent } from "@shared/ChatContent"
 import type { ExtensionState, Platform } from "@shared/ExtensionMessage"
 import type { HistoryItem } from "@shared/HistoryItem"
@@ -198,8 +198,8 @@ export class Controller {
 			const apiConfiguration = this.stateManager.getApiConfiguration()
 			const updatedConfig = {
 				...apiConfiguration,
-				planModeApiProvider: "openrouter" as ApiProvider,
-				actModeApiProvider: "openrouter" as ApiProvider,
+				planModeApiProvider: DEFAULT_API_PROVIDER as ApiProvider,
+				actModeApiProvider: DEFAULT_API_PROVIDER as ApiProvider,
 			}
 			this.stateManager.setApiConfiguration(updatedConfig)
 

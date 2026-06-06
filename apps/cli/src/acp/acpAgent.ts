@@ -34,6 +34,10 @@ import { resolveSystemPrompt } from "../runtime/prompt";
 import { subscribeToAgentEvents } from "../runtime/session-events";
 import { createCliCore } from "../session/session";
 import { getCliBuildInfo } from "../utils/common";
+import {
+	DEFAULT_CLI_MODEL_ID,
+	DEFAULT_CLI_PROVIDER_ID,
+} from "../utils/provider-auth";
 import { randomSessionId, resolveWorkspaceRoot } from "../utils/helpers";
 import type { Config } from "../utils/types";
 import {
@@ -127,10 +131,13 @@ export class AcpAgent implements Agent {
 		const sessionId = randomSessionId();
 
 		const defaultMode = "act";
+		const envProvider = process.env.CLINE_PROVIDER?.trim();
+		const envModel = process.env.CLINE_MODEL?.trim();
 		const providerId =
-			process.env.CLINE_PROVIDER ?? this.authResult?.providerId ?? "cline";
-		const defaultModelId =
-			process.env.CLINE_MODEL ?? "anthropic/claude-sonnet-4.6";
+			envProvider ||
+			this.authResult?.providerId ||
+			DEFAULT_CLI_PROVIDER_ID;
+		const defaultModelId = envModel || DEFAULT_CLI_MODEL_ID;
 
 		this.sessions.set(sessionId, {
 			id: sessionId,

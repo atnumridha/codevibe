@@ -61,6 +61,9 @@ import {
 } from "@/lib/provider-model-catalog";
 import { cn } from "@/lib/utils";
 
+const DEFAULT_ROUTINE_PROVIDER_ID = "openai-codex";
+const DEFAULT_ROUTINE_MODEL_ID = "gpt-5.5";
+
 type DateTimeValue = number | string;
 
 interface RoutineSchedule {
@@ -140,6 +143,7 @@ interface ProcessContext {
 }
 
 const FALLBACK_PROVIDER_MODELS: Record<string, string[]> = {
+	[DEFAULT_ROUTINE_PROVIDER_ID]: [DEFAULT_ROUTINE_MODEL_ID],
 	cline: ["anthropic/claude-sonnet-4.6"],
 	anthropic: ["claude-sonnet-4-6"],
 	"openai-native": ["gpt-5.3-codex"],
@@ -217,11 +221,11 @@ function getScheduleProviderModel(schedule: RoutineSchedule): {
 		provider:
 			schedule.modelSelection?.providerId?.trim() ||
 			schedule.provider?.trim() ||
-			"cline",
+			DEFAULT_ROUTINE_PROVIDER_ID,
 		model:
 			schedule.modelSelection?.modelId?.trim() ||
 			schedule.model?.trim() ||
-			"openai/gpt-5.3-codex",
+			DEFAULT_ROUTINE_MODEL_ID,
 	};
 }
 
@@ -376,8 +380,8 @@ export function RoutineSchedulesContent() {
 		scheduleMinute: "0",
 		scheduleDays: ["MON", "TUE", "WED", "THU", "FRI"],
 		prompt: "Review PRs opened yesterday and summarize issues.",
-		provider: "cline",
-		model: "openai/gpt-5.3-codex",
+		provider: DEFAULT_ROUTINE_PROVIDER_ID,
+		model: DEFAULT_ROUTINE_MODEL_ID,
 		mode: "act",
 		workspaceRoot: "",
 		cwd: "",
@@ -680,7 +684,7 @@ export function RoutineSchedulesContent() {
 		const preferredProvider =
 			rememberedProvider && availableProviders.includes(rememberedProvider)
 				? rememberedProvider
-				: (availableProviders[0] ?? "cline");
+				: (availableProviders[0] ?? DEFAULT_ROUTINE_PROVIDER_ID);
 		const modelsForProvider = visibleProviderModels[preferredProvider] ?? [];
 		const rememberedModel =
 			lastModelSelection.lastModelByProvider[preferredProvider] ??
@@ -786,11 +790,11 @@ export function RoutineSchedulesContent() {
 			const provider =
 				normalizeProviderId(createForm.provider) ||
 				availableProviders[0] ||
-				"cline";
+				DEFAULT_ROUTINE_PROVIDER_ID;
 			const model =
 				createForm.model.trim() ||
 				(visibleProviderModels[provider] ?? [])[0] ||
-				"openai/gpt-5.3-codex";
+				DEFAULT_ROUTINE_MODEL_ID;
 			const maxIterations = parseOptionalPositiveInt(createForm.maxIterations);
 			const timeoutSeconds = parseOptionalPositiveInt(
 				createForm.timeoutSeconds,

@@ -89,4 +89,34 @@ describe("buildConnectorStartRequest", () => {
 		expect(request.apiKey).toBe("env-openrouter-key");
 		expect(request.model).toBe("anthropic/claude-sonnet-4.6");
 	});
+
+	it("defaults connector sessions to OpenAI Codex when no provider was selected", async () => {
+		mockGetLastUsedProviderSettings.mockReturnValue(undefined);
+		mockGetProviderSettings.mockReturnValue(undefined);
+		mockGetProviderCollection.mockReturnValue({
+			provider: { env: [] },
+		});
+		mockResolveSystemPrompt.mockResolvedValue("system");
+
+		const request = await buildConnectorStartRequest({
+			options: {
+				cwd: "/tmp/work",
+				mode: "plan",
+				enableTools: true,
+			},
+			io: { writeln: vi.fn(), writeErr: vi.fn() },
+			loggerConfig: { enabled: false, level: "info", destination: "stdout" },
+			systemRules: "Rules",
+		});
+
+		expect(mockGetProviderSettings).toHaveBeenCalledWith("openai-codex");
+		expect(mockResolveSystemPrompt).toHaveBeenCalledWith(
+			expect.objectContaining({
+				providerId: "openai-codex",
+			}),
+		);
+		expect(request.provider).toBe("openai-codex");
+		expect(request.model).toBe("gpt-5.5");
+		expect(request.apiKey).toBe("");
+	});
 });

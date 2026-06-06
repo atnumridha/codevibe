@@ -4,6 +4,9 @@ import type {
 	ProviderModel,
 } from "@cline/core";
 
+export const DEFAULT_HUB_PROVIDER_ID = "openai-codex";
+export const DEFAULT_HUB_MODEL_ID = "gpt-5.5";
+
 export type WebviewUsage = {
 	inputTokens?: number;
 	outputTokens?: number;

@@ -28,7 +28,7 @@ export const DEFAULT_INTERNAL_OCA_BASE_URL =
 	"https://code-internal.aiservice.us-chicago-1.oci.oraclecloud.com/20250206/app/litellm";
 export const DEFAULT_EXTERNAL_OCA_BASE_URL =
 	"https://code.aiservice.us-chicago-1.oci.oraclecloud.com/20250206/app/litellm";
-const OPENAI_CODEX_DEFAULT_MODEL_ID = "gpt-5.4";
+const OPENAI_CODEX_DEFAULT_MODEL_ID = "gpt-5.5";
 
 export type ProviderFamily =
 	| "openai"

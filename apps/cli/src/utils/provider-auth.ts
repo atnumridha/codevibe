@@ -1,6 +1,11 @@
 import { Llms, type ProviderSettings } from "@cline/core";
 import { isOAuthProviderId } from "@cline/shared";
 
+export const DEFAULT_CLI_PROVIDER_ID = Llms.BUILT_IN_PROVIDER.OPENAI_CODEX;
+export const DEFAULT_CLI_MODEL_ID =
+	Llms.MODEL_COLLECTIONS_BY_PROVIDER_ID[DEFAULT_CLI_PROVIDER_ID]?.provider
+		.defaultModelId ?? "gpt-5.5";
+
 export type OAuthCredentials = {
 	access: string;
 	refresh: string;

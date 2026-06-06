@@ -38,16 +38,16 @@ export interface MenuOption {
 
 export const MAIN_MENU: MenuOption[] = [
 	{
-		label: "Sign in with Cline",
-		value: "cline",
-		detail: "Latest models with regular free promos",
-		icon: "\u263a",
-	},
-	{
 		label: "Sign in with ChatGPT",
 		value: "openai-codex",
 		detail: "Use your ChatGPT Plus subscription",
 		icon: "\u2726",
+	},
+	{
+		label: "Sign in with Cline",
+		value: "cline",
+		detail: "Latest models with regular free promos",
+		icon: "\u263a",
 	},
 	{
 		label: "Bring your own provider",

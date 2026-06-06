@@ -3,6 +3,10 @@ import {
 	HubScheduleCommandService,
 	HubScheduleService,
 } from "@cline/core";
+import {
+	DEFAULT_HUB_MODEL_ID,
+	DEFAULT_HUB_PROVIDER_ID,
+} from "../webview-protocol";
 import { asTrimmedString, toPositiveInt } from "./utils";
 
 let scheduleService: HubScheduleService | undefined;
@@ -89,8 +93,9 @@ export async function handleRoutineScheduleCommand(
 			cronPattern,
 			prompt,
 			modelSelection: {
-				providerId: asTrimmedString(args?.provider) ?? "cline",
-				modelId: asTrimmedString(args?.model) ?? "openai/gpt-5.3-codex",
+				providerId:
+					asTrimmedString(args?.provider) ?? DEFAULT_HUB_PROVIDER_ID,
+				modelId: asTrimmedString(args?.model) ?? DEFAULT_HUB_MODEL_ID,
 			},
 			mode: args?.mode === "plan" ? "plan" : "act",
 			workspaceRoot: routineWorkspaceRoot,
@@ -128,8 +133,9 @@ export async function handleRoutineScheduleCommand(
 			cronPattern,
 			prompt,
 			modelSelection: {
-				providerId: asTrimmedString(args?.provider) ?? "cline",
-				modelId: asTrimmedString(args?.model) ?? "openai/gpt-5.3-codex",
+				providerId:
+					asTrimmedString(args?.provider) ?? DEFAULT_HUB_PROVIDER_ID,
+				modelId: asTrimmedString(args?.model) ?? DEFAULT_HUB_MODEL_ID,
 			},
 			mode: args?.mode === "plan" ? "plan" : "act",
 			workspaceRoot: routineWorkspaceRoot,

@@ -8,6 +8,8 @@ import {
 } from "@cline/core";
 import type { Thread } from "chat";
 import {
+	DEFAULT_CLI_MODEL_ID,
+	DEFAULT_CLI_PROVIDER_ID,
 	ensureOAuthProviderApiKey,
 	getPersistedProviderApiKey,
 	isOAuthProvider,
@@ -66,7 +68,7 @@ export async function buildConnectorStartRequest(input: {
 	const provider = normalizeProviderId(
 		input.options.provider?.trim() ||
 			lastUsedProviderSettings?.provider ||
-			"cline",
+			DEFAULT_CLI_PROVIDER_ID,
 	);
 	let selectedProviderSettings =
 		providerSettingsManager.getProviderSettings(provider);
@@ -108,7 +110,7 @@ export async function buildConnectorStartRequest(input: {
 			input.options.model?.trim() ||
 			selectedProviderSettings?.model ||
 			input.defaultModel ||
-			"anthropic/claude-sonnet-4.6",
+			DEFAULT_CLI_MODEL_ID,
 		mode: input.options.mode,
 		apiKey,
 		systemPrompt,
