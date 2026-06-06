@@ -6,6 +6,7 @@ import type {
 	ToolApprovalRequest,
 } from "@cline/shared";
 import { captureSdkError, createSessionId } from "@cline/shared";
+import type { CronEventNdjsonIngressResult } from "../../cron/events/cron-event-ingress";
 import { CronService } from "../../cron/service/cron-service";
 import { HubScheduleCommandService } from "../../cron/service/schedule-command-service";
 import { HubScheduleService } from "../../cron/service/schedule-service";
@@ -150,6 +151,52 @@ function parseSettingsToggleInput(payload: unknown): CoreSettingsToggleInput {
 		path: requireOptionalString(payload, "path"),
 		name: requireOptionalString(payload, "name"),
 		enabled: requireOptionalBoolean(payload, "enabled"),
+	};
+}
+
+function parseCronEventIngestInput(payload: unknown): {
+	input: string;
+	defaultSource?: string;
+} {
+	if (typeof payload === "string") {
+		return { input: payload };
+	}
+	if (!isPayloadObject(payload)) {
+		throw new Error("cron.event.ingest payload must be an object or NDJSON string.");
+	}
+	const inputValue = payload.ndjson ?? payload.input;
+	if (inputValue !== undefined && typeof inputValue !== "string") {
+		throw new Error("cron.event.ingest payload 'ndjson' must be a string.");
+	}
+	const defaultSource = payload.defaultSource;
+	if (defaultSource !== undefined && typeof defaultSource !== "string") {
+		throw new Error("cron.event.ingest payload 'defaultSource' must be a string.");
+	}
+	return {
+		input: inputValue ?? JSON.stringify(payload),
+		...(defaultSource?.trim() ? { defaultSource: defaultSource.trim() } : {}),
+	};
+}
+
+function summarizeCronEventIngestResult(result: CronEventNdjsonIngressResult) {
+	return {
+		eventCount: result.events.length,
+		rejectedCount: result.rejected.length,
+		rejected: result.rejected.map((line) => ({
+			lineNumber: line.lineNumber,
+			reason: line.reason,
+			message: line.message,
+			lineLength: line.line.length,
+		})),
+		results: result.results.map((entry) => ({
+			eventId: entry.event.eventId,
+			eventType: entry.event.eventType,
+			source: entry.event.source,
+			duplicate: entry.duplicate,
+			matchedSpecIds: entry.matchedSpecs.map((spec) => spec.specId),
+			queuedRunIds: entry.queuedRuns.map((run) => run.runId),
+			suppressionCount: entry.suppressions.length,
+		})),
 	};
 }
 
@@ -397,6 +444,8 @@ export class HubServerTransport implements NativeHubTransport {
 				return await this.handleSettingsList(envelope);
 			case "settings.toggle":
 				return await this.handleSettingsToggle(envelope);
+			case "cron.event.ingest":
+				return this.handleCronEventIngest(envelope);
 			case "settings.get":
 			case "settings.patch":
 				return {
@@ -512,6 +561,42 @@ export class HubServerTransport implements NativeHubTransport {
 				ok: false,
 				error: {
 					code: "settings_toggle_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private handleCronEventIngest(envelope: HubCommandEnvelope): HubReplyEnvelope {
+		if (!this.cronService) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "cron_not_enabled",
+					message: "cron.event.ingest requires hub cronOptions.",
+				},
+			};
+		}
+		try {
+			const input = parseCronEventIngestInput(envelope.payload);
+			const result = this.cronService.ingestNdjson(input.input, {
+				defaultSource: input.defaultSource,
+			});
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: true,
+				payload: summarizeCronEventIngestResult(result),
+			};
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "cron_event_ingest_failed",
 					message: error instanceof Error ? error.message : String(error),
 				},
 			};

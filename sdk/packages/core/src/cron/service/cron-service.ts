@@ -2,8 +2,10 @@ import type { AutomationEventEnvelope, BasicLogger } from "@cline/shared";
 import type { ResolveCronSpecsDirOptions } from "@cline/shared/storage";
 import {
 	CronEventIngress,
+	type CronEventNdjsonIngressResult,
 	type CronEventIngressResult,
 } from "../events/cron-event-ingress";
+import type { ParseAutomationEventNdjsonOptions } from "../events/automation-event-ndjson";
 import { CronMaterializer } from "../runner/cron-materializer";
 import { CronRunner } from "../runner/cron-runner";
 import { CronReconciler } from "../specs/cron-reconciler";
@@ -151,6 +153,13 @@ export class CronService {
 
 	public ingestEvent(event: AutomationEventEnvelope): CronEventIngressResult {
 		return this.eventIngress.ingestEvent(event);
+	}
+
+	public ingestNdjson(
+		input: string,
+		options: Omit<ParseAutomationEventNdjsonOptions, "now"> = {},
+	): CronEventNdjsonIngressResult {
+		return this.eventIngress.ingestNdjson(input, options);
 	}
 
 	public listEventLogs(options?: ListEventLogsOptions) {

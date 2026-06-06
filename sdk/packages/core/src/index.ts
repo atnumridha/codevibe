@@ -167,6 +167,8 @@ export type {
 	ClineAutomationListEventsOptions,
 	ClineAutomationListRunsOptions,
 	ClineAutomationListSpecsOptions,
+	ClineAutomationNdjsonIngestOptions,
+	ClineAutomationNdjsonIngressResult,
 	ClineAutomationRun,
 	ClineAutomationRunStatus,
 	ClineAutomationSpec,

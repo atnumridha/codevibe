@@ -536,6 +536,89 @@ Summarize the local event.
 		}
 	});
 
+	it("ingests automation NDJSON through ClineCore", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-core-automation-ndjson-"));
+		const cronDir = join(root, ".cline", "cron");
+		const dbPath = join(root, ".cline", "data", "db", "cron.db");
+		mkdirSync(join(cronDir, "events"), { recursive: true });
+		writeFileSync(
+			join(cronDir, "events", "cursor-git.event.md"),
+			`---
+id: cursor-git
+title: Cursor Git
+workspaceRoot: ${root}
+event: git.commit.created
+filters:
+  branch: main
+---
+Summarize the Cursor git event.
+`,
+			"utf8",
+		);
+
+		const host = {
+			runtimeAddress: undefined,
+			startSession: vi.fn(async () => createStartResult("automation-session")),
+			runTurn: vi.fn(async () => createAgentResult("automation complete")),
+			getAccumulatedUsage: vi.fn(),
+			abort: vi.fn(),
+			stopSession: vi.fn(),
+			dispose: vi.fn(),
+			getSession: vi.fn(async () => undefined),
+			listSessions: vi.fn(),
+			deleteSession: vi.fn(),
+			updateSession: vi.fn(),
+			readSessionMessages: vi.fn(),
+			dispatchHookEvent: vi.fn(),
+			subscribe: vi.fn(() => () => {}),
+			updateSessionModel: vi.fn(),
+		};
+		createRuntimeHostMock.mockResolvedValue(host);
+
+		let core: ClineCore | undefined;
+		try {
+			core = await ClineCore.create({
+				automation: {
+					cronDir,
+					dbPath,
+					autoStart: false,
+				},
+			});
+			await core.automation.reconcileNow();
+
+			const result = core.automation.ingestNdjson(
+				[
+					JSON.stringify({
+						id: "evt_cursor_git_1",
+						type: "git.commit.created",
+						timestamp: "2026-06-06T10:00:00.000Z",
+						attrs: { branch: "main" },
+						data: { ref: "main" },
+					}),
+					"{not-json",
+				].join("\n"),
+				{ defaultSource: "cursor" },
+			);
+
+			expect(result.events).toHaveLength(1);
+			expect(result.events[0]).toMatchObject({
+				eventId: "evt_cursor_git_1",
+				eventType: "git.commit.created",
+				source: "cursor",
+				attributes: { branch: "main" },
+			});
+			expect(result.rejected).toHaveLength(1);
+			expect(result.rejected[0]?.lineNumber).toBe(2);
+			expect(result.results).toHaveLength(1);
+			expect(result.results[0]?.matchedSpecIds).toEqual(["cursor-git"]);
+			expect(result.results[0]?.queuedRuns).toHaveLength(1);
+			expect(host.startSession).not.toHaveBeenCalled();
+		} finally {
+			await core?.dispose();
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	it("delegates restore to the runtime host", async () => {
 		const restoreResult = {
 			sessionId: "restored-session",

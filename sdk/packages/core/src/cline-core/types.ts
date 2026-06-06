@@ -5,6 +5,10 @@ import type {
 	BasicLogger,
 	ITelemetryService,
 } from "@cline/shared";
+import type {
+	AutomationEventNdjsonRejectedLine,
+	ParseAutomationEventNdjsonOptions,
+} from "../cron/events/automation-event-ndjson";
 import type { CronEventSuppression } from "../cron/events/cron-event-ingress";
 import type {
 	CronEventLogRecord,
@@ -107,6 +111,17 @@ export interface ClineAutomationEventIngressResult {
 	suppressions: ClineAutomationEventSuppression[];
 }
 
+export type ClineAutomationNdjsonIngestOptions = Omit<
+	ParseAutomationEventNdjsonOptions,
+	"now"
+>;
+
+export interface ClineAutomationNdjsonIngressResult {
+	events: AutomationEventEnvelope[];
+	rejected: AutomationEventNdjsonRejectedLine[];
+	results: ClineAutomationEventIngressResult[];
+}
+
 export interface ClineCoreAutomationApi {
 	start(): Promise<void>;
 	stop(): Promise<void>;
@@ -114,6 +129,10 @@ export interface ClineCoreAutomationApi {
 	ingestEvent(
 		event: AutomationEventEnvelope,
 	): ClineAutomationEventIngressResult;
+	ingestNdjson(
+		input: string,
+		options?: ClineAutomationNdjsonIngestOptions,
+	): ClineAutomationNdjsonIngressResult;
 	listEvents(
 		options?: ClineAutomationListEventsOptions,
 	): ClineAutomationEventLog[];

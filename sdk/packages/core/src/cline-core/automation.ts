@@ -18,6 +18,8 @@ import { SessionSource } from "../types/common";
 import type {
 	ClineAutomationEventIngressResult,
 	ClineAutomationEventLog,
+	ClineAutomationNdjsonIngressResult,
+	ClineAutomationNdjsonIngestOptions,
 	ClineAutomationListEventsOptions,
 	ClineAutomationListRunsOptions,
 	ClineAutomationListSpecsOptions,
@@ -60,13 +62,20 @@ export class ClineCoreAutomationController implements ClineCoreAutomationApi {
 	ingestEvent(
 		event: AutomationEventEnvelope,
 	): ClineAutomationEventIngressResult {
-		const result: CronEventIngressResult = this.getService().ingestEvent(event);
+		return toClineAutomationEventIngressResult(
+			this.getService().ingestEvent(event),
+		);
+	}
+
+	ingestNdjson(
+		input: string,
+		options: ClineAutomationNdjsonIngestOptions = {},
+	): ClineAutomationNdjsonIngressResult {
+		const result = this.getService().ingestNdjson(input, options);
 		return {
-			event: result.event,
-			duplicate: result.duplicate,
-			matchedSpecIds: result.matchedSpecs.map((spec) => spec.specId),
-			queuedRuns: result.queuedRuns,
-			suppressions: result.suppressions,
+			events: result.events,
+			rejected: result.rejected,
+			results: result.results.map(toClineAutomationEventIngressResult),
 		};
 	}
 
@@ -87,6 +96,18 @@ export class ClineCoreAutomationController implements ClineCoreAutomationApi {
 	listRuns(options?: ClineAutomationListRunsOptions): ClineAutomationRun[] {
 		return this.getService().listRuns(options);
 	}
+}
+
+function toClineAutomationEventIngressResult(
+	result: CronEventIngressResult,
+): ClineAutomationEventIngressResult {
+	return {
+		event: result.event,
+		duplicate: result.duplicate,
+		matchedSpecIds: result.matchedSpecs.map((spec) => spec.specId),
+		queuedRuns: result.queuedRuns,
+		suppressions: result.suppressions,
+	};
 }
 
 export interface ClineCoreAutomationRuntimeHandlersInput {
