@@ -419,6 +419,128 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(storedText).toContain("secret-value");
 	});
 
+	it("previews workspace Cursor MCP imports without mutating settings", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const tempDir = await mkdtemp(join(tmpdir(), "codevibe-cursor-mcp-"));
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-mcp-ws-"));
+		tempDirs.push(tempDir, workspace);
+		const settingsPath = join(tempDir, "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		await mkdir(join(workspace, ".cursor"), { recursive: true });
+		await writeFile(
+			join(workspace, ".cursor", "mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					docs: { type: "stdio", command: "node", args: ["server.js"] },
+				},
+			}),
+		);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "import_cursor_mcp_servers");
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "cursor-mcp-import",
+			confirmed: false,
+			imported: false,
+			serverNames: ["docs"],
+			importedCount: 0,
+			settingsPath,
+			hasSettingsFile: false,
+			servers: [],
+		});
+		await expect(readFile(settingsPath, "utf8")).rejects.toThrow();
+	});
+
+	it("imports workspace Cursor MCP settings with normalized transports", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const tempDir = await mkdtemp(join(tmpdir(), "codevibe-cursor-mcp-"));
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-mcp-ws-"));
+		tempDirs.push(tempDir, workspace);
+		const settingsPath = join(tempDir, "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		const previousHost = process.env.CURSOR_MCP_HOST;
+		const previousToken = process.env.CURSOR_MCP_TOKEN;
+		process.env.CURSOR_MCP_HOST = "mcp.example.com";
+		process.env.CURSOR_MCP_TOKEN = "secret-token";
+		await writeFile(
+			settingsPath,
+			JSON.stringify({
+				mcpServers: {
+					existing: { type: "stdio", command: "old-server" },
+				},
+			}),
+		);
+		await mkdir(join(workspace, ".cursor"), { recursive: true });
+		await writeFile(
+			join(workspace, ".cursor", "mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					docs: {
+						transport: {
+							type: "http",
+							url: "https://${env:CURSOR_MCP_HOST}/context",
+							headers: {
+								Authorization: "Bearer ${env:CURSOR_MCP_TOKEN}",
+							},
+						},
+					},
+				},
+			}),
+		);
+		const ctx = createSidecarContext(workspace);
+
+		try {
+			const result = await handleCommand(ctx, "import_cursor_mcp_servers", {
+				confirmed: true,
+			});
+			const stored = JSON.parse(await readFile(settingsPath, "utf8"));
+
+			expect(result).toMatchObject({
+				handled: true,
+				route: "cursor-mcp-import",
+				confirmed: true,
+				imported: true,
+				importedCount: 1,
+				serverNames: ["docs"],
+				replacedNames: [],
+			});
+			expect(stored.mcpServers.existing).toMatchObject({
+				type: "stdio",
+				command: "old-server",
+			});
+			expect(stored.mcpServers.docs).toMatchObject({
+				type: "streamableHttp",
+				url: "https://mcp.example.com/context",
+				headers: {
+					Authorization: "Bearer secret-token",
+				},
+				metadata: {
+					cursor: {
+						source: "workspace-mcp",
+						path: ".cursor/mcp.json",
+					},
+				},
+			});
+		} finally {
+			if (previousHost === undefined) {
+				delete process.env.CURSOR_MCP_HOST;
+			} else {
+				process.env.CURSOR_MCP_HOST = previousHost;
+			}
+			if (previousToken === undefined) {
+				delete process.env.CURSOR_MCP_TOKEN;
+			} else {
+				process.env.CURSOR_MCP_TOKEN = previousToken;
+			}
+		}
+	});
+
 	it("previews safe Cursor rule files without writing them", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

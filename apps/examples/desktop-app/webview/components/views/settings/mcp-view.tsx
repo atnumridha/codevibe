@@ -1,6 +1,14 @@
 "use client";
 
-import { Circle, Minus, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+	Circle,
+	Download,
+	Minus,
+	Pencil,
+	Plus,
+	RefreshCw,
+	Trash2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	AlertDialog,
@@ -55,6 +63,14 @@ interface McpServersResponse {
 	settingsPath: string;
 	hasSettingsFile: boolean;
 	servers: McpServer[];
+}
+
+interface CursorMcpImportResponse extends McpServersResponse {
+	imported: boolean;
+	importedCount: number;
+	sourcePath: string;
+	serverNames: string[];
+	replacedNames: string[];
 }
 
 interface McpServerUpsertInput {
@@ -171,6 +187,7 @@ export function McpServersContent() {
 	const [hasSettingsFile, setHasSettingsFile] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isOpeningSettingsFile, setIsOpeningSettingsFile] = useState(false);
+	const [isImportingCursorMcp, setIsImportingCursorMcp] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [busyServerName, setBusyServerName] = useState<string | null>(null);
 	const [editorOpen, setEditorOpen] = useState(false);
@@ -262,6 +279,25 @@ export function McpServersContent() {
 			setErrorMessage(message);
 		} finally {
 			setBusyServerName(null);
+		}
+	};
+
+	const importCursorMcpServers = async () => {
+		setIsImportingCursorMcp(true);
+		setErrorMessage(null);
+		try {
+			const response = await desktopClient.invoke<CursorMcpImportResponse>(
+				"import_cursor_mcp_servers",
+				{
+					confirmed: true,
+				},
+			);
+			applyResponse(response);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			setErrorMessage(message);
+		} finally {
+			setIsImportingCursorMcp(false);
 		}
 	};
 
@@ -424,6 +460,20 @@ export function McpServersContent() {
 								className={cn("h-4 w-4", isLoading && "animate-spin")}
 							/>
 							Refresh
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => void importCursorMcpServers()}
+							disabled={isImportingCursorMcp}
+						>
+							<Download
+								className={cn(
+									"h-4 w-4",
+									isImportingCursorMcp && "animate-pulse",
+								)}
+							/>
+							Import Cursor MCP
 						</Button>
 						<Button size="sm" onClick={openCreateDialog}>
 							<Plus className="h-4 w-4" />

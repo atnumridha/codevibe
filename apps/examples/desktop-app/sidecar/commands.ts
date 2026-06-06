@@ -46,6 +46,7 @@ import {
 	loginLocalProvider,
 	installPlugin,
 	normalizeOAuthProvider,
+	normalizeCursorMcpSettingsObject,
 	ProviderSettingsManager,
 	readGlobalSettings,
 	resolveLocalClineAuthToken,
@@ -348,10 +349,114 @@ function ensureMcpSettingsFile(): string {
 	return path;
 }
 
+function resolveCursorMcpSettingsPath(workspaceRoot: string): string {
+	return join(resolve(workspaceRoot), ".cursor", "mcp.json");
+}
+
 function getRecordValue(value: unknown): JsonRecord | undefined {
 	return value && typeof value === "object" && !Array.isArray(value)
 		? (value as JsonRecord)
 		: undefined;
+}
+
+function readMcpServersMap(path: string): JsonRecord {
+	if (!existsSync(path)) {
+		return {};
+	}
+	const parsed = JSON.parse(readFileSync(path, "utf8")) as JsonRecord;
+	return getRecordValue(parsed.mcpServers) ?? {};
+}
+
+function readCursorWorkspaceMcpServers(workspaceRoot: string): {
+	sourcePath: string;
+	servers: JsonRecord;
+} {
+	const sourcePath = resolveCursorMcpSettingsPath(workspaceRoot);
+	if (!existsSync(sourcePath)) {
+		throw new Error("No .cursor/mcp.json found in the active workspace");
+	}
+	const parsed = JSON.parse(readFileSync(sourcePath, "utf8")) as JsonRecord;
+	const normalized = normalizeCursorMcpSettingsObject(parsed, {
+		workspaceRoot,
+	}) as JsonRecord;
+	const servers = getRecordValue(normalized.mcpServers);
+	if (!servers || Object.keys(servers).length === 0) {
+		throw new Error(".cursor/mcp.json does not contain any MCP servers");
+	}
+	return { sourcePath, servers };
+}
+
+function buildCursorMcpImportResponse(input: {
+	confirmed: boolean;
+	imported: boolean;
+	sourcePath: string;
+	serverNames: string[];
+	replacedNames?: string[];
+}): JsonRecord {
+	return {
+		handled: true,
+		route: "cursor-mcp-import",
+		confirmed: input.confirmed,
+		imported: input.imported,
+		sourcePath: input.sourcePath,
+		serverNames: input.serverNames,
+		importedCount: input.imported ? input.serverNames.length : 0,
+		replacedNames: input.replacedNames ?? [],
+		...readMcpServersResponse(),
+	};
+}
+
+function importCursorMcpServers(
+	ctx: SidecarContext,
+	args?: Record<string, unknown>,
+): JsonRecord {
+	const { sourcePath, servers: cursorServers } = readCursorWorkspaceMcpServers(
+		ctx.workspaceRoot,
+	);
+	const serverNames = Object.keys(cursorServers).sort();
+	if (args?.confirmed !== true) {
+		return buildCursorMcpImportResponse({
+			confirmed: false,
+			imported: false,
+			sourcePath,
+			serverNames,
+		});
+	}
+
+	const settingsPath = ensureMcpSettingsFile();
+	const existingServers = readMcpServersMap(settingsPath);
+	const importedAt = new Date().toISOString();
+	const nextServers: JsonRecord = { ...existingServers };
+	const replacedNames: string[] = [];
+	for (const name of serverNames) {
+		const serverConfig = getRecordValue(cursorServers[name]);
+		if (!serverConfig) {
+			continue;
+		}
+		if (Object.hasOwn(existingServers, name)) {
+			replacedNames.push(name);
+		}
+		const metadata = getRecordValue(serverConfig.metadata) ?? {};
+		nextServers[name] = {
+			...serverConfig,
+			metadata: {
+				...metadata,
+				cursor: {
+					source: "workspace-mcp",
+					path: ".cursor/mcp.json",
+					importedAt,
+				},
+			},
+		};
+	}
+	writeMcpServersMap(nextServers);
+	return buildCursorMcpImportResponse({
+		confirmed: true,
+		imported: true,
+		sourcePath,
+		serverNames,
+		replacedNames,
+	});
 }
 
 function safeUrlOrigin(value: string): string | undefined {
@@ -2207,6 +2312,9 @@ export async function handleCommand(
 	// ── MCP server management ─────────────────────────────────────────
 	if (command === "list_mcp_servers") {
 		return readMcpServersResponse();
+	}
+	if (command === "import_cursor_mcp_servers") {
+		return importCursorMcpServers(ctx, args);
 	}
 	if (command === "set_mcp_server_disabled") {
 		const path = ensureMcpSettingsFile();
