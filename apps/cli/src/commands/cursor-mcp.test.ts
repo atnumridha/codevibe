@@ -157,6 +157,72 @@ describe("Cursor MCP install command", () => {
 		});
 	});
 
+	it("dispatches native CodeVibe route-host deeplinks through the CLI", async () => {
+		const settingsPath = await useTempSettingsPath();
+		const install = createIo();
+
+		await expect(
+			runCursorUriCommand({
+				uri: "codevibe://mcp/install?name=codevibe-docs&url=https%3A%2F%2Fmcp.example.com",
+				confirmed: true,
+				io: install.io,
+			}),
+		).resolves.toBe(0);
+
+		await expect(readFile(settingsPath, "utf8")).resolves.toContain(
+			"codevibe-docs",
+		);
+
+		const settings = createIo();
+		await expect(
+			runCursorUriCommand({
+				uri: "codevibe://settings?query=%40id%3Acline.apiProvider",
+				json: true,
+				io: settings.io,
+			}),
+		).resolves.toBe(0);
+		expect(JSON.parse(settings.out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "settings",
+			query: "@id:cline.apiProvider",
+		});
+
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-codevibe-uri-"));
+		tempDirs.push(workspaceRoot);
+		const rule = createIo();
+		await expect(
+			runCursorUriCommand({
+				uri: "codevibe://rule?name=team-style",
+				cwd: workspaceRoot,
+				json: true,
+				io: rule.io,
+			}),
+		).resolves.toBe(0);
+		expect(JSON.parse(rule.out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "rule",
+			requiresConfirmation: true,
+			filename: "team-style.mdc",
+		});
+
+		const agentTask = createIo();
+		await expect(
+			runCursorUriCommand({
+				uri: "codevibe://createchat?prompt=review%20the%20new%20diff",
+				json: true,
+				io: agentTask.io,
+			}),
+		).resolves.toBe(0);
+		expect(JSON.parse(agentTask.out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "createchat",
+			path: "/createchat",
+			requiresAgent: true,
+			prompt: "review the new diff",
+			taskPrompt: "review the new diff",
+		});
+	});
+
 	it("previews Cursor background-agent deeplinks without starting hub sessions", async () => {
 		const { out, io } = createIo();
 		const ensureBackgroundAgentHub = vi.fn(async () => ({

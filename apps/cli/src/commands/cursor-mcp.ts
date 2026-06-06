@@ -7,6 +7,7 @@ import {
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
+	getCursorCompatibleUriPath,
 	ClineCore,
 	DefaultToolNames,
 	formatCursorMcpInstallDetail,
@@ -695,7 +696,7 @@ export async function runCursorUriCommand(
 ): Promise<number> {
 	let path: string;
 	try {
-		path = new URL(options.uri).pathname || "/";
+		path = getCursorCompatibleUriPath(options.uri);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		return writeUriError(options, message);

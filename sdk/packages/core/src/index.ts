@@ -267,6 +267,7 @@ export {
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
 	buildCursorPluginAddRouteRequest,
+	getCursorCompatibleUriPath,
 	resolveCursorCommandFileRouteRequest,
 	type CursorAgentTaskRouteKind,
 	type CursorAgentTaskRoutePath,
