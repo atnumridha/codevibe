@@ -10,6 +10,7 @@ import { BrowserToolHandler, sanitizeBrowserActionResult } from "../BrowserToolH
 function createConfig(allowBrowserEvaluate: boolean, evaluateResult?: unknown) {
 	const browserSession = {
 		evaluate: sinon.stub().resolves(evaluateResult ?? {}),
+		type: sinon.stub().resolves({}),
 		closeBrowser: sinon.stub().resolves({}),
 	}
 	const callbacks = {
@@ -57,6 +58,15 @@ function createSnapshotConfig(snapshotResult?: unknown) {
 		} as any,
 		browserSession,
 		callbacks,
+	}
+}
+
+function makeTypeBlock(text = "hello") {
+	return {
+		type: "tool_use" as const,
+		name: ClineDefaultTool.BROWSER,
+		params: { action: "type", text },
+		partial: false,
 	}
 }
 
@@ -317,6 +327,40 @@ describe("BrowserToolHandler evaluate safety", () => {
 		const payload = JSON.parse(say.firstCall.args[1])
 		assert.equal(payload.action, "evaluate")
 		assert(!payload.text.includes("sk-secret-value-1234567890"))
+		assert(payload.text.includes("[REDACTED]"))
+	})
+
+	it("redacts sensitive typed text in browser action display without changing browser input", async () => {
+		const secretText = "api_key=sk-secret-value-1234567890"
+		const { config, browserSession, callbacks } = createConfig(false)
+
+		await new BrowserToolHandler().execute(config, makeTypeBlock(secretText))
+
+		const actionSay = callbacks.say.getCalls().find((call) => call.args[0] === ClineDefaultTool.BROWSER)
+		assert(actionSay)
+		const payload = JSON.parse(actionSay?.args[1])
+		assert.equal(browserSession.type.calledOnceWith(secretText), true)
+		assert.equal(payload.action, "type")
+		assert(!payload.text.includes("sk-secret-value-1234567890"))
+		assert(payload.text.includes("[REDACTED]"))
+	})
+
+	it("redacts sensitive typed text while streaming partial browser action display", async () => {
+		const say = sinon.stub().resolves(undefined)
+		const uiHelpers = {
+			shouldAutoApproveTool: sinon.stub().returns(false),
+			removeClosingTag: sinon.stub().callsFake((_block, _tag, value) => value),
+			say,
+		} as any
+
+		await new BrowserToolHandler().handlePartialBlock(
+			makeTypeBlock("password=secret-token-value-1234567890"),
+			uiHelpers,
+		)
+
+		const payload = JSON.parse(say.firstCall.args[1])
+		assert.equal(payload.action, "type")
+		assert(!payload.text.includes("secret-token-value-1234567890"))
 		assert(payload.text.includes("[REDACTED]"))
 	})
 })

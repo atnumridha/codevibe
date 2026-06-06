@@ -135,7 +135,7 @@ export class BrowserToolHandler implements IFullyManagedTool {
 				JSON.stringify({
 					action: action as BrowserAction,
 					coordinate: uiHelpers.removeClosingTag(block, "coordinate", coordinate),
-					text: action === "evaluate" ? redactSensitiveBrowserText(displayText) : displayText,
+					text: redactSensitiveBrowserText(displayText),
 				} satisfies ClineSayBrowserAction),
 				undefined,
 				undefined,
@@ -257,7 +257,7 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					JSON.stringify({
 						action: action as BrowserAction,
 						coordinate,
-						text: action === "evaluate" ? redactSensitiveBrowserText(text) : text,
+						text: redactSensitiveBrowserText(text),
 					} satisfies ClineSayBrowserAction),
 					undefined,
 					undefined,
