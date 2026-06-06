@@ -904,12 +904,8 @@ export async function runCli(): Promise<void> {
 	};
 	registerDisposable(stopUserInstructionService);
 	try {
-		const lastUsedProviderSettings =
-			providerSettingsManager.getLastUsedProviderSettings();
 		const provider = normalizeProviderId(
-			args.provider?.trim() ||
-				lastUsedProviderSettings?.provider ||
-				DEFAULT_CLI_PROVIDER_ID,
+			args.provider?.trim() || DEFAULT_CLI_PROVIDER_ID,
 		);
 		let selectedProviderSettings =
 			providerSettingsManager.getProviderSettings(provider);

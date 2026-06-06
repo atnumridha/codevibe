@@ -932,7 +932,7 @@ describe("runCli lightweight command dispatch", () => {
 		authMocks.normalizeProviderId.mockImplementation(
 			(providerId?: string) => providerId ?? "openrouter",
 		);
-		process.argv = ["bun", "src/index.ts"];
+		process.argv = ["bun", "src/index.ts", "--provider", "openrouter"];
 
 		const { runCli } = await import("./main");
 
@@ -949,6 +949,38 @@ describe("runCli lightweight command dispatch", () => {
 		);
 	});
 
+	it("defaults to OpenAI Codex even when last-used provider differs", async () => {
+		providerSettingsMocks.getLastUsedProviderSettings.mockReturnValue({
+			provider: "openrouter",
+			baseUrl: "https://openrouter.ai/api/v1",
+			model: "openai/gpt-5",
+		});
+		providerSettingsMocks.getProviderSettings.mockReturnValue(undefined);
+		authMocks.normalizeProviderId.mockImplementation(
+			(providerId?: string) => providerId ?? "openai-codex",
+		);
+		process.argv = ["bun", "src/index.ts"];
+
+		const { runCli } = await import("./main");
+
+		await expect(runCli()).resolves.toBeUndefined();
+		expect(providerSettingsMocks.getProviderSettings).toHaveBeenCalledWith(
+			"openai-codex",
+		);
+		expect(providerSettingsMocks.getProviderSettings).not.toHaveBeenCalledWith(
+			"openrouter",
+		);
+		expect(runtimeMocks.runInteractive).toHaveBeenCalledTimes(1);
+		expect(runtimeMocks.runInteractive).toHaveBeenCalledWith(
+			expect.objectContaining({
+				providerId: "openai-codex",
+			}),
+			expect.anything(),
+			undefined,
+			expect.any(Object),
+		);
+	});
+
 	it("passes Cline provider settings as Cline account options", async () => {
 		const clineSettings = {
 			provider: "cline",
@@ -962,7 +994,7 @@ describe("runCli lightweight command dispatch", () => {
 		authMocks.normalizeProviderId.mockImplementation(
 			(providerId?: string) => providerId ?? "cline",
 		);
-		process.argv = ["bun", "src/index.ts"];
+		process.argv = ["bun", "src/index.ts", "--provider", "cline"];
 
 		const { runCli } = await import("./main");
 

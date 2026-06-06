@@ -62,8 +62,7 @@ describe("buildConnectorStartRequest", () => {
 		delete process.env.OPENROUTER_API_KEY;
 	});
 
-	it("falls back to provider env vars when persisted settings have no api key", async () => {
-		mockGetLastUsedProviderSettings.mockReturnValue({ provider: "openrouter" });
+	it("falls back to provider env vars when explicit provider settings have no api key", async () => {
 		mockGetProviderSettings.mockReturnValue({
 			provider: "openrouter",
 			model: "anthropic/claude-sonnet-4.6",
@@ -77,6 +76,7 @@ describe("buildConnectorStartRequest", () => {
 		const request = await buildConnectorStartRequest({
 			options: {
 				cwd: "/tmp/work",
+				provider: "openrouter",
 				mode: "act",
 				enableTools: false,
 			},
@@ -88,6 +88,30 @@ describe("buildConnectorStartRequest", () => {
 		expect(request.provider).toBe("openrouter");
 		expect(request.apiKey).toBe("env-openrouter-key");
 		expect(request.model).toBe("anthropic/claude-sonnet-4.6");
+	});
+
+	it("ignores last-used provider when connector provider is omitted", async () => {
+		mockGetLastUsedProviderSettings.mockReturnValue({ provider: "openrouter" });
+		mockGetProviderSettings.mockReturnValue(undefined);
+		mockGetProviderCollection.mockReturnValue({
+			provider: { env: [] },
+		});
+		mockResolveSystemPrompt.mockResolvedValue("system");
+
+		const request = await buildConnectorStartRequest({
+			options: {
+				cwd: "/tmp/work",
+				mode: "act",
+				enableTools: false,
+			},
+			io: { writeln: vi.fn(), writeErr: vi.fn() },
+			loggerConfig: { enabled: false, level: "info", destination: "stdout" },
+			systemRules: "Rules",
+		});
+
+		expect(mockGetProviderSettings).toHaveBeenCalledWith("openai-codex");
+		expect(mockGetProviderSettings).not.toHaveBeenCalledWith("openrouter");
+		expect(request.provider).toBe("openai-codex");
 	});
 
 	it("defaults connector sessions to OpenAI Codex when no provider was selected", async () => {

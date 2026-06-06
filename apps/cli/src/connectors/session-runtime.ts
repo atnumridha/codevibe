@@ -63,12 +63,8 @@ export async function buildConnectorStartRequest(input: {
 	defaultModel?: string;
 }): Promise<ChatStartSessionRequest> {
 	const providerSettingsManager = new ProviderSettingsManager();
-	const lastUsedProviderSettings =
-		providerSettingsManager.getLastUsedProviderSettings();
 	const provider = normalizeProviderId(
-		input.options.provider?.trim() ||
-			lastUsedProviderSettings?.provider ||
-			DEFAULT_CLI_PROVIDER_ID,
+		input.options.provider?.trim() || DEFAULT_CLI_PROVIDER_ID,
 	);
 	let selectedProviderSettings =
 		providerSettingsManager.getProviderSettings(provider);
