@@ -231,11 +231,23 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should launch Cursor background-agent routes through the controller background path", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Launch" })
+				const config = encodeConfig({
+					token: "secret-value",
+					mode: "fast",
+				})
+
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main",
+					`vscode://cline.cline/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main&config=${config}`,
 				)
 
 				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Cursor background agent?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Repository: owner/repo")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Branch: main")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: mode, token")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
 				sinon.assert.calledOnce(handleCursorBackgroundAgentLaunchStub)
 				expect(handleTaskCreationStub.called).to.be.false
 				const launchRequest = handleCursorBackgroundAgentLaunchStub.firstCall.args[0]
@@ -243,6 +255,20 @@ describe("SharedUriHandler", () => {
 				expect(launchRequest.repository).to.equal("owner/repo")
 				expect(launchRequest.requestedBranch).to.equal("main")
 				expect(launchRequest.routePrompt).to.contain("Cursor-compatible background agent deeplink")
+			})
+
+			it("should not launch Cursor background-agent routes when confirmation is cancelled", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Cursor background agent?")
+				expect(handleCursorBackgroundAgentLaunchStub.called).to.be.false
+				expect(handleTaskCreationStub.called).to.be.false
 			})
 
 			it("should open settings routes directly through the host", async () => {

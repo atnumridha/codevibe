@@ -214,6 +214,20 @@ function buildCursorPrReviewDetail(route: CursorCompatibleUriRoute): string {
 	].join("\n")
 }
 
+function buildCursorBackgroundAgentDetail(
+	request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>,
+): string {
+	const configKeys = request.config ? Object.keys(request.config).sort() : []
+	return [
+		`Prompt: ${request.prompt}`,
+		...(request.repository ? [`Repository: ${request.repository}`] : []),
+		...(request.requestedBranch ? [`Branch: ${request.requestedBranch}`] : []),
+		...(request.requestedBaseBranch ? [`Base branch: ${request.requestedBaseBranch}`] : []),
+		...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
+		"This will launch a background agent session. Git, network, terminal, and file changes still require the normal approvals.",
+	].join("\n")
+}
+
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
  */
@@ -313,9 +327,20 @@ export class SharedUriHandler {
 						return true
 					}
 					if (cursorRoute.route.kind === "background-agent") {
-						await controller.handleCursorBackgroundAgentLaunch(
-							buildCursorCompatibleBackgroundAgentLaunchRequest(cursorRoute.route),
-						)
+						const launchRequest = buildCursorCompatibleBackgroundAgentLaunchRequest(cursorRoute.route)
+						const choice = await HostProvider.window.showMessage({
+							type: ShowMessageType.WARNING,
+							message: "Launch Cursor background agent?",
+							options: {
+								modal: true,
+								items: ["Launch"],
+								detail: buildCursorBackgroundAgentDetail(launchRequest),
+							},
+						})
+						if (choice.selectedOption !== "Launch") {
+							return true
+						}
+						await controller.handleCursorBackgroundAgentLaunch(launchRequest)
 						return true
 					}
 					if (cursorRoute.route.kind === "settings") {
