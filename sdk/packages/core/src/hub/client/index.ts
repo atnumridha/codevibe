@@ -1,5 +1,7 @@
 import {
 	createSessionId,
+	type CursorUriPreviewRequest,
+	type CursorUriPreviewResponse,
 	type HubClientRegistration,
 	type HubCommandEnvelope,
 	type HubEventEnvelope,
@@ -477,6 +479,26 @@ export class NodeHubClient {
 				attempt += 1;
 			}
 		}
+	}
+
+	async previewCursorUri(
+		input: CursorUriPreviewRequest,
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<CursorUriPreviewResponse> {
+		const payload: Record<string, unknown> = { uri: input.uri };
+		if (input.workspaceRoot !== undefined) {
+			payload.workspaceRoot = input.workspaceRoot;
+		}
+		if (input.maxCommandFileBytes !== undefined) {
+			payload.maxCommandFileBytes = input.maxCommandFileBytes;
+		}
+		const reply = await this.command(
+			"cursor.uri.preview",
+			payload,
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return (reply.payload ?? { handled: false }) as CursorUriPreviewResponse;
 	}
 
 	private async commandOnce(

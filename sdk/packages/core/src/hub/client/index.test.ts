@@ -81,6 +81,7 @@ class FakeWebSocket {
 	static instances: FakeWebSocket[] = [];
 
 	public readyState = 0;
+	readonly sentFrames: unknown[] = [];
 	private readonly listeners = new Map<string, Set<GenericListener>>();
 
 	constructor(_url: string) {
@@ -98,6 +99,7 @@ class FakeWebSocket {
 			kind?: string;
 			envelope?: { requestId?: string; command?: string };
 		};
+		this.sentFrames.push(frame);
 		if (
 			frame.kind === "command" &&
 			frame.envelope?.command === "client.register" &&
@@ -363,6 +365,96 @@ describe("NodeHubClient", () => {
 				ok: true,
 				payload: { clients: [] },
 			});
+		});
+	});
+
+	describe("cursor URI preview", () => {
+		const originalWebSocket = globalThis.WebSocket;
+
+		beforeEach(() => {
+			FakeWebSocket.instances = [];
+			(
+				globalThis as unknown as { WebSocket?: typeof FakeWebSocket }
+			).WebSocket = FakeWebSocket;
+		});
+
+		afterEach(() => {
+			if (originalWebSocket) {
+				globalThis.WebSocket = originalWebSocket;
+			} else {
+				delete (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
+			}
+		});
+
+		it("sends typed cursor.uri.preview commands", async () => {
+			const client = new NodeHubClient({ url: "ws://127.0.0.1:25463/hub" });
+			const connectPromise = client.connect();
+			const socket = FakeWebSocket.instances[0];
+			if (!socket) {
+				throw new Error("expected fake websocket instance");
+			}
+			socket.open();
+			await connectPromise;
+
+			const previewPromise = client.previewCursorUri(
+				{
+					uri: "vscode://cline.cline/settings?panel=codex",
+					workspaceRoot: "/workspace",
+					maxCommandFileBytes: 4096,
+				},
+				{ timeoutMs: 5_000 },
+			);
+			const previewFrame = socket.sentFrames.find((frame) => {
+				const envelope = (frame as { envelope?: { command?: string } })
+					.envelope;
+				return envelope?.command === "cursor.uri.preview";
+			}) as
+				| {
+						kind?: string;
+						envelope?: {
+							requestId?: string;
+							command?: string;
+							payload?: Record<string, unknown>;
+							timeoutMs?: number | null;
+						};
+				  }
+				| undefined;
+			expect(previewFrame).toMatchObject({
+				kind: "command",
+				envelope: {
+					command: "cursor.uri.preview",
+					payload: {
+						uri: "vscode://cline.cline/settings?panel=codex",
+						workspaceRoot: "/workspace",
+						maxCommandFileBytes: 4096,
+					},
+					timeoutMs: 5_000,
+				},
+			});
+
+			(
+				socket as unknown as { emit: (type: string, payload: unknown) => void }
+			).emit("message", {
+				data: JSON.stringify({
+					kind: "reply",
+					envelope: {
+						version: "v1",
+						requestId: previewFrame?.envelope?.requestId,
+						ok: true,
+						payload: {
+							handled: true,
+							route: "settings",
+							requiresConfirmation: false,
+						},
+					},
+				}),
+			});
+			await expect(previewPromise).resolves.toMatchObject({
+				handled: true,
+				route: "settings",
+				requiresConfirmation: false,
+			});
+			await client.dispose();
 		});
 	});
 

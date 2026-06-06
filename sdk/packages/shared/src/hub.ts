@@ -357,6 +357,18 @@ export type HubCommandName =
 export const HUB_DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 export const HUB_COMMAND_SLOW_LOG_MS = 5_000;
 
+export interface CursorUriPreviewRequest {
+	uri: string;
+	workspaceRoot?: string;
+	maxCommandFileBytes?: number;
+}
+
+export interface CursorUriPreviewResponse extends Record<string, unknown> {
+	handled: boolean;
+	route?: string;
+	requiresConfirmation?: boolean;
+}
+
 export function getDefaultHubCommandTimeoutMs(
 	command: HubCommandName,
 ): number | null {

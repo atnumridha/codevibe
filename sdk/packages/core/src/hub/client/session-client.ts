@@ -5,6 +5,8 @@ import type {
 	ChatStartSessionRequest,
 	ChatStartSessionResponse,
 	ChatTurnResult,
+	CursorUriPreviewRequest,
+	CursorUriPreviewResponse,
 	HubEventEnvelope,
 	TeamProgressProjectionEvent,
 } from "@cline/shared";
@@ -994,5 +996,13 @@ export class HubSessionClient {
 		return Array.isArray(reply.payload?.upcoming)
 			? (reply.payload?.upcoming as Array<Record<string, unknown>>)
 			: [];
+	}
+
+	async previewCursorUri(
+		input: CursorUriPreviewRequest,
+		options?: { timeoutMs?: number | null },
+	): Promise<CursorUriPreviewResponse> {
+		await this.ensureMetadataApplied();
+		return this.client.previewCursorUri(input, options);
 	}
 }

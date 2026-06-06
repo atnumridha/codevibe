@@ -1,4 +1,6 @@
 import type {
+	CursorUriPreviewRequest,
+	CursorUriPreviewResponse,
 	HubClientRecord,
 	HubCommandEnvelope,
 	HubEventEnvelope,
@@ -530,11 +532,9 @@ const CURSOR_AGENT_TASK_ROUTE_PATHS = new Set([
 	"/git/commit",
 ]);
 
-function parseCursorUriPreviewInput(payload: unknown): {
-	uri: string;
-	workspaceRoot?: string;
-	maxCommandFileBytes?: number;
-} {
+function parseCursorUriPreviewInput(
+	payload: unknown,
+): CursorUriPreviewRequest {
 	if (!isPayloadObject(payload)) {
 		throw new Error("cursor.uri.preview payload must be an object.");
 	}
@@ -590,7 +590,7 @@ function safeCursorSourceLabel(
 	return sourceParam === "url" ? safeUrlOrigin(source) : source;
 }
 
-function summarizeCursorMcpInstall(uri: string): Record<string, unknown> {
+function summarizeCursorMcpInstall(uri: string): CursorUriPreviewResponse {
 	const request = buildCursorMcpInstallRequest(uri);
 	const transport =
 		getRecordValue(request.serverConfig.transport) ?? request.serverConfig;
@@ -623,11 +623,9 @@ function parseCursorPreviewUrl(uri: string): URL {
 	}
 }
 
-function summarizeCursorUriPreview(input: {
-	uri: string;
-	workspaceRoot?: string;
-	maxCommandFileBytes?: number;
-}): Record<string, unknown> {
+function summarizeCursorUriPreview(
+	input: CursorUriPreviewRequest,
+): CursorUriPreviewResponse {
 	const { uri } = input;
 	const parsedUrl = parseCursorPreviewUrl(uri);
 	const path = parsedUrl.pathname || "/";
