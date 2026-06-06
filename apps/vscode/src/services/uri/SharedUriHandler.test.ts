@@ -293,6 +293,36 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should confirm Cursor git helper routes before creating a review task", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Review Task" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/git/checkout?branch=feature%2Fcursor-parity",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor git helper?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Requested git helper: checkout/switch")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("normal approvals")
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("git checkout helper")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("not permission to run it")
+			})
+
+			it("should not create a task when Cursor git helper confirmation is cancelled", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/git/commit?message=fix%3A%20safe%20changes",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor git helper?")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should not launch Cursor background-agent routes when confirmation is cancelled", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })

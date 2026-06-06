@@ -244,6 +244,41 @@ function buildCursorAutomationIngestDetail(route: CursorCompatibleUriRoute): str
 	].join("\n")
 }
 
+function isCursorGitHelperRoute(route: CursorCompatibleUriRoute): boolean {
+	return route.kind === "git-checkout" || route.kind === "git-branch" || route.kind === "git-commit"
+}
+
+function getCursorGitHelperTitle(route: CursorCompatibleUriRoute): string {
+	switch (route.kind) {
+		case "git-checkout":
+			return "checkout/switch"
+		case "git-branch":
+			return "branch creation or switch"
+		case "git-commit":
+			return "commit preparation"
+		default:
+			return "git helper"
+	}
+}
+
+function buildCursorGitHelperDetail(route: CursorCompatibleUriRoute): string {
+	const config = route.params.config
+	const configKeys =
+		config && typeof config === "object" && !Array.isArray(config)
+			? Object.keys(config).sort()
+			: []
+	const detailLines = Object.entries(route.params)
+		.filter(([key]) => key !== "config")
+		.map(([key, value]) => `- ${key}: ${typeof value === "string" ? value : "object"}`)
+
+	return [
+		`Requested git helper: ${getCursorGitHelperTitle(route)}`,
+		"This will create an agent review task only. It will not run git commands, stage files, commit, checkout, or push without the normal approvals.",
+		...(detailLines.length > 0 ? ["", "Route details:", ...detailLines] : []),
+		...(configKeys.length > 0 ? ["", `Config keys: ${configKeys.join(", ")}`] : []),
+	].join("\n")
+}
+
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
  */
@@ -367,6 +402,22 @@ export class SharedUriHandler {
 								modal: true,
 								items: ["Create Review Task"],
 								detail: buildCursorAutomationIngestDetail(cursorRoute.route),
+							},
+						})
+						if (choice.selectedOption !== "Create Review Task") {
+							return true
+						}
+						await controller.handleTaskCreation(buildCursorCompatibleTaskPrompt(cursorRoute.route))
+						return true
+					}
+					if (isCursorGitHelperRoute(cursorRoute.route)) {
+						const choice = await HostProvider.window.showMessage({
+							type: ShowMessageType.WARNING,
+							message: "Review Cursor git helper?",
+							options: {
+								modal: true,
+								items: ["Create Review Task"],
+								detail: buildCursorGitHelperDetail(cursorRoute.route),
 							},
 						})
 						if (choice.selectedOption !== "Create Review Task") {
