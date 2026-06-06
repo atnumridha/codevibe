@@ -9,6 +9,42 @@ import type { TaskConfig } from "../types/TaskConfig"
 import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
 
+const MAX_BROWSER_EVALUATE_RESULT_LENGTH = 12_000
+const REDACTED_VALUE = "[REDACTED]"
+
+export function redactSensitiveBrowserText(text: string | undefined): string | undefined {
+	if (!text) {
+		return text
+	}
+
+	return text
+		.replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{16,}/gi, `Bearer ${REDACTED_VALUE}`)
+		.replace(/\b(?:sk|rk|sess|proj|org)-[A-Za-z0-9_-]{16,}\b/g, REDACTED_VALUE)
+		.replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, REDACTED_VALUE)
+		.replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, REDACTED_VALUE)
+		.replace(/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/g, REDACTED_VALUE)
+		.replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, REDACTED_VALUE)
+		.replace(
+			/\b(api[_-]?key|access[_-]?token|refresh[_-]?token|auth[_-]?token|token|secret|password|passwd|session|cookie)\b(\s*[:=]\s*["'`]?)([^"'\s`<>{},;]+)/gi,
+			`$1$2${REDACTED_VALUE}`,
+		)
+		.replace(/\b(authorization|cookie)\b(\s*:\s*)([^\n]+)/gi, `$1$2${REDACTED_VALUE}`)
+}
+
+export function sanitizeBrowserActionResult(result: BrowserActionResult): BrowserActionResult {
+	const redactedEvaluationResult = redactSensitiveBrowserText(result.evaluationResult)
+
+	return {
+		...result,
+		logs: redactSensitiveBrowserText(result.logs),
+		currentUrl: redactSensitiveBrowserText(result.currentUrl),
+		evaluationResult:
+			redactedEvaluationResult && redactedEvaluationResult.length > MAX_BROWSER_EVALUATE_RESULT_LENGTH
+				? `${redactedEvaluationResult.slice(0, MAX_BROWSER_EVALUATE_RESULT_LENGTH)}\n[truncated]`
+				: redactedEvaluationResult,
+	}
+}
+
 export class BrowserToolHandler implements IFullyManagedTool {
 	readonly name = ClineDefaultTool.BROWSER
 
@@ -143,6 +179,20 @@ export class BrowserToolHandler implements IFullyManagedTool {
 						return errorResult
 					}
 				}
+				if (action === "evaluate") {
+					if (!text) {
+						config.taskState.consecutiveMistakeCount++
+						const errorResult = await config.callbacks.sayAndCreateMissingParamError(this.name, "text")
+						await config.services.browserSession.closeBrowser()
+						return errorResult
+					}
+					if (!config.browserSettings.allowBrowserEvaluate) {
+						config.taskState.consecutiveMistakeCount++
+						return formatResponse.toolError(
+							"Browser JavaScript evaluation is disabled. Ask the user to enable it in Browser Settings before using the evaluate action.",
+						)
+					}
+				}
 				config.taskState.consecutiveMistakeCount = 0
 
 				// Send browser action message
@@ -151,7 +201,7 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					JSON.stringify({
 						action: action as BrowserAction,
 						coordinate,
-						text,
+						text: action === "evaluate" ? redactSensitiveBrowserText(text) : text,
 					} satisfies ClineSayBrowserAction),
 					undefined,
 					undefined,
@@ -173,11 +223,16 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					case "scroll_up":
 						browserActionResult = await browserSession.scrollUp()
 						break
+					case "evaluate":
+						browserActionResult = await browserSession.evaluate(text!)
+						break
 					case "close":
 						browserActionResult = await browserSession.closeBrowser()
 						break
 				}
 			}
+
+			browserActionResult = sanitizeBrowserActionResult(browserActionResult)
 
 			// Handle results based on action type
 			switch (action) {
@@ -186,9 +241,13 @@ export class BrowserToolHandler implements IFullyManagedTool {
 				case "type":
 				case "scroll_down":
 				case "scroll_up":
+				case "evaluate":
 					await config.callbacks.say("browser_action_result", JSON.stringify(browserActionResult))
+					const evaluateResult = browserActionResult.evaluationResult
+						? `\n\nEvaluation result:\n${browserActionResult.evaluationResult}`
+						: ""
 					const result = formatResponse.toolResult(
-						`The browser action has been executed. The console logs and screenshot have been captured for your analysis.\n\nConsole logs:\n${
+						`The browser action has been executed. The console logs and screenshot have been captured for your analysis.${evaluateResult}\n\nConsole logs:\n${
 							browserActionResult.logs || "(No new logs)"
 						}\n\n(REMEMBER: if you need to proceed to using non-\`browser_action\` tools or launch a new browser, you MUST first close this browser. For example, if after analyzing the logs and screenshot you need to edit a file, you must first close the browser before you can use the write_to_file tool.)`,
 						browserActionResult.screenshot ? [browserActionResult.screenshot] : [],

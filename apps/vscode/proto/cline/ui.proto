@@ -98,6 +98,7 @@ enum BrowserAction {
   SCROLL_DOWN = 3;
   SCROLL_UP = 4;
   CLOSE = 5;
+  EVALUATE = 6;
 }
 
 // Enum for MCP server request types
@@ -143,6 +144,7 @@ message BrowserActionResult {
   string logs = 2;
   string current_url = 3;
   string current_mouse_position = 4;
+  string evaluation_result = 5;
 }
 
 // Message for ClineAskUseMcpServer

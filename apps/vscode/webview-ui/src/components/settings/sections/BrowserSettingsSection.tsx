@@ -361,6 +361,26 @@ export const BrowserSettingsSection: React.FC<BrowserSettingsSectionProps> = ({ 
 									Space-separated arguments to pass to the browser executable.
 								</p>
 							</div>
+							<div style={{ marginBottom: 8, marginTop: 8 }}>
+								<VSCodeCheckbox
+									checked={browserSettings.allowBrowserEvaluate || false}
+									onChange={(e) =>
+										updateSetting("browserSettings", {
+											allowBrowserEvaluate: (e.target as HTMLInputElement).checked,
+										})
+									}>
+									Allow browser JavaScript evaluation
+								</VSCodeCheckbox>
+								<p
+									style={{
+										fontSize: "12px",
+										color: "var(--vscode-descriptionForeground)",
+										margin: "4px 0 0 0",
+									}}>
+									Enable Cline to run JavaScript in the active browser page. Evaluation output and console logs are
+									redacted before they are returned.
+								</p>
+							</div>
 						</div>
 					</CollapsibleContent>
 				</div>

@@ -48,6 +48,7 @@ export async function newTask(controller: Controller, request: NewTaskRequest): 
 					remoteBrowserEnabled: request.taskSettings.browserSettings.remoteBrowserEnabled,
 					chromeExecutablePath: request.taskSettings.browserSettings.chromeExecutablePath,
 					disableToolUse: request.taskSettings.browserSettings.disableToolUse,
+					allowBrowserEvaluate: request.taskSettings.browserSettings.allowBrowserEvaluate,
 					customArgs: request.taskSettings.browserSettings.customArgs,
 				},
 			}),

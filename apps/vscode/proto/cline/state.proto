@@ -371,6 +371,7 @@ message BrowserSettingsUpdate {
   optional string chrome_executable_path = 4;
   optional bool disable_tool_use = 5;
   optional string custom_args = 6;
+  optional bool allow_browser_evaluate = 7;
 }
 
 message UpdateSettingsRequestCli {

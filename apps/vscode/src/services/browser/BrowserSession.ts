@@ -596,7 +596,46 @@ export class BrowserSession {
 		})
 	}
 
+	async evaluate(script: string): Promise<BrowserActionResult> {
+		this.browserActions.push(`evaluate:${script.length} chars`)
+
+		let evaluationResult = ""
+		const actionResult = await this.doAction(async (page) => {
+			const result = await page.evaluate(async (source) => {
+				try {
+					const expressionResult = globalThis.Function(`"use strict"; return (${source})`)()
+					return await Promise.resolve(expressionResult)
+				} catch {
+					const bodyResult = globalThis.Function(`"use strict"; ${source}`)()
+					return await Promise.resolve(bodyResult)
+				}
+			}, script)
+			evaluationResult = serializeBrowserEvaluateResult(result)
+		})
+
+		return {
+			...actionResult,
+			evaluationResult,
+		}
+	}
+
 	async dispose() {
 		await this.closeBrowser()
+	}
+}
+
+function serializeBrowserEvaluateResult(value: unknown): string {
+	if (value === undefined) {
+		return "undefined"
+	}
+
+	if (typeof value === "string") {
+		return value
+	}
+
+	try {
+		return JSON.stringify(value, null, 2) ?? String(value)
+	} catch {
+		return String(value)
 	}
 }

@@ -123,6 +123,9 @@ export async function updateTaskSettings(controller: Controller, request: Update
 					...(browserSettings.disableToolUse !== undefined && {
 						disableToolUse: browserSettings.disableToolUse,
 					}),
+					...(browserSettings.allowBrowserEvaluate !== undefined && {
+						allowBrowserEvaluate: browserSettings.allowBrowserEvaluate,
+					}),
 					...(browserSettings.customArgs !== undefined && {
 						customArgs: browserSettings.customArgs,
 					}),

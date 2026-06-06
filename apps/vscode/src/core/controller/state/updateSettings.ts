@@ -249,6 +249,10 @@ export async function updateSettings(controller: Controller, request: UpdateSett
 					request.browserSettings.disableToolUse === undefined
 						? currentSettings.disableToolUse
 						: request.browserSettings.disableToolUse,
+				allowBrowserEvaluate:
+					request.browserSettings.allowBrowserEvaluate === undefined
+						? currentSettings.allowBrowserEvaluate
+						: request.browserSettings.allowBrowserEvaluate,
 				customArgs:
 					"customArgs" in request.browserSettings ? request.browserSettings.customArgs : currentSettings.customArgs,
 			}

@@ -10,6 +10,7 @@ export interface BrowserSettings {
 	remoteBrowserEnabled?: boolean
 	chromeExecutablePath?: string
 	disableToolUse?: boolean
+	allowBrowserEvaluate?: boolean
 	customArgs?: string
 }
 
@@ -23,6 +24,7 @@ export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
 	chromeExecutablePath: "", // Changed from undefined to empty string
 	// chromeType: "chromium",
 	disableToolUse: true,
+	allowBrowserEvaluate: false,
 	customArgs: "",
 }
 
