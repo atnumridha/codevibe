@@ -195,6 +195,25 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 	}
 }
 
+function buildCursorPrReviewDetail(route: CursorCompatibleUriRoute): string {
+	const url = getRouteStringParam(route, "url")
+	const repo = getRouteStringParam(route, "repo") || getRouteStringParam(route, "repository")
+	const number = getRouteStringParam(route, "number") || getRouteStringParam(route, "pullRequest")
+	const instructions = getRouteStringParam(route, "instructions")
+	const config = route.params.config
+	const configKeys =
+		config && typeof config === "object" && !Array.isArray(config)
+			? Object.keys(config).sort()
+			: []
+	const target = url || (repo && number ? `${repo}#${number}` : undefined)
+	return [
+		`Pull request: ${target ?? "unknown"}`,
+		...(instructions ? [`Instructions: ${instructions}`] : []),
+		...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
+		"This will start an agent task. Git, network, terminal, and file changes still require the normal approvals.",
+	].join("\n")
+}
+
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
  */
@@ -306,6 +325,10 @@ export class SharedUriHandler {
 					}
 					if (cursorRoute.route.kind === "plugin-add") {
 						await this.handleCursorPluginAddRoute(cursorRoute.route)
+						return true
+					}
+					if (cursorRoute.route.kind === "pr-review") {
+						await this.handleCursorPrReviewRoute(controller, cursorRoute.route)
 						return true
 					}
 					if (cursorRoute.route.kind === "rule") {
@@ -548,5 +571,24 @@ export class SharedUriHandler {
 				detail: request.detail,
 			},
 		})
+	}
+
+	private static async handleCursorPrReviewRoute(
+		controller: SharedUriController,
+		route: CursorCompatibleUriRoute,
+	): Promise<void> {
+		const choice = await HostProvider.window.showMessage({
+			type: ShowMessageType.WARNING,
+			message: "Start Cursor PR review?",
+			options: {
+				modal: true,
+				items: ["Start Review"],
+				detail: buildCursorPrReviewDetail(route),
+			},
+		})
+		if (choice.selectedOption !== "Start Review") {
+			return
+		}
+		await controller.handleTaskCreation(buildCursorCompatibleTaskPrompt(route))
 	}
 }

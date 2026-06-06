@@ -279,6 +279,54 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should confirm Cursor PR review routes before creating a task", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Start Review" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42&instructions=focus%20tests",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Start Cursor PR review?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("owner/repo#42")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("focus tests")
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("pull request review")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("repo: owner/repo")
+			})
+
+			it("should not create a task when Cursor PR review confirmation is cancelled", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/pr-review?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Fpull%2F42",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Start Cursor PR review?")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should summarize Cursor PR review config without leaking secret values", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+				const config = encodeConfig({
+					token: "secret-value",
+					source: "github",
+				})
+
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42&config=${config}`,
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: source, token")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should confirm safe Cursor rule routes without creating a task", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
