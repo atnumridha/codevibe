@@ -23,4 +23,15 @@ describe("OpenAiCodexHandler", () => {
 		expect(headers.session_id).to.be.a("string").and.not.equal("")
 		expect(headers["User-Agent"]).to.match(/^cline\//)
 	})
+
+	it("adds client_version to Codex responses endpoints", () => {
+		const handler = new OpenAiCodexHandler({})
+
+		expect((handler as any).buildResponsesUrl("0.136.0-test")).to.equal(
+			"https://chatgpt.com/backend-api/codex/responses?client_version=0.136.0-test",
+		)
+		expect((handler as any).buildResponsesWebsocketUrl("0.136.0-test")).to.equal(
+			"wss://chatgpt.com/backend-api/codex/responses?client_version=0.136.0-test",
+		)
+	})
 })

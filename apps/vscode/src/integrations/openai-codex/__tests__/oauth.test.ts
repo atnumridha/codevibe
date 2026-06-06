@@ -8,8 +8,10 @@ import { StateManager } from "@/core/storage/StateManager"
 import { mockFetchForTesting } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
 import {
+	exchangeCodeForTokens,
 	loadCodexHomeCredentials,
 	type OpenAiCodexAuthSource,
+	refreshAccessToken,
 	OpenAiCodexOAuthManager,
 	parseJwtClaims,
 	type OpenAiCodexCredentials,
@@ -128,12 +130,40 @@ describe("OpenAI Codex OAuth local profile support", () => {
 			id_token: idToken,
 			expires: 2_000_000,
 			email: "id@example.com",
-			accountId: "org_from_id",
+			accountId: "acct_from_access",
 			tokenSource: "codex-home",
 			installationId: "install_123",
 			clientVersion: "0.136.0-test",
 			authMode: "chatgpt",
 		})
+	})
+
+	it("prefers access-token ChatGPT account claims over id-token organizations", async () => {
+		const codexHome = join(tmpdir(), `codevibe-codex-home-account-${Date.now()}`)
+		await mkdir(codexHome, { recursive: true })
+		const accessToken = jwt({
+			"https://api.openai.com/auth": {
+				chatgpt_account_id: "acct_from_access",
+			},
+		})
+		const idToken = jwt({
+			organizations: [{ id: "org_from_id" }],
+		})
+
+		await writeFile(
+			join(codexHome, "auth.json"),
+			JSON.stringify({
+				tokens: {
+					access_token: accessToken,
+					refresh_token: "refresh-secret",
+					id_token: idToken,
+				},
+			}),
+		)
+
+		const credentials = await loadCodexHomeCredentials({ codexHome })
+
+		expect(credentials?.accountId).to.equal("acct_from_access")
 	})
 
 	it("defaults to Codex home credentials before VS Code secret storage", async () => {
@@ -231,6 +261,66 @@ describe("OpenAI Codex OAuth local profile support", () => {
 		expect(logged).to.include("Failed to load VS Code secret credentials")
 		expect(logged).to.not.include("access-secret-in-log-test")
 		expect(logged).to.not.include("refresh-secret-in-log-test")
+	})
+
+	it("redacts authorization code and verifier from token exchange errors", async () => {
+		const code = "authorization-code-secret"
+		const verifier = "pkce-verifier-secret"
+
+		await mockFetchForTesting(
+			(async () =>
+				new Response(
+					JSON.stringify({
+						error: "invalid_grant",
+						error_description: `bad code ${code} and verifier ${verifier}`,
+					}),
+					{ status: 400, statusText: "Bad Request" },
+				)) as typeof globalThis.fetch,
+			async () => {
+				try {
+					await exchangeCodeForTokens(code, verifier)
+					throw new Error("Expected exchangeCodeForTokens to fail")
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error)
+					expect(message).to.include("[REDACTED]")
+					expect(message).to.not.include(code)
+					expect(message).to.not.include(verifier)
+				}
+			},
+		)
+	})
+
+	it("redacts credential token values from token refresh errors", async () => {
+		const credentials: OpenAiCodexCredentials = {
+			type: "openai-codex",
+			access_token: "access-token-secret",
+			refresh_token: "refresh-token-secret",
+			id_token: "id-token-secret",
+			expires: Date.now() + 60_000,
+		}
+
+		await mockFetchForTesting(
+			(async () =>
+				new Response(
+					JSON.stringify({
+						error: "invalid_grant",
+						error_description: `expired ${credentials.refresh_token}, ${credentials.access_token}, and ${credentials.id_token}`,
+					}),
+					{ status: 401, statusText: "Unauthorized" },
+				)) as typeof globalThis.fetch,
+			async () => {
+				try {
+					await refreshAccessToken(credentials)
+					throw new Error("Expected refreshAccessToken to fail")
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error)
+					expect(message).to.include("[REDACTED]")
+					expect(message).to.not.include(credentials.refresh_token)
+					expect(message).to.not.include(credentials.access_token)
+					expect(message).to.not.include(credentials.id_token)
+				}
+			},
+		)
 	})
 
 	it("lists backend models with Codex auth and installation headers", async () => {

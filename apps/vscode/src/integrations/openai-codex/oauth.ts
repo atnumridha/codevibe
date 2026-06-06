@@ -143,31 +143,45 @@ export function parseJwtClaims(token: string): IdTokenClaims | undefined {
 /**
  * Extract ChatGPT account ID from JWT claims
  * Checks multiple locations:
- * 1. Root-level chatgpt_account_id
- * 2. Nested under https://api.openai.com/auth
- * 3. First organization ID
+ * 1. Nested under https://api.openai.com/auth
+ * 2. First organization ID, when allowed
+ * 3. Root-level chatgpt_account_id
  */
-function extractAccountIdFromClaims(claims: IdTokenClaims): string | undefined {
-	return claims.chatgpt_account_id || claims["https://api.openai.com/auth"]?.chatgpt_account_id || claims.organizations?.[0]?.id
+function extractAccountIdFromClaims(
+	claims: IdTokenClaims | undefined,
+	options: { includeOrganizations: boolean },
+): string | undefined {
+	if (!claims) return undefined
+
+	const nestedAccountId = claims["https://api.openai.com/auth"]?.chatgpt_account_id
+	if (nestedAccountId) return nestedAccountId
+
+	if (options.includeOrganizations) {
+		const organizationId = claims.organizations?.[0]?.id
+		if (organizationId) return organizationId
+	}
+
+	return claims.chatgpt_account_id
 }
 
 /**
  * Extract ChatGPT account ID from token response
- * Tries id_token first, then access_token
+ * Prefer the access-token ChatGPT account claim before id-token organization fallbacks.
  */
 function extractAccountId(tokens: { id_token?: string; access_token: string }): string | undefined {
-	// Try id_token first (more reliable source)
+	const accessClaims = tokens.access_token ? parseJwtClaims(tokens.access_token) : undefined
+	const accessAccountId = extractAccountIdFromClaims(accessClaims, { includeOrganizations: false })
+	if (accessAccountId) {
+		return accessAccountId
+	}
+
 	if (tokens.id_token) {
 		const claims = parseJwtClaims(tokens.id_token)
-		const accountId = claims && extractAccountIdFromClaims(claims)
+		const accountId = extractAccountIdFromClaims(claims, { includeOrganizations: true })
 		if (accountId) return accountId
 	}
-	// Fall back to access_token
-	if (tokens.access_token) {
-		const claims = parseJwtClaims(tokens.access_token)
-		return claims ? extractAccountIdFromClaims(claims) : undefined
-	}
-	return undefined
+
+	return extractAccountIdFromClaims(accessClaims, { includeOrganizations: true })
 }
 
 function extractEmail(tokens: { id_token?: string; access_token: string }): string | undefined {
@@ -382,6 +396,33 @@ function parseOAuthErrorDetails(errorText: string): { errorCode?: string; errorM
 	}
 }
 
+function redactKnownSecrets(text: string | undefined, secrets: Array<string | undefined>): string | undefined {
+	if (!text) return undefined
+
+	let redacted = text
+	for (const secret of secrets) {
+		if (!secret) continue
+		const trimmed = secret.trim()
+		if (!trimmed) continue
+		redacted = redacted.split(trimmed).join("[REDACTED]")
+	}
+	return redacted
+}
+
+function formatOAuthHttpError(
+	prefix: string,
+	response: Response,
+	errorText: string,
+	secrets: Array<string | undefined>,
+): { message: string; errorCode?: string } {
+	const { errorCode, errorMessage } = parseOAuthErrorDetails(errorText)
+	const safeDetails = redactKnownSecrets(errorMessage, secrets) || errorCode
+	return {
+		errorCode,
+		message: `${prefix} failed: ${response.status} ${response.statusText}${safeDetails ? ` - ${safeDetails}` : ""}`,
+	}
+}
+
 /**
  * Generates a cryptographically random PKCE code verifier
  * Must be 43-128 characters long using unreserved characters
@@ -454,7 +495,8 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string):
 
 	if (!response.ok) {
 		const errorText = await response.text()
-		throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
+		const { errorCode, message } = formatOAuthHttpError("Token exchange", response, errorText, [code, codeVerifier])
+		throw new OpenAiCodexOAuthTokenError(message, { status: response.status, errorCode })
 	}
 
 	const data = await response.json()
@@ -507,12 +549,12 @@ export async function refreshAccessToken(credentials: OpenAiCodexCredentials): P
 
 	if (!response.ok) {
 		const errorText = await response.text()
-		const { errorCode, errorMessage } = parseOAuthErrorDetails(errorText)
-		const details = errorMessage ? errorMessage : errorText
-		throw new OpenAiCodexOAuthTokenError(
-			`Token refresh failed: ${response.status} ${response.statusText}${details ? ` - ${details}` : ""}`,
-			{ status: response.status, errorCode },
-		)
+		const { errorCode, message } = formatOAuthHttpError("Token refresh", response, errorText, [
+			credentials.refresh_token,
+			credentials.access_token,
+			credentials.id_token,
+		])
+		throw new OpenAiCodexOAuthTokenError(message, { status: response.status, errorCode })
 	}
 
 	const data = await response.json()

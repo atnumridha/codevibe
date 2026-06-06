@@ -43,6 +43,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 	private options: OpenAiCodexHandlerOptions
 	private client?: OpenAI
 	private responsesWs: UndiciWebSocket | undefined
+	private responsesWsClientVersion: string | undefined
 	private websocketRequestInFlight = false
 	// Session ID for the Codex API (persists for the lifetime of the handler)
 	private readonly sessionId: string
@@ -207,10 +208,18 @@ export class OpenAiCodexHandler implements ApiHandler {
 
 		try {
 			const codexHeaders = await this.buildCodexHeaders()
+			const clientVersion = await openAiCodexOAuthManager.getClientVersion()
 
 			if (useWebsocketMode) {
 				try {
-					yield* this.createResponseStreamWebsocket(requestBody, fallbackRequestBody, accessToken, codexHeaders, model)
+					yield* this.createResponseStreamWebsocket(
+						requestBody,
+						fallbackRequestBody,
+						accessToken,
+						codexHeaders,
+						clientVersion,
+						model,
+					)
 					return
 				} catch (error) {
 					Logger.error("OpenAI Codex websocket mode failed, falling back to HTTP Responses API:", error)
@@ -232,7 +241,8 @@ export class OpenAiCodexHandler implements ApiHandler {
 				const stream = (await (client as any).responses.create(requestBody, {
 					signal: this.abortController.signal,
 					headers: codexHeaders,
-				})) as AsyncIterable<any>
+					query: { client_version: clientVersion },
+				} as any)) as AsyncIterable<any>
 
 				if (typeof (stream as any)?.[Symbol.asyncIterator] !== "function") {
 					throw new Error("OpenAI SDK did not return an AsyncIterable")
@@ -249,7 +259,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 				}
 			} catch (_sdkErr) {
 				// Fallback to manual SSE via fetch
-				yield* this.makeCodexRequest(requestBody, model, accessToken)
+				yield* this.makeCodexRequest(requestBody, model, accessToken, clientVersion)
 			}
 		} finally {
 			this.abortController = undefined
@@ -261,10 +271,16 @@ export class OpenAiCodexHandler implements ApiHandler {
 		fallbackParams: OpenAI.Responses.ResponseCreateParamsStreaming,
 		accessToken: string,
 		codexHeaders: Record<string, string>,
+		clientVersion: string,
 		model: { id: string; info: ModelInfo },
 	): ApiStream {
 		try {
-			for await (const event of this.createResponseEventsViaWebsocket(primaryParams, accessToken, codexHeaders)) {
+			for await (const event of this.createResponseEventsViaWebsocket(
+				primaryParams,
+				accessToken,
+				codexHeaders,
+				clientVersion,
+			)) {
 				if (this.abortController?.signal.aborted) {
 					return
 				}
@@ -276,7 +292,12 @@ export class OpenAiCodexHandler implements ApiHandler {
 					"Retrying Codex websocket response with full context after previous_response_not_found or socket reset",
 				)
 				this.closeResponsesWebsocket()
-				for await (const event of this.createResponseEventsViaWebsocket(fallbackParams, accessToken, codexHeaders)) {
+				for await (const event of this.createResponseEventsViaWebsocket(
+					fallbackParams,
+					accessToken,
+					codexHeaders,
+					clientVersion,
+				)) {
 					if (this.abortController?.signal.aborted) {
 						return
 					}
@@ -303,14 +324,34 @@ export class OpenAiCodexHandler implements ApiHandler {
 		return false
 	}
 
-	private async ensureResponsesWebsocket(accessToken: string, codexHeaders: Record<string, string>): Promise<UndiciWebSocket> {
-		if (this.responsesWs && this.responsesWs.readyState === UndiciWebSocket.OPEN) {
+	private buildResponsesUrl(clientVersion: string): string {
+		const url = new URL(`${CODEX_API_BASE_URL}/responses`)
+		url.searchParams.set("client_version", clientVersion)
+		return url.toString()
+	}
+
+	private buildResponsesWebsocketUrl(clientVersion: string): string {
+		const url = new URL(CODEX_RESPONSES_WEBSOCKET_URL)
+		url.searchParams.set("client_version", clientVersion)
+		return url.toString()
+	}
+
+	private async ensureResponsesWebsocket(
+		accessToken: string,
+		codexHeaders: Record<string, string>,
+		clientVersion: string,
+	): Promise<UndiciWebSocket> {
+		if (
+			this.responsesWs &&
+			this.responsesWs.readyState === UndiciWebSocket.OPEN &&
+			this.responsesWsClientVersion === clientVersion
+		) {
 			return this.responsesWs
 		}
 
 		this.closeResponsesWebsocket()
 
-		const ws = new UndiciWebSocket(CODEX_RESPONSES_WEBSOCKET_URL, {
+		const ws = new UndiciWebSocket(this.buildResponsesWebsocketUrl(clientVersion), {
 			headers: {
 				Authorization: `Bearer ${accessToken}`,
 				"OpenAI-Beta": "responses_websockets=2026-02-06",
@@ -342,6 +383,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 		})
 
 		this.responsesWs = ws
+		this.responsesWsClientVersion = clientVersion
 		return ws
 	}
 
@@ -351,6 +393,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 				this.responsesWs.close()
 			} catch {}
 			this.responsesWs = undefined
+			this.responsesWsClientVersion = undefined
 		}
 	}
 
@@ -358,6 +401,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 		params: OpenAI.Responses.ResponseCreateParamsStreaming,
 		accessToken: string,
 		codexHeaders: Record<string, string>,
+		clientVersion: string,
 	): AsyncGenerator<OpenAI.Responses.ResponseStreamEvent> {
 		if (this.websocketRequestInFlight) {
 			const error: Error & { code?: string } = new Error("Websocket response.create is already in progress")
@@ -365,7 +409,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 			throw error
 		}
 
-		const ws = await this.ensureResponsesWebsocket(accessToken, codexHeaders)
+		const ws = await this.ensureResponsesWebsocket(accessToken, codexHeaders, clientVersion)
 		this.websocketRequestInFlight = true
 
 		const eventQueue: OpenAI.Responses.ResponseStreamEvent[] = []
@@ -473,8 +517,13 @@ export class OpenAiCodexHandler implements ApiHandler {
 		}
 	}
 
-	private async *makeCodexRequest(requestBody: any, model: { id: string; info: ModelInfo }, accessToken: string): ApiStream {
-		const url = `${CODEX_API_BASE_URL}/responses`
+	private async *makeCodexRequest(
+		requestBody: any,
+		model: { id: string; info: ModelInfo },
+		accessToken: string,
+		clientVersion: string,
+	): ApiStream {
+		const url = this.buildResponsesUrl(clientVersion)
 
 		// Build headers with required Codex-specific fields
 		const headers: Record<string, string> = {
