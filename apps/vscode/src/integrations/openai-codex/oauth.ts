@@ -122,6 +122,7 @@ const codexAuthJsonSchema = z
 				access_token: z.string().min(1).optional(),
 				refresh_token: z.string().min(1).optional(),
 				id_token: z.string().min(1).optional(),
+				account_id: z.string().optional(),
 			})
 			.passthrough(),
 	})
@@ -356,6 +357,7 @@ export async function loadCodexHomeCredentials(options?: {
 		id_token: authJson.tokens.id_token,
 		access_token: accessToken,
 	}
+	const tokenAccountId = authJson.tokens.account_id?.trim() || undefined
 
 	return {
 		type: "openai-codex",
@@ -364,7 +366,7 @@ export async function loadCodexHomeCredentials(options?: {
 		id_token: authJson.tokens.id_token,
 		expires: extractExpiryMs(accessToken, options?.now),
 		email: extractEmail(tokens),
-		accountId: extractAccountId(tokens),
+		accountId: extractAccountId(tokens) ?? tokenAccountId,
 		tokenSource: "codex-home",
 		installationId,
 		clientVersion,

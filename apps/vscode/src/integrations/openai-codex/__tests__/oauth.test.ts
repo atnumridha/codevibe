@@ -196,6 +196,34 @@ describe("OpenAI Codex OAuth local profile support", () => {
 		expect(credentials?.accountId).to.equal("acct_from_access")
 	})
 
+	it("uses Codex home token account_id when JWT account claims are missing", async () => {
+		const codexHome = join(tmpdir(), `codevibe-codex-home-token-account-${Date.now()}`)
+		await mkdir(codexHome, { recursive: true })
+		const accessToken = jwt({
+			exp: 2_000,
+			email: "access@example.com",
+		})
+
+		await writeFile(
+			join(codexHome, "auth.json"),
+			JSON.stringify({
+				tokens: {
+					access_token: accessToken,
+					refresh_token: "refresh-secret",
+					account_id: "acct-from-file",
+				},
+			}),
+		)
+
+		const credentials = await loadCodexHomeCredentials({ codexHome })
+
+		expect(credentials).to.deep.include({
+			type: "openai-codex",
+			accountId: "acct-from-file",
+			tokenSource: "codex-home",
+		})
+	})
+
 	it("defaults to Codex home credentials before VS Code secret storage", async () => {
 		mockAuthSource()
 		const getSecretKey = stubVscodeSecret(vscodeSecretCredentialsJson("vscode-access-secret"))
