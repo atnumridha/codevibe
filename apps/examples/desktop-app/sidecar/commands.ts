@@ -407,10 +407,7 @@ function readCursorMcpImportSource(args?: Record<string, unknown>): {
 	const rawSource = typeof args?.source === "string" ? args.source.trim() : "";
 	const source: CursorMcpImportSource =
 		rawSource === "global" || args?.global === true ? "global" : "workspace";
-	const userHome =
-		typeof args?.userHome === "string" && args.userHome.trim()
-			? args.userHome.trim()
-			: undefined;
+	const userHome = process.env.CODEVIBE_CURSOR_HOME?.trim() || undefined;
 	return { source, ...(userHome ? { userHome } : {}) };
 }
 

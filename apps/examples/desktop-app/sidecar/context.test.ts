@@ -81,12 +81,15 @@ describe("Code sidecar runtime capabilities", () => {
 	let previousMcpSettingsPath: string | undefined;
 	let previousProviderSettingsPath: string | undefined;
 	let previousCodexHome: string | undefined;
+	let previousCodeVibeCursorHome: string | undefined;
 
 	beforeEach(() => {
 		previousMcpSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
 		previousProviderSettingsPath = process.env.CLINE_PROVIDER_SETTINGS_PATH;
 		previousCodexHome = process.env.CODEX_HOME;
+		previousCodeVibeCursorHome = process.env.CODEVIBE_CURSOR_HOME;
 		delete process.env.CLINE_MCP_SETTINGS_PATH;
+		delete process.env.CODEVIBE_CURSOR_HOME;
 		createCoreMock.mockReset();
 		connectMock.mockReset();
 		subscribeMock.mockReset();
@@ -116,6 +119,11 @@ describe("Code sidecar runtime capabilities", () => {
 			delete process.env.CODEX_HOME;
 		} else {
 			process.env.CODEX_HOME = previousCodexHome;
+		}
+		if (previousCodeVibeCursorHome === undefined) {
+			delete process.env.CODEVIBE_CURSOR_HOME;
+		} else {
+			process.env.CODEVIBE_CURSOR_HOME = previousCodeVibeCursorHome;
 		}
 		await Promise.all(
 			tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
@@ -628,6 +636,7 @@ describe("Code sidecar runtime capabilities", () => {
 		tempDirs.push(tempDir, workspace, cursorHome);
 		const settingsPath = join(tempDir, "mcp.json");
 		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		process.env.CODEVIBE_CURSOR_HOME = cursorHome;
 		await mkdir(join(cursorHome, ".cursor"), { recursive: true });
 		await writeFile(
 			join(cursorHome, ".cursor", "mcp.json"),
@@ -647,7 +656,6 @@ describe("Code sidecar runtime capabilities", () => {
 
 		const result = await handleCommand(ctx, "import_cursor_mcp_servers", {
 			source: "global",
-			userHome: cursorHome,
 			confirmed: true,
 		});
 		const stored = JSON.parse(await readFile(settingsPath, "utf8"));
