@@ -47,6 +47,10 @@ import {
 	setDisabledTools,
 	toggleDisabledTool,
 } from "@cline/core";
+import type {
+	CursorUriPreviewRequest,
+	CursorUriPreviewResponse,
+} from "@cline/shared";
 import { getClineEnvironmentConfig } from "@cline/shared";
 import { broadcastEvent, resolveSidecarAskQuestion } from "./context";
 import {
@@ -356,6 +360,73 @@ function asTrimmedString(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
 	const trimmed = value.trim();
 	return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function asTrimmedStringArray(value: unknown): string[] | undefined {
+	if (value === undefined) return undefined;
+	if (!Array.isArray(value)) {
+		throw new Error("workspaceRoots must be an array of strings");
+	}
+	const entries = value.map((entry) => {
+		if (typeof entry !== "string") {
+			throw new Error("workspaceRoots must be an array of strings");
+		}
+		return entry.trim();
+	});
+	const roots = entries.filter(Boolean);
+	return roots.length > 0 ? roots : undefined;
+}
+
+function readCursorUriPreviewRequest(
+	ctx: SidecarContext,
+	args?: Record<string, unknown>,
+): CursorUriPreviewRequest {
+	const uri = asTrimmedString(args?.uri);
+	if (!uri) {
+		throw new Error("cursor_uri_preview requires a non-empty uri");
+	}
+	const workspaceRoot =
+		asTrimmedString(args?.workspaceRoot) ||
+		asTrimmedString(ctx.workspaceRoot);
+	const workspaceRoots = asTrimmedStringArray(args?.workspaceRoots);
+	const maxCommandFileBytes = toPositiveInt(args?.maxCommandFileBytes);
+	return {
+		uri,
+		...(workspaceRoot ? { workspaceRoot } : {}),
+		...(workspaceRoots ? { workspaceRoots } : {}),
+		...(maxCommandFileBytes ? { maxCommandFileBytes } : {}),
+	};
+}
+
+async function handleCursorUriPreviewCommand(
+	ctx: SidecarContext,
+	args?: Record<string, unknown>,
+): Promise<CursorUriPreviewResponse> {
+	const input = readCursorUriPreviewRequest(ctx, args);
+	if (ctx.hubClient) {
+		return await ctx.hubClient.previewCursorUri(input);
+	}
+	await ensureHubServer({
+		runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
+	});
+	const payload: Record<string, unknown> = { uri: input.uri };
+	if (input.workspaceRoot) payload.workspaceRoot = input.workspaceRoot;
+	if (input.workspaceRoots) payload.workspaceRoots = input.workspaceRoots;
+	if (input.maxCommandFileBytes !== undefined) {
+		payload.maxCommandFileBytes = input.maxCommandFileBytes;
+	}
+	const reply = await sendHubCommand(
+		{},
+		{
+			clientId: "code-sidecar-cursor-preview",
+			command: "cursor.uri.preview",
+			payload,
+		},
+	);
+	if (!reply.ok) {
+		throw new Error(reply.error?.message ?? "cursor_uri_preview failed");
+	}
+	return (reply.payload ?? { handled: false }) as CursorUriPreviewResponse;
 }
 
 async function handleRoutineScheduleCommand(
@@ -748,6 +819,9 @@ export async function handleCommand(
 	// ── Process context ───────────────────────────────────────────────
 	if (command === "get_process_context") {
 		return { workspaceRoot: ctx.workspaceRoot, cwd: ctx.workspaceRoot };
+	}
+	if (command === "cursor_uri_preview") {
+		return await handleCursorUriPreviewCommand(ctx, args);
 	}
 	if (command === "get_chat_ws_endpoint") {
 		return "";

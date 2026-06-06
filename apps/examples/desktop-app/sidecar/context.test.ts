@@ -5,6 +5,7 @@ import type { SidecarContext } from "./types";
 const createCoreMock = vi.hoisted(() => vi.fn());
 const connectMock = vi.hoisted(() => vi.fn());
 const subscribeMock = vi.hoisted(() => vi.fn());
+const previewCursorUriMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@cline/core", async () => {
 	const actual =
@@ -17,6 +18,7 @@ vi.mock("@cline/core", async () => {
 		NodeHubClient: class {
 			connect = connectMock;
 			subscribe = subscribeMock;
+			previewCursorUri = previewCursorUriMock;
 			dispose = vi.fn();
 		},
 	};
@@ -40,8 +42,10 @@ describe("Code sidecar runtime capabilities", () => {
 		createCoreMock.mockReset();
 		connectMock.mockReset();
 		subscribeMock.mockReset();
+		previewCursorUriMock.mockReset();
 		connectMock.mockResolvedValue(undefined);
 		subscribeMock.mockReturnValue(() => {});
+		previewCursorUriMock.mockResolvedValue({ handled: true, route: "settings" });
 		createCoreMock.mockResolvedValue({
 			runtimeAddress: "ws://127.0.0.1:25463/hub",
 			subscribe: vi.fn(() => () => {}),
@@ -206,5 +210,29 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(
 			await handleCommand(ctx, "poll_tool_approvals", { sessionId: "sess-1" }),
 		).toEqual([]);
+	});
+
+	it("previews Cursor deeplinks through the hub client", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const ctx = createSidecarContext("/workspace/project");
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+
+		const result = await handleCommand(ctx, "cursor_uri_preview", {
+			uri: "vscode://cline.cline/settings?panel=codex",
+			workspaceRoots: ["/workspace/one", "/workspace/two"],
+			maxCommandFileBytes: 4096,
+		});
+
+		expect(previewCursorUriMock).toHaveBeenCalledWith({
+			uri: "vscode://cline.cline/settings?panel=codex",
+			workspaceRoot: "/workspace/project",
+			workspaceRoots: ["/workspace/one", "/workspace/two"],
+			maxCommandFileBytes: 4096,
+		});
+		expect(result).toEqual({ handled: true, route: "settings" });
 	});
 });

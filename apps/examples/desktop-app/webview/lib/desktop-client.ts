@@ -78,6 +78,19 @@ type PendingRequest = {
 type EventHandler = (payload: unknown) => void;
 type TransportStateHandler = (state: DesktopTransportState) => void;
 
+export type CursorUriPreviewInput = {
+	uri: string;
+	workspaceRoot?: string;
+	workspaceRoots?: string[];
+	maxCommandFileBytes?: number;
+};
+
+export type CursorUriPreviewResponse = Record<string, unknown> & {
+	handled: boolean;
+	route?: string;
+	requiresConfirmation?: boolean;
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 const RECONNECT_BASE_DELAY_MS = 400;
 const RECONNECT_MAX_DELAY_MS = 4_000;
@@ -271,6 +284,19 @@ class DesktopClient {
 				timeoutId,
 			});
 			socket.send(JSON.stringify(request));
+		});
+	}
+
+	async previewCursorUri(
+		input: CursorUriPreviewInput,
+	): Promise<CursorUriPreviewResponse> {
+		return await this.invoke<CursorUriPreviewResponse>("cursor_uri_preview", {
+			uri: input.uri,
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+			...(input.maxCommandFileBytes !== undefined
+				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
 		});
 	}
 
