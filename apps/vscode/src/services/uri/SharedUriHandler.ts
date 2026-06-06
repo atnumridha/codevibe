@@ -279,6 +279,43 @@ function buildCursorGitHelperDetail(route: CursorCompatibleUriRoute): string {
 	].join("\n")
 }
 
+function getCursorTaskRouteLabel(route: CursorCompatibleUriRoute): string {
+	switch (route.kind) {
+		case "createchat":
+			return "chat"
+		case "prompt":
+			return "prompt"
+		case "glass":
+			return "glass prompt"
+		case "command":
+			return "command"
+		case "rule":
+			return "rule review"
+		default:
+			return `${route.kind} review`
+	}
+}
+
+function buildCursorTaskCreationDetail(route: CursorCompatibleUriRoute, action: string): string {
+	const config = route.params.config
+	const configKeys =
+		config && typeof config === "object" && !Array.isArray(config)
+			? Object.keys(config).sort()
+			: []
+	const routeParamKeys = Object.keys(route.params)
+		.filter((key) => key !== "config")
+		.sort()
+
+	return [
+		`Route: ${route.path}`,
+		`Task type: ${getCursorTaskRouteLabel(route)}`,
+		action,
+		"This will create an agent task only. Terminal, network, file, MCP, browser, and git changes still require the normal approvals.",
+		...(routeParamKeys.length > 0 ? [`Route parameters: ${routeParamKeys.join(", ")}`] : []),
+		...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
+	].join("\n")
+}
+
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
  */
@@ -450,6 +487,13 @@ export class SharedUriHandler {
 						if (handled) {
 							return true
 						}
+					}
+					const confirmed = await this.confirmCursorTaskCreation(
+						cursorRoute.route,
+						"Review the Cursor-compatible route payload and create an agent task from it.",
+					)
+					if (!confirmed) {
+						return true
 					}
 					await controller.handleTaskCreation(
 						buildCursorCompatibleTaskPrompt(cursorRoute.route),
@@ -662,8 +706,29 @@ export class SharedUriHandler {
 			return false
 		}
 
+		const confirmed = await this.confirmCursorTaskCreation(
+			route,
+			`Create an agent task from the workspace command file "${target.relativePath}". The file is treated as user-supplied instructions.`,
+		)
+		if (!confirmed) {
+			return true
+		}
+
 		await controller.handleTaskCreation(buildCursorCommandFilePrompt(target, content))
 		return true
+	}
+
+	private static async confirmCursorTaskCreation(route: CursorCompatibleUriRoute, action: string): Promise<boolean> {
+		const choice = await HostProvider.window.showMessage({
+			type: ShowMessageType.WARNING,
+			message: `Create Cursor ${getCursorTaskRouteLabel(route)} task?`,
+			options: {
+				modal: true,
+				items: ["Create Task"],
+				detail: buildCursorTaskCreationDetail(route, action),
+			},
+		})
+		return choice.selectedOption === "Create Task"
 	}
 
 	private static async handleCursorPluginAddRoute(route: CursorCompatibleUriRoute): Promise<void> {

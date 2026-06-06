@@ -167,10 +167,27 @@ describe("SharedUriHandler", () => {
 
 		describe("Cursor-compatible route handling", () => {
 			it("should create a task from a Cursor createchat route", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/createchat?prompt=Review%20the%20diff")
 
 				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor chat task?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("normal approvals")
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
+			})
+
+			it("should not create a task when Cursor prompt-like task confirmation is cancelled", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/prompt?text=Review%20the%20diff")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor prompt task?")
+				expect(handleTaskCreationStub.called).to.be.false
 			})
 
 			it("should confirm and install a Cursor MCP install route", async () => {
@@ -432,17 +449,23 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should route Cursor rule content payloads through task review", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+
 				const result = await SharedUriHandler.handleUri(
 					"vscode://cline.cline/rule?name=team-style&content=Use%20short%20commits",
 				)
 
 				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor rule review task?")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Cursor-compatible rule deeplink")
 				expect(openFileStub.called).to.be.false
 			})
 
 			it("should create a task from a Cursor custom command file", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
 				const commandsDir = path.join(workspaceDir, ".cursor", "commands")
 				await fs.mkdir(commandsDir, { recursive: true })
 				await fs.writeFile(
@@ -454,6 +477,8 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
 
 				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor command task?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(".cursor/commands/review-code.md")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				const prompt = handleTaskCreationStub.firstCall.args[0]
 				expect(prompt).to.contain('A Cursor-compatible command deeplink named "review-code" was opened.')
@@ -464,9 +489,13 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should fall back to a review prompt when a Cursor command file is missing", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=missing-command")
 
 				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor command task?")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				const prompt = handleTaskCreationStub.firstCall.args[0]
 				expect(prompt).to.contain('Cursor-compatible command deeplink named "missing-command"')
@@ -474,6 +503,8 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should not read Cursor command files for unsafe command names", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
 				const commandsDir = path.join(workspaceDir, ".cursor", "commands")
 				await fs.mkdir(commandsDir, { recursive: true })
 				await fs.writeFile(path.join(commandsDir, "secret.md"), "SHOULD_NOT_LOAD", "utf8")
@@ -486,6 +517,8 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should not read symlinked Cursor command files", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
 				const commandsDir = path.join(workspaceDir, ".cursor", "commands")
 				await fs.mkdir(commandsDir, { recursive: true })
 				const targetPath = path.join(workspaceDir, "outside-command.md")
@@ -502,6 +535,8 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should not read dot-only Cursor command names", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
 				const commandsDir = path.join(workspaceDir, ".cursor", "commands")
 				await fs.mkdir(commandsDir, { recursive: true })
 				await fs.writeFile(path.join(commandsDir, ".md"), "SHOULD_NOT_LOAD", "utf8")
