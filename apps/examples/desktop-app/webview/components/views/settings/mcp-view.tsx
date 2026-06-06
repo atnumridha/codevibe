@@ -607,7 +607,7 @@ export function McpServersContent() {
 													<span className="text-muted-foreground/70">
 														Headers:
 													</span>{" "}
-													{stringifyKeyValuePairs(server.headers)}
+													{stringifyRedactedKeyValuePairs(server.headers)}
 												</p>
 											)}
 									</div>
