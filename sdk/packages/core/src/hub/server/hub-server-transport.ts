@@ -15,6 +15,16 @@ import type {
 	CronEventProcessingStatus,
 	ListEventLogsOptions,
 } from "../../cron/store/sqlite-cron-store";
+import {
+	buildCursorAgentTaskRouteRequest,
+	buildCursorAutomationIngestRouteRequest,
+	buildCursorMcpInstallRequest,
+	buildCursorPluginAddRouteRequest,
+	buildCursorRuleRouteRequest,
+	buildCursorSettingsRouteRequest,
+	CursorMcpInstallError,
+	CursorUriError,
+} from "../../extensions/mcp/cursor-uri";
 import { LocalRuntimeHost } from "../../runtime/host/local-runtime-host";
 import type {
 	PendingPromptsRuntimeService,
@@ -507,6 +517,178 @@ function summarizeCronEventIngestResult(result: CronEventNdjsonIngressResult) {
 	};
 }
 
+const CURSOR_AGENT_TASK_ROUTE_PATHS = new Set([
+	"/createchat",
+	"/background-agent",
+	"/prompt",
+	"/command",
+	"/pr-review",
+	"/glass",
+	"/git/checkout",
+	"/git/branch",
+	"/git/commit",
+]);
+
+function parseCursorUriPreviewInput(payload: unknown): { uri: string } {
+	if (!isPayloadObject(payload)) {
+		throw new Error("cursor.uri.preview payload must be an object.");
+	}
+	const value = payload.uri;
+	if (typeof value !== "string" || !value.trim()) {
+		throw new Error("cursor.uri.preview payload 'uri' must be a non-empty string.");
+	}
+	return { uri: value.trim() };
+}
+
+function getRecordValue(value: unknown): Record<string, unknown> | undefined {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: undefined;
+}
+
+function getCursorConfigKeys(
+	params: Record<string, string | Record<string, unknown>>,
+): string[] {
+	return Object.keys(getRecordValue(params.config) ?? {}).sort();
+}
+
+function safeUrlOrigin(value: string): string {
+	try {
+		return new URL(value).origin;
+	} catch {
+		return "[provided]";
+	}
+}
+
+function safeCursorSourceLabel(
+	source: string | undefined,
+	sourceParam?: string,
+): string | undefined {
+	if (!source) {
+		return undefined;
+	}
+	return sourceParam === "url" ? safeUrlOrigin(source) : source;
+}
+
+function summarizeCursorMcpInstall(uri: string): Record<string, unknown> {
+	const request = buildCursorMcpInstallRequest(uri);
+	const transport =
+		getRecordValue(request.serverConfig.transport) ?? request.serverConfig;
+	const url = typeof transport.url === "string" ? transport.url : undefined;
+	const command =
+		typeof transport.command === "string" ? transport.command : undefined;
+	const commandLabel = command && !/\s/.test(command) ? command : undefined;
+	const env = getRecordValue(transport.env);
+	const headers = getRecordValue(transport.headers);
+	return {
+		handled: true,
+		route: "mcp-install",
+		requiresConfirmation: true,
+		serverName: request.serverName,
+		source: request.source,
+		transportType: transport.type ?? "stdio",
+		...(url ? { urlOrigin: safeUrlOrigin(url) } : {}),
+		...(commandLabel ? { command: commandLabel } : {}),
+		...(Array.isArray(transport.args) ? { argCount: transport.args.length } : {}),
+		...(env ? { envKeys: Object.keys(env).sort() } : {}),
+		...(headers ? { headerKeys: Object.keys(headers).sort() } : {}),
+	};
+}
+
+function summarizeCursorUriPreview(uri: string): Record<string, unknown> {
+	const parsedUrl = new URL(uri);
+	const path = parsedUrl.pathname || "/";
+
+	if (path === "/mcp/install") {
+		return summarizeCursorMcpInstall(uri);
+	}
+
+	if (path === "/automation/ingest") {
+		const request = buildCursorAutomationIngestRouteRequest(uri);
+		const strictFailed =
+			request.strict && request.validation.rejectedCount > 0;
+		return {
+			handled: true,
+			route: "automation-ingest",
+			requiresConfirmation:
+				request.validation.eventCount > 0 && !strictFailed,
+			strict: request.strict,
+			valid: request.validation.eventCount > 0 && !strictFailed,
+			eventCount: request.validation.eventCount,
+			rejectedCount: request.validation.rejectedCount,
+			options: request.options,
+			paramKeys: request.paramKeys,
+			configKeys: request.configKeys,
+			validation: request.validation,
+			taskPrompt: request.taskPrompt,
+		};
+	}
+
+	if (path === "/settings") {
+		const request = buildCursorSettingsRouteRequest(uri);
+		return {
+			handled: true,
+			route: "settings",
+			requiresConfirmation: false,
+			query: request.query,
+			sourceParam: request.sourceParam,
+		};
+	}
+
+	if (path === "/rule") {
+		const request = buildCursorRuleRouteRequest(uri);
+		return request.kind === "file"
+			? {
+					handled: true,
+					route: "rule",
+					kind: "file",
+					requiresConfirmation: true,
+					filename: request.filename,
+					relativePath: request.relativePath,
+				}
+			: {
+					handled: true,
+					route: "rule",
+					kind: "review",
+					requiresConfirmation: true,
+					reason: request.reason,
+					name: request.name,
+					path: request.path,
+				};
+	}
+
+	if (path === "/plugin/add") {
+		const request = buildCursorPluginAddRouteRequest(uri);
+		return {
+			handled: true,
+			route: "plugin-add",
+			requiresConfirmation: true,
+			requiresReview: request.requiresReview,
+			sourceParam: request.sourceParam,
+			source: safeCursorSourceLabel(request.source, request.sourceParam),
+			reason: request.reason,
+			paramKeys: Object.keys(request.params).sort(),
+			configKeys: getCursorConfigKeys(request.params),
+		};
+	}
+
+	if (CURSOR_AGENT_TASK_ROUTE_PATHS.has(path)) {
+		const request = buildCursorAgentTaskRouteRequest(uri);
+		return {
+			handled: true,
+			route: request.kind,
+			path: request.path,
+			requiresConfirmation: true,
+			taskPrompt: request.taskPrompt,
+			hasPrompt: Boolean(request.prompt),
+			paramKeys: Object.keys(request.params).sort(),
+			configKeys: getCursorConfigKeys(request.params),
+		};
+	}
+
+	throw new CursorUriError(`Unsupported Cursor URI route: ${path}`);
+}
+
 /** @internal Exported for unit testing fetch/runtime wiring. */
 export class HubServerTransport implements NativeHubTransport {
 	private readonly clients = new Map<string, HubClientRecord>();
@@ -755,6 +937,8 @@ export class HubServerTransport implements NativeHubTransport {
 				return await this.handleSettingsToggle(envelope);
 			case "settings.patch":
 				return await this.handleSettingsPatch(envelope);
+			case "cursor.uri.preview":
+				return this.handleCursorUriPreview(envelope);
 			case "cron.event.ingest":
 				return this.handleCronEventIngest(envelope);
 			case "cron.event.list":
@@ -931,6 +1115,33 @@ export class HubServerTransport implements NativeHubTransport {
 				error: {
 					code: "settings_patch_failed",
 					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private handleCursorUriPreview(envelope: HubCommandEnvelope): HubReplyEnvelope {
+		try {
+			const input = parseCursorUriPreviewInput(envelope.payload);
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: true,
+				payload: summarizeCursorUriPreview(input.uri),
+			};
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code:
+						error instanceof CursorUriError ||
+						error instanceof CursorMcpInstallError
+							? "cursor_uri_invalid"
+							: "cursor_uri_preview_failed",
+					message,
 				},
 			};
 		}

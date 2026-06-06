@@ -347,6 +347,7 @@ export type HubCommandName =
 	| "settings.get"
 	| "settings.patch"
 	| "settings.toggle"
+	| "cursor.uri.preview"
 	| "cron.event.ingest"
 	| "cron.event.list"
 	| "cron.event.get"
