@@ -76,6 +76,30 @@ function previewStringList(
 		: [];
 }
 
+function recordString(
+	record: Record<string, unknown> | undefined,
+	key: string,
+): string {
+	const value = record?.[key];
+	return typeof value === "string" ? value.trim() : "";
+}
+
+function backgroundLaunchContext(launch: CursorUriLaunchResponse): string {
+	if (!launch.backgroundAgent) {
+		return "";
+	}
+	const details = launch.backgroundAgentDetails;
+	const repository = recordString(details, "repository");
+	const branch = recordString(details, "requestedBranch");
+	const baseBranch = recordString(details, "requestedBaseBranch");
+	const parts = [
+		repository ? `repo ${repository}` : "",
+		branch ? `branch ${branch}` : "",
+		baseBranch ? `base ${baseBranch}` : "",
+	].filter(Boolean);
+	return parts.join(" | ");
+}
+
 function isLaunchablePreview(preview: CursorUriPreviewResponse | undefined) {
 	const path = previewString(preview, "path");
 	const route = previewString(preview, "route");
@@ -221,6 +245,7 @@ export function CursorUriView({
 		ruleOpening ||
 		pluginAdding ||
 		gitRunning;
+	const launchContext = launch ? backgroundLaunchContext(launch) : "";
 
 	const runPreviewForUri = useCallback(async (inputUri: string) => {
 		const trimmed = inputUri.trim();
@@ -595,6 +620,7 @@ export function CursorUriView({
 						</AlertTitle>
 						<AlertDescription>
 							{launch.provider}/{launch.model} | {launch.mode}
+							{launchContext ? ` | ${launchContext}` : ""}
 						</AlertDescription>
 					</Alert>
 				) : null}

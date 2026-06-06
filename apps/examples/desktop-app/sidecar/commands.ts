@@ -106,6 +106,7 @@ type CursorUriLaunchResponse = {
 	route: string;
 	path?: string;
 	backgroundAgent: boolean;
+	backgroundAgentDetails?: JsonRecord;
 	sessionId: string;
 	provider: string;
 	model: string;
@@ -862,6 +863,74 @@ function getCursorPreviewStringArray(
 		.filter((item) => item.length > 0);
 }
 
+function getJsonStringArray(value: unknown): string[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+	return value
+		.map((item) => (typeof item === "string" ? item.trim() : ""))
+		.filter((item) => item.length > 0);
+}
+
+function getRouteParamString(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): string | undefined {
+	const value = params[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function getRouteConfigKeys(
+	params: Record<string, string | Record<string, unknown>>,
+): string[] {
+	const config = params.config;
+	return config && typeof config === "object" && !Array.isArray(config)
+		? Object.keys(config).sort()
+		: [];
+}
+
+function readCursorAgentTaskRouteDetails(uri: string): JsonRecord | undefined {
+	try {
+		const request = buildCursorAgentTaskRouteRequest(uri);
+		const configKeys = getRouteConfigKeys(request.params);
+		const details: JsonRecord = {
+			kind: request.kind,
+			path: request.path,
+			paramKeys: Object.keys(request.params).sort(),
+			...(configKeys.length > 0 ? { configKeys } : {}),
+		};
+		if (request.kind === "background-agent") {
+			const backgroundDetails: JsonRecord = {};
+			const repository =
+				getRouteParamString(request.params, "repository") ??
+				getRouteParamString(request.params, "repo");
+			const requestedBranch = getRouteParamString(request.params, "branch");
+			const requestedBaseBranch = getRouteParamString(
+				request.params,
+				"baseBranch",
+			);
+			if (repository) {
+				backgroundDetails.repository = repository;
+			}
+			if (requestedBranch) {
+				backgroundDetails.requestedBranch = requestedBranch;
+			}
+			if (requestedBaseBranch) {
+				backgroundDetails.requestedBaseBranch = requestedBaseBranch;
+			}
+			if (configKeys.length > 0) {
+				backgroundDetails.configKeys = configKeys;
+			}
+			if (Object.keys(backgroundDetails).length > 0) {
+				details.backgroundAgentDetails = backgroundDetails;
+			}
+		}
+		return details;
+	} catch {
+		return undefined;
+	}
+}
+
 function isLaunchableCursorAgentPreview(
 	preview: CursorUriPreviewResponse,
 ): boolean {
@@ -885,13 +954,23 @@ function getCursorQueuedAgentToolPolicies(): JsonRecord {
 
 function buildCursorLaunchMetadata(
 	preview: CursorUriPreviewResponse,
+	uri: string,
 ): JsonRecord {
+	const routeDetails = readCursorAgentTaskRouteDetails(uri);
 	const route = getCursorPreviewString(preview, "route") ?? "unknown";
 	const path = getCursorPreviewString(preview, "path");
 	const backgroundAgent =
 		route === "background-agent" || path === "/background-agent";
-	const paramKeys = getCursorPreviewStringArray(preview, "paramKeys");
-	const configKeys = getCursorPreviewStringArray(preview, "configKeys");
+	const detailParamKeys = getJsonStringArray(routeDetails?.paramKeys);
+	const detailConfigKeys = getJsonStringArray(routeDetails?.configKeys);
+	const paramKeys =
+		detailParamKeys.length > 0
+			? detailParamKeys
+			: getCursorPreviewStringArray(preview, "paramKeys");
+	const configKeys =
+		detailConfigKeys.length > 0
+			? detailConfigKeys
+			: getCursorPreviewStringArray(preview, "configKeys");
 	const cursor: JsonRecord = {
 		source: "cursor-uri",
 		route,
@@ -909,6 +988,9 @@ function buildCursorLaunchMetadata(
 	return {
 		cursor,
 		...(backgroundAgent ? { backgroundAgent: true } : {}),
+		...(routeDetails?.backgroundAgentDetails
+			? { backgroundAgentDetails: routeDetails.backgroundAgentDetails }
+			: {}),
 	};
 }
 
@@ -937,8 +1019,14 @@ async function handleCursorUriLaunchCommand(
 	const mode = "plan";
 	const workspaceRoot = input.workspaceRoot ?? ctx.workspaceRoot;
 	const cwd = workspaceRoot;
-	const metadata = buildCursorLaunchMetadata(preview);
+	const metadata = buildCursorLaunchMetadata(preview, input.uri);
 	const backgroundAgent = metadata.backgroundAgent === true;
+	const backgroundAgentDetails =
+		metadata.backgroundAgentDetails &&
+		typeof metadata.backgroundAgentDetails === "object" &&
+		!Array.isArray(metadata.backgroundAgentDetails)
+			? (metadata.backgroundAgentDetails as JsonRecord)
+			: undefined;
 	const { handleChatSessionCommand } = await import("./chat-session");
 	const started = (await handleChatSessionCommand(ctx, {
 		action: "start",
@@ -976,6 +1064,7 @@ async function handleCursorUriLaunchCommand(
 			? { path: getCursorPreviewString(preview, "path") }
 			: {}),
 		backgroundAgent,
+		...(backgroundAgentDetails ? { backgroundAgentDetails } : {}),
 		sessionId,
 		provider,
 		model,

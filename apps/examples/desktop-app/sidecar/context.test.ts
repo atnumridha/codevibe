@@ -847,13 +847,15 @@ describe("Code sidecar runtime capabilities", () => {
 
 		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-bg-"));
 		tempDirs.push(workspace);
+		const config = encodeCursorConfig({
+			remoteName: "prod",
+			token: "secret-value",
+		});
 		previewCursorUriMock.mockResolvedValueOnce({
 			handled: true,
 			route: "background-agent",
 			path: "/background-agent",
 			requiresConfirmation: true,
-			paramKeys: ["prompt", "source"],
-			configKeys: ["remoteName"],
 			taskPrompt: "Run the background investigation.",
 		});
 		const startMock = vi.fn(async () => ({ sessionId: "session-bg" }));
@@ -870,7 +872,7 @@ describe("Code sidecar runtime capabilities", () => {
 		} as never;
 
 		const result = await handleCommand(ctx, "cursor_uri_launch", {
-			uri: "vscode://cline.cline/background-agent?prompt=Run%20the%20background%20investigation",
+			uri: `vscode://cline.cline/background-agent?prompt=Run%20the%20background%20investigation&repo=owner%2Frepo&branch=feature%2Fsafe&baseBranch=main&config=${config}`,
 			confirmed: true,
 		});
 
@@ -883,8 +885,14 @@ describe("Code sidecar runtime capabilities", () => {
 						route: "background-agent",
 						path: "/background-agent",
 						background: true,
-						paramKeys: ["prompt", "source"],
-						configKeys: ["remoteName"],
+						paramKeys: ["baseBranch", "branch", "config", "prompt", "repo"],
+						configKeys: ["remoteName", "token"],
+					}),
+					backgroundAgentDetails: expect.objectContaining({
+						repository: "owner/repo",
+						requestedBranch: "feature/safe",
+						requestedBaseBranch: "main",
+						configKeys: ["remoteName", "token"],
 					}),
 				}),
 			}),
@@ -911,8 +919,19 @@ describe("Code sidecar runtime capabilities", () => {
 			path: "/background-agent",
 			backgroundAgent: true,
 			sessionId: "session-bg",
+			backgroundAgentDetails: expect.objectContaining({
+				repository: "owner/repo",
+				requestedBranch: "feature/safe",
+				requestedBaseBranch: "main",
+			}),
 			metadata: expect.objectContaining({
 				backgroundAgent: true,
+				backgroundAgentDetails: expect.objectContaining({
+					repository: "owner/repo",
+					requestedBranch: "feature/safe",
+					requestedBaseBranch: "main",
+					configKeys: ["remoteName", "token"],
+				}),
 				cursor: expect.objectContaining({
 					route: "background-agent",
 					background: true,
@@ -921,6 +940,9 @@ describe("Code sidecar runtime capabilities", () => {
 		});
 		expect(JSON.stringify((result as { metadata: unknown }).metadata)).not.toContain(
 			"Run the background investigation",
+		);
+		expect(JSON.stringify((result as { metadata: unknown }).metadata)).not.toContain(
+			"secret-value",
 		);
 	});
 

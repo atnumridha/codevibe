@@ -105,6 +105,7 @@ export type CursorUriLaunchResponse = Record<string, unknown> & {
 	route: string;
 	path?: string;
 	backgroundAgent: boolean;
+	backgroundAgentDetails?: Record<string, unknown>;
 	sessionId: string;
 	provider: string;
 	model: string;
