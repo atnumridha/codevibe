@@ -88,4 +88,34 @@ describe("CursorUriRoutes", () => {
 		expect(prompt).to.contain("Review it with the user before running it")
 		expect(prompt).to.contain("```sh\nnpm install\n```")
 	})
+
+	it("validates automation NDJSON ingest routes without leaking raw payload values", () => {
+		const ndjson = encodeURIComponent(
+			[
+				JSON.stringify({
+					eventId: "evt-1",
+					eventType: "git.commit.created",
+					source: "cursor",
+					subject: "main",
+					payload: { token: "secret-value", branch: "main" },
+				}),
+				JSON.stringify({ eventId: "evt-2", eventType: "git.commit.created", source: "github" }),
+			].join("\n"),
+		)
+		const result = parseCursorCompatibleUri(
+			"/automation/ingest",
+			new URLSearchParams(`ndjson=${ndjson}&allowedSources=cursor&strict=true`),
+		)
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected automation ingest route to parse")
+		}
+		const prompt = buildCursorCompatibleTaskPrompt(result.route)
+		expect(prompt).to.contain("accepted events: 1")
+		expect(prompt).to.contain("rejected lines: 1")
+		expect(prompt).to.contain("payload keys: branch, token")
+		expect(prompt).to.contain("source_not_allowed")
+		expect(prompt).not.to.contain("secret-value")
+	})
 })

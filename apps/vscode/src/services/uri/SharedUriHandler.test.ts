@@ -257,6 +257,42 @@ describe("SharedUriHandler", () => {
 				expect(launchRequest.routePrompt).to.contain("Cursor-compatible background agent deeplink")
 			})
 
+			it("should confirm Cursor automation NDJSON ingest before creating a review task", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Review Task" })
+				const ndjson = encodeURIComponent(
+					JSON.stringify({
+						eventId: "evt-1",
+						eventType: "git.commit.created",
+						source: "cursor",
+						payload: { token: "secret-value" },
+					}),
+				)
+
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/automation/ingest?ndjson=${ndjson}&defaultSource=cursor`,
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor automation NDJSON ingest?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Default source: cursor")
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("automation NDJSON ingest deeplink")
+				expect(handleTaskCreationStub.firstCall.args[0]).not.to.contain("secret-value")
+			})
+
+			it("should not create a task when Cursor automation NDJSON ingest is cancelled", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+				const ndjson = encodeURIComponent(JSON.stringify({ eventId: "evt-1", eventType: "git.commit.created" }))
+
+				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/automation/ingest?ndjson=${ndjson}`)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor automation NDJSON ingest?")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should not launch Cursor background-agent routes when confirmation is cancelled", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })

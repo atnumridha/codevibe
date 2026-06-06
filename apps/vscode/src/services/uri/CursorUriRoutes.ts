@@ -4,6 +4,7 @@ import {
 	normalizeGitCheckoutTarget,
 	normalizeGitCommitMessage,
 } from "@utils/git-helper"
+import { parseAutomationEventNdjson } from "@/services/automation/AutomationEventNdjson"
 
 export const CURSOR_COMPATIBLE_URI_PATHS = [
 	"/createchat",
@@ -16,6 +17,7 @@ export const CURSOR_COMPATIBLE_URI_PATHS = [
 	"/pr-review",
 	"/plugin/add",
 	"/glass",
+	"/automation/ingest",
 	"/git/checkout",
 	"/git/branch",
 	"/git/commit",
@@ -38,6 +40,7 @@ export type CursorCompatibleUriKind =
 	| "pr-review"
 	| "plugin-add"
 	| "glass"
+	| "automation-ingest"
 	| "git-checkout"
 	| "git-branch"
 	| "git-commit"
@@ -253,6 +256,20 @@ const gitCommitSchema = z
 	})
 	.strict()
 
+const automationIngestSchema = z
+	.object({
+		ndjson: optionalBoundedString,
+		input: optionalBoundedString,
+		defaultSource: optionalBoundedString,
+		allowedSources: optionalBoundedString,
+		maxLineBytes: optionalBoundedString,
+		maxEvents: optionalBoundedString,
+		strict: optionalBooleanString,
+		config: configSchema,
+	})
+	.strict()
+	.refine((value) => value.ndjson || value.input || hasStringConfigValue(value.config, "ndjson"), "ndjson or input is required")
+
 const routeSchemas: Record<CursorCompatibleUriPath, { kind: CursorCompatibleUriKind; schema: z.ZodTypeAny }> = {
 	"/createchat": { kind: "createchat", schema: promptLikeSchema },
 	"/mcp/install": { kind: "mcp-install", schema: mcpInstallSchema },
@@ -264,6 +281,7 @@ const routeSchemas: Record<CursorCompatibleUriPath, { kind: CursorCompatibleUriK
 	"/pr-review": { kind: "pr-review", schema: prReviewSchema },
 	"/plugin/add": { kind: "plugin-add", schema: pluginAddSchema },
 	"/glass": { kind: "glass", schema: glassSchema },
+	"/automation/ingest": { kind: "automation-ingest", schema: automationIngestSchema },
 	"/git/checkout": { kind: "git-checkout", schema: gitCheckoutSchema },
 	"/git/branch": { kind: "git-branch", schema: gitBranchSchema },
 	"/git/commit": { kind: "git-commit", schema: gitCommitSchema },
@@ -353,6 +371,19 @@ function getPromptText(route: CursorCompatibleUriRoute): string | undefined {
 		}
 	}
 	return undefined
+}
+
+function hasStringConfigValue(config: unknown, key: string): boolean {
+	return !!config && typeof config === "object" && !Array.isArray(config) && typeof (config as Record<string, unknown>)[key] === "string"
+}
+
+function getConfigString(route: CursorCompatibleUriRoute, key: string): string | undefined {
+	const config = route.params.config
+	if (!config || typeof config !== "object" || Array.isArray(config)) {
+		return undefined
+	}
+	const value = (config as Record<string, unknown>)[key]
+	return typeof value === "string" && value.trim() ? value.trim() : undefined
 }
 
 function formatParamValue(key: string, value: string | Record<string, unknown>): string {
@@ -455,6 +486,10 @@ export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute)
 		].join("\n")
 	}
 
+	if (route.kind === "automation-ingest") {
+		return buildCursorAutomationIngestPrompt(route)
+	}
+
 	const title = {
 		"mcp-install": "MCP install",
 		"background-agent": "background agent",
@@ -462,6 +497,7 @@ export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute)
 		rule: "rule",
 		"pr-review": "pull request review",
 		"plugin-add": "plugin add",
+		"automation-ingest": "automation NDJSON ingest",
 	}[route.kind]
 
 	return [
@@ -470,6 +506,79 @@ export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute)
 		"",
 		"Route details:",
 		formatRouteDetails(route, ["prompt", "task", "text", "message"]),
+	].join("\n")
+}
+
+function getAutomationNdjson(route: CursorCompatibleUriRoute): string {
+	const value = getStringParam(route, "ndjson") || getStringParam(route, "input") || getConfigString(route, "ndjson")
+	if (!value) {
+		throw new Error("automation NDJSON input is required")
+	}
+	return value
+}
+
+function getPositiveIntegerParam(route: CursorCompatibleUriRoute, key: string): number | undefined {
+	const value = getStringParam(route, key) || getConfigString(route, key)
+	if (!value) {
+		return undefined
+	}
+	const parsed = Number.parseInt(value, 10)
+	return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
+
+function getBooleanParam(route: CursorCompatibleUriRoute, key: string): boolean {
+	const value = getStringParam(route, key) || getConfigString(route, key)
+	if (!value) {
+		return false
+	}
+	return ["true", "1", "yes"].includes(value.toLowerCase())
+}
+
+function getAllowedSources(route: CursorCompatibleUriRoute): string[] | undefined {
+	const value = getStringParam(route, "allowedSources") || getConfigString(route, "allowedSources")
+	const sources = value
+		?.split(",")
+		.map((source) => source.trim())
+		.filter(Boolean)
+	return sources && sources.length > 0 ? sources : undefined
+}
+
+function buildCursorAutomationIngestPrompt(route: CursorCompatibleUriRoute): string {
+	const result = parseAutomationEventNdjson(getAutomationNdjson(route), {
+		defaultSource: getStringParam(route, "defaultSource") || getConfigString(route, "defaultSource") || "cursor",
+		allowedSources: getAllowedSources(route),
+		maxLineBytes: getPositiveIntegerParam(route, "maxLineBytes"),
+		maxEvents: getPositiveIntegerParam(route, "maxEvents"),
+	})
+	const strict = getBooleanParam(route, "strict")
+	const acceptedLines = result.events.slice(0, 20).map((event) =>
+		[
+			`- ${event.eventId} (${event.eventType}) from ${event.source}`,
+			...(event.subject ? [`  subject: ${event.subject}`] : []),
+			...(event.workspaceRoot ? [`  workspace: ${event.workspaceRoot}`] : []),
+			...(event.payload ? [`  payload keys: ${Object.keys(event.payload).sort().join(", ") || "(none)"}`] : []),
+			...(event.attributes ? [`  attribute keys: ${Object.keys(event.attributes).sort().join(", ") || "(none)"}`] : []),
+		].join("\n"),
+	)
+	const rejectedLines = result.rejected.slice(0, 20).map((line) => `- line ${line.lineNumber}: ${line.reason} (${line.message})`)
+
+	return [
+		"A Cursor-compatible automation NDJSON ingest deeplink was opened. The VS Code extension validated the NDJSON locally; automation execution is not enabled in this extension surface yet.",
+		"",
+		"Validation summary:",
+		`- accepted events: ${result.events.length}`,
+		`- rejected lines: ${result.rejected.length}`,
+		`- strict mode requested: ${strict ? "yes" : "no"}`,
+		"",
+		"Accepted event summaries:",
+		acceptedLines.length > 0 ? acceptedLines.join("\n") : "- (none)",
+		"",
+		"Rejected line summaries:",
+		rejectedLines.length > 0 ? rejectedLines.join("\n") : "- (none)",
+		"",
+		strict && result.rejected.length > 0
+			? "Because strict mode was requested and at least one line was rejected, do not treat this ingest as successful. Ask the user how they want to fix or retry the input."
+			: "Do not run automation silently. Ask the user to confirm any follow-up task or CLI/hub ingest action.",
 	].join("\n")
 }
 

@@ -228,6 +228,22 @@ function buildCursorBackgroundAgentDetail(
 	].join("\n")
 }
 
+function buildCursorAutomationIngestDetail(route: CursorCompatibleUriRoute): string {
+	const config = route.params.config
+	const configKeys =
+		config && typeof config === "object" && !Array.isArray(config)
+			? Object.keys(config).sort()
+			: []
+	return [
+		"Validate Cursor-compatible automation NDJSON and create a review task.",
+		"This does not silently run automation inside VS Code.",
+		...(getRouteStringParam(route, "defaultSource") ? [`Default source: ${getRouteStringParam(route, "defaultSource")}`] : []),
+		...(getRouteStringParam(route, "allowedSources") ? [`Allowed sources: ${getRouteStringParam(route, "allowedSources")}`] : []),
+		...(getRouteStringParam(route, "maxEvents") ? [`Max events: ${getRouteStringParam(route, "maxEvents")}`] : []),
+		...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
+	].join("\n")
+}
+
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
  */
@@ -341,6 +357,22 @@ export class SharedUriHandler {
 							return true
 						}
 						await controller.handleCursorBackgroundAgentLaunch(launchRequest)
+						return true
+					}
+					if (cursorRoute.route.kind === "automation-ingest") {
+						const choice = await HostProvider.window.showMessage({
+							type: ShowMessageType.WARNING,
+							message: "Review Cursor automation NDJSON ingest?",
+							options: {
+								modal: true,
+								items: ["Create Review Task"],
+								detail: buildCursorAutomationIngestDetail(cursorRoute.route),
+							},
+						})
+						if (choice.selectedOption !== "Create Review Task") {
+							return true
+						}
+						await controller.handleTaskCreation(buildCursorCompatibleTaskPrompt(cursorRoute.route))
 						return true
 					}
 					if (cursorRoute.route.kind === "settings") {
