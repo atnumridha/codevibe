@@ -164,8 +164,8 @@ jobs:
                   node scripts/marketplace-readme.mjs swap-in
                   trap 'node scripts/marketplace-readme.mjs restore' EXIT
 
-                  # Required to generate the .vsix
-                  vsce package  --allow-package-secrets sendgrid --out "cline-${{ steps.get_version.outputs.version }}.vsix"
+                  # Required to generate the GitHub Release .vsix
+                  node scripts/package-github-vsix.mjs --out-dir .
 
                   if [ "$RELEASE_TYPE" = "pre-release" ]; then
                     npm run publish:marketplace:prerelease

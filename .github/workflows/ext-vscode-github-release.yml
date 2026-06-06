@@ -130,7 +130,7 @@ jobs:
               run: |
                   node scripts/marketplace-readme.mjs swap-in
                   trap 'node scripts/marketplace-readme.mjs restore' EXIT
-                  vsce package --allow-package-secrets sendgrid --out "codevibe-${{ steps.get_version.outputs.version }}.vsix"
+                  node scripts/package-github-vsix.mjs --out-dir .
 
             - name: Get Previous Tag
               id: prev_tag
