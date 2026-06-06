@@ -24,6 +24,15 @@ export interface BrowserConnectionInfo {
 	host?: string
 }
 
+export interface BrowserActionCaptureOptions {
+	includeScreenshot?: boolean
+	includeLogs?: boolean
+}
+
+export interface BrowserSnapshotOptions extends BrowserActionCaptureOptions {
+	tabId?: string
+}
+
 const DEBUG_PORT = 9222 // Chrome's default debugging port
 const MAX_BROWSER_SNAPSHOT_TEXT_LENGTH = 12_000
 const MAX_BROWSER_SNAPSHOT_HTML_LENGTH = 12_000
@@ -377,13 +386,18 @@ export class BrowserSession {
 		return {}
 	}
 
-	async doAction(action: (page: Page) => Promise<void>): Promise<BrowserActionResult> {
+	async doAction(
+		action: (page: Page) => Promise<void>,
+		options: BrowserActionCaptureOptions = {},
+	): Promise<BrowserActionResult> {
 		if (!this.page) {
 			throw new Error(
 				"Browser is not launched. This may occur if the browser was automatically closed by a non-browser tool.",
 			)
 		}
 
+		const includeLogs = options.includeLogs !== false
+		const includeScreenshot = options.includeScreenshot !== false
 		const logs: string[] = []
 		let lastLogTs = Date.now()
 
@@ -401,9 +415,10 @@ export class BrowserSession {
 			lastLogTs = Date.now()
 		}
 
-		// Add the listeners
-		this.page.on("Logger", LoggerListener)
-		this.page.on("pageerror", errorListener)
+		if (includeLogs) {
+			this.page.on("Logger", LoggerListener)
+			this.page.on("pageerror", errorListener)
+		}
 
 		try {
 			await action(this.page)
@@ -411,7 +426,9 @@ export class BrowserSession {
 			const errorMessage = err instanceof Error ? err.message : String(err)
 
 			if (!(err instanceof TimeoutError)) {
-				logs.push(`[Error] ${errorMessage}`)
+				if (includeLogs) {
+					logs.push(`[Error] ${errorMessage}`)
+				}
 
 				// Capture error telemetry
 				if (this.ulid) {
@@ -423,58 +440,64 @@ export class BrowserSession {
 			}
 		}
 
-		// Wait for Logger inactivity, with a timeout
-		await pWaitFor(() => Date.now() - lastLogTs >= 500, {
-			timeout: 3_000,
-			interval: 100,
-		}).catch(() => {})
-
-		const options: ScreenshotOptions = {
-			encoding: "base64",
-
-			// clip: {
-			// 	x: 0,
-			// 	y: 0,
-			// 	width: 900,
-			// 	height: 600,
-			// },
+		if (includeLogs) {
+			await pWaitFor(() => Date.now() - lastLogTs >= 500, {
+				timeout: 3_000,
+				interval: 100,
+			}).catch(() => {})
 		}
 
-		const screenshotType = this.useWebp ? "webp" : "png"
-		let screenshotBase64 = await this.page.screenshot({
-			...options,
-			type: screenshotType,
-		})
-		let screenshot = `data:image/${screenshotType};base64,${screenshotBase64}`
+		let screenshot: string | undefined
+		if (includeScreenshot) {
+			const screenshotOptions: ScreenshotOptions = {
+				encoding: "base64",
 
-		if (!screenshotBase64) {
-			// choosing to try screenshot again, regardless of the initial type
-			Logger.info(`${screenshotType} screenshot failed, trying png`)
-			screenshotBase64 = await this.page.screenshot({
-				...options,
-				type: "png",
-			})
-			screenshot = `data:image/png;base64,${screenshotBase64}`
-		}
-
-		if (!screenshotBase64) {
-			// Capture error telemetry
-			if (this.ulid) {
-				telemetryService.captureBrowserError(this.ulid, "screenshot_error", "Failed to take screenshot", {
-					isRemote: this.isConnectedToRemote,
-					action: this.browserActions[this.browserActions.length - 1],
-				})
+				// clip: {
+				// 	x: 0,
+				// 	y: 0,
+				// 	width: 900,
+				// 	height: 600,
+				// },
 			}
-			throw new Error("Failed to take screenshot.")
+
+			const screenshotType = this.useWebp ? "webp" : "png"
+			let screenshotBase64 = await this.page.screenshot({
+				...screenshotOptions,
+				type: screenshotType,
+			})
+			screenshot = `data:image/${screenshotType};base64,${screenshotBase64}`
+
+			if (!screenshotBase64) {
+				// choosing to try screenshot again, regardless of the initial type
+				Logger.info(`${screenshotType} screenshot failed, trying png`)
+				screenshotBase64 = await this.page.screenshot({
+					...screenshotOptions,
+					type: "png",
+				})
+				screenshot = `data:image/png;base64,${screenshotBase64}`
+			}
+
+			if (!screenshotBase64) {
+				// Capture error telemetry
+				if (this.ulid) {
+					telemetryService.captureBrowserError(this.ulid, "screenshot_error", "Failed to take screenshot", {
+						isRemote: this.isConnectedToRemote,
+						action: this.browserActions[this.browserActions.length - 1],
+					})
+				}
+				throw new Error("Failed to take screenshot.")
+			}
 		}
 
-		// this.page.removeAllListeners() <- causes the page to crash!
-		this.page.off("Logger", LoggerListener)
-		this.page.off("pageerror", errorListener)
+		if (includeLogs) {
+			// this.page.removeAllListeners() <- causes the page to crash!
+			this.page.off("Logger", LoggerListener)
+			this.page.off("pageerror", errorListener)
+		}
 
 		return {
 			screenshot,
-			logs: logs.join("\n"),
+			logs: includeLogs ? logs.join("\n") : undefined,
 			currentUrl: this.page.url(),
 			currentMousePosition: this.currentMousePosition,
 		}
@@ -621,31 +644,39 @@ export class BrowserSession {
 		}
 	}
 
-	async snapshot(): Promise<BrowserActionResult> {
+	async snapshot(options: BrowserSnapshotOptions = {}): Promise<BrowserActionResult> {
+		if (options.tabId && options.tabId !== "active") {
+			throw new Error("Only active tab snapshots are currently supported.")
+		}
+
 		this.browserActions.push("snapshot")
 
 		let title = ""
 		let text = ""
 		let html = ""
 		let nodes: BrowserSnapshotNode[] | undefined
-		const actionResult = await this.doAction(async (page) => {
-			title = await page.title().catch(() => "")
-			html = truncateBrowserSnapshotText(await page.content().catch(() => ""), MAX_BROWSER_SNAPSHOT_HTML_LENGTH)
-			const pageText = await page
-				.evaluate(() => {
-					const bodyText = document.body?.innerText
-					const rootText = document.documentElement?.innerText
-					return (bodyText || rootText || "").trim()
-				})
-				.catch(() => "")
+		const actionResult = await this.doAction(
+			async (page) => {
+				title = await page.title().catch(() => "")
+				html = truncateBrowserSnapshotText(await page.content().catch(() => ""), MAX_BROWSER_SNAPSHOT_HTML_LENGTH)
+				const pageText = await page
+					.evaluate(() => {
+						const bodyText = document.body?.innerText
+						const rootText = document.documentElement?.innerText
+						return (bodyText || rootText || "").trim()
+					})
+					.catch(() => "")
 
-			text = truncateBrowserSnapshotText(typeof pageText === "string" ? pageText : "", MAX_BROWSER_SNAPSHOT_TEXT_LENGTH)
-			const accessibilityNode = await captureAccessibilitySnapshot(page)
-			nodes = accessibilityNode ? [accessibilityNode] : undefined
-		})
+				text = truncateBrowserSnapshotText(typeof pageText === "string" ? pageText : "", MAX_BROWSER_SNAPSHOT_TEXT_LENGTH)
+				const accessibilityNode = await captureAccessibilitySnapshot(page)
+				nodes = accessibilityNode ? [accessibilityNode] : undefined
+			},
+			options,
+		)
 
 		return {
 			...actionResult,
+			tabId: options.tabId || "active",
 			title,
 			text,
 			html,

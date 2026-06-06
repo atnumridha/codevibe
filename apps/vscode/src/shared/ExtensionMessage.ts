@@ -323,6 +323,7 @@ export type BrowserActionResult = {
 	evaluationResult?: string
 	currentUrl?: string
 	currentMousePosition?: string
+	tabId?: string
 	title?: string
 	text?: string
 	html?: string

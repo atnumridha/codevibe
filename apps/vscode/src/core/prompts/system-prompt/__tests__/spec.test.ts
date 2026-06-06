@@ -152,6 +152,9 @@ describe("browser_action tool docs", () => {
 			expect(docs).to.include("browser_snapshot")
 			expect(docs).to.include("without clicking")
 			expect(docs).to.include("running user-provided JavaScript")
+			expect(docs).to.include("tab_id")
+			expect(docs).to.include("include_screenshot")
+			expect(docs).to.include("include_logs")
 		}
 	})
 })

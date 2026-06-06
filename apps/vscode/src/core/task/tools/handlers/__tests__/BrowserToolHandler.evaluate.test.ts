@@ -68,6 +68,15 @@ function makeSnapshotBlock() {
 	}
 }
 
+function makeSnapshotBlockWithParams(params: Record<string, unknown>) {
+	return {
+		type: "tool_use" as const,
+		name: ClineDefaultTool.BROWSER_SNAPSHOT,
+		params,
+		partial: false,
+	}
+}
+
 describe("BrowserToolHandler evaluate safety", () => {
 	it("redacts likely secrets from browser action results", () => {
 		const result = sanitizeBrowserActionResult({
@@ -156,7 +165,7 @@ describe("BrowserToolHandler evaluate safety", () => {
 		const serializedResponse = JSON.stringify(response)
 		const resultSay = callbacks.say.getCalls().find((call) => call.args[0] === "browser_action_result")
 
-		assert.equal(browserSession.snapshot.calledOnce, true)
+		assert.equal(browserSession.snapshot.calledOnceWith({ tabId: undefined, includeScreenshot: true, includeLogs: true }), true)
 		assert.equal(browserSession.closeBrowser.called, false)
 		assert(resultSay)
 		assert(!String(resultSay?.args[1]).includes("secret-token-value-1234567890"))
@@ -165,6 +174,47 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert(!serializedResponse.includes("sk-secret-value-1234567890"))
 		assert(serializedResponse.includes("[REDACTED]"))
 		assert(serializedResponse.includes("DOM snapshot"))
+	})
+
+	it("passes browser snapshot capture options through to the active tab", async () => {
+		const { config, browserSession } = createSnapshotConfig({
+			currentUrl: "https://example.com",
+			tabId: "active",
+			title: "Dashboard",
+			text: "ready",
+		})
+
+		const response = await new BrowserSnapshotToolHandler().execute(
+			config,
+			makeSnapshotBlockWithParams({
+				tab_id: "active",
+				include_screenshot: "false",
+				include_logs: "0",
+			}),
+		)
+
+		assert.equal(
+			browserSession.snapshot.calledOnceWith({
+				tabId: "active",
+				includeScreenshot: false,
+				includeLogs: false,
+			}),
+			true,
+		)
+		assert(!JSON.stringify(response).includes("data:image"))
+	})
+
+	it("rejects non-active browser snapshot tab ids until multi-tab capture is available", async () => {
+		const { config, browserSession } = createSnapshotConfig()
+
+		const response = await new BrowserSnapshotToolHandler().execute(
+			config,
+			makeSnapshotBlockWithParams({ tab_id: "tab-2" }),
+		)
+
+		assert.equal(browserSession.snapshot.called, false)
+		assert.equal(config.taskState.consecutiveMistakeCount, 1)
+		assert(String(response).includes("Only active tab"))
 	})
 
 	it("returns a tool error when no active browser snapshot is available", async () => {
