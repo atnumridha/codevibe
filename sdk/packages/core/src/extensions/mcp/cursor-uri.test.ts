@@ -86,6 +86,37 @@ describe("Cursor MCP install URI parser", () => {
 		expect(detail).not.toContain("secret-value");
 	});
 
+	it("normalizes nested Cursor MCP transport aliases from base64 config", () => {
+		const config = encodeConfig({
+			mcpServers: {
+				docs: {
+					transport: {
+						type: "streamable-http",
+						url: "https://mcp.example.com/context",
+						headers: {
+							Authorization: "Bearer secret-value",
+						},
+					},
+				},
+			},
+		});
+
+		const request = buildCursorMcpInstallRequest(route({ config }));
+		const detail = formatCursorMcpInstallDetail(request);
+
+		expect(request).toMatchObject({
+			serverName: "docs",
+			source: "config",
+			serverConfig: {
+				type: "streamableHttp",
+				url: "https://mcp.example.com/context",
+			},
+		});
+		expect(detail).toContain("Transport: streamableHttp");
+		expect(detail).toContain("URL: https://mcp.example.com/context");
+		expect(detail).not.toContain("secret-value");
+	});
+
 	it("selects one configured server from Cursor bare config maps", () => {
 		const config = encodeConfig({
 			postgres: {

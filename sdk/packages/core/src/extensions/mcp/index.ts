@@ -33,6 +33,11 @@ export {
 	CursorUriError,
 	formatCursorMcpInstallDetail,
 } from "./cursor-uri";
+export {
+	normalizeCursorMcpServerConfig,
+	normalizeCursorMcpSettingsObject,
+	normalizeCursorMcpTransportType,
+} from "./cursor-mcp-normalization";
 export type {
 	CursorAgentTaskRouteKind,
 	CursorAgentTaskRoutePath,
@@ -44,6 +49,7 @@ export type {
 	CursorSettingsRouteRequest,
 	ResolveCursorCommandFileRouteOptions,
 } from "./cursor-uri";
+export type { CursorMcpVariableContext } from "./cursor-mcp-normalization";
 export { InMemoryMcpManager } from "./manager";
 export type {
 	AuthorizeMcpServerOAuthOptions,

@@ -1,5 +1,6 @@
 import { lstatSync, readFileSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
+import { normalizeCursorMcpServerConfig } from "./cursor-mcp-normalization";
 
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384;
 const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024;
@@ -664,7 +665,7 @@ function assertStringRecord(value: unknown, label: string): void {
 }
 
 function validateServerConfig(value: unknown): Record<string, unknown> {
-	const config = getRecord(value);
+	const config = getRecord(normalizeCursorMcpServerConfig(value));
 	if (!config) {
 		throw new CursorMcpInstallError(
 			"Invalid MCP server config: expected object",

@@ -1,5 +1,6 @@
 import type { z } from "zod"
 import { ServerConfigSchema } from "@/services/mcp/schemas"
+import { expandEnvironmentVariables } from "@/utils/envExpansion"
 import type { CursorCompatibleUriRoute } from "./CursorUriRoutes"
 
 const MAX_MCP_SERVER_NAME_LENGTH = 128
@@ -211,7 +212,7 @@ function safeNameCandidate(value: string): string {
 }
 
 function parseServerConfig(value: unknown): CursorMcpServerConfig {
-	const result = ServerConfigSchema.safeParse(value)
+	const result = ServerConfigSchema.safeParse(expandEnvironmentVariables(value))
 	if (!result.success) {
 		const issue = result.error.issues[0]
 		const path = issue?.path.length ? `${issue.path.join(".")}: ` : ""

@@ -13,6 +13,58 @@ export const BaseConfigSchema = z.object({
 	remoteConfigured: z.boolean().optional(),
 })
 
+function getRecord(value: unknown): Record<string, unknown> | undefined {
+	return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined
+}
+
+function normalizeMcpTransportType(value: unknown): "stdio" | "sse" | "streamableHttp" | undefined {
+	if (typeof value !== "string") {
+		return undefined
+	}
+	const normalized = value.trim().toLowerCase().replace(/[-_]/g, "")
+	if (!normalized) {
+		return undefined
+	}
+	if (normalized === "stdio") {
+		return "stdio"
+	}
+	if (normalized === "sse") {
+		return "sse"
+	}
+	if (normalized === "http" || normalized === "streamablehttp") {
+		return "streamableHttp"
+	}
+	return undefined
+}
+
+function normalizeTransportAliasFields<T extends Record<string, unknown>>(value: T): T {
+	const normalizedType = normalizeMcpTransportType(value.type ?? value.transportType)
+	if (!normalizedType) {
+		return value
+	}
+	const { type: _type, transportType: _transportType, ...serverFields } = value
+	return {
+		...serverFields,
+		type: normalizedType,
+	} as T
+}
+
+function normalizeServerConfigInput(value: unknown): unknown {
+	const config = getRecord(value)
+	if (!config) {
+		return value
+	}
+	const transport = getRecord(config.transport)
+	if (!transport) {
+		return normalizeTransportAliasFields(config)
+	}
+	const { transport: _transport, ...serverFields } = config
+	return normalizeTransportAliasFields({
+		...serverFields,
+		...transport,
+	})
+}
+
 // Helper function to create a refined schema with better error messages
 const createServerTypeSchema = () => {
 	return z.union([
@@ -90,7 +142,7 @@ const createServerTypeSchema = () => {
 	])
 }
 
-export const ServerConfigSchema = createServerTypeSchema()
+export const ServerConfigSchema = z.preprocess(normalizeServerConfigInput, createServerTypeSchema())
 
 export const McpSettingsSchema = z.object({
 	mcpServers: z.record(ServerConfigSchema),

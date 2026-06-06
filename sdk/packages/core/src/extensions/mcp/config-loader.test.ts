@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join, sep } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	hasMcpSettingsFile,
@@ -232,6 +232,88 @@ describe("mcp config loader", () => {
 						oauth: undefined,
 					},
 				],
+			},
+		]);
+	});
+
+	it("normalizes Cursor MCP aliases and variables", async () => {
+		const tempRoot = await mkdtemp(join(tmpdir(), "core-mcp-config-loader-"));
+		tempRoots.push(tempRoot);
+		const cursorPath = resolveCursorMcpSettingsPath(tempRoot);
+		const homeRoot = join(tempRoot, "home");
+		await mkdir(join(tempRoot, ".cursor"), { recursive: true });
+		await writeFile(
+			cursorPath,
+			JSON.stringify(
+				{
+					mcpServers: {
+						remote: {
+							transport: {
+								type: "streamable-http",
+								url: "https://${env:MCP_HOST}/${workspaceFolderBasename}",
+								headers: {
+									Authorization: "Bearer ${env:MCP_TOKEN}",
+								},
+							},
+						},
+						local: {
+							type: "stdio",
+							command: "${userHome}${/}bin${/}server",
+							args: [
+								"--cwd",
+								"${workspaceFolder}",
+								"--sep",
+								"${pathSeparator}",
+							],
+							env: {
+								ROOT: "${workspaceFolder}",
+							},
+						},
+					},
+				},
+				null,
+				2,
+			),
+			"utf8",
+		);
+
+		const registrations = resolveMcpServerRegistrations({
+			filePath: cursorPath,
+			env: {
+				MCP_HOST: "mcp.example.com",
+				MCP_TOKEN: "secret-token",
+			},
+			userHome: homeRoot,
+			workspaceRoot: tempRoot,
+		});
+
+		expect(registrations).toEqual([
+			{
+				name: "remote",
+				transport: {
+					type: "streamableHttp",
+					url: `https://mcp.example.com/${basename(tempRoot)}`,
+					headers: {
+						Authorization: "Bearer secret-token",
+					},
+				},
+				disabled: undefined,
+				metadata: undefined,
+				oauth: undefined,
+			},
+			{
+				name: "local",
+				transport: {
+					type: "stdio",
+					command: `${homeRoot}${sep}bin${sep}server`,
+					args: ["--cwd", tempRoot, "--sep", sep],
+					env: {
+						ROOT: tempRoot,
+					},
+				},
+				disabled: undefined,
+				metadata: undefined,
+				oauth: undefined,
 			},
 		]);
 	});

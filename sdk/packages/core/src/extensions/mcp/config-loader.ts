@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, normalize } from "node:path";
 import { resolveMcpSettingsPath } from "@cline/shared/storage";
 import { z } from "zod";
+import {
+	normalizeCursorMcpSettingsObject,
+	type CursorMcpVariableContext,
+} from "./cursor-mcp-normalization";
 import type {
 	McpManager,
 	McpServerOAuthState,
@@ -174,11 +178,13 @@ export interface McpSettingsFile {
 
 export interface LoadMcpSettingsOptions {
 	filePath?: string;
+	env?: Record<string, string | undefined>;
+	userHome?: string;
+	workspaceRoot?: string;
 }
 
 export interface ResolveMcpSettingsPathsOptions extends LoadMcpSettingsOptions {
 	filePaths?: string[];
-	workspaceRoot?: string;
 	includeCursorMcp?: boolean;
 }
 
@@ -257,6 +263,26 @@ function readJsonObject(filePath: string): Record<string, unknown> {
 	return parsed as Record<string, unknown>;
 }
 
+function inferCursorMcpWorkspaceRoot(filePath: string): string | undefined {
+	const normalizedPath = normalize(filePath);
+	if (!normalizedPath.endsWith(CURSOR_MCP_SETTINGS_RELATIVE_PATH)) {
+		return undefined;
+	}
+	return dirname(dirname(normalizedPath));
+}
+
+function getCursorMcpVariableContext(
+	filePath: string,
+	options: LoadMcpSettingsOptions,
+): CursorMcpVariableContext {
+	return {
+		env: options.env,
+		userHome: options.userHome,
+		workspaceRoot:
+			options.workspaceRoot?.trim() || inferCursorMcpWorkspaceRoot(filePath),
+	};
+}
+
 function getOwnServerRecord(
 	servers: Record<string, unknown>,
 	name: string,
@@ -298,7 +324,12 @@ export function loadMcpSettingsFile(
 			`Failed to parse MCP settings JSON at "${filePath}": ${details}`,
 		);
 	}
-	const result = mcpSettingsSchema.safeParse(parsed);
+	const result = mcpSettingsSchema.safeParse(
+		normalizeCursorMcpSettingsObject(
+			parsed,
+			getCursorMcpVariableContext(filePath, options),
+		),
+	);
 	if (!result.success) {
 		const details = result.error.issues
 			.map((issue) => {
@@ -406,7 +437,12 @@ export function resolveMcpServerRegistrationSources(
 	const sources: McpServerRegistrationSource[] = [];
 
 	for (const filePath of filePaths) {
-		const registrations = resolveMcpServerRegistrations({ filePath }).filter(
+		const registrations = resolveMcpServerRegistrations({
+			filePath,
+			env: options.env,
+			userHome: options.userHome,
+			workspaceRoot: options.workspaceRoot,
+		}).filter(
 			(registration) => {
 				if (seenServerNames.has(registration.name)) {
 					return false;

@@ -63,6 +63,52 @@ describe("CursorMcpInstall", () => {
 		expect(formatCursorMcpInstallDetail(request)).to.not.contain("secret")
 	})
 
+	it("normalizes nested Cursor transport aliases and environment variables", () => {
+		const originalHost = process.env.CURSOR_MCP_HOST
+		const originalToken = process.env.CURSOR_MCP_TOKEN
+		process.env.CURSOR_MCP_HOST = "mcp.example.com"
+		process.env.CURSOR_MCP_TOKEN = "secret-token"
+		try {
+			const request = buildCursorMcpInstallRequest(
+				route({
+					config: {
+						mcpServers: {
+							docs: {
+								transport: {
+									type: "streamable-http",
+									url: "https://${env:CURSOR_MCP_HOST}/context",
+									headers: {
+										Authorization: "Bearer ${env:CURSOR_MCP_TOKEN}",
+									},
+								},
+							},
+						},
+					},
+				}),
+			)
+
+			expect(request.serverName).to.equal("docs")
+			expect(request.source).to.equal("config")
+			expect(request.serverConfig.type).to.equal("streamableHttp")
+			expect((request.serverConfig as any).url).to.equal("https://mcp.example.com/context")
+			expect((request.serverConfig as any).headers).to.deep.equal({
+				Authorization: "Bearer secret-token",
+			})
+			expect(formatCursorMcpInstallDetail(request)).to.not.contain("secret-token")
+		} finally {
+			if (originalHost === undefined) {
+				delete process.env.CURSOR_MCP_HOST
+			} else {
+				process.env.CURSOR_MCP_HOST = originalHost
+			}
+			if (originalToken === undefined) {
+				delete process.env.CURSOR_MCP_TOKEN
+			} else {
+				process.env.CURSOR_MCP_TOKEN = originalToken
+			}
+		}
+	})
+
 	it("selects a named server from Cursor bare config maps", () => {
 		const request = buildCursorMcpInstallRequest(
 			route({

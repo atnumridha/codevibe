@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, it } from "mocha"
+import path from "path"
 import "should"
 import { expandEnvironmentVariables } from "../envExpansion"
 
@@ -73,6 +74,40 @@ describe("expandEnvironmentVariables", () => {
 		it("should return string unchanged when no variables present", () => {
 			const result = expandEnvironmentVariables("plain string")
 			result.should.equal("plain string")
+		})
+
+		it("should expand Cursor workspace variables with explicit context", () => {
+			const workspaceRoot = path.join("/tmp", "workspace", "demo-project")
+			const result = expandEnvironmentVariables(
+				{
+					command: "${userHome}${/}bin${/}server",
+					args: [
+						"--cwd",
+						"${workspaceFolder}",
+						"--name",
+						"${workspaceFolderBasename}",
+						"--sep",
+						"${pathSeparator}",
+					],
+				},
+				{
+					userHome: "/Users/test",
+					workspaceRoot,
+					pathSeparator: "/",
+				},
+			)
+
+			result.should.deepEqual({
+				command: "/Users/test/bin/server",
+				args: [
+					"--cwd",
+					workspaceRoot,
+					"--name",
+					"demo-project",
+					"--sep",
+					"/",
+				],
+			})
 		})
 	})
 

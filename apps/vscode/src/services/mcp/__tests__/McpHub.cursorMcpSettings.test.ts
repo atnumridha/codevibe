@@ -86,6 +86,41 @@ describe("McpHub Cursor MCP settings", () => {
 		;(hub as any).lastServerOrder.should.deepEqual(["alpha", "duplicate", "beta"])
 	})
 
+	it("expands Cursor workspace variables from .cursor/mcp.json", async () => {
+		await writeJson(nativeSettingsPath, {
+			mcpServers: {},
+		})
+		await writeJson(cursorSettingsPath, {
+			mcpServers: {
+				beta: {
+					type: "stdio",
+					command: "${workspaceFolder}${/}bin${/}cursor-beta",
+					args: [
+						"--name",
+						"${workspaceFolderBasename}",
+						"--sep",
+						"${pathSeparator}",
+					],
+					env: {
+						ROOT: "${workspaceFolder}",
+					},
+				},
+			},
+		})
+
+		const hub = createHub(settingsDir, [workspaceRoot])
+		const settings = await (hub as any).readAndValidateMcpSettingsFile()
+
+		settings.mcpServers.beta.command.should.equal(path.join(workspaceRoot, "bin", "cursor-beta"))
+		settings.mcpServers.beta.args.should.deepEqual([
+			"--name",
+			path.basename(workspaceRoot),
+			"--sep",
+			path.sep,
+		])
+		settings.mcpServers.beta.env.should.deepEqual({ ROOT: workspaceRoot })
+	})
+
 	it("writes Cursor-imported server disabled state back to .cursor/mcp.json", async () => {
 		await writeJson(nativeSettingsPath, {
 			mcpServers: {

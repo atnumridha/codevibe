@@ -186,6 +186,14 @@ export class McpHub {
 		return [...new Set(roots.filter(Boolean).map((root) => path.join(root, CURSOR_MCP_SETTINGS_RELATIVE_PATH)))]
 	}
 
+	private getCursorMcpWorkspaceRootForSettingsPath(settingsPath: string): string | undefined {
+		const normalizedPath = path.normalize(settingsPath)
+		if (!normalizedPath.endsWith(CURSOR_MCP_SETTINGS_RELATIVE_PATH)) {
+			return undefined
+		}
+		return path.dirname(path.dirname(normalizedPath))
+	}
+
 	/**
 	 * Sets the flag to indicate remote config is updating
 	 * Used to prevent watcher from triggering on remote config writes
@@ -226,7 +234,9 @@ export class McpHub {
 
 			// Expand environment variables before validation
 			// This allows ${env:VAR_NAME} syntax in URLs, headers, env vars, etc.
-			config = expandEnvironmentVariables(config)
+			config = expandEnvironmentVariables(config, {
+				workspaceRoot: this.getCursorMcpWorkspaceRootForSettingsPath(settingsPath),
+			})
 
 			// Validate against schema
 			const result = McpSettingsSchema.safeParse(config)
