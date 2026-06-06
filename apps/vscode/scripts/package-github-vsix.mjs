@@ -5,12 +5,33 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import zlib from "node:zlib"
 import { restore as restoreMarketplaceReadme, swapIn as swapInMarketplaceReadme } from "./marketplace-readme.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.join(__dirname, "..")
 const packageJsonPath = path.join(projectRoot, "package.json")
+
+const requiredCursorParityConfigKeys = [
+	"cline.openAiCodex.authSource",
+	"cline.cursorCompatibility.enabled",
+	"cline.cursorCompatibility.deepLinks.enabled",
+	"cline.cursorCompatibility.retrievalIndexing.privacyGate",
+	"cline.cursorCompatibility.sandboxPolicy",
+	"cline.cursorCompatibility.safeBrowserEvaluate.enabled",
+]
+
+const expectedManifestAssetPaths = [
+	"assets/icons/icon.png",
+	"assets/icons/cline-bot.woff",
+	"assets/icons/icon.svg",
+	"walkthrough/step1.md",
+	"walkthrough/step2.md",
+	"walkthrough/step3.md",
+	"walkthrough/step4.md",
+	"walkthrough/step5.md",
+]
 
 const githubVsixManifestOverrides = {
 	name: "codevibe",
@@ -229,9 +250,153 @@ function assertDirectoryHasFiles(dirPath, label) {
 	}
 }
 
+function assertArrayIncludes(values, expected, label) {
+	if (!Array.isArray(values) || !values.includes(expected)) {
+		throw new Error(`${label} must include ${expected}`)
+	}
+}
+
+function assertObjectHasKey(object, key, label) {
+	if (!object || typeof object !== "object" || Array.isArray(object) || !(key in object)) {
+		throw new Error(`${label} is missing ${key}`)
+	}
+	return object[key]
+}
+
+function assertCursorParityManifest(packageJson, label = "package manifest") {
+	if (packageJson.name !== "codevibe") {
+		throw new Error(`${label} must use name codevibe`)
+	}
+	if (packageJson.displayName !== "CodeVibe") {
+		throw new Error(`${label} must use displayName CodeVibe`)
+	}
+	if (packageJson.publisher !== "atnumridha") {
+		throw new Error(`${label} must use publisher atnumridha`)
+	}
+	if (packageJson.author?.name !== "CodeVibe") {
+		throw new Error(`${label} must use author.name CodeVibe`)
+	}
+	if (packageJson.repository?.url !== "https://github.com/atnumridha/codevibe") {
+		throw new Error(`${label} must point repository.url at https://github.com/atnumridha/codevibe`)
+	}
+	if (packageJson.homepage !== "https://github.com/atnumridha/codevibe") {
+		throw new Error(`${label} must point homepage at https://github.com/atnumridha/codevibe`)
+	}
+	if (typeof packageJson.description !== "string" || !packageJson.description.includes("Cursor-parity")) {
+		throw new Error(`${label} description must mention Cursor-parity`)
+	}
+	if (packageJson.main !== "./dist/extension.js") {
+		throw new Error(`${label} must point main at ./dist/extension.js`)
+	}
+	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
+
+	const properties = packageJson.contributes?.configuration?.properties
+	for (const key of requiredCursorParityConfigKeys) {
+		assertObjectHasKey(properties, key, `${label} configuration.properties`)
+	}
+
+	const codexAuth = properties["cline.openAiCodex.authSource"]
+	if (codexAuth.default !== "codexHome") {
+		throw new Error(`${label} must default cline.openAiCodex.authSource to codexHome`)
+	}
+	for (const value of ["codexHome", "vscodeSecret", "auto"]) {
+		assertArrayIncludes(codexAuth.enum, value, `${label} cline.openAiCodex.authSource enum`)
+	}
+	for (const key of [
+		"cline.cursorCompatibility.enabled",
+		"cline.cursorCompatibility.deepLinks.enabled",
+		"cline.cursorCompatibility.retrievalIndexing.privacyGate",
+	]) {
+		if (properties[key].default !== true) {
+			throw new Error(`${label} must default ${key} to true`)
+		}
+	}
+	if (properties["cline.cursorCompatibility.safeBrowserEvaluate.enabled"].default !== false) {
+		throw new Error(`${label} must default safe browser evaluate to false`)
+	}
+	for (const value of ["prompt", "workspace", "readOnly", "disabled"]) {
+		assertArrayIncludes(
+			properties["cline.cursorCompatibility.sandboxPolicy"].enum,
+			value,
+			`${label} cline.cursorCompatibility.sandboxPolicy enum`,
+		)
+	}
+}
+
+function findZipEndOfCentralDirectory(buffer) {
+	const minimumOffset = Math.max(0, buffer.length - 22 - 0xffff)
+	for (let offset = buffer.length - 22; offset >= minimumOffset; offset--) {
+		if (buffer.readUInt32LE(offset) === 0x06054b50) {
+			return offset
+		}
+	}
+	throw new Error("VSIX artifact is not a readable zip archive")
+}
+
+function listZipEntries(zipPath) {
+	const buffer = fs.readFileSync(zipPath)
+	const eocdOffset = findZipEndOfCentralDirectory(buffer)
+	const entryCount = buffer.readUInt16LE(eocdOffset + 10)
+	const centralDirectoryOffset = buffer.readUInt32LE(eocdOffset + 16)
+	const entries = new Map()
+	let offset = centralDirectoryOffset
+	for (let index = 0; index < entryCount; index++) {
+		if (buffer.readUInt32LE(offset) !== 0x02014b50) {
+			throw new Error(`VSIX central directory is corrupt at entry ${index}`)
+		}
+		const compressionMethod = buffer.readUInt16LE(offset + 10)
+		const compressedSize = buffer.readUInt32LE(offset + 20)
+		const fileNameLength = buffer.readUInt16LE(offset + 28)
+		const extraFieldLength = buffer.readUInt16LE(offset + 30)
+		const fileCommentLength = buffer.readUInt16LE(offset + 32)
+		const localHeaderOffset = buffer.readUInt32LE(offset + 42)
+		const fileName = buffer.toString("utf8", offset + 46, offset + 46 + fileNameLength)
+		entries.set(fileName, {
+			compressionMethod,
+			compressedSize,
+			localHeaderOffset,
+		})
+		offset += 46 + fileNameLength + extraFieldLength + fileCommentLength
+	}
+	return { buffer, entries }
+}
+
+function readZipEntry(zip, entryName) {
+	const entry = zip.entries.get(entryName)
+	if (!entry) {
+		throw new Error(`VSIX artifact is missing ${entryName}`)
+	}
+	const { buffer } = zip
+	if (buffer.readUInt32LE(entry.localHeaderOffset) !== 0x04034b50) {
+		throw new Error(`VSIX local file header is corrupt for ${entryName}`)
+	}
+	const fileNameLength = buffer.readUInt16LE(entry.localHeaderOffset + 26)
+	const extraFieldLength = buffer.readUInt16LE(entry.localHeaderOffset + 28)
+	const dataOffset = entry.localHeaderOffset + 30 + fileNameLength + extraFieldLength
+	const compressed = buffer.subarray(dataOffset, dataOffset + entry.compressedSize)
+	if (entry.compressionMethod === 0) {
+		return compressed
+	}
+	if (entry.compressionMethod === 8) {
+		return zlib.inflateRawSync(compressed)
+	}
+	throw new Error(`VSIX entry ${entryName} uses unsupported compression method ${entry.compressionMethod}`)
+}
+
 function addManifestAsset(assetPaths, value) {
 	if (typeof value === "string" && value.trim()) {
-		assetPaths.add(value.trim())
+		const trimmed = value.trim()
+		const normalized = path.posix.normalize(trimmed.replace(/\\/g, "/"))
+		if (
+			trimmed.includes("\0") ||
+			path.isAbsolute(trimmed) ||
+			path.win32.isAbsolute(trimmed) ||
+			normalized === ".." ||
+			normalized.startsWith("../")
+		) {
+			throw new Error(`Manifest asset path is unsafe: ${trimmed}`)
+		}
+		assetPaths.add(trimmed)
 	}
 }
 
@@ -266,7 +431,13 @@ function collectManifestAssetPaths(packageJson) {
 }
 
 function assertManifestAssets(packageJson) {
-	for (const assetPath of collectManifestAssetPaths(packageJson)) {
+	const assetPaths = collectManifestAssetPaths(packageJson)
+	for (const assetPath of expectedManifestAssetPaths) {
+		if (!assetPaths.includes(assetPath)) {
+			throw new Error(`Manifest is missing expected asset path "${assetPath}"`)
+		}
+	}
+	for (const assetPath of assetPaths) {
 		assertFileExists(path.join(projectRoot, assetPath), `manifest asset "${assetPath}"`)
 	}
 }
@@ -274,6 +445,12 @@ function assertManifestAssets(packageJson) {
 function assertPackageInputs(packageJson) {
 	assertFileExists(path.join(projectRoot, "README.md"), "packaged README.md", { nonEmpty: true })
 	assertManifestAssets(packageJson)
+	assertCursorParityManifest(packageJson)
+}
+
+function assertManifestInputs(packageJson) {
+	assertManifestAssets(packageJson)
+	assertCursorParityManifest(packageJson)
 }
 
 function assertBuildOutputs() {
@@ -288,6 +465,12 @@ function assertPackagedVsix(outPath) {
 	if (fs.statSync(outPath).size < 1024) {
 		throw new Error(`GitHub VSIX artifact is unexpectedly small: ${outPath}`)
 	}
+	const zip = listZipEntries(outPath)
+	if (!zip.entries.has("extension/dist/extension.js")) {
+		throw new Error("VSIX artifact is missing extension/dist/extension.js")
+	}
+	const packagedPackageJson = JSON.parse(readZipEntry(zip, "extension/package.json").toString("utf8"))
+	assertCursorParityManifest(packagedPackageJson, "packaged VSIX manifest")
 }
 
 async function verifyInstallWithCode(outPath, metadata, codePath) {
@@ -325,6 +508,7 @@ async function main() {
 	const metadata = readPackageMetadata(githubVsixPackageJson)
 	const outDir = path.resolve(projectRoot, options.outDir)
 	const outPath = path.join(outDir, `codevibe-${metadata.version}.vsix`)
+	assertManifestInputs(githubVsixPackageJson)
 	if (options.printMetadata) {
 		console.log(
 			JSON.stringify(
@@ -344,9 +528,9 @@ async function main() {
 		swapInMarketplaceReadme()
 		writePackageJson(githubVsixPackageJson)
 		assertPackageInputs(githubVsixPackageJson)
+		assertBuildOutputs()
 		fs.mkdirSync(outDir, { recursive: true })
 		runCommand(commandCandidates("vsce"), ["package", "--allow-package-secrets", "sendgrid", "--out", outPath])
-		assertBuildOutputs()
 		assertPackagedVsix(outPath)
 		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
 
