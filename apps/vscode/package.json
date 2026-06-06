@@ -373,7 +373,60 @@
 		},
 		"configuration": {
 			"title": "Cline",
-			"properties": {}
+			"properties": {
+				"cline.openAiCodex.authSource": {
+					"type": "string",
+					"enum": [
+						"codexHome",
+						"vscodeSecret",
+						"auto"
+					],
+					"enumItemLabels": [
+						"Codex Home",
+						"VS Code Secret",
+						"Auto"
+					],
+					"default": "codexHome",
+					"description": "Controls where OpenAI Codex credentials are loaded from. Codex Home reads ~/.codex/auth.json by default."
+				},
+				"cline.cursorCompatibility.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enables Cursor-compatible workspace inputs such as .cursorrules, .cursor/rules, .cursorignore, .cursorindexingignore, and .cursor/mcp.json."
+				},
+				"cline.cursorCompatibility.deepLinks.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "Enables validation for Cursor-compatible deep-link route families before routing them into Cline tasks."
+				},
+				"cline.cursorCompatibility.retrievalIndexing.privacyGate": {
+					"type": "boolean",
+					"default": true,
+					"description": "Requires Cursor-compatible indexing and retrieval features to respect workspace ignore files and privacy gates."
+				},
+				"cline.cursorCompatibility.sandboxPolicy": {
+					"type": "string",
+					"enum": [
+						"prompt",
+						"workspace",
+						"readOnly",
+						"disabled"
+					],
+					"enumItemLabels": [
+						"Prompt",
+						"Workspace",
+						"Read Only",
+						"Disabled"
+					],
+					"default": "prompt",
+					"description": "Default policy for untrusted Cursor-compatible sandbox inputs such as .cursor/sandbox.json."
+				},
+				"cline.cursorCompatibility.safeBrowserEvaluate.enabled": {
+					"type": "boolean",
+					"default": false,
+					"description": "Allows gated browser evaluate support for Cursor-compatible browser automation flows. Keep disabled unless you trust the active task."
+				}
+			}
 		}
 	},
 	"scripts": {

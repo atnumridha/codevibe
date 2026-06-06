@@ -53,6 +53,7 @@ import { ExtensionRegistryInfo } from "./registry"
 import { AuthService } from "./services/auth/AuthService"
 import { LogoutReason } from "./services/auth/types"
 import { telemetryService } from "./services/telemetry"
+import { isCursorCompatibleUriPath } from "./services/uri/CursorUriRoutes"
 import { LG_TASK_URI_PATH, SharedUriHandler, TASK_URI_PATH } from "./services/uri/SharedUriHandler"
 import { ShowMessageType } from "./shared/proto/host/window"
 import { fileExistsAtPath } from "./utils/fs"
@@ -162,17 +163,26 @@ export async function activate(context: vscode.ExtensionContext) {
 		const url = decodeURIComponent(uri.toString())
 		const uriPath = getUriPath(url)
 		const isTaskUri = uriPath === TASK_URI_PATH || uriPath === LG_TASK_URI_PATH
+		const cursorDeepLinksEnabled = vscode.workspace
+			.getConfiguration("cline")
+			.get<boolean>("cursorCompatibility.deepLinks.enabled", true)
+		const isCursorCompatibleUri =
+			cursorDeepLinksEnabled && uriPath ? isCursorCompatibleUriPath(uriPath) : false
 
-		if (isTaskUri) {
+		if (isTaskUri || isCursorCompatibleUri) {
 			await openClineSidebarForTaskUri()
 		}
 
-		let success = await SharedUriHandler.handleUri(url)
+		let success = await SharedUriHandler.handleUri(url, {
+			cursorCompatibleDeepLinksEnabled: cursorDeepLinksEnabled,
+		})
 
 		// Task deeplinks can race with first-time sidebar initialization.
-		if (!success && isTaskUri) {
+		if (!success && (isTaskUri || isCursorCompatibleUri)) {
 			await openClineSidebarForTaskUri()
-			success = await SharedUriHandler.handleUri(url)
+			success = await SharedUriHandler.handleUri(url, {
+				cursorCompatibleDeepLinksEnabled: cursorDeepLinksEnabled,
+			})
 		}
 
 		if (!success) {

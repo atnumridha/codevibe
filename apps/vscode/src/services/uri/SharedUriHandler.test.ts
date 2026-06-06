@@ -21,6 +21,7 @@ describe("SharedUriHandler", () => {
 
 		// Mock Logger methods to avoid HostProvider dependency
 		sandbox.stub(Logger, "info").returns()
+		sandbox.stub(Logger, "warn").returns()
 		sandbox.stub(Logger, "error").returns()
 		// Mock ErrorService to avoid telemetry dependency
 		const mockErrorService = {
@@ -109,6 +110,44 @@ describe("SharedUriHandler", () => {
 				expect(result).to.be.false
 				expect(handleAuthCallbackStub.called).to.be.false
 				expect(handleOpenRouterCallbackStub.called).to.be.false
+			})
+		})
+
+		describe("Cursor-compatible route handling", () => {
+			it("should create a task from a Cursor createchat route", async () => {
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/createchat?prompt=Review%20the%20diff")
+
+				expect(result).to.be.true
+				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
+			})
+
+			it("should create a confirmation task from a Cursor MCP install route", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				)
+
+				expect(result).to.be.true
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				const taskPrompt = handleTaskCreationStub.firstCall.args[0] as string
+				expect(taskPrompt).to.contain("Cursor-compatible MCP install deeplink")
+				expect(taskPrompt).to.contain("ask for confirmation")
+				expect(taskPrompt).to.contain("name: docs")
+			})
+
+			it("should reject invalid Cursor command routes", async () => {
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?extra=value")
+
+				expect(result).to.be.false
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should ignore Cursor-compatible routes when disabled", async () => {
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/createchat?prompt=Hello", {
+					cursorCompatibleDeepLinksEnabled: false,
+				})
+
+				expect(result).to.be.false
+				expect(handleTaskCreationStub.called).to.be.false
 			})
 		})
 

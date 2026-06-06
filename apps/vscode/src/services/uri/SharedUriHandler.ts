@@ -2,9 +2,17 @@ import fs from "fs/promises"
 import { WebviewProvider } from "@/core/webview"
 import { writeLgWebhookConfig, writeLgWebhookHooks } from "@/services/lg-cns-integration/webhook-hooks"
 import { Logger } from "@/shared/services/Logger"
+import {
+	buildCursorCompatibleTaskPrompt,
+	parseCursorCompatibleUri,
+} from "./CursorUriRoutes"
 
 export const TASK_URI_PATH = "/task"
 export const LG_TASK_URI_PATH = "/lg-task"
+
+interface SharedUriHandlerOptions {
+	cursorCompatibleDeepLinksEnabled?: boolean
+}
 
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
@@ -15,7 +23,10 @@ export class SharedUriHandler {
 	 * @param url The URI to process (can be from VSCode or converted from HTTP)
 	 * @returns Promise<boolean> indicating success (true) or failure (false)
 	 */
-	public static async handleUri(url: string): Promise<boolean> {
+	public static async handleUri(
+		url: string,
+		options: SharedUriHandlerOptions = {},
+	): Promise<boolean> {
 		const parsedUrl = new URL(url)
 		const path = parsedUrl.pathname
 
@@ -41,6 +52,22 @@ export class SharedUriHandler {
 		}
 
 		try {
+			if (options.cursorCompatibleDeepLinksEnabled !== false) {
+				const cursorRoute = parseCursorCompatibleUri(path, query)
+				if (cursorRoute.recognized) {
+					if ("error" in cursorRoute) {
+						Logger.warn(
+							`SharedUriHandler: Invalid Cursor-compatible URI: ${cursorRoute.error}`,
+						)
+						return false
+					}
+					await visibleWebview.controller.handleTaskCreation(
+						buildCursorCompatibleTaskPrompt(cursorRoute.route),
+					)
+					return true
+				}
+			}
+
 			switch (path) {
 				case "/openrouter": {
 					const code = query.get("code")
