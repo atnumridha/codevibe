@@ -589,7 +589,10 @@ export function CursorUriView({
 				{launch ? (
 					<Alert>
 						<CheckCircle2 className="size-4" />
-						<AlertTitle>Queued session {launch.sessionId}</AlertTitle>
+						<AlertTitle>
+							Queued {launch.backgroundAgent ? "background session" : "session"}{" "}
+							{launch.sessionId}
+						</AlertTitle>
 						<AlertDescription>
 							{launch.provider}/{launch.model} | {launch.mode}
 						</AlertDescription>

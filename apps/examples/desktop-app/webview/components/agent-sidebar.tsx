@@ -35,7 +35,10 @@ import type {
 	SessionHistoryStatus,
 	SessionMetadata,
 } from "@/lib/session-history";
-import { getSessionMetadataTitle } from "@/lib/session-history";
+import {
+	getSessionMetadataTitle,
+	isBackgroundAgentSession,
+} from "@/lib/session-history";
 import { cn } from "@/lib/utils";
 
 type CliDiscoveredSession = Omit<SessionHistoryItem, "status"> & {
@@ -54,6 +57,7 @@ interface Thread {
 	totalCostUsd?: number;
 	status: SessionHistoryStatus;
 	pinned?: boolean;
+	backgroundAgent?: boolean;
 }
 
 type SessionHookEvent = {
@@ -233,6 +237,7 @@ function toThread(session: SessionHistoryItem): Thread {
 		provider: session.provider || "",
 		model: session.model || "",
 		status: normalizeDiscoveredStatus(session.status, session.prompt),
+		backgroundAgent: isBackgroundAgentSession(session.metadata),
 	};
 }
 
@@ -1295,7 +1300,11 @@ function ThreadItem({
 						: "text-sidebar-foreground/80 hover:bg-sidebar-accent/50",
 				)}
 				onClick={onClick}
-				title={normalizeTitle(thread.title)}
+				title={normalizeTitle(
+					thread.backgroundAgent
+						? `Background agent: ${thread.title}`
+						: thread.title,
+				)}
 				type="button"
 				variant="ghost"
 			>
@@ -1328,6 +1337,11 @@ function ThreadItem({
 					<span className="block min-w-0 max-w-[40%] shrink truncate rounded bg-secondary px-1 py-0.5 font-mono text-xs">
 						{thread.codebase}
 					</span>
+					{thread.backgroundAgent ? (
+						<span className="block shrink-0 rounded border border-sidebar-border px-1 py-0.5 text-[10px] font-medium text-sidebar-foreground/80">
+							Bg
+						</span>
+					) : null}
 					{thread.model && (
 						<span className="block min-w-0 max-w-[55%] shrink truncate rounded border border-sidebar-border px-1 py-0.5 font-mono text-[10px]">
 							{thread.model}

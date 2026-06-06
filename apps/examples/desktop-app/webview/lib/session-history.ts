@@ -31,3 +31,28 @@ export function getSessionMetadataTitle(metadata?: SessionMetadata): string {
 	}
 	return typeof metadata.title === "string" ? metadata.title.trim() : "";
 }
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+export function isBackgroundAgentSession(
+	metadata?: SessionMetadata,
+): boolean {
+	if (!metadata) {
+		return false;
+	}
+	if (metadata.backgroundAgent === true) {
+		return true;
+	}
+	const cursor = metadata.cursor;
+	if (!isRecord(cursor)) {
+		return false;
+	}
+	return (
+		cursor.background === true ||
+		cursor.backgroundAgent === true ||
+		cursor.route === "background-agent" ||
+		cursor.path === "/background-agent"
+	);
+}

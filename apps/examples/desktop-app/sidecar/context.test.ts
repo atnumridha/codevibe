@@ -841,6 +841,89 @@ describe("Code sidecar runtime capabilities", () => {
 		});
 	});
 
+	it("marks background-agent Cursor launches in session metadata", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-bg-"));
+		tempDirs.push(workspace);
+		previewCursorUriMock.mockResolvedValueOnce({
+			handled: true,
+			route: "background-agent",
+			path: "/background-agent",
+			requiresConfirmation: true,
+			paramKeys: ["prompt", "source"],
+			configKeys: ["remoteName"],
+			taskPrompt: "Run the background investigation.",
+		});
+		const startMock = vi.fn(async () => ({ sessionId: "session-bg" }));
+		const sendMock = vi.fn(async () => ({}));
+		const pendingListMock = vi.fn(async () => []);
+		const ctx = createSidecarContext(workspace);
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+			send: sendMock,
+			pendingPrompts: { list: pendingListMock },
+		} as never;
+
+		const result = await handleCommand(ctx, "cursor_uri_launch", {
+			uri: "vscode://cline.cline/background-agent?prompt=Run%20the%20background%20investigation",
+			confirmed: true,
+		});
+
+		expect(startMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				sessionMetadata: expect.objectContaining({
+					backgroundAgent: true,
+					cursor: expect.objectContaining({
+						source: "cursor-uri",
+						route: "background-agent",
+						path: "/background-agent",
+						background: true,
+						paramKeys: ["prompt", "source"],
+						configKeys: ["remoteName"],
+					}),
+				}),
+			}),
+		);
+		expect(ctx.liveSessions.get("session-bg")?.config.sessionMetadata).toMatchObject(
+			{
+				backgroundAgent: true,
+				cursor: expect.objectContaining({
+					route: "background-agent",
+					background: true,
+				}),
+			},
+		);
+		expect(sendMock).toHaveBeenCalledWith({
+			sessionId: "session-bg",
+			prompt: "Run the background investigation.",
+			delivery: "queue",
+			userImages: undefined,
+		});
+		expect(result).toMatchObject({
+			handled: true,
+			launched: true,
+			route: "background-agent",
+			path: "/background-agent",
+			backgroundAgent: true,
+			sessionId: "session-bg",
+			metadata: expect.objectContaining({
+				backgroundAgent: true,
+				cursor: expect.objectContaining({
+					route: "background-agent",
+					background: true,
+				}),
+			}),
+		});
+		expect(JSON.stringify((result as { metadata: unknown }).metadata)).not.toContain(
+			"Run the background investigation",
+		);
+	});
+
 	it("does not launch preview-only Cursor routes", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

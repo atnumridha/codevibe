@@ -41,6 +41,26 @@ function trimKnownString(value: unknown): string | undefined {
 	return trimmed.toLowerCase() === "unknown" ? undefined : trimmed;
 }
 
+function asJsonRecord(value: unknown): JsonRecord | undefined {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? { ...(value as JsonRecord) }
+		: undefined;
+}
+
+function readLiveConfigMetadata(config: JsonRecord): JsonRecord | undefined {
+	const metadata = asJsonRecord(config.metadata);
+	const sessionMetadata =
+		asJsonRecord(config.sessionMetadata) ??
+		asJsonRecord(config.session_metadata);
+	if (!metadata && !sessionMetadata) {
+		return undefined;
+	}
+	return {
+		...(metadata ?? {}),
+		...(sessionMetadata ?? {}),
+	};
+}
+
 export function discoverChatSessions(
 	ctx: DiscoveryChatContext,
 	limit = 300,
@@ -52,9 +72,13 @@ export function discoverChatSessions(
 			continue;
 		}
 		const prompt = session.prompt ?? derivePromptFromMessages(session.messages);
+		const liveMetadata = readLiveConfigMetadata(session.config);
+		const titleMetadata = session.title
+			? { ...(liveMetadata ?? {}), title: session.title }
+			: liveMetadata;
 		const resolvedTitle = resolveSessionListTitle({
 			sessionId,
-			metadata: session.title ? { title: session.title } : undefined,
+			metadata: titleMetadata,
 			prompt,
 			messages: session.messages,
 		});
@@ -68,7 +92,7 @@ export function discoverChatSessions(
 			prompt,
 			startedAt: String(session.startedAt),
 			endedAt: session.endedAt ? String(session.endedAt) : undefined,
-			metadata: { title: resolvedTitle },
+			metadata: { ...(liveMetadata ?? {}), title: resolvedTitle },
 		});
 	}
 

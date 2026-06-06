@@ -104,6 +104,22 @@ function isoTimestampToMs(
 	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function asJsonRecord(value: unknown): JsonRecord | undefined {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? { ...(value as JsonRecord) }
+		: undefined;
+}
+
+function readRequestedSessionMetadata(
+	config: JsonRecord,
+): JsonRecord | undefined {
+	return (
+		asJsonRecord(config.sessionMetadata) ??
+		asJsonRecord(config.session_metadata) ??
+		asJsonRecord(config.metadata)
+	);
+}
+
 function buildCoreSessionConfig(config: JsonRecord): JsonRecord {
 	return {
 		sessionId: config.sessionId ?? config.session_id,
@@ -254,6 +270,7 @@ async function handleStart(
 		systemPrompt,
 		...(initialMessages ? { initialMessages } : {}),
 	};
+	const sessionMetadata = readRequestedSessionMetadata(request.config);
 	// Note: do NOT pass `prompt` to manager.start() here. When a prompt is
 	// provided to start(), the local runtime host runs the full agent turn
 	// synchronously inside start(). We always start the session idle and let
@@ -270,11 +287,15 @@ async function handleStart(
 		...(initialMessages
 			? { initialMessages: initialMessages as Message[] }
 			: {}),
+		...(sessionMetadata ? { sessionMetadata } : {}),
 		toolPolicies: resolveToolPolicies(request.config),
 	});
 	const sessionId = startResult.sessionId;
 	console.error(`[sidecar:handleStart] session started sessionId=${sessionId}`);
-	const session = createLiveSession(request.config, {
+	const liveConfig = sessionMetadata
+		? { ...request.config, sessionMetadata }
+		: request.config;
+	const session = createLiveSession(liveConfig, {
 		messages: initialMessages,
 		prompt: initialMessages
 			? derivePromptFromMessages(initialMessages)
@@ -327,6 +348,7 @@ async function handleAttach(
 			session.cwd ||
 			String(request.config?.workspaceRoot ?? "").trim() ||
 			String(existing?.config.workspaceRoot ?? "").trim(),
+		...(metadata ? { sessionMetadata: metadata } : {}),
 	};
 	ctx.liveSessions.set(
 		sessionId,
@@ -577,9 +599,13 @@ async function handleFork(
 	});
 	const newSessionId = startResult.sessionId;
 	ctx.liveSessions.delete(sourceSessionId);
+	const forkLiveConfig: JsonRecord = {
+		...forkConfig,
+		sessionMetadata: forkMetadata,
+	};
 	ctx.liveSessions.set(
 		newSessionId,
-		createLiveSession(forkConfig, {
+		createLiveSession(forkLiveConfig, {
 			messages: sourceMessages,
 			prompt: derivePromptFromMessages(sourceMessages),
 			title: readSessionMetadataTitle(sourceSessionId),

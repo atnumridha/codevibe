@@ -104,11 +104,13 @@ export type CursorUriLaunchResponse = Record<string, unknown> & {
 	launched: true;
 	route: string;
 	path?: string;
+	backgroundAgent: boolean;
 	sessionId: string;
 	provider: string;
 	model: string;
 	mode: "plan";
 	queued: true;
+	metadata?: Record<string, unknown>;
 	preview?: CursorUriPreviewResponse;
 };
 

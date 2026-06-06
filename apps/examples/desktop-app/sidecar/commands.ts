@@ -105,11 +105,13 @@ type CursorUriLaunchResponse = {
 	launched: true;
 	route: string;
 	path?: string;
+	backgroundAgent: boolean;
 	sessionId: string;
 	provider: string;
 	model: string;
 	mode: "plan";
 	queued: true;
+	metadata: JsonRecord;
 	preview: CursorUriPreviewResponse;
 };
 
@@ -847,6 +849,19 @@ function getCursorPreviewString(
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function getCursorPreviewStringArray(
+	preview: CursorUriPreviewResponse,
+	key: string,
+): string[] {
+	const value = preview[key];
+	if (!Array.isArray(value)) {
+		return [];
+	}
+	return value
+		.map((item) => (typeof item === "string" ? item.trim() : ""))
+		.filter((item) => item.length > 0);
+}
+
 function isLaunchableCursorAgentPreview(
 	preview: CursorUriPreviewResponse,
 ): boolean {
@@ -865,6 +880,35 @@ function getCursorQueuedAgentToolPolicies(): JsonRecord {
 		"*": { enabled: false, autoApprove: false },
 		[DefaultToolNames.READ_FILES]: { enabled: true, autoApprove: true },
 		[DefaultToolNames.SEARCH_CODEBASE]: { enabled: true, autoApprove: true },
+	};
+}
+
+function buildCursorLaunchMetadata(
+	preview: CursorUriPreviewResponse,
+): JsonRecord {
+	const route = getCursorPreviewString(preview, "route") ?? "unknown";
+	const path = getCursorPreviewString(preview, "path");
+	const backgroundAgent =
+		route === "background-agent" || path === "/background-agent";
+	const paramKeys = getCursorPreviewStringArray(preview, "paramKeys");
+	const configKeys = getCursorPreviewStringArray(preview, "configKeys");
+	const cursor: JsonRecord = {
+		source: "cursor-uri",
+		route,
+		background: backgroundAgent,
+	};
+	if (path) {
+		cursor.path = path;
+	}
+	if (paramKeys.length > 0) {
+		cursor.paramKeys = paramKeys;
+	}
+	if (configKeys.length > 0) {
+		cursor.configKeys = configKeys;
+	}
+	return {
+		cursor,
+		...(backgroundAgent ? { backgroundAgent: true } : {}),
 	};
 }
 
@@ -893,6 +937,8 @@ async function handleCursorUriLaunchCommand(
 	const mode = "plan";
 	const workspaceRoot = input.workspaceRoot ?? ctx.workspaceRoot;
 	const cwd = workspaceRoot;
+	const metadata = buildCursorLaunchMetadata(preview);
+	const backgroundAgent = metadata.backgroundAgent === true;
 	const { handleChatSessionCommand } = await import("./chat-session");
 	const started = (await handleChatSessionCommand(ctx, {
 		action: "start",
@@ -907,6 +953,7 @@ async function handleCursorUriLaunchCommand(
 			enableTeams: false,
 			autoApproveTools: false,
 			toolPolicies: getCursorQueuedAgentToolPolicies(),
+			sessionMetadata: metadata,
 		},
 	})) as { sessionId?: unknown };
 	const sessionId =
@@ -928,11 +975,13 @@ async function handleCursorUriLaunchCommand(
 		...(getCursorPreviewString(preview, "path")
 			? { path: getCursorPreviewString(preview, "path") }
 			: {}),
+		backgroundAgent,
 		sessionId,
 		provider,
 		model,
 		mode,
 		queued: true,
+		metadata,
 		preview,
 	};
 }
