@@ -196,6 +196,19 @@ describe("SharedUriHandler", () => {
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
 			})
 
+			it("should preserve encoded Cursor prompt separators as prompt text", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+
+				const prompt = "Review A & B = ok #section"
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/createchat?prompt=${encodeURIComponent(prompt)}`,
+				)
+
+				expect(result).to.be.true
+				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, prompt)
+			})
+
 			it("should not create a task when Cursor prompt-like task confirmation is cancelled", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
