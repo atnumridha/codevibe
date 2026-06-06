@@ -556,7 +556,9 @@ describe("SharedUriHandler", () => {
 				})
 			})
 
-			it("should summarize Cursor plugin config routes without leaking secret values", async () => {
+			it("should confirm Cursor plugin config source routes without leaking secret values", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Install Plugin" })
 				const config = encodeConfig({
 					token: "secret-value",
 					source: "docs-helper",
@@ -565,8 +567,30 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/plugin/add?config=${config}`)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor plugin add requires review")
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Cursor plugin "docs-helper"?')
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Source parameter: config.source")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: source, token")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
+				sinon.assert.calledOnce(handleCursorPluginAddStub)
+				expect(handleCursorPluginAddStub.firstCall.args[0]).to.deep.include({
+					source: "docs-helper",
+					sourceParam: "config",
+					sourceConfigKey: "source",
+				})
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should keep opaque Cursor plugin config routes review-only", async () => {
+				const config = encodeConfig({
+					token: "secret-value",
+					manifest: { name: "docs-helper" },
+				})
+
+				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/plugin/add?config=${config}`)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor plugin add requires review")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: manifest, token")
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
 				expect(handleCursorPluginAddStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false

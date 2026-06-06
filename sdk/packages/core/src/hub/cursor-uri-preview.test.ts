@@ -208,6 +208,40 @@ describe("hub Cursor URI preview command", () => {
 		expect(JSON.stringify(reply)).not.toContain("Bearer");
 	});
 
+	it("previews Cursor plugin config sources without leaking config values", async () => {
+		const transport = createTransport();
+		const config = encodeConfig({
+			url: "https://example.com/plugin.js?token=secret-value",
+			token: "secret-value",
+		});
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.preview",
+			requestId: "req-plugin-config-source",
+			clientId: "client-one",
+			payload: {
+				uri: `vscode://cline.cline/plugin/add?config=${config}`,
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: true,
+			payload: {
+				handled: true,
+				route: "plugin-add",
+				requiresConfirmation: true,
+				requiresReview: false,
+				sourceParam: "config",
+				sourceConfigKey: "url",
+				source: "https://example.com",
+				configKeys: ["token", "url"],
+			},
+		});
+		expect(JSON.stringify(reply)).not.toContain("secret-value");
+		expect(JSON.stringify(reply)).not.toContain("plugin.js");
+	});
+
 	it("returns validation errors for unsupported Cursor routes", async () => {
 		const transport = createTransport();
 

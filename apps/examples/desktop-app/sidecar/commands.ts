@@ -185,6 +185,7 @@ type CursorPluginAddResponse = {
 	requiresReview: boolean;
 	workspaceRoot: string;
 	sourceParam?: CursorPluginAddRouteRequest["sourceParam"];
+	sourceConfigKey?: CursorPluginAddRouteRequest["sourceConfigKey"];
 	sourceLabel?: string;
 	reason?: string;
 	detail?: string;
@@ -597,13 +598,13 @@ function safeCursorPluginSourceLabel(
 	if (!source) {
 		return undefined;
 	}
-	if (sourceParam !== "url") {
+	if (sourceParam !== "url" && sourceParam !== "config") {
 		return source;
 	}
 	try {
 		return new URL(source).origin;
 	} catch {
-		return "[provided]";
+		return sourceParam === "url" ? "[provided]" : source;
 	}
 }
 
@@ -630,6 +631,7 @@ function buildCursorPluginAddResponse(
 		requiresReview: request.requiresReview,
 		workspaceRoot: input.workspaceRoot,
 		...(request.sourceParam ? { sourceParam: request.sourceParam } : {}),
+		...(request.sourceConfigKey ? { sourceConfigKey: request.sourceConfigKey } : {}),
 		...(sourceLabel ? { sourceLabel } : {}),
 		...(request.reason ? { reason: request.reason } : {}),
 		...(request.requiresReview ? { detail: request.detail } : {}),

@@ -841,6 +841,39 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(JSON.stringify(result)).not.toContain("plugin.js");
 	});
 
+	it("previews Cursor plugin config sources as actionable without installing them", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-plugin-add-"));
+		tempDirs.push(workspace);
+		const ctx = createSidecarContext(workspace);
+		const config = encodeCursorConfig({
+			source: "docs-plugin",
+			token: "secret-value",
+		});
+
+		const result = await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				config,
+			}).toString()}`,
+		});
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			confirmed: false,
+			installed: false,
+			actionable: true,
+			requiresReview: false,
+			sourceParam: "config",
+			sourceConfigKey: "source",
+			sourceLabel: "docs-plugin",
+			configKeys: ["source", "token"],
+		});
+		expect(JSON.stringify(result)).not.toContain("secret-value");
+	});
+
 	it("installs confirmed local Cursor plugin sources through the plugin installer", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
@@ -897,7 +930,7 @@ describe("Code sidecar runtime capabilities", () => {
 		);
 	});
 
-	it("keeps Cursor plugin config-only payloads review-only", async () => {
+	it("keeps opaque Cursor plugin config payloads review-only", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
 
@@ -905,7 +938,7 @@ describe("Code sidecar runtime capabilities", () => {
 		tempDirs.push(workspace);
 		const ctx = createSidecarContext(workspace);
 		const config = encodeCursorConfig({
-			source: "docs-plugin",
+			manifest: { name: "docs-plugin" },
 			token: "secret-value",
 		});
 
@@ -923,7 +956,7 @@ describe("Code sidecar runtime capabilities", () => {
 			installed: false,
 			actionable: false,
 			requiresReview: true,
-			configKeys: ["source", "token"],
+			configKeys: ["manifest", "token"],
 		});
 		expect(JSON.stringify(result)).not.toContain("secret-value");
 	});

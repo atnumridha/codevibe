@@ -709,7 +709,8 @@ export class Controller {
 
 	async handleCursorPluginAdd(request: {
 		source: string
-		sourceParam: "id" | "name" | "url"
+		sourceParam: "id" | "name" | "url" | "config"
+		sourceConfigKey?: "source" | "id" | "name" | "url"
 		detail: string
 	}): Promise<PluginInstallResult> {
 		try {

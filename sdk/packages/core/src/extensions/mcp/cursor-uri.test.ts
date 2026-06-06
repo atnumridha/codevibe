@@ -705,14 +705,39 @@ describe("Cursor MCP install URI parser", () => {
 		expect(byUrl.detail).not.toContain("secret-value");
 		expect(byUrl.detail).not.toContain("secret-fragment");
 
-		const configOnly = buildCursorPluginAddRouteRequest(
+		const configSource = buildCursorPluginAddRouteRequest(
 			`vscode://cline.cline/plugin/add?config=${encodeConfig({ token: "secret-value", source: "docs-helper" })}`,
 		);
-		expect(configOnly).toMatchObject({
+		expect(configSource).toMatchObject({
+			source: "docs-helper",
+			sourceParam: "config",
+			sourceConfigKey: "source",
+			displaySource: "docs-helper",
+			requiresReview: false,
+		});
+		expect(configSource.detail).toContain("Source parameter: config.source");
+		expect(configSource.detail).toContain("Config keys: source, token");
+		expect(configSource.detail).not.toContain("secret-value");
+
+		const configUrl = buildCursorPluginAddRouteRequest(
+			`vscode://cline.cline/plugin/add?config=${encodeConfig({ token: "secret-value", url: "https://example.com/plugin.js?token=secret-value" })}`,
+		);
+		expect(configUrl).toMatchObject({
+			sourceParam: "config",
+			sourceConfigKey: "url",
+			displaySource: "https://example.com/plugin.js?[redacted]",
+			requiresReview: false,
+		});
+		expect(configUrl.detail).not.toContain("secret-value");
+
+		const opaqueConfig = buildCursorPluginAddRouteRequest(
+			`vscode://cline.cline/plugin/add?config=${encodeConfig({ token: "secret-value", manifest: { name: "docs-helper" } })}`,
+		);
+		expect(opaqueConfig).toMatchObject({
 			requiresReview: true,
 		});
-		expect(configOnly.detail).toContain("Config keys: source, token");
-		expect(configOnly.detail).not.toContain("secret-value");
+		expect(opaqueConfig.detail).toContain("Config keys: manifest, token");
+		expect(opaqueConfig.detail).not.toContain("secret-value");
 
 		expect(() =>
 			buildCursorPluginAddRouteRequest("vscode://cline.cline/plugin/add"),

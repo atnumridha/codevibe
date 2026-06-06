@@ -193,7 +193,8 @@ export type CursorPluginAddResponse = Record<string, unknown> & {
 	actionable: boolean;
 	requiresReview: boolean;
 	workspaceRoot: string;
-	sourceParam?: "id" | "name" | "url";
+	sourceParam?: "id" | "name" | "url" | "config";
+	sourceConfigKey?: "source" | "id" | "name" | "url";
 	sourceLabel?: string;
 	reason?: string;
 	detail?: string;

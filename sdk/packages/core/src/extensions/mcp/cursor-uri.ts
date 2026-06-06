@@ -247,7 +247,8 @@ export interface CursorGlassRouteMetadata {
 export interface CursorPluginAddRouteRequest {
 	kind: "plugin-add";
 	source?: string;
-	sourceParam?: "id" | "name" | "url";
+	sourceParam?: "id" | "name" | "url" | "config";
+	sourceConfigKey?: "source" | "id" | "name" | "url";
 	displaySource?: string;
 	requiresReview: boolean;
 	reason?: string;
@@ -1073,20 +1074,40 @@ function formatRouteDetails(
 
 function formatCursorPluginSource(
 	source: string | undefined,
-	sourceParam: "id" | "name" | "url" | undefined,
+	sourceParam: "id" | "name" | "url" | "config" | undefined,
 ): string {
 	if (!source) {
 		return "config payload";
 	}
-	if (sourceParam !== "url") {
-		return source;
-	}
 	try {
 		const url = new URL(source);
-		return `${url.origin}${url.pathname}${url.search ? "?[redacted]" : ""}${url.hash ? "#[redacted]" : ""}`;
+		return sourceParam === "url" || sourceParam === "config"
+			? `${url.origin}${url.pathname}${url.search ? "?[redacted]" : ""}${url.hash ? "#[redacted]" : ""}`
+			: source;
 	} catch {
-		return "[provided url]";
+		return sourceParam === "url" ? "[provided url]" : source;
 	}
+}
+
+function getCursorPluginConfigSource(config: Record<string, unknown> | undefined):
+	| {
+			source: string;
+			sourceConfigKey: "source" | "id" | "name" | "url";
+	  }
+	| undefined {
+	if (!config) {
+		return undefined;
+	}
+	for (const key of ["source", "url", "id", "name"] as const) {
+		const value = config[key];
+		if (typeof value === "string" && value.trim()) {
+			return {
+				source: value.trim(),
+				sourceConfigKey: key,
+			};
+		}
+	}
+	return undefined;
 }
 
 function assertAllowedParams(
@@ -1449,8 +1470,11 @@ export function buildCursorPluginAddRouteRequest(
 	const sourceParam = (["id", "name", "url"] as const).find((key) =>
 		Boolean(getRouteStringParam(params, key)),
 	);
-	const source = sourceParam ? getRouteStringParam(params, sourceParam) : undefined;
 	const config = getRecord(params.config);
+	const configSource = getCursorPluginConfigSource(config);
+	const source = sourceParam
+		? getRouteStringParam(params, sourceParam)
+		: configSource?.source;
 	if (!source && !config) {
 		throw new CursorUriError("plugin identifier or config is required");
 	}
@@ -1463,23 +1487,25 @@ export function buildCursorPluginAddRouteRequest(
 			detail: [
 				"Plugin source: config payload",
 				`Config keys: ${Object.keys(config ?? {}).sort().join(", ") || "(none)"}`,
-				"Install action: unsupported without explicit id, name, or url",
+				"Install action: unsupported without explicit id, name, url, or config source key",
 			].join("\n"),
 			params,
 		};
 	}
 
 	const configKeys = Object.keys(config ?? {}).sort();
-	const displaySource = formatCursorPluginSource(source, sourceParam);
+	const resolvedSourceParam = sourceParam ?? "config";
+	const displaySource = formatCursorPluginSource(source, resolvedSourceParam);
 	return {
 		kind: "plugin-add",
 		source,
-		sourceParam,
+		sourceParam: resolvedSourceParam,
+		...(configSource && !sourceParam ? { sourceConfigKey: configSource.sourceConfigKey } : {}),
 		displaySource,
 		requiresReview: false,
 		detail: [
 			`Plugin source: ${displaySource}`,
-			`Source parameter: ${sourceParam}`,
+			`Source parameter: ${sourceParam ?? `config.${configSource?.sourceConfigKey ?? "source"}`}`,
 			...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
 			"Install action: preview by default; requires explicit confirmation.",
 		].join("\n"),

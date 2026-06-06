@@ -33,7 +33,8 @@ interface SharedUriHandlerOptions {
 
 interface CursorPluginAddInstallRequest {
 	source: string
-	sourceParam: "id" | "name" | "url"
+	sourceParam: "id" | "name" | "url" | "config"
+	sourceConfigKey?: "source" | "id" | "name" | "url"
 	detail: string
 }
 
@@ -264,22 +265,24 @@ async function readCursorCommandFile(
 
 function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 	source?: string
-	sourceParam?: "id" | "name" | "url"
+	sourceParam?: "id" | "name" | "url" | "config"
+	sourceConfigKey?: "source" | "id" | "name" | "url"
 	displaySource?: string
 	detail: string
 } {
 	const sourceParam = (["id", "name", "url"] as const).find((key) => getRouteStringParam(route, key))
-	const source = sourceParam ? getRouteStringParam(route, sourceParam) : undefined
-	const displaySource = formatCursorPluginSource(source, sourceParam)
 	const config = route.params.config
+	const configRecord = config && typeof config === "object" && !Array.isArray(config) ? config : undefined
+	const configSource = getCursorPluginConfigSource(configRecord)
+	const source = sourceParam ? getRouteStringParam(route, sourceParam) : configSource?.source
+	const resolvedSourceParam = sourceParam ?? (source ? "config" : undefined)
+	const displaySource = formatCursorPluginSource(source, resolvedSourceParam)
 	const configKeys =
-		config && typeof config === "object" && !Array.isArray(config)
-			? Object.keys(config).sort()
-			: []
+		configRecord ? Object.keys(configRecord).sort() : []
 	const lines = source
 		? [
 				`Plugin source: ${displaySource}`,
-				`Source parameter: ${sourceParam}`,
+				`Source parameter: ${sourceParam ?? `config.${configSource?.sourceConfigKey ?? "source"}`}`,
 				...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
 				"Install action: requires confirmation before downloading or writing plugin files.",
 			]
@@ -290,20 +293,45 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 			]
 	return {
 		source,
-		sourceParam,
+		sourceParam: resolvedSourceParam,
+		...(configSource && !sourceParam ? { sourceConfigKey: configSource.sourceConfigKey } : {}),
 		displaySource,
 		detail: lines.join("\n"),
 	}
 }
 
-function formatCursorPluginSource(source: string | undefined, sourceParam: "id" | "name" | "url" | undefined): string {
+function getCursorPluginConfigSource(
+	config: Record<string, unknown> | undefined,
+): { source: string; sourceConfigKey: "source" | "id" | "name" | "url" } | undefined {
+	if (!config) {
+		return undefined
+	}
+	for (const key of ["source", "url", "id", "name"] as const) {
+		const value = config[key]
+		if (typeof value === "string" && value.trim()) {
+			return {
+				source: value.trim(),
+				sourceConfigKey: key,
+			}
+		}
+	}
+	return undefined
+}
+
+function formatCursorPluginSource(
+	source: string | undefined,
+	sourceParam: "id" | "name" | "url" | "config" | undefined,
+): string {
 	if (!source) {
 		return "config payload"
 	}
-	if (sourceParam !== "url") {
-		return source
+	if (sourceParam === "url") {
+		return formatCursorUrlForDisplay(source) ?? "[provided url]"
 	}
-	return formatCursorUrlForDisplay(source) ?? "[provided url]"
+	if (sourceParam === "config") {
+		return formatCursorUrlForDisplay(source) ?? source
+	}
+	return source
 }
 
 function formatCursorUrlForDisplay(source: string): string | undefined {
@@ -863,6 +891,7 @@ export class SharedUriHandler {
 			await controller.handleCursorPluginAdd({
 				source: request.source,
 				sourceParam: request.sourceParam,
+				...(request.sourceConfigKey ? { sourceConfigKey: request.sourceConfigKey } : {}),
 				detail: request.detail,
 			})
 			return

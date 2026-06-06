@@ -518,6 +518,7 @@ async function writeCursorPluginAddRoute(
 					requiresConfirmation: true,
 					source: request.source,
 					sourceParam: request.sourceParam,
+					...(request.sourceConfigKey ? { sourceConfigKey: request.sourceConfigKey } : {}),
 					detail: request.detail,
 				}),
 			);

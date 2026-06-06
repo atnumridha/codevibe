@@ -914,6 +914,33 @@ describe("Cursor MCP install command", () => {
 		expect(out[0]).not.toContain("requiresAgent");
 	});
 
+	it("previews config-source plugin add deeplinks as installable after confirmation", async () => {
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: `vscode://cline.cline/plugin/add?config=${encodeConfig({
+				source: "docs-helper",
+				token: "secret-value",
+			})}`,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			installed: false,
+			requiresConfirmation: true,
+			source: "docs-helper",
+			sourceParam: "config",
+			sourceConfigKey: "source",
+			detail: expect.stringContaining("Source parameter: config.source"),
+		});
+		expect(out[0]).not.toContain("secret-value");
+		expect(out[0]).not.toContain("requiresAgent");
+	});
+
 	it("previews Cursor automation ingest URI events without storing payload values", async () => {
 		const { out, io } = createIo();
 		const ndjson = encodeURIComponent(

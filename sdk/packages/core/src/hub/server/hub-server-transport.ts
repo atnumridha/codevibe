@@ -612,7 +612,17 @@ function safeCursorSourceLabel(
 	if (!source) {
 		return undefined;
 	}
-	return sourceParam === "url" ? safeUrlOrigin(source) : source;
+	if (sourceParam === "url") {
+		return safeUrlOrigin(source);
+	}
+	if (sourceParam === "config") {
+		try {
+			return new URL(source).origin;
+		} catch {
+			return source;
+		}
+	}
+	return source;
 }
 
 function summarizeCursorMcpInstall(uri: string): CursorUriPreviewResponse {
@@ -748,6 +758,7 @@ function summarizeCursorUriPreview(
 			requiresConfirmation: true,
 			requiresReview: request.requiresReview,
 			sourceParam: request.sourceParam,
+			sourceConfigKey: request.sourceConfigKey,
 			source: safeCursorSourceLabel(request.source, request.sourceParam),
 			reason: request.reason,
 			paramKeys: Object.keys(request.params).sort(),
