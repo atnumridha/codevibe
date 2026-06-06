@@ -45,6 +45,31 @@ describe("hub Cursor URI preview command", () => {
 		});
 	});
 
+	it("previews native codevibe:// route-host deeplinks", async () => {
+		const transport = createTransport();
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.preview",
+			requestId: "req-codevibe-native",
+			clientId: "client-one",
+			payload: {
+				uri: "codevibe://createchat?prompt=Review%20the%20diff",
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: true,
+			payload: {
+				handled: true,
+				route: "createchat",
+				path: "/createchat",
+				requiresConfirmation: true,
+				taskPrompt: "Review the diff",
+			},
+		});
+	});
+
 	it("validates automation ingest deeplinks without echoing raw event payloads", async () => {
 		const transport = createTransport();
 		const ndjson = encodeURIComponent(

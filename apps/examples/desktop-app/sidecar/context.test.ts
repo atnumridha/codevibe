@@ -1080,6 +1080,72 @@ describe("Code sidecar runtime capabilities", () => {
 		});
 	});
 
+	it("launches native CodeVibe task deeplinks as queued desktop sessions", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-native-uri-"));
+		tempDirs.push(workspace);
+		const startMock = vi.fn(async () => ({ sessionId: "session-codevibe" }));
+		const sendMock = vi.fn(async () => ({}));
+		const pendingListMock = vi.fn(async () => []);
+		previewCursorUriMock.mockResolvedValue({
+			handled: true,
+			route: "createchat",
+			path: "/createchat",
+			taskPrompt: "Review the CodeVibe deeplink.",
+			paramKeys: ["prompt"],
+		});
+		const ctx = createSidecarContext(workspace);
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+			send: sendMock,
+			pendingPrompts: { list: pendingListMock },
+		} as never;
+
+		const result = await handleCommand(ctx, "cursor_uri_launch", {
+			uri: "codevibe://createchat?prompt=Review%20the%20CodeVibe%20deeplink",
+			confirmed: true,
+		});
+
+		expect(previewCursorUriMock).toHaveBeenCalledWith({
+			uri: "codevibe://createchat?prompt=Review%20the%20CodeVibe%20deeplink",
+			workspaceRoot: workspace,
+		});
+		expect(startMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				config: expect.objectContaining({
+					providerId: "openai-codex",
+					modelId: "gpt-5.5",
+					mode: "plan",
+					workspaceRoot: workspace,
+					cwd: workspace,
+				}),
+				interactive: true,
+			}),
+		);
+		expect(sendMock).toHaveBeenCalledWith({
+			sessionId: "session-codevibe",
+			prompt: "Review the CodeVibe deeplink.",
+			delivery: "queue",
+			userImages: undefined,
+		});
+		expect(result).toMatchObject({
+			handled: true,
+			launched: true,
+			route: "createchat",
+			path: "/createchat",
+			sessionId: "session-codevibe",
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			mode: "plan",
+			queued: true,
+		});
+	});
+
 	it("marks background-agent Cursor launches in session metadata", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
