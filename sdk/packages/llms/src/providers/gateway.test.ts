@@ -1734,6 +1734,37 @@ describe("sdk-gateway", () => {
 		expect(call).not.toHaveProperty("maxOutputTokens");
 	});
 
+	it("passes Codex clientVersion through to the provider factory", async () => {
+		streamTextSpy.mockReturnValue({
+			fullStream: makeStreamParts([
+				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
+			]),
+		});
+
+		const gateway = createGateway({
+			providerConfigs: [
+				{
+					providerId: "openai-codex",
+					codex: { clientVersion: "0.136.0-test" },
+				},
+			],
+		});
+
+		await collect(
+			await gateway.stream({
+				providerId: "openai-codex",
+				modelId: "gpt-5.4",
+				messages: baseMessages,
+			}),
+		);
+
+		expect(codexExecFactorySpy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				clientVersion: "0.136.0-test",
+			}),
+		);
+	});
+
 	it("passes Codex instructions through provider options and removes the system message from messages", async () => {
 		streamTextSpy.mockReturnValue({
 			fullStream: makeStreamParts([

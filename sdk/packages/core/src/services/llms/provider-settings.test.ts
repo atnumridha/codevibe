@@ -23,4 +23,29 @@ describe("provider settings", () => {
 			}),
 		);
 	});
+
+	it("maps OpenAI Codex auth clientVersion into provider options", () => {
+		const result = safeParseSettings({
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			auth: {
+				accessToken: "access-token",
+				refreshToken: "refresh-token",
+				clientVersion: "0.136.0-test",
+			},
+		});
+
+		expect(result.success).toBe(true);
+		if (!result.success) {
+			throw new Error("expected OpenAI Codex settings to parse");
+		}
+
+		expect(toProviderConfig(result.data)).toMatchObject({
+			providerId: "openai-codex",
+			modelId: "gpt-5.5",
+			codex: {
+				clientVersion: "0.136.0-test",
+			},
+		});
+	});
 });

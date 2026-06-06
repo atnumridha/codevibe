@@ -204,6 +204,7 @@ export interface OcaConfig {
  * Codex CLI provider options
  */
 export interface CodexConfig {
+	clientVersion?: string;
 	defaultSettings?: Record<string, unknown>;
 	modelSettings?: Record<string, unknown>;
 }

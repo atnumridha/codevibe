@@ -240,6 +240,11 @@ export function toProviderConfig(
 				? generatedKnownModels
 				: undefined))
 		: undefined;
+	const codex =
+		normalizedProviderId === BUILT_IN_PROVIDER.OPENAI_CODEX &&
+		settings.auth?.clientVersion
+			? { clientVersion: settings.auth.clientVersion }
+			: undefined;
 
 	const config: ProviderConfig = {
 		providerId,
@@ -288,6 +293,7 @@ export function toProviderConfig(
 		azure: settings.azure,
 		sap: settings.sap,
 		oca: settings.oca,
+		codex,
 		capabilities: (settings.capabilities ?? providerDefaults?.capabilities) as
 			| ProviderCapability[]
 			| undefined,
