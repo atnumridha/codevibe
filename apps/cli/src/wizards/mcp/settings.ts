@@ -139,6 +139,17 @@ export function addServerRecord(
 	writeServers(settings, servers);
 }
 
+export function addServerRecords(
+	records: Record<string, Record<string, unknown>>,
+): void {
+	const settings = readRawSettingsForWrite();
+	const servers = readRawServersForWrite(settings);
+	for (const [name, record] of Object.entries(records)) {
+		servers[name] = record;
+	}
+	writeServers(settings, servers);
+}
+
 export function removeServer(name: string): boolean {
 	const settings = readRawSettingsForWrite();
 	const servers = readRawServersForWrite(settings);

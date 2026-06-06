@@ -386,6 +386,34 @@ export async function runCli(): Promise<void> {
 			});
 		});
 
+	const mcpImportCursorCmd = mcpCmd
+		.command("import-cursor")
+		.description("Preview or import MCP servers from workspace .cursor/mcp.json")
+		.option("--yes", "Write the Cursor MCP servers to native MCP settings")
+		.option("--json", "Output the import result as JSON")
+		.option("-c, --cwd <path>", "Workspace directory containing .cursor/mcp.json")
+		.action(async () => {
+			const opts = mcpImportCursorCmd.opts<{
+				yes?: boolean;
+				json?: boolean;
+				cwd?: string;
+			}>();
+			const rootOpts = program.opts<{ cwd?: string }>();
+			if (opts.json) {
+				setCurrentOutputMode("json");
+			}
+			const { runCursorMcpImportCommand } = await import(
+				"./commands/cursor-mcp"
+			);
+			ctx.exitCode = await runCursorMcpImportCommand({
+				uri: "cursor://mcp/import",
+				confirmed: opts.yes,
+				json: opts.json,
+				cwd: opts.cwd ?? rootOpts.cwd,
+				io,
+			});
+		});
+
 	const uriCmd = program
 		.command("uri")
 		.description("Preview or dispatch a Cursor-compatible deeplink")

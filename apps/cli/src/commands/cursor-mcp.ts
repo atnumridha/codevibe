@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
 	buildCursorAutomationIngestRouteRequest,
@@ -13,6 +13,8 @@ import {
 	formatCursorMcpInstallDetail,
 	HubSessionClient,
 	installPlugin,
+	loadMcpSettingsFile,
+	resolveCursorMcpSettingsPath,
 	resolveCursorCommandFileRouteRequest,
 	type ClineAutomationNdjsonIngestOptions,
 	type ClineAutomationNdjsonIngressResult,
@@ -27,6 +29,7 @@ import type {
 } from "@cline/shared";
 import { resolveGlobalSettingsPath } from "@cline/shared/storage";
 import {
+	addServerRecords,
 	addServerRecord,
 	getSettingsPath,
 	loadServers,
@@ -117,6 +120,19 @@ interface AutomationIngestReport {
 	rejected: CursorAutomationRejectedLineSummary[];
 }
 
+interface CursorMcpImportReport {
+	handled: true;
+	route: "cursor-mcp-import";
+	confirmed: boolean;
+	imported: boolean;
+	requiresConfirmation?: boolean;
+	sourcePath: string;
+	settingsPath: string;
+	serverNames: string[];
+	importedCount: number;
+	replacedNames: string[];
+}
+
 type CursorAgentTaskRouteResolution = {
 	route: string;
 	taskPrompt: string;
@@ -137,6 +153,49 @@ function writeCommandError(
 		options.io.writeErr(message);
 	}
 	return 1;
+}
+
+function writeCursorMcpImportError(
+	options: CursorMcpInstallCommandOptions,
+	message: string,
+): number {
+	if (options.json) {
+		options.io.writeln(
+			JSON.stringify({
+				handled: false,
+				route: "cursor-mcp-import",
+				imported: false,
+				error: message,
+			}),
+		);
+	} else {
+		options.io.writeErr(message);
+	}
+	return 1;
+}
+
+function writeCursorMcpImportReport(
+	options: CursorMcpInstallCommandOptions,
+	report: CursorMcpImportReport,
+): number {
+	if (options.json) {
+		options.io.writeln(JSON.stringify(report));
+	} else if (report.imported) {
+		options.io.writeln(
+			`Imported ${report.importedCount} Cursor MCP server(s) from .cursor/mcp.json.`,
+		);
+		options.io.writeln(`Settings file: ${report.settingsPath}`);
+		if (report.replacedNames.length > 0) {
+			options.io.writeln(`Replaced: ${report.replacedNames.join(", ")}`);
+		}
+	} else {
+		options.io.writeln(
+			`Found ${report.serverNames.length} Cursor MCP server(s) in ${report.sourcePath}.`,
+		);
+		options.io.writeln(`Settings file: ${report.settingsPath}`);
+		options.io.writeln("Re-run with --yes to import these MCP servers.");
+	}
+	return 0;
 }
 
 function getCursorQueuedAgentToolPolicies(): NonNullable<
@@ -633,6 +692,91 @@ async function launchCursorAgentTask(
 	} finally {
 		await client.dispose?.();
 		client.close?.();
+	}
+}
+
+export function runCursorMcpImportCommand(
+	options: CursorMcpInstallCommandOptions,
+): number {
+	try {
+		const workspaceRoot = resolve(options.cwd ?? process.cwd());
+		const sourcePath = resolveCursorMcpSettingsPath(workspaceRoot);
+		if (!existsSync(sourcePath)) {
+			throw new Error("No .cursor/mcp.json found in the active workspace");
+		}
+
+		const cursorSettings = loadMcpSettingsFile({
+			filePath: sourcePath,
+			workspaceRoot,
+		});
+		const serverNames = Object.keys(cursorSettings.mcpServers).sort();
+		if (serverNames.length === 0) {
+			throw new Error(".cursor/mcp.json does not contain any MCP servers");
+		}
+
+		const settingsPath = getSettingsPath();
+		const existingNames = new Set(loadServers().map((server) => server.name));
+		const replacedNames = serverNames
+			.filter((name) => existingNames.has(name))
+			.sort();
+		const preview: CursorMcpImportReport = {
+			handled: true,
+			route: "cursor-mcp-import",
+			confirmed: options.confirmed === true,
+			imported: false,
+			requiresConfirmation: true,
+			sourcePath,
+			settingsPath,
+			serverNames,
+			importedCount: 0,
+			replacedNames,
+		};
+
+		if (!options.confirmed) {
+			return writeCursorMcpImportReport(options, preview);
+		}
+
+		const importedAt = new Date().toISOString();
+		const records: Record<string, Record<string, unknown>> = {};
+		for (const name of serverNames) {
+			const registration = cursorSettings.mcpServers[name];
+			if (!registration) {
+				continue;
+			}
+			const metadata =
+				registration.metadata &&
+				typeof registration.metadata === "object" &&
+				!Array.isArray(registration.metadata)
+					? registration.metadata
+					: {};
+			records[name] = {
+				...registration,
+				metadata: {
+					...metadata,
+					cursor: {
+						source: "workspace-mcp",
+						path: ".cursor/mcp.json",
+						importedAt,
+					},
+				},
+			};
+		}
+		addServerRecords(records);
+		const imported: CursorMcpImportReport = {
+			handled: true,
+			route: "cursor-mcp-import",
+			confirmed: true,
+			imported: true,
+			sourcePath,
+			settingsPath,
+			serverNames,
+			importedCount: serverNames.length,
+			replacedNames,
+		};
+		return writeCursorMcpImportReport(options, imported);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		return writeCursorMcpImportError(options, message);
 	}
 }
 

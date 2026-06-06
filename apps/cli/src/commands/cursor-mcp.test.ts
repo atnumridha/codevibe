@@ -1,8 +1,9 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	runCursorMcpImportCommand,
 	runCursorMcpInstallCommand,
 	runCursorUriCommand,
 } from "./cursor-mcp";
@@ -155,6 +156,154 @@ describe("Cursor MCP install command", () => {
 			prompt: "hi",
 			taskPrompt: "hi",
 		});
+	});
+
+	it("previews workspace .cursor/mcp.json imports without writing settings", async () => {
+		const settingsPath = await useTempSettingsPath();
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-mcp-ws-"));
+		tempDirs.push(workspaceRoot);
+		await mkdir(join(workspaceRoot, ".cursor"), { recursive: true });
+		await writeFile(
+			join(workspaceRoot, ".cursor", "mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					docs: {
+						type: "http",
+						url: "https://mcp.example.com/context",
+					},
+				},
+			}),
+			"utf8",
+		);
+		const { out, io } = createIo();
+
+		const code = runCursorMcpImportCommand({
+			uri: "cursor://mcp/import",
+			cwd: workspaceRoot,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "cursor-mcp-import",
+			confirmed: false,
+			imported: false,
+			requiresConfirmation: true,
+			sourcePath: join(workspaceRoot, ".cursor", "mcp.json"),
+			settingsPath,
+			serverNames: ["docs"],
+			importedCount: 0,
+			replacedNames: [],
+		});
+		await expect(readFile(settingsPath, "utf8")).rejects.toThrow();
+	});
+
+	it("imports workspace .cursor/mcp.json with Cursor variables and replacement metadata", async () => {
+		const settingsPath = await useTempSettingsPath();
+		await writeFile(
+			settingsPath,
+			JSON.stringify({
+				mcpServers: {
+					beta: {
+						transport: {
+							type: "stdio",
+							command: "old-beta",
+						},
+					},
+				},
+			}),
+			"utf8",
+		);
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-mcp-ws-"));
+		tempDirs.push(workspaceRoot);
+		await mkdir(join(workspaceRoot, ".cursor"), { recursive: true });
+		await writeFile(
+			join(workspaceRoot, ".cursor", "mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					alpha: {
+						command: "node",
+						args: ["${workspaceFolder}/server.js"],
+						env: {
+							ROOT_NAME: "${workspaceFolderBasename}",
+						},
+					},
+					beta: {
+						type: "http",
+						url: "https://mcp.example.com/api",
+						headers: {
+							Authorization: "Bearer secret-value",
+						},
+						metadata: {
+							team: "platform",
+						},
+					},
+				},
+			}),
+			"utf8",
+		);
+		const { out, io } = createIo();
+
+		const code = runCursorMcpImportCommand({
+			uri: "cursor://mcp/import",
+			cwd: workspaceRoot,
+			confirmed: true,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "cursor-mcp-import",
+			confirmed: true,
+			imported: true,
+			serverNames: ["alpha", "beta"],
+			importedCount: 2,
+			replacedNames: ["beta"],
+		});
+		expect(out[0]).not.toContain("secret-value");
+		const parsed = JSON.parse(await readFile(settingsPath, "utf8")) as {
+			mcpServers?: Record<string, Record<string, unknown>>;
+		};
+		expect(parsed.mcpServers?.alpha).toMatchObject({
+			transport: {
+				type: "stdio",
+				command: "node",
+				args: [join(workspaceRoot, "server.js")],
+				env: {
+					ROOT_NAME: basename(workspaceRoot),
+				},
+			},
+			metadata: {
+				cursor: {
+					source: "workspace-mcp",
+					path: ".cursor/mcp.json",
+				},
+			},
+		});
+		expect(parsed.mcpServers?.beta).toMatchObject({
+			transport: {
+				type: "streamableHttp",
+				url: "https://mcp.example.com/api",
+				headers: {
+					Authorization: "Bearer secret-value",
+				},
+			},
+			metadata: {
+				team: "platform",
+				cursor: {
+					source: "workspace-mcp",
+					path: ".cursor/mcp.json",
+				},
+			},
+		});
+		expect(
+			(parsed.mcpServers?.alpha?.metadata as { cursor?: { importedAt?: string } })
+				.cursor?.importedAt,
+		).toEqual(expect.any(String));
 	});
 
 	it("dispatches native CodeVibe route-host deeplinks through the CLI", async () => {
