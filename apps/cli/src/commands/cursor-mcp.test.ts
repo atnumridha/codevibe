@@ -629,6 +629,7 @@ describe("Cursor MCP install command", () => {
 				"Review the staged diff and call out risky changes.",
 			),
 		});
+		expect(out[0]).not.toContain(workspaceRoot);
 	});
 
 	it("previews PR review and glass deeplinks", async () => {

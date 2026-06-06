@@ -488,7 +488,6 @@ function writeAgentTaskRoutePreview(
 							commandName: commandFileRequest.commandName,
 							filename: commandFileRequest.filename,
 							relativePath: commandFileRequest.relativePath,
-							filePath: commandFileRequest.filePath,
 						}
 					: undefined,
 			}),
