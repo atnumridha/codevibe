@@ -55,6 +55,7 @@ type OpenAICodexAuthStatus = {
 	expired?: boolean;
 	installationIdPresent?: boolean;
 	clientVersion?: string;
+	authMode?: string;
 	lastUsed?: boolean;
 	settingsPath?: string;
 	updatedAt?: string;
@@ -525,6 +526,10 @@ export function AccountView() {
 						{renderCodexDetail(
 							"Client",
 							codexAuth.clientVersion ?? "Not available",
+						)}
+						{renderCodexDetail(
+							"Auth mode",
+							codexAuth.authMode ?? "Not available",
 						)}
 						{renderCodexDetail(
 							"Settings",

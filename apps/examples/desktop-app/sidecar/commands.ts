@@ -239,6 +239,7 @@ function readOpenAICodexAuthStatus(): JsonRecord {
 	const apiKey = presentTrimmed(settings?.apiKey);
 	const installationId = presentTrimmed(auth?.installationId);
 	const clientVersion = presentTrimmed(auth?.clientVersion);
+	const authMode = presentTrimmed(auth?.authMode);
 	const tokenSource =
 		presentTrimmed(auth?.tokenSource) ?? presentTrimmed(entry?.tokenSource);
 	const accountId = presentTrimmed(auth?.accountId);
@@ -264,6 +265,7 @@ function readOpenAICodexAuthStatus(): JsonRecord {
 		expired: typeof expiresAt === "number" ? expiresAt <= Date.now() : undefined,
 		installationIdPresent: Boolean(installationId),
 		clientVersion,
+		authMode,
 		lastUsed: state.lastUsedProvider === DEFAULT_CODEVIBE_PROVIDER_ID,
 		settingsPath: manager.getFilePath(),
 		updatedAt: entry?.updatedAt,
