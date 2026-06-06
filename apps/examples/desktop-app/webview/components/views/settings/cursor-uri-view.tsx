@@ -3,6 +3,7 @@
 import {
 	AlertTriangle,
 	CheckCircle2,
+	Database,
 	Loader2,
 	Play,
 	Search,
@@ -21,6 +22,7 @@ import {
 } from "@/hooks/chat-session/constants";
 import {
 	desktopClient,
+	type CursorAutomationIngestResponse,
 	type CursorUriLaunchResponse,
 	type CursorUriPreviewResponse,
 } from "@/lib/desktop-client";
@@ -67,6 +69,17 @@ function isLaunchablePreview(preview: CursorUriPreviewResponse | undefined) {
 	);
 }
 
+function isAutomationIngestPreview(
+	preview: CursorUriPreviewResponse | undefined,
+) {
+	return (
+		preview?.handled === true &&
+		previewString(preview, "route") === "automation-ingest" &&
+		preview.requiresConfirmation === true &&
+		preview.valid !== false
+	);
+}
+
 function JsonBlock({ value }: { value: unknown }) {
 	if (!value) {
 		return null;
@@ -82,9 +95,13 @@ export function CursorUriView() {
 	const [uri, setUri] = useState("");
 	const [preview, setPreview] = useState<CursorUriPreviewResponse | undefined>();
 	const [launch, setLaunch] = useState<CursorUriLaunchResponse | undefined>();
+	const [ingest, setIngest] = useState<
+		CursorAutomationIngestResponse | undefined
+	>();
 	const [error, setError] = useState<string | null>(null);
 	const [previewing, setPreviewing] = useState(false);
 	const [launching, setLaunching] = useState(false);
+	const [ingesting, setIngesting] = useState(false);
 
 	const taskPrompt = previewString(preview, "taskPrompt");
 	const route = previewString(preview, "route");
@@ -98,6 +115,7 @@ export function CursorUriView() {
 		[preview],
 	);
 	const canLaunch = isLaunchablePreview(preview);
+	const canIngest = isAutomationIngestPreview(preview);
 
 	const runPreview = async () => {
 		const trimmed = uri.trim();
@@ -105,11 +123,13 @@ export function CursorUriView() {
 			setError("URI is required.");
 			setPreview(undefined);
 			setLaunch(undefined);
+			setIngest(undefined);
 			return;
 		}
 		setPreviewing(true);
 		setError(null);
 		setLaunch(undefined);
+		setIngest(undefined);
 		try {
 			const result = await desktopClient.previewCursorUri({ uri: trimmed });
 			setPreview(result);
@@ -132,6 +152,7 @@ export function CursorUriView() {
 		}
 		setLaunching(true);
 		setError(null);
+		setIngest(undefined);
 		try {
 			const result = await desktopClient.launchCursorUri({
 				uri: trimmed,
@@ -150,6 +171,29 @@ export function CursorUriView() {
 			);
 		} finally {
 			setLaunching(false);
+		}
+	};
+
+	const runIngest = async () => {
+		const trimmed = uri.trim();
+		if (!trimmed || !canIngest) {
+			return;
+		}
+		setIngesting(true);
+		setError(null);
+		setLaunch(undefined);
+		try {
+			const result = await desktopClient.ingestCursorAutomation({
+				uri: trimmed,
+				confirmed: true,
+			});
+			setIngest(result);
+		} catch (ingestError) {
+			setError(
+				ingestError instanceof Error ? ingestError.message : String(ingestError),
+			);
+		} finally {
+			setIngesting(false);
 		}
 	};
 
@@ -177,7 +221,7 @@ export function CursorUriView() {
 					</div>
 					<div className="flex flex-wrap gap-2">
 						<Button
-							disabled={previewing || launching}
+							disabled={previewing || launching || ingesting}
 							onClick={() => void runPreview()}
 							variant="outline"
 						>
@@ -189,7 +233,7 @@ export function CursorUriView() {
 							Preview
 						</Button>
 						<Button
-							disabled={!canLaunch || previewing || launching}
+							disabled={!canLaunch || previewing || launching || ingesting}
 							onClick={() => void runLaunch()}
 						>
 							{launching ? (
@@ -198,6 +242,18 @@ export function CursorUriView() {
 								<Play className="size-4" />
 							)}
 							Launch
+						</Button>
+						<Button
+							disabled={!canIngest || previewing || launching || ingesting}
+							onClick={() => void runIngest()}
+							variant="outline"
+						>
+							{ingesting ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : (
+								<Database className="size-4" />
+							)}
+							Ingest
 						</Button>
 					</div>
 				</div>
@@ -216,6 +272,28 @@ export function CursorUriView() {
 						<AlertTitle>Queued session {launch.sessionId}</AlertTitle>
 						<AlertDescription>
 							{launch.provider}/{launch.model} | {launch.mode}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
+				{ingest ? (
+					<Alert variant={ingest.valid ? "default" : "destructive"}>
+						{ingest.valid ? (
+							<CheckCircle2 className="size-4" />
+						) : (
+							<AlertTriangle className="size-4" />
+						)}
+						<AlertTitle>
+							{ingest.ingested
+								? `Ingested ${ingest.eventCount} event(s)`
+								: "Automation ingest blocked"}
+						</AlertTitle>
+						<AlertDescription>
+							{ingest.queuedRunCount} queued run(s),{" "}
+							{ingest.rejectedCount} rejected line(s)
+							{ingest.matchedSpecIds.length > 0
+								? ` | specs: ${ingest.matchedSpecIds.join(", ")}`
+								: ""}
 						</AlertDescription>
 					</Alert>
 				) : null}

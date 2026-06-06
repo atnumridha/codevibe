@@ -112,6 +112,26 @@ export type CursorUriLaunchResponse = Record<string, unknown> & {
 	preview?: CursorUriPreviewResponse;
 };
 
+export type CursorAutomationIngestInput = CursorUriPreviewInput & {
+	confirmed: true;
+};
+
+export type CursorAutomationIngestResponse = Record<string, unknown> & {
+	handled: true;
+	route: "automation-ingest";
+	confirmed: boolean;
+	ingested: boolean;
+	valid: boolean;
+	strict: boolean;
+	strictFailed: boolean;
+	eventCount: number;
+	rejectedCount: number;
+	queuedRunCount: number;
+	duplicateCount: number;
+	matchedSpecIds: string[];
+	workspaceRoot: string;
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 const RECONNECT_BASE_DELAY_MS = 400;
 const RECONNECT_MAX_DELAY_MS = 4_000;
@@ -337,6 +357,23 @@ class DesktopClient {
 			...(input.mode ? { mode: input.mode } : {}),
 			...(input.cwd ? { cwd: input.cwd } : {}),
 		});
+	}
+
+	async ingestCursorAutomation(
+		input: CursorAutomationIngestInput,
+	): Promise<CursorAutomationIngestResponse> {
+		return await this.invoke<CursorAutomationIngestResponse>(
+			"cursor_automation_ingest",
+			{
+				uri: input.uri,
+				confirmed: input.confirmed,
+				...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+				...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+				...(input.maxCommandFileBytes !== undefined
+					? { maxCommandFileBytes: input.maxCommandFileBytes }
+					: {}),
+			},
+		);
 	}
 
 	subscribe(eventName: string, handler: EventHandler): () => void {

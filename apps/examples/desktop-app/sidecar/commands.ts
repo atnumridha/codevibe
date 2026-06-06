@@ -9,7 +9,9 @@ import {
 } from "node:fs";
 import { basename, dirname, extname, join } from "node:path";
 import type {
+	ClineAutomationNdjsonIngressResult,
 	ClineAccountActionRequest,
+	CursorAutomationIngestRouteRequest,
 	ProviderCapability,
 	ProviderClient,
 	ProviderProtocol,
@@ -17,7 +19,9 @@ import type {
 } from "@cline/core";
 import {
 	addLocalProvider,
+	buildCursorAutomationIngestRouteRequest,
 	ClineAccountService,
+	ClineCore,
 	createLocalHubScheduleRuntimeHandlers,
 	createUserInstructionConfigService,
 	discoverPluginModulePaths,
@@ -98,6 +102,27 @@ type CursorUriLaunchResponse = {
 	mode: "plan";
 	queued: true;
 	preview: CursorUriPreviewResponse;
+};
+
+type CursorAutomationIngestResponse = {
+	handled: true;
+	route: "automation-ingest";
+	confirmed: boolean;
+	ingested: boolean;
+	valid: boolean;
+	strict: boolean;
+	strictFailed: boolean;
+	eventCount: number;
+	rejectedCount: number;
+	queuedRunCount: number;
+	duplicateCount: number;
+	matchedSpecIds: string[];
+	options: CursorAutomationIngestRouteRequest["options"];
+	paramKeys: string[];
+	configKeys: string[];
+	events: CursorAutomationIngestRouteRequest["validation"]["events"];
+	rejected: CursorAutomationIngestRouteRequest["validation"]["rejected"];
+	workspaceRoot: string;
 };
 
 function readProviderSettingsUpdate(
@@ -600,6 +625,108 @@ async function handleCursorUriLaunchCommand(
 	};
 }
 
+function summarizeAutomationIngestResult(
+	result: ClineAutomationNdjsonIngressResult | undefined,
+): Pick<
+	CursorAutomationIngestResponse,
+	"queuedRunCount" | "duplicateCount" | "matchedSpecIds"
+> {
+	if (!result) {
+		return {
+			queuedRunCount: 0,
+			duplicateCount: 0,
+			matchedSpecIds: [],
+		};
+	}
+	const matchedSpecIds = new Set<string>();
+	let queuedRunCount = 0;
+	let duplicateCount = 0;
+	for (const entry of result.results) {
+		if (entry.duplicate) {
+			duplicateCount += 1;
+		}
+		queuedRunCount += entry.queuedRuns.length;
+		for (const specId of entry.matchedSpecIds) {
+			matchedSpecIds.add(specId);
+		}
+	}
+	return {
+		queuedRunCount,
+		duplicateCount,
+		matchedSpecIds: [...matchedSpecIds].sort(),
+	};
+}
+
+function buildCursorAutomationIngestResponse(
+	request: CursorAutomationIngestRouteRequest,
+	input: {
+		confirmed: boolean;
+		workspaceRoot: string;
+		result?: ClineAutomationNdjsonIngressResult;
+	},
+): CursorAutomationIngestResponse {
+	const strictFailed = request.strict && request.validation.rejectedCount > 0;
+	const valid = request.validation.eventCount > 0 && !strictFailed;
+	const resultSummary = summarizeAutomationIngestResult(input.result);
+	return {
+		handled: true,
+		route: "automation-ingest",
+		confirmed: input.confirmed,
+		ingested: Boolean(input.result),
+		valid,
+		strict: request.strict,
+		strictFailed,
+		eventCount: request.validation.eventCount,
+		rejectedCount: request.validation.rejectedCount,
+		queuedRunCount: resultSummary.queuedRunCount,
+		duplicateCount: resultSummary.duplicateCount,
+		matchedSpecIds: resultSummary.matchedSpecIds,
+		options: request.options,
+		paramKeys: request.paramKeys,
+		configKeys: request.configKeys,
+		events: request.validation.events,
+		rejected: request.validation.rejected,
+		workspaceRoot: input.workspaceRoot,
+	};
+}
+
+async function handleCursorAutomationIngestCommand(
+	ctx: SidecarContext,
+	args?: Record<string, unknown>,
+): Promise<CursorAutomationIngestResponse> {
+	const input = readCursorUriPreviewRequest(ctx, args);
+	const request = buildCursorAutomationIngestRouteRequest(input.uri);
+	const workspaceRoot = input.workspaceRoot ?? ctx.workspaceRoot;
+	const preview = buildCursorAutomationIngestResponse(request, {
+		confirmed: args?.confirmed === true,
+		workspaceRoot,
+	});
+	if (!preview.confirmed || !preview.valid) {
+		return preview;
+	}
+
+	const core = await ClineCore.create({
+		clientName: "code-desktop-cursor-automation-ingest",
+		backendMode: "local",
+		automation: {
+			workspaceRoot,
+		},
+	});
+	try {
+		const result = core.automation.ingestNdjson(
+			request.ndjson,
+			request.options,
+		);
+		return buildCursorAutomationIngestResponse(request, {
+			confirmed: true,
+			workspaceRoot,
+			result,
+		});
+	} finally {
+		await core.dispose("cursor_automation_ingest_done");
+	}
+}
+
 async function handleRoutineScheduleCommand(
 	command: string,
 	args?: Record<string, unknown>,
@@ -996,6 +1123,9 @@ export async function handleCommand(
 	}
 	if (command === "cursor_uri_launch") {
 		return await handleCursorUriLaunchCommand(ctx, args);
+	}
+	if (command === "cursor_automation_ingest") {
+		return await handleCursorAutomationIngestCommand(ctx, args);
 	}
 	if (command === "get_chat_ws_endpoint") {
 		return "";

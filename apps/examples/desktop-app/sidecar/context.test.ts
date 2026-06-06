@@ -394,4 +394,143 @@ describe("Code sidecar runtime capabilities", () => {
 		).rejects.toThrow("not launchable");
 		expect(startMock).not.toHaveBeenCalled();
 	});
+
+	it("previews desktop Cursor automation ingest without storing events", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const ctx = createSidecarContext("/workspace/project");
+		const ndjson = JSON.stringify({
+			eventId: "evt-1",
+			eventType: "ci.completed",
+			source: "cursor",
+		});
+		const result = await handleCommand(ctx, "cursor_automation_ingest", {
+			uri: `vscode://cline.cline/automation/ingest?${new URLSearchParams({
+				ndjson,
+			}).toString()}`,
+		});
+
+		expect(createCoreMock).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			handled: true,
+			route: "automation-ingest",
+			confirmed: false,
+			ingested: false,
+			valid: true,
+			eventCount: 1,
+			rejectedCount: 0,
+			workspaceRoot: "/workspace/project",
+		});
+	});
+
+	it("blocks confirmed desktop Cursor automation ingest in strict mode when lines are rejected", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const ctx = createSidecarContext("/workspace/project");
+		const ndjson = [
+			JSON.stringify({
+				eventId: "evt-1",
+				eventType: "ci.completed",
+				source: "cursor",
+			}),
+			"{broken",
+		].join("\n");
+		const result = await handleCommand(ctx, "cursor_automation_ingest", {
+			uri: `vscode://cline.cline/automation/ingest?${new URLSearchParams({
+				ndjson,
+				strict: "true",
+			}).toString()}`,
+			confirmed: true,
+		});
+
+		expect(createCoreMock).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			confirmed: true,
+			ingested: false,
+			valid: false,
+			strict: true,
+			strictFailed: true,
+			eventCount: 1,
+			rejectedCount: 1,
+		});
+	});
+
+	it("ingests confirmed desktop Cursor automation events through ClineCore", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const ingestNdjsonMock = vi.fn(() => ({
+			events: [],
+			rejected: [],
+			results: [
+				{
+					event: { eventId: "evt-1" },
+					duplicate: false,
+					matchedSpecIds: ["spec-review", "spec-ci"],
+					queuedRuns: [{ runId: "run-1" }, { runId: "run-2" }],
+					suppressions: [],
+				},
+				{
+					event: { eventId: "evt-2" },
+					duplicate: true,
+					matchedSpecIds: ["spec-ci"],
+					queuedRuns: [],
+					suppressions: [],
+				},
+			],
+		}));
+		const disposeMock = vi.fn(async () => {});
+		createCoreMock.mockResolvedValueOnce({
+			automation: {
+				ingestNdjson: ingestNdjsonMock,
+			},
+			dispose: disposeMock,
+		});
+		const ctx = createSidecarContext("/workspace/project");
+		const ndjson = JSON.stringify({
+			eventId: "evt-1",
+			eventType: "ci.completed",
+			source: "cursor",
+			payload: { token: "do-not-return" },
+		});
+		const result = await handleCommand(ctx, "cursor_automation_ingest", {
+			uri: `vscode://cline.cline/automation/ingest?${new URLSearchParams({
+				ndjson,
+				defaultSource: "cursor",
+			}).toString()}`,
+			confirmed: true,
+		});
+
+		expect(createCoreMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				clientName: "code-desktop-cursor-automation-ingest",
+				backendMode: "local",
+				automation: {
+					workspaceRoot: "/workspace/project",
+				},
+			}),
+		);
+		expect(ingestNdjsonMock).toHaveBeenCalledWith(
+			ndjson,
+			expect.objectContaining({
+				defaultSource: "cursor",
+			}),
+		);
+		expect(disposeMock).toHaveBeenCalledWith(
+			"cursor_automation_ingest_done",
+		);
+		expect(result).toMatchObject({
+			confirmed: true,
+			ingested: true,
+			valid: true,
+			eventCount: 1,
+			rejectedCount: 0,
+			queuedRunCount: 2,
+			duplicateCount: 1,
+			matchedSpecIds: ["spec-ci", "spec-review"],
+		});
+		expect(JSON.stringify(result)).not.toContain("do-not-return");
+	});
 });
