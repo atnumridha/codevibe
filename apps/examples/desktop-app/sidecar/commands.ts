@@ -11,6 +11,7 @@ import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import type {
 	ClineAutomationNdjsonIngressResult,
 	ClineAccountActionRequest,
+	CursorAgentTaskRouteRequest,
 	CursorAutomationIngestRouteRequest,
 	CursorMcpInstallRequest,
 	CursorPluginAddRouteRequest,
@@ -22,6 +23,7 @@ import type {
 } from "@cline/core";
 import {
 	addLocalProvider,
+	buildCursorAgentTaskRouteRequest,
 	buildCursorAutomationIngestRouteRequest,
 	buildCursorMcpInstallRequest,
 	buildCursorPluginAddRouteRequest,
@@ -183,6 +185,27 @@ type CursorPluginAddResponse = {
 	installPath?: string;
 	entryCount?: number;
 	entryPaths?: string[];
+};
+
+type CursorGitActionResponse = {
+	handled: true;
+	route: "git";
+	kind: CursorAgentTaskRouteRequest["kind"];
+	confirmed: boolean;
+	actionable: boolean;
+	executed: boolean;
+	workspaceRoot: string;
+	paramKeys: string[];
+	command?: string[];
+	target?: string;
+	branch?: string;
+	base?: string;
+	checkout?: boolean;
+	message?: string;
+	commitHash?: string;
+	currentBranch?: string;
+	dirty: boolean;
+	reason?: string;
 };
 
 function readProviderSettingsUpdate(
@@ -424,6 +447,87 @@ function buildCursorPluginAddResponse(
 				}
 			: {}),
 	};
+}
+
+function getCursorRouteString(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): string | undefined {
+	const value = params[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function getCursorRouteBoolean(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): boolean {
+	const value = getCursorRouteString(params, key)?.toLowerCase();
+	return value === "true" || value === "1" || value === "yes";
+}
+
+function splitCursorGitFiles(value: string | undefined): string[] {
+	if (!value) {
+		return [];
+	}
+	return value
+		.split(",")
+		.map((entry) => entry.trim())
+		.filter(Boolean);
+}
+
+function assertSafeGitPathspecs(files: string[]): void {
+	for (const file of files) {
+		if (
+			file.includes("\0") ||
+			file.startsWith("/") ||
+			file.split(/[\\/]+/).includes("..")
+		) {
+			throw new Error(`unsafe git pathspec: ${file}`);
+		}
+	}
+}
+
+function readGitStatusPorcelain(cwd: string): string {
+	try {
+		return execFileSync("git", ["status", "--porcelain"], {
+			cwd,
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		throw new Error(`failed to read git status: ${message}`);
+	}
+}
+
+function hasStagedGitChanges(cwd: string): boolean {
+	const staged = execFileSync("git", ["diff", "--cached", "--name-only"], {
+		cwd,
+		encoding: "utf8",
+		stdio: ["ignore", "pipe", "pipe"],
+	}).trim();
+	return staged.length > 0;
+}
+
+function readGitCurrentBranch(cwd: string): string | undefined {
+	try {
+		const branch = execFileSync("git", ["branch", "--show-current"], {
+			cwd,
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "pipe"],
+		}).trim();
+		return branch || undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+function getGitCommandOutput(args: string[], cwd: string): string {
+	return execFileSync("git", args, {
+		cwd,
+		encoding: "utf8",
+		stdio: ["ignore", "pipe", "pipe"],
+	}).trim();
 }
 
 function titleFromCursorRuleFilename(filename: string): string {
@@ -1063,6 +1167,190 @@ async function handleCursorPluginAddCommand(
 	});
 }
 
+async function handleCursorGitActionCommand(
+	ctx: SidecarContext,
+	args?: Record<string, unknown>,
+): Promise<CursorGitActionResponse> {
+	const input = readCursorUriPreviewRequest(ctx, args);
+	const workspaceRoot = input.workspaceRoot ?? ctx.workspaceRoot;
+	const request = buildCursorAgentTaskRouteRequest(input.uri);
+	const confirmed = args?.confirmed === true;
+	if (
+		request.kind !== "git-checkout" &&
+		request.kind !== "git-branch" &&
+		request.kind !== "git-commit"
+	) {
+		throw new Error(`cursor_git_action does not support ${request.kind}`);
+	}
+
+	const status = readGitStatusPorcelain(workspaceRoot);
+	const dirty = status.trim().length > 0;
+	const baseResponse = {
+		handled: true as const,
+		route: "git" as const,
+		kind: request.kind,
+		confirmed,
+		workspaceRoot,
+		paramKeys: Object.keys(request.params).sort(),
+		currentBranch: readGitCurrentBranch(workspaceRoot),
+		dirty,
+	};
+
+	if (request.kind === "git-checkout") {
+		const target =
+			getCursorRouteString(request.params, "branch") ??
+			getCursorRouteString(request.params, "ref") ??
+			getCursorRouteString(request.params, "target") ??
+			"";
+		const command = ["git", "checkout", target];
+		if (dirty) {
+			return {
+				...baseResponse,
+				actionable: false,
+				executed: false,
+				target,
+				command,
+				reason: "Working tree has uncommitted changes; checkout needs manual review.",
+			};
+		}
+		if (!confirmed) {
+			return {
+				...baseResponse,
+				actionable: true,
+				executed: false,
+				target,
+				command,
+			};
+		}
+		getGitCommandOutput(["checkout", target], workspaceRoot);
+		return {
+			...baseResponse,
+			actionable: true,
+			executed: true,
+			target,
+			command,
+			currentBranch: readGitCurrentBranch(workspaceRoot),
+		};
+	}
+
+	if (request.kind === "git-branch") {
+		const branch =
+			getCursorRouteString(request.params, "name") ??
+			getCursorRouteString(request.params, "branch") ??
+			"";
+		const base =
+			getCursorRouteString(request.params, "baseBranch") ??
+			getCursorRouteString(request.params, "base");
+		const checkout = getCursorRouteBoolean(request.params, "checkout");
+		const command = checkout
+			? ["git", "checkout", "-b", branch, ...(base ? [base] : [])]
+			: ["git", "branch", branch, ...(base ? [base] : [])];
+		if (checkout && dirty) {
+			return {
+				...baseResponse,
+				actionable: false,
+				executed: false,
+				branch,
+				...(base ? { base } : {}),
+				checkout,
+				command,
+				reason: "Working tree has uncommitted changes; branch checkout needs manual review.",
+			};
+		}
+		if (!confirmed) {
+			return {
+				...baseResponse,
+				actionable: true,
+				executed: false,
+				branch,
+				...(base ? { base } : {}),
+				checkout,
+				command,
+			};
+		}
+		getGitCommandOutput(command.slice(1), workspaceRoot);
+		return {
+			...baseResponse,
+			actionable: true,
+			executed: true,
+			branch,
+			...(base ? { base } : {}),
+			checkout,
+			command,
+			currentBranch: readGitCurrentBranch(workspaceRoot),
+		};
+	}
+
+	const message =
+		getCursorRouteString(request.params, "message") ??
+		getCursorRouteString(request.params, "summary");
+	const files = splitCursorGitFiles(getCursorRouteString(request.params, "files"));
+	const all = getCursorRouteBoolean(request.params, "all");
+	const amend = getCursorRouteBoolean(request.params, "amend");
+	const push = getCursorRouteBoolean(request.params, "push");
+	const command = [
+		"git",
+		"commit",
+		...(amend ? ["--amend"] : []),
+		...(message ? ["-m", message] : []),
+	];
+	if (push) {
+		return {
+			...baseResponse,
+			actionable: false,
+			executed: false,
+			...(message ? { message } : {}),
+			command,
+			reason: "Direct push from Cursor git commit deeplinks requires separate manual confirmation.",
+		};
+	}
+	if (!message) {
+		return {
+			...baseResponse,
+			actionable: false,
+			executed: false,
+			command,
+			reason: "Git commit deeplink requires a message or summary before committing.",
+		};
+	}
+	assertSafeGitPathspecs(files);
+	if (!confirmed) {
+		return {
+			...baseResponse,
+			actionable: true,
+			executed: false,
+			message,
+			command,
+		};
+	}
+	if (all) {
+		getGitCommandOutput(["add", "-A"], workspaceRoot);
+	} else if (files.length > 0) {
+		getGitCommandOutput(["add", "--", ...files], workspaceRoot);
+	}
+	if (!hasStagedGitChanges(workspaceRoot)) {
+		return {
+			...baseResponse,
+			actionable: false,
+			executed: false,
+			message,
+			command,
+			reason: "No staged changes are available to commit.",
+		};
+	}
+	getGitCommandOutput(command.slice(1), workspaceRoot);
+	const commitHash = getGitCommandOutput(["rev-parse", "--short", "HEAD"], workspaceRoot);
+	return {
+		...baseResponse,
+		actionable: true,
+		executed: true,
+		message,
+		command,
+		commitHash,
+		currentBranch: readGitCurrentBranch(workspaceRoot),
+	};
+}
+
 async function handleRoutineScheduleCommand(
 	command: string,
 	args?: Record<string, unknown>,
@@ -1471,6 +1759,9 @@ export async function handleCommand(
 	}
 	if (command === "cursor_plugin_add") {
 		return await handleCursorPluginAddCommand(ctx, args);
+	}
+	if (command === "cursor_git_action") {
+		return await handleCursorGitActionCommand(ctx, args);
 	}
 	if (command === "get_chat_ws_endpoint") {
 		return "";

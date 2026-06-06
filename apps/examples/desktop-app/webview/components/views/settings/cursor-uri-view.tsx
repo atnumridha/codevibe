@@ -5,6 +5,7 @@ import {
 	CheckCircle2,
 	Database,
 	FileText,
+	GitBranch,
 	Loader2,
 	Play,
 	Plug,
@@ -27,6 +28,7 @@ import {
 import {
 	desktopClient,
 	type CursorAutomationIngestResponse,
+	type CursorGitActionResponse,
 	type CursorMcpInstallResponse,
 	type CursorPluginAddResponse,
 	type CursorRuleOpenResponse,
@@ -129,6 +131,17 @@ function isPluginAddPreview(preview: CursorUriPreviewResponse | undefined) {
 	);
 }
 
+function isGitActionPreview(preview: CursorUriPreviewResponse | undefined) {
+	const route = previewString(preview, "route");
+	return (
+		preview?.handled === true &&
+		(route === "git-checkout" ||
+			route === "git-branch" ||
+			route === "git-commit") &&
+		preview.requiresConfirmation === true
+	);
+}
+
 function JsonBlock({ value }: { value: unknown }) {
 	if (!value) {
 		return null;
@@ -160,6 +173,9 @@ export function CursorUriView({
 	const [pluginAdd, setPluginAdd] = useState<
 		CursorPluginAddResponse | undefined
 	>();
+	const [gitAction, setGitAction] = useState<
+		CursorGitActionResponse | undefined
+	>();
 	const [error, setError] = useState<string | null>(null);
 	const [previewing, setPreviewing] = useState(false);
 	const [launching, setLaunching] = useState(false);
@@ -167,6 +183,7 @@ export function CursorUriView({
 	const [mcpInstalling, setMcpInstalling] = useState(false);
 	const [ruleOpening, setRuleOpening] = useState(false);
 	const [pluginAdding, setPluginAdding] = useState(false);
+	const [gitRunning, setGitRunning] = useState(false);
 
 	const taskPrompt = previewString(preview, "taskPrompt");
 	const route = previewString(preview, "route");
@@ -188,19 +205,22 @@ export function CursorUriView({
 	const canOpenSettings = isSettingsPreview(preview) && Boolean(onOpenSettings);
 	const canOpenRule = isRuleFilePreview(preview);
 	const canAddPlugin = isPluginAddPreview(preview);
+	const canRunGit = isGitActionPreview(preview);
 	const hasActionableNonPromptPreview =
 		canIngest ||
 		canInstallMcp ||
 		canOpenSettings ||
 		canOpenRule ||
-		canAddPlugin;
+		canAddPlugin ||
+		canRunGit;
 	const isBusy =
 		previewing ||
 		launching ||
 		ingesting ||
 		mcpInstalling ||
 		ruleOpening ||
-		pluginAdding;
+		pluginAdding ||
+		gitRunning;
 
 	const runPreviewForUri = useCallback(async (inputUri: string) => {
 		const trimmed = inputUri.trim();
@@ -212,6 +232,7 @@ export function CursorUriView({
 			setMcpInstall(undefined);
 			setRuleOpen(undefined);
 			setPluginAdd(undefined);
+			setGitAction(undefined);
 			return;
 		}
 		setUri(trimmed);
@@ -222,6 +243,7 @@ export function CursorUriView({
 		setMcpInstall(undefined);
 		setRuleOpen(undefined);
 		setPluginAdd(undefined);
+		setGitAction(undefined);
 		try {
 			const result = await desktopClient.previewCursorUri({ uri: trimmed });
 			setPreview(result);
@@ -259,6 +281,7 @@ export function CursorUriView({
 		setMcpInstall(undefined);
 		setRuleOpen(undefined);
 		setPluginAdd(undefined);
+		setGitAction(undefined);
 		try {
 			const result = await desktopClient.launchCursorUri({
 				uri: trimmed,
@@ -291,6 +314,7 @@ export function CursorUriView({
 		setMcpInstall(undefined);
 		setRuleOpen(undefined);
 		setPluginAdd(undefined);
+		setGitAction(undefined);
 		try {
 			const result = await desktopClient.ingestCursorAutomation({
 				uri: trimmed,
@@ -317,6 +341,7 @@ export function CursorUriView({
 		setIngest(undefined);
 		setRuleOpen(undefined);
 		setPluginAdd(undefined);
+		setGitAction(undefined);
 		try {
 			const result = await desktopClient.installCursorMcp({
 				uri: trimmed,
@@ -345,6 +370,7 @@ export function CursorUriView({
 		setIngest(undefined);
 		setMcpInstall(undefined);
 		setPluginAdd(undefined);
+		setGitAction(undefined);
 		try {
 			const result = await desktopClient.openCursorRule({
 				uri: trimmed,
@@ -369,6 +395,7 @@ export function CursorUriView({
 		setIngest(undefined);
 		setMcpInstall(undefined);
 		setRuleOpen(undefined);
+		setGitAction(undefined);
 		try {
 			const result = await desktopClient.addCursorPlugin({
 				uri: trimmed,
@@ -379,6 +406,31 @@ export function CursorUriView({
 			setError(addError instanceof Error ? addError.message : String(addError));
 		} finally {
 			setPluginAdding(false);
+		}
+	};
+
+	const runGitAction = async () => {
+		const trimmed = uri.trim();
+		if (!trimmed || !canRunGit) {
+			return;
+		}
+		setGitRunning(true);
+		setError(null);
+		setLaunch(undefined);
+		setIngest(undefined);
+		setMcpInstall(undefined);
+		setRuleOpen(undefined);
+		setPluginAdd(undefined);
+		try {
+			const result = await desktopClient.runCursorGitAction({
+				uri: trimmed,
+				confirmed: true,
+			});
+			setGitAction(result);
+		} catch (gitError) {
+			setError(gitError instanceof Error ? gitError.message : String(gitError));
+		} finally {
+			setGitRunning(false);
 		}
 	};
 
@@ -405,7 +457,8 @@ export function CursorUriView({
 							canInstallMcp ||
 							canOpenSettings ||
 							canOpenRule ||
-							canAddPlugin
+							canAddPlugin ||
+							canRunGit
 								? "default"
 								: "outline"
 						}
@@ -414,7 +467,7 @@ export function CursorUriView({
 							? "Launchable"
 							: canInstallMcp
 								? "Installable"
-								: canOpenRule || canOpenSettings || canAddPlugin
+								: canOpenRule || canOpenSettings || canAddPlugin || canRunGit
 									? "Openable"
 									: "Preview"}
 					</Badge>
@@ -509,6 +562,18 @@ export function CursorUriView({
 								<Puzzle className="size-4" />
 							)}
 							Add Plugin
+						</Button>
+						<Button
+							disabled={!canRunGit || isBusy}
+							onClick={() => void runGitAction()}
+							variant="outline"
+						>
+							{gitRunning ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : (
+								<GitBranch className="size-4" />
+							)}
+							Run Git
 						</Button>
 					</div>
 				</div>
@@ -609,6 +674,30 @@ export function CursorUriView({
 							{pluginAdd.installed
 								? `${pluginAdd.entryCount ?? 0} entry file(s)`
 								: (pluginAdd.reason ?? pluginAdd.detail ?? "Review required.")}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
+				{gitAction ? (
+					<Alert variant={gitAction.executed ? "default" : "destructive"}>
+						{gitAction.executed ? (
+							<CheckCircle2 className="size-4" />
+						) : (
+							<AlertTriangle className="size-4" />
+						)}
+						<AlertTitle>
+							{gitAction.executed
+								? `Ran ${gitAction.kind}`
+								: "Git action blocked"}
+						</AlertTitle>
+						<AlertDescription>
+							{gitAction.executed
+								? (gitAction.commitHash ??
+									gitAction.currentBranch ??
+									gitAction.target ??
+									gitAction.branch ??
+									"done")
+								: (gitAction.reason ?? "Review the repository state first.")}
 						</AlertDescription>
 					</Alert>
 				) : null}

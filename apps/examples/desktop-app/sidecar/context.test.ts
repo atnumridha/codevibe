@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -46,6 +47,27 @@ function encodeCursorConfig(config: Record<string, unknown>): string {
 		.replace(/\+/g, "-")
 		.replace(/\//g, "_")
 		.replace(/=+$/g, "");
+}
+
+function runGit(cwd: string, args: string[]): string {
+	return execFileSync("git", args, {
+		cwd,
+		encoding: "utf8",
+		stdio: ["ignore", "pipe", "pipe"],
+	}).trim();
+}
+
+async function createGitWorkspace(tempDirs: string[]): Promise<string> {
+	const workspace = await mkdtemp(join(tmpdir(), "codevibe-git-action-"));
+	tempDirs.push(workspace);
+	runGit(workspace, ["init"]);
+	runGit(workspace, ["checkout", "-B", "master"]);
+	runGit(workspace, ["config", "user.email", "codevibe@example.invalid"]);
+	runGit(workspace, ["config", "user.name", "CodeVibe Tests"]);
+	await writeFile(join(workspace, "README.md"), "hello\n");
+	runGit(workspace, ["add", "README.md"]);
+	runGit(workspace, ["commit", "-m", "initial"]);
+	return workspace;
 }
 
 describe("Code sidecar runtime capabilities", () => {
@@ -594,6 +616,133 @@ describe("Code sidecar runtime capabilities", () => {
 			configKeys: ["source", "token"],
 		});
 		expect(JSON.stringify(result)).not.toContain("secret-value");
+	});
+
+	it("runs confirmed clean Cursor git checkout actions", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		runGit(workspace, ["branch", "feature"]);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_git_action", {
+			uri: "vscode://cline.cline/git/checkout?branch=feature",
+			confirmed: true,
+		});
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "git",
+			kind: "git-checkout",
+			confirmed: true,
+			actionable: true,
+			executed: true,
+			target: "feature",
+			currentBranch: "feature",
+			dirty: false,
+		});
+		expect(runGit(workspace, ["branch", "--show-current"])).toBe("feature");
+	});
+
+	it("blocks Cursor git checkout actions when the worktree is dirty", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		runGit(workspace, ["branch", "feature"]);
+		await writeFile(join(workspace, "README.md"), "dirty\n");
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_git_action", {
+			uri: "vscode://cline.cline/git/checkout?branch=feature",
+			confirmed: true,
+		});
+
+		expect(result).toMatchObject({
+			kind: "git-checkout",
+			actionable: false,
+			executed: false,
+			target: "feature",
+			currentBranch: "master",
+			dirty: true,
+		});
+		expect(String((result as { reason?: string }).reason)).toContain(
+			"uncommitted changes",
+		);
+		expect(runGit(workspace, ["branch", "--show-current"])).toBe("master");
+	});
+
+	it("runs confirmed Cursor git branch actions", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_git_action", {
+			uri: "vscode://cline.cline/git/branch?name=work&checkout=true",
+			confirmed: true,
+		});
+
+		expect(result).toMatchObject({
+			kind: "git-branch",
+			actionable: true,
+			executed: true,
+			branch: "work",
+			checkout: true,
+			currentBranch: "work",
+		});
+		expect(runGit(workspace, ["branch", "--show-current"])).toBe("work");
+	});
+
+	it("runs confirmed Cursor git commit actions without pushing", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		await writeFile(join(workspace, "README.md"), "updated\n");
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_git_action", {
+			uri: "vscode://cline.cline/git/commit?message=Update%20readme&all=true",
+			confirmed: true,
+		});
+
+		expect(result).toMatchObject({
+			kind: "git-commit",
+			actionable: true,
+			executed: true,
+			message: "Update readme",
+			dirty: true,
+		});
+		expect(typeof (result as { commitHash?: unknown }).commitHash).toBe("string");
+		expect(runGit(workspace, ["log", "-1", "--pretty=%s"])).toBe(
+			"Update readme",
+		);
+	});
+
+	it("blocks direct push requests from Cursor git commit actions", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_git_action", {
+			uri: "vscode://cline.cline/git/commit?message=Ship&push=true",
+			confirmed: true,
+		});
+
+		expect(result).toMatchObject({
+			kind: "git-commit",
+			actionable: false,
+			executed: false,
+			message: "Ship",
+		});
+		expect(String((result as { reason?: string }).reason)).toContain(
+			"separate manual confirmation",
+		);
 	});
 
 	it("requires confirmation before launching Cursor deeplinks", async () => {

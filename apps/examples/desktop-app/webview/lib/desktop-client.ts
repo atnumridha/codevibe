@@ -199,6 +199,31 @@ export type CursorPluginAddResponse = Record<string, unknown> & {
 	entryPaths?: string[];
 };
 
+export type CursorGitActionInput = CursorUriPreviewInput & {
+	confirmed: true;
+};
+
+export type CursorGitActionResponse = Record<string, unknown> & {
+	handled: true;
+	route: "git";
+	kind: "git-checkout" | "git-branch" | "git-commit";
+	confirmed: boolean;
+	actionable: boolean;
+	executed: boolean;
+	workspaceRoot: string;
+	paramKeys: string[];
+	command?: string[];
+	target?: string;
+	branch?: string;
+	base?: string;
+	checkout?: boolean;
+	message?: string;
+	commitHash?: string;
+	currentBranch?: string;
+	dirty: boolean;
+	reason?: string;
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 const RECONNECT_BASE_DELAY_MS = 400;
 const RECONNECT_MAX_DELAY_MS = 4_000;
@@ -479,6 +504,20 @@ class DesktopClient {
 			uri: input.uri,
 			confirmed: input.confirmed,
 			...(input.force !== undefined ? { force: input.force } : {}),
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+			...(input.maxCommandFileBytes !== undefined
+				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+		});
+	}
+
+	async runCursorGitAction(
+		input: CursorGitActionInput,
+	): Promise<CursorGitActionResponse> {
+		return await this.invoke<CursorGitActionResponse>("cursor_git_action", {
+			uri: input.uri,
+			confirmed: input.confirmed,
 			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
 			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
 			...(input.maxCommandFileBytes !== undefined
