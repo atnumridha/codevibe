@@ -298,6 +298,17 @@ async function readOptionalText(filePath: string): Promise<string | undefined> {
 	}
 }
 
+function parseOptionalCodexModelsCache(text: string | undefined): { client_version?: string } | undefined {
+	if (!text) {
+		return undefined
+	}
+	try {
+		return codexModelsCacheSchema.parse(JSON.parse(text))
+	} catch {
+		return undefined
+	}
+}
+
 export async function loadCodexHomeCredentials(options?: {
 	codexHome?: string
 	now?: () => number
@@ -317,7 +328,7 @@ export async function loadCodexHomeCredentials(options?: {
 
 	const installationId = (await readOptionalText(path.join(codexHome, "installation_id")))?.trim() || undefined
 	const modelsCacheText = await readOptionalText(path.join(codexHome, "models_cache.json"))
-	const clientVersion = modelsCacheText ? codexModelsCacheSchema.parse(JSON.parse(modelsCacheText)).client_version : undefined
+	const clientVersion = parseOptionalCodexModelsCache(modelsCacheText)?.client_version
 	const tokens = {
 		id_token: authJson.tokens.id_token,
 		access_token: accessToken,

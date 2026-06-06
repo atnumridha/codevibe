@@ -138,6 +138,36 @@ describe("OpenAI Codex OAuth local profile support", () => {
 		})
 	})
 
+	it("loads Codex home credentials when optional models cache is malformed", async () => {
+		const codexHome = join(tmpdir(), `codevibe-codex-home-malformed-cache-${Date.now()}`)
+		await mkdir(codexHome, { recursive: true })
+		const accessToken = jwt({
+			exp: 2_000,
+			email: "access@example.com",
+		})
+
+		await writeFile(
+			join(codexHome, "auth.json"),
+			JSON.stringify({
+				tokens: {
+					access_token: accessToken,
+					refresh_token: "refresh-secret",
+				},
+			}),
+		)
+		await writeFile(join(codexHome, "models_cache.json"), "{not json")
+
+		const credentials = await loadCodexHomeCredentials({ codexHome })
+
+		expect(credentials).to.deep.include({
+			type: "openai-codex",
+			access_token: accessToken,
+			refresh_token: "refresh-secret",
+			tokenSource: "codex-home",
+		})
+		expect(credentials?.clientVersion).to.equal(undefined)
+	})
+
 	it("prefers access-token ChatGPT account claims over id-token organizations", async () => {
 		const codexHome = join(tmpdir(), `codevibe-codex-home-account-${Date.now()}`)
 		await mkdir(codexHome, { recursive: true })

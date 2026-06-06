@@ -259,6 +259,38 @@ describe("auth/codex token lifecycle", () => {
 		expect(credentials?.metadata).not.toHaveProperty("idToken");
 	});
 
+	it("loads Codex home credentials when optional models cache is malformed", () => {
+		const codexHome = mkdtempSync(join(tmpdir(), "cline-codex-home-"));
+		tempDirs.push(codexHome);
+		const accessToken = createJwt({
+			exp: 2_000,
+			email: "codex@example.com",
+		});
+		writeFileSync(
+			join(codexHome, "auth.json"),
+			JSON.stringify({
+				tokens: {
+					access_token: accessToken,
+					refresh_token: "refresh-home",
+				},
+			}),
+			"utf8",
+		);
+		writeFileSync(join(codexHome, "models_cache.json"), "{not json", "utf8");
+
+		const credentials = loadOpenAICodexHomeCredentialsSync({ codexHome });
+
+		expect(credentials).toMatchObject({
+			access: accessToken,
+			refresh: "refresh-home",
+			metadata: {
+				provider: "openai-codex",
+				tokenSource: "codex-home",
+			},
+		});
+		expect(credentials?.metadata).not.toHaveProperty("clientVersion");
+	});
+
 	it("refreshOpenAICodexToken throws when response is structurally invalid", async () => {
 		vi.stubGlobal(
 			"fetch",

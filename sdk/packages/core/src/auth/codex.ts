@@ -367,6 +367,17 @@ function parseJsonObject<T>(text: string): T {
 	return parsed as T;
 }
 
+function parseOptionalJsonObject<T>(text: string | undefined): T | undefined {
+	if (!text) {
+		return undefined;
+	}
+	try {
+		return parseJsonObject<T>(text);
+	} catch {
+		return undefined;
+	}
+}
+
 function getJwtExpiryMs(accessToken: string, now: () => number): number {
 	const payload = decodeJwtPayload(accessToken) as { exp?: unknown } | null;
 	return typeof payload?.exp === "number" && Number.isFinite(payload.exp)
@@ -407,9 +418,8 @@ export function loadOpenAICodexHomeCredentialsSync(options?: {
 		readOptionalTextSync(join(codexHome, "installation_id"))?.trim() ||
 		undefined;
 	const modelsCacheText = readOptionalTextSync(join(codexHome, "models_cache.json"));
-	const modelsCache = modelsCacheText
-		? parseJsonObject<CodexHomeModelsCacheJson>(modelsCacheText)
-		: undefined;
+	const modelsCache =
+		parseOptionalJsonObject<CodexHomeModelsCacheJson>(modelsCacheText);
 	const clientVersion =
 		typeof modelsCache?.client_version === "string" &&
 		modelsCache.client_version.trim().length > 0
