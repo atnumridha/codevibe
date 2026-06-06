@@ -116,6 +116,16 @@ interface AutomationIngestReport {
 	rejected: CursorAutomationRejectedLineSummary[];
 }
 
+type CursorAgentTaskRouteResolution = {
+	route: string;
+	taskPrompt: string;
+	commandFile?: {
+		commandName: string;
+		filename: string;
+		relativePath: string;
+	};
+};
+
 function writeCommandError(
 	options: CursorMcpInstallCommandOptions,
 	message: string,
@@ -128,7 +138,7 @@ function writeCommandError(
 	return 1;
 }
 
-function getBackgroundAgentToolPolicies(): NonNullable<
+function getCursorQueuedAgentToolPolicies(): NonNullable<
 	ChatStartSessionRequest["toolPolicies"]
 > {
 	return {
@@ -465,53 +475,66 @@ async function writeCursorPluginAddRoute(
 	return 0;
 }
 
+function resolveAgentTaskRoute(
+	request: ReturnType<typeof buildCursorAgentTaskRouteRequest>,
+	workspaceRoot: string,
+): CursorAgentTaskRouteResolution {
+	const commandFileRequest = resolveCursorCommandFileRouteRequest(request, {
+		workspaceRoot,
+	});
+	return {
+		route: commandFileRequest?.kind ?? request.kind,
+		taskPrompt: commandFileRequest?.taskPrompt ?? request.taskPrompt,
+		...(commandFileRequest
+			? {
+					commandFile: {
+						commandName: commandFileRequest.commandName,
+						filename: commandFileRequest.filename,
+						relativePath: commandFileRequest.relativePath,
+					},
+				}
+			: {}),
+	};
+}
+
 function writeAgentTaskRoutePreview(
 	options: CursorMcpInstallCommandOptions,
 	request = buildCursorAgentTaskRouteRequest(options.uri),
 ): number {
-	const commandFileRequest = resolveCursorCommandFileRouteRequest(request, {
-		workspaceRoot: resolve(options.cwd ?? process.cwd()),
-	});
-	const taskPrompt = commandFileRequest?.taskPrompt ?? request.taskPrompt;
+	const workspaceRoot = resolve(options.cwd ?? process.cwd());
+	const resolved = resolveAgentTaskRoute(request, workspaceRoot);
 	if (options.json) {
 		options.io.writeln(
 			JSON.stringify({
 				handled: true,
-				route: commandFileRequest?.kind ?? request.kind,
+				route: resolved.route,
 				path: request.path,
 				requiresAgent: true,
 				prompt: request.prompt,
-				taskPrompt,
+				taskPrompt: resolved.taskPrompt,
 				paramKeys: Object.keys(request.params).sort(),
-				commandFile: commandFileRequest
-					? {
-							commandName: commandFileRequest.commandName,
-							filename: commandFileRequest.filename,
-							relativePath: commandFileRequest.relativePath,
-						}
-					: undefined,
+				...(resolved.commandFile
+					? { commandFile: resolved.commandFile }
+					: {}),
 			}),
 		);
 		return 0;
 	}
 
 	options.io.writeln(
-		commandFileRequest
-			? `Cursor command file "${commandFileRequest.relativePath}" requires an agent task.`
+		resolved.commandFile
+			? `Cursor command file "${resolved.commandFile.relativePath}" requires an agent task.`
 			: `Cursor ${request.kind} deeplink requires an agent task.`,
 	);
 	options.io.writeln("");
-	options.io.writeln(taskPrompt);
+	options.io.writeln(resolved.taskPrompt);
 	return 0;
 }
 
-async function launchCursorBackgroundAgent(
+async function launchCursorAgentTask(
 	options: CursorMcpInstallCommandOptions,
 ): Promise<number> {
 	const request = buildCursorAgentTaskRouteRequest(options.uri);
-	if (request.kind !== "background-agent") {
-		return writeAgentTaskRoutePreview(options, request);
-	}
 
 	if (!options.confirmed) {
 		return writeAgentTaskRoutePreview(options, request);
@@ -519,6 +542,7 @@ async function launchCursorBackgroundAgent(
 
 	const cwd = resolve(options.cwd ?? process.cwd());
 	const workspaceRoot = cwd;
+	const resolved = resolveAgentTaskRoute(request, workspaceRoot);
 	const providerId = options.providerId?.trim() || "openai-codex";
 	const modelId = options.modelId?.trim() || "gpt-5.5";
 	const ensureHub = options.ensureBackgroundAgentHub ?? ensureCliHubServer;
@@ -529,8 +553,14 @@ async function launchCursorBackgroundAgent(
 			new HubSessionClient({
 				address: clientOptions.address,
 				authToken: clientOptions.authToken,
-				clientType: "cli-cursor-background-agent",
-				displayName: "Cline CLI (Cursor background agent)",
+				clientType:
+					request.kind === "background-agent"
+						? "cli-cursor-background-agent"
+						: "cli-cursor-agent-task",
+				displayName:
+					request.kind === "background-agent"
+						? "Cline CLI (Cursor background agent)"
+						: "Cline CLI (Cursor agent task)",
 				workspaceRoot: clientOptions.workspaceRoot,
 				cwd: clientOptions.cwd,
 			}));
@@ -552,8 +582,11 @@ async function launchCursorBackgroundAgent(
 		enableSpawn: false,
 		enableTeams: false,
 		autoApproveTools: false,
-		toolPolicies: getBackgroundAgentToolPolicies(),
-		source: "cline-cli-cursor-background-agent",
+		toolPolicies: getCursorQueuedAgentToolPolicies(),
+		source:
+			request.kind === "background-agent"
+				? "cline-cli-cursor-background-agent"
+				: "cline-cli-cursor-agent-task",
 		interactive: false,
 	};
 
@@ -564,7 +597,7 @@ async function launchCursorBackgroundAgent(
 			started.sessionId,
 			{
 				config: startRequest,
-				prompt: request.taskPrompt,
+				prompt: resolved.taskPrompt,
 				delivery: "queue",
 			},
 			{ timeoutMs: BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS },
@@ -574,7 +607,8 @@ async function launchCursorBackgroundAgent(
 			options.io.writeln(
 				JSON.stringify({
 					handled: true,
-					route: "background-agent",
+					route: resolved.route,
+					path: request.path,
 					started: true,
 					sessionId: started.sessionId,
 					workspaceRoot,
@@ -583,11 +617,14 @@ async function launchCursorBackgroundAgent(
 					model: modelId,
 					delivery: "queue",
 					paramKeys: Object.keys(request.params).sort(),
+					...(resolved.commandFile
+						? { commandFile: resolved.commandFile }
+						: {}),
 				}),
 			);
 		} else {
 			options.io.writeln(
-				`Started Cursor background agent session ${started.sessionId}`,
+				`Started Cursor ${resolved.route} agent session ${started.sessionId}`,
 			);
 			options.io.writeln(`Workspace: ${workspaceRoot}`);
 		}
@@ -701,7 +738,7 @@ export async function runCursorUriCommand(
 	}
 
 	try {
-		return await launchCursorBackgroundAgent(options);
+		return await launchCursorAgentTask(options);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (!message.startsWith("Unsupported Cursor agent task route:")) {

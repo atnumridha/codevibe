@@ -265,6 +265,77 @@ describe("Cursor MCP install command", () => {
 		});
 	});
 
+	it("starts confirmed Cursor agent-task deeplinks as queued plan sessions", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-agent-task-"));
+		tempDirs.push(workspaceRoot);
+		const { out, io } = createIo();
+		const ensureBackgroundAgentHub = vi.fn(async () => ({
+			url: "ws://127.0.0.1:25463",
+			authToken: "hub-token",
+		}));
+		const sessionClient = {
+			connect: vi.fn(async () => {}),
+			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-task" })),
+			sendRuntimeSession: vi.fn(async () => ({})),
+			dispose: vi.fn(async () => {}),
+		};
+		const createBackgroundAgentSessionClient = vi.fn(() => sessionClient);
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/createchat?prompt=review%20the%20new%20diff",
+			cwd: workspaceRoot,
+			confirmed: true,
+			json: true,
+			providerId: "openai-codex",
+			modelId: "gpt-5.5",
+			ensureBackgroundAgentHub,
+			createBackgroundAgentSessionClient,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(ensureBackgroundAgentHub).toHaveBeenCalledWith(workspaceRoot);
+		const startRequest = sessionClient.startRuntimeSession.mock.calls[0]?.[0];
+		expect(startRequest).toMatchObject({
+			workspaceRoot,
+			cwd: workspaceRoot,
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			mode: "plan",
+			enableTools: true,
+			enableSpawn: false,
+			enableTeams: false,
+			autoApproveTools: false,
+			source: "cline-cli-cursor-agent-task",
+			interactive: false,
+			toolPolicies: {
+				"*": { enabled: false, autoApprove: false },
+				read_files: { enabled: true, autoApprove: true },
+				search_codebase: { enabled: true, autoApprove: true },
+			},
+		});
+		expect(sessionClient.sendRuntimeSession).toHaveBeenCalledWith(
+			"session-task",
+			expect.objectContaining({
+				prompt: "review the new diff",
+				delivery: "queue",
+				config: expect.objectContaining({ mode: "plan" }),
+			}),
+			{ timeoutMs: 5000 },
+		);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "createchat",
+			path: "/createchat",
+			started: true,
+			sessionId: "session-task",
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			delivery: "queue",
+			paramKeys: ["prompt"],
+		});
+	});
+
 	it("rejects unsupported generic URI routes", async () => {
 		const unsupported = createIo();
 
@@ -628,6 +699,68 @@ describe("Cursor MCP install command", () => {
 			taskPrompt: expect.stringContaining(
 				"Review the staged diff and call out risky changes.",
 			),
+		});
+		expect(out[0]).not.toContain(workspaceRoot);
+	});
+
+	it("starts confirmed Cursor command files without leaking absolute paths", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-command-"));
+		tempDirs.push(workspaceRoot);
+		const commandsDir = join(workspaceRoot, ".cursor", "commands");
+		await mkdir(commandsDir, { recursive: true });
+		await writeFile(
+			join(commandsDir, "review-code.md"),
+			"Review the staged diff and call out risky changes.",
+			"utf8",
+		);
+		const { out, io } = createIo();
+		const ensureBackgroundAgentHub = vi.fn(async () => ({
+			url: "ws://127.0.0.1:25463",
+			authToken: "hub-token",
+		}));
+		const sessionClient = {
+			connect: vi.fn(async () => {}),
+			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-command" })),
+			sendRuntimeSession: vi.fn(async () => ({})),
+			dispose: vi.fn(async () => {}),
+		};
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/command?name=review-code",
+			cwd: workspaceRoot,
+			confirmed: true,
+			json: true,
+			ensureBackgroundAgentHub,
+			createBackgroundAgentSessionClient: vi.fn(() => sessionClient),
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(sessionClient.sendRuntimeSession).toHaveBeenCalledWith(
+			"session-command",
+			expect.objectContaining({
+				prompt: expect.stringContaining(
+					"Review the staged diff and call out risky changes.",
+				),
+				delivery: "queue",
+			}),
+			{ timeoutMs: 5000 },
+		);
+		const sentTurn = sessionClient.sendRuntimeSession.mock.calls[0]?.[1] as
+			| { prompt?: string }
+			| undefined;
+		expect(sentTurn?.prompt).not.toContain(workspaceRoot);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "command-file",
+			path: "/command",
+			started: true,
+			sessionId: "session-command",
+			commandFile: {
+				commandName: "review-code",
+				filename: "review-code.md",
+				relativePath: ".cursor/commands/review-code.md",
+			},
 		});
 		expect(out[0]).not.toContain(workspaceRoot);
 	});
