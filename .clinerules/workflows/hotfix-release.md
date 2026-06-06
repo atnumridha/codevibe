@@ -1,6 +1,6 @@
 # Hotfix Release
 
-Create a hotfix release by cherry-picking specific commits from main onto the latest release tag.
+Create a CodeVibe VS Code extension hotfix release by cherry-picking specific commits from main onto the latest release tag.
 
 ## Overview
 
@@ -61,15 +61,15 @@ Build a mental model of what these changes do for the changelog.
 
 ## Step 4: Determine New Version Number
 
-Parse the current version from package.json and the last tag:
+Parse the current VS Code extension version from `apps/vscode/package.json` and the last tag:
 
 ```bash
 LAST_TAG=$(git tag --sort=-v:refname | head -1)
 echo "Last release: $LAST_TAG"
-cat package.json | grep '"version"'
+node -p "require('./apps/vscode/package.json').version"
 ```
 
-Hotfixes always increment the patch version (e.g., 3.40.0 -> 3.40.1, or 3.40.1 -> 3.40.2).
+Hotfixes always increment the patch version (e.g., 3.88.0 -> 3.88.1, or 3.88.1 -> 3.88.2).
 
 **Ask the user to confirm the new version number.**
 
@@ -87,7 +87,7 @@ On the main branch, create a commit that updates:
 
    Write clear, user-friendly descriptions based on your analysis of the commits.
 
-2. **package.json** - Update the version field to the new version
+2. **apps/vscode/package.json** - Update the extension version field to the new version
 
 3. No changelog-entry file cleanup is needed. Contributors do not create changelog-entry files in this repo.
 
@@ -100,7 +100,7 @@ In the commit body, mention:
 - List the cherry-picked commits that will be included
 
 ```bash
-git add CHANGELOG.md package.json
+git add CHANGELOG.md apps/vscode/package.json apps/vscode/package-lock.json
 git commit -m "v3.40.1 Release Notes (hotfix)
 
 Hotfix release including:
@@ -114,6 +114,8 @@ Push to main:
 ```bash
 git push origin main
 ```
+
+Only include `apps/vscode/package-lock.json` if it changed.
 
 ## Step 6: Build the Hotfix on the Tag
 
@@ -165,8 +167,8 @@ git checkout main
 ```
 VS Code Hotfix v{VERSION} Published
 
-- Description of fix 1 https://github.com/cline/cline/pull/{PR_NUMBER}
-- Description of fix 2 https://github.com/cline/cline/pull/{PR_NUMBER}
+- Description of fix 1 https://github.com/atnumridha/codevibe/pull/{PR_NUMBER}
+- Description of fix 2 https://github.com/atnumridha/codevibe/pull/{PR_NUMBER}
 ```
 
 Present a final summary:
@@ -176,8 +178,9 @@ Present a final summary:
 - Slack message copied to clipboard: yes
 
 Remind the user to:
-1. Manually trigger the publish release GitHub Action at: https://github.com/cline/cline/actions/workflows/ext-vscode-publish-stable.yml (paste `v{VERSION}` as the tag)
-2. Post the Slack message to announce the hotfix
+1. Trigger the GitHub-only VSIX release workflow at https://github.com/atnumridha/codevibe/actions/workflows/ext-vscode-github-release.yml with `tag=v{VERSION}`, `run_tests=true`, `run_e2e=true`, and `all_parity_validated=true`
+2. Use the marketplace workflow only if marketplace secrets are available: https://github.com/atnumridha/codevibe/actions/workflows/ext-vscode-publish-stable.yml
+3. Post the announcement message after the GitHub release is created
 
 ## Important Notes
 
@@ -185,3 +188,4 @@ Remind the user to:
 - The release notes commit goes to main first, then gets cherry-picked to the tag
 - This keeps main's history accurate while allowing hotfix releases from tags
 - If cherry-pick conflicts occur, resolve them before continuing
+- Do not create a GitHub release until local, CI, e2e, VSIX install, and installed-VS-Code parity validation has passed
