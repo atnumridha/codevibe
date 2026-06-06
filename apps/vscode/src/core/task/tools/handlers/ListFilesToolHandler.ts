@@ -97,6 +97,16 @@ export class ListFilesToolHandler implements IFullyManagedTool {
 			;({ absolutePath, displayPath } =
 				typeof pathResult === "string" ? { absolutePath: pathResult, displayPath: relDirPath! } : pathResult)
 			usedWorkspaceHint = typeof pathResult !== "string"
+			const sandboxValidation = this.validator.checkCursorSandboxPath({
+				absolutePath,
+				displayPath,
+				accessKind: "read",
+				policy: config.cursorSandboxPolicy,
+			})
+			if (!sandboxValidation.ok) {
+				config.taskState.consecutiveMistakeCount++
+				return formatResponse.toolError(sandboxValidation.error)
+			}
 			;[files, didHitLimit] = await listFiles(absolutePath, recursive, 200)
 		} catch (error) {
 			config.taskState.consecutiveMistakeCount++

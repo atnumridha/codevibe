@@ -76,6 +76,16 @@ export class ListCodeDefinitionNamesToolHandler implements IFullyManagedTool {
 			const pathResult = resolveWorkspacePath(config, relDirPath!, "ListCodeDefinitionNamesToolHandler.execute")
 			;({ absolutePath, displayPath } =
 				typeof pathResult === "string" ? { absolutePath: pathResult, displayPath: relDirPath! } : pathResult)
+			const sandboxValidation = this.validator.checkCursorSandboxPath({
+				absolutePath,
+				displayPath,
+				accessKind: "read",
+				policy: config.cursorSandboxPolicy,
+			})
+			if (!sandboxValidation.ok) {
+				config.taskState.consecutiveMistakeCount++
+				return formatResponse.toolError(sandboxValidation.error)
+			}
 			result = await parseSourceCodeForDefinitionsTopLevel(absolutePath, config.services.clineIgnoreController)
 		} catch (error) {
 			config.taskState.consecutiveMistakeCount++

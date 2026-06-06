@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import type { CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
 import { ClineDefaultTool } from "@shared/tools"
 import * as pathUtils from "@utils/path"
 import { afterEach, beforeEach, describe, it } from "mocha"
@@ -28,6 +29,25 @@ import { SearchFilesToolHandler } from "../SearchFilesToolHandler"
  */
 
 let tmpDir: string
+
+function makeCursorSandboxPolicy(readablePaths: string[], writablePaths: string[] = []): CursorSandboxRuntimePolicy {
+	return {
+		source: "cursor-sandbox",
+		status: "loaded",
+		configPath: path.join(tmpDir, ".cursor", "sandbox.json"),
+		workspaceRoot: tmpDir,
+		effectiveAccess: "workspace",
+		readablePaths,
+		writablePaths,
+		networkPolicy: { default: "allow", allow: [] },
+		disableTmpWrite: false,
+		enableSharedBuildCache: false,
+		allowReadAutoApprove: true,
+		allowWriteAutoApprove: writablePaths.length > 0,
+		allowTerminalAutoApprove: false,
+		allowNetworkAutoApprove: true,
+	}
+}
 
 function createConfig() {
 	const taskState = new TaskState()
@@ -177,6 +197,19 @@ describe("ListCodeDefinitionNamesToolHandler.execute – error recovery", () => 
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
+	it("blocks a disallowed Cursor sandbox directory before tree-sitter parsing", async () => {
+		const { config, taskState, validator } = createConfig()
+		config.cursorSandboxPolicy = makeCursorSandboxPolicy([tmpDir])
+		const handler = new ListCodeDefinitionNamesToolHandler(validator)
+		const outsidePath = path.join(os.tmpdir(), "cline-listdef-outside")
+
+		const result = await handler.execute(config, makeBlock(outsidePath))
+
+		assert.equal(typeof result, "string")
+		assert.ok((result as string).includes("Cursor sandbox"))
+		assert.equal(taskState.consecutiveMistakeCount, 1)
+	})
+
 	it("resets consecutiveMistakeCount to 0 after a successful operation", async () => {
 		const { config, taskState, validator } = createConfig()
 		const handler = new ListCodeDefinitionNamesToolHandler(validator)
@@ -310,6 +343,19 @@ describe("ListFilesToolHandler.execute – error recovery", () => {
 		const result = await handler.execute(config, makeBlock())
 
 		assert.equal(result, "missing")
+		assert.equal(taskState.consecutiveMistakeCount, 1)
+	})
+
+	it("blocks a disallowed Cursor sandbox directory before listing files", async () => {
+		const { config, taskState, validator } = createConfig()
+		config.cursorSandboxPolicy = makeCursorSandboxPolicy([tmpDir])
+		const handler = new ListFilesToolHandler(validator)
+		const outsidePath = path.join(os.tmpdir(), "cline-listfiles-outside")
+
+		const result = await handler.execute(config, makeBlock(outsidePath))
+
+		assert.equal(typeof result, "string")
+		assert.ok((result as string).includes("Cursor sandbox"))
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
@@ -459,6 +505,19 @@ describe("SearchFilesToolHandler.execute – error recovery", () => {
 		const result = await handler.execute(config, makeBlock("some-dir"))
 
 		assert.equal(result, "missing")
+		assert.equal(taskState.consecutiveMistakeCount, 1)
+	})
+
+	it("blocks a disallowed Cursor sandbox search root before ripgrep", async () => {
+		const { config, taskState, validator } = createConfig()
+		config.cursorSandboxPolicy = makeCursorSandboxPolicy([tmpDir])
+		const handler = new SearchFilesToolHandler(validator)
+		const outsidePath = path.join(os.tmpdir(), "cline-search-outside")
+
+		const result = await handler.execute(config, makeBlock(outsidePath, "pattern"))
+
+		assert.equal(typeof result, "string")
+		assert.ok((result as string).includes("Cursor sandbox"))
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 

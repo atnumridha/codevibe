@@ -5,6 +5,7 @@ import { formatResponse } from "../../../prompts/responses"
 import { ToolResponse } from "../.."
 import { showNotificationForApproval } from "../../utils"
 import type { IFullyManagedTool } from "../ToolExecutorCoordinator"
+import type { ToolValidator } from "../ToolValidator"
 import type { TaskConfig } from "../types/TaskConfig"
 import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
@@ -47,6 +48,8 @@ export function sanitizeBrowserActionResult(result: BrowserActionResult): Browse
 
 export class BrowserToolHandler implements IFullyManagedTool {
 	readonly name = ClineDefaultTool.BROWSER
+
+	constructor(private validator?: ToolValidator) {}
 
 	getDescription(block: ToolUse): string {
 		return `[${block.name} for '${block.params.action}']`
@@ -121,6 +124,13 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					const errorResult = await config.callbacks.sayAndCreateMissingParamError(this.name, "url")
 					await config.services.browserSession.closeBrowser()
 					return errorResult
+				}
+				if (this.validator) {
+					const sandboxValidation = this.validator.checkCursorSandboxUrl(url, config.cursorSandboxPolicy)
+					if (!sandboxValidation.ok) {
+						config.taskState.consecutiveMistakeCount++
+						return formatResponse.toolError(sandboxValidation.error)
+					}
 				}
 				config.taskState.consecutiveMistakeCount = 0
 

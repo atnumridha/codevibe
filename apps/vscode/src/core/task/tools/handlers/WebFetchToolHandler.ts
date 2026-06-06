@@ -13,12 +13,15 @@ import { formatResponse } from "../../../prompts/responses"
 import { ToolResponse } from "../.."
 import { showNotificationForApproval } from "../../utils"
 import type { IFullyManagedTool } from "../ToolExecutorCoordinator"
+import type { ToolValidator } from "../ToolValidator"
 import type { TaskConfig } from "../types/TaskConfig"
 import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
 
 export class WebFetchToolHandler implements IFullyManagedTool {
 	readonly name = ClineDefaultTool.WEB_FETCH
+
+	constructor(private validator: ToolValidator) {}
 
 	getDescription(block: ToolUse): string {
 		return `[${block.name} for '${block.params.url}']`
@@ -66,6 +69,11 @@ export class WebFetchToolHandler implements IFullyManagedTool {
 			if (!prompt) {
 				config.taskState.consecutiveMistakeCount++
 				return await config.callbacks.sayAndCreateMissingParamError(this.name, "prompt")
+			}
+			const sandboxValidation = this.validator.checkCursorSandboxUrl(url, config.cursorSandboxPolicy)
+			if (!sandboxValidation.ok) {
+				config.taskState.consecutiveMistakeCount++
+				return formatResponse.toolError(sandboxValidation.error)
 			}
 			config.taskState.consecutiveMistakeCount = 0
 

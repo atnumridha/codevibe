@@ -14,12 +14,15 @@ import { formatResponse } from "../../../prompts/responses"
 import { ToolResponse } from "../.."
 import { showNotificationForApproval } from "../../utils"
 import type { IFullyManagedTool } from "../ToolExecutorCoordinator"
+import type { ToolValidator } from "../ToolValidator"
 import type { TaskConfig } from "../types/TaskConfig"
 import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
 
 export class WebSearchToolHandler implements IFullyManagedTool {
 	readonly name = ClineDefaultTool.WEB_SEARCH
+
+	constructor(private validator: ToolValidator) {}
 
 	getDescription(block: ToolUse): string {
 		return `[${block.name} for '${block.params.query}']`
@@ -75,6 +78,14 @@ export class WebSearchToolHandler implements IFullyManagedTool {
 			if (allowedDomains.length > 0 && blockedDomains.length > 0) {
 				config.taskState.consecutiveMistakeCount++
 				return formatResponse.toolError("Cannot specify both allowed_domains and blocked_domains")
+			}
+			const sandboxValidation = this.validator.checkCursorSandboxWebSearchDomains(
+				allowedDomains,
+				config.cursorSandboxPolicy,
+			)
+			if (!sandboxValidation.ok) {
+				config.taskState.consecutiveMistakeCount++
+				return formatResponse.toolError(sandboxValidation.error)
 			}
 
 			// Create message for approval

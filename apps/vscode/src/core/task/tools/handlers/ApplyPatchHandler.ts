@@ -147,7 +147,11 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 		}
 
 		const finalPath = movePath || targetPath
-		const targetResolution = await this.pathResolver!.resolveAndValidate(finalPath, "ApplyPatchHandler.previewPatch")
+		const targetResolution = await this.pathResolver!.resolveAndValidate(
+			finalPath,
+			"ApplyPatchHandler.previewPatch",
+			"write",
+		)
 		if (!targetResolution) {
 			return
 		}
@@ -180,6 +184,7 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 				const sourceResolution = await this.pathResolver!.resolveAndValidate(
 					targetPath,
 					"ApplyPatchHandler.previewPatch.source",
+					"write",
 				)
 				if (!sourceResolution) {
 					return
@@ -229,6 +234,7 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 
 		try {
 			const lines = this.preprocessLines(rawInput)
+			await this.assertPatchPathsAllowed(config, rawInput)
 
 			// Identify files needed
 			const filesToLoad = this.extractFilesForOperations(rawInput, [PATCH_MARKERS.UPDATE, PATCH_MARKERS.DELETE])
@@ -511,6 +517,33 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 		return this.extractFilesForOperations(text, [PATCH_MARKERS.ADD, PATCH_MARKERS.UPDATE, PATCH_MARKERS.DELETE])
 	}
 
+	private async assertPatchPathsAllowed(config: TaskConfig, text: string): Promise<void> {
+		const paths = [
+			...this.extractAllFiles(text),
+			...this.extractFilesForOperations(text, [PATCH_MARKERS.MOVE]),
+		]
+		for (const filePath of paths) {
+			const pathResult = resolveWorkspacePath(config, filePath, "ApplyPatchHandler.assertPatchPathsAllowed")
+			const absolutePath = typeof pathResult === "string" ? pathResult : pathResult.absolutePath
+			const resolvedPath = typeof pathResult === "string" ? filePath : pathResult.resolvedPath
+
+			const accessValidation = this.validator.checkClineIgnorePath(resolvedPath)
+			if (!accessValidation.ok) {
+				await config.callbacks.say("clineignore_error", resolvedPath)
+				throw new DiffError(`Access denied: ${resolvedPath}`)
+			}
+			const sandboxValidation = this.validator.checkCursorSandboxPath({
+				absolutePath,
+				displayPath: resolvedPath,
+				accessKind: "write",
+				policy: config.cursorSandboxPolicy,
+			})
+			if (!sandboxValidation.ok) {
+				throw new DiffError(sandboxValidation.error)
+			}
+		}
+	}
+
 	private async loadFiles(config: TaskConfig, filePaths: string[]): Promise<Record<string, string>> {
 		const files: Record<string, string> = {}
 
@@ -523,6 +556,15 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 			if (!accessValidation.ok) {
 				await config.callbacks.say("clineignore_error", resolvedPath)
 				throw new DiffError(`Access denied: ${resolvedPath}`)
+			}
+			const sandboxValidation = this.validator.checkCursorSandboxPath({
+				absolutePath,
+				displayPath: resolvedPath,
+				accessKind: "write",
+				policy: config.cursorSandboxPolicy,
+			})
+			if (!sandboxValidation.ok) {
+				throw new DiffError(sandboxValidation.error)
 			}
 
 			if (!(await fileExistsAtPath(absolutePath))) {
@@ -540,7 +582,11 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 		const changes: Record<string, FileChange> = {}
 
 		for (const [path, action] of Object.entries(patch.actions)) {
-			const targetResolution = await this.pathResolver!.resolveAndValidate(path, "ApplyPatchHandler.previewPatch")
+			const targetResolution = await this.pathResolver!.resolveAndValidate(
+				path,
+				"ApplyPatchHandler.previewPatch",
+				"write",
+			)
 			if (!targetResolution) {
 				continue
 			}

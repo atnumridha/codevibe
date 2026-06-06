@@ -204,6 +204,15 @@ export class ReadFileToolHandler implements IFullyManagedTool {
 		const pathResult = resolveWorkspacePath(config, relPath!, "ReadFileToolHandler.execute")
 		const { absolutePath, displayPath } =
 			typeof pathResult === "string" ? { absolutePath: pathResult, displayPath: relPath! } : pathResult
+		const sandboxValidation = this.validator.checkCursorSandboxPath({
+			absolutePath,
+			displayPath,
+			accessKind: "read",
+			policy: config.cursorSandboxPolicy,
+		})
+		if (!sandboxValidation.ok) {
+			return formatResponse.toolError(sandboxValidation.error)
+		}
 
 		// Determine workspace context for telemetry
 		const fallbackAbsolutePath = path.resolve(config.cwd, relPath ?? "")

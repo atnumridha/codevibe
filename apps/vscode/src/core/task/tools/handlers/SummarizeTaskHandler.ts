@@ -169,6 +169,15 @@ export class SummarizeTaskHandler implements IToolHandler, IPartialBlockHandler 
 							const pathResult = resolveWorkspacePath(config, relPath, "SummarizeTaskHandler")
 							const { absolutePath, displayPath } =
 								typeof pathResult === "string" ? { absolutePath: pathResult, displayPath: relPath } : pathResult
+							const sandboxValidation = this.validator.checkCursorSandboxPath({
+								absolutePath,
+								displayPath,
+								accessKind: "read",
+								policy: config.cursorSandboxPolicy,
+							})
+							if (!sandboxValidation.ok) {
+								continue
+							}
 
 							// Read file content, we dont allow images to be read here
 							// This throws if an image or if we can't read the file, implicitly skipping

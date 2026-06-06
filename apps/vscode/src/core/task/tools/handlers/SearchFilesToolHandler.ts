@@ -235,6 +235,18 @@ export class SearchFilesToolHandler implements IFullyManagedTool {
 			parsedPath = parsed.relPath
 			workspaceHint = parsed.workspaceHint
 			searchPaths = this.determineSearchPaths(config, parsedPath, workspaceHint, relDirPath!)
+			for (const { absolutePath, workspaceName } of searchPaths) {
+				const sandboxValidation = this.validator.checkCursorSandboxPath({
+					absolutePath,
+					displayPath: workspaceName ? `${workspaceName}:${parsedPath}` : relDirPath!,
+					accessKind: "read",
+					policy: config.cursorSandboxPolicy,
+				})
+				if (!sandboxValidation.ok) {
+					config.taskState.consecutiveMistakeCount++
+					return formatResponse.toolError(sandboxValidation.error)
+				}
+			}
 		} catch (error) {
 			config.taskState.consecutiveMistakeCount++
 			const errorMessage = error instanceof Error ? error.message : String(error)

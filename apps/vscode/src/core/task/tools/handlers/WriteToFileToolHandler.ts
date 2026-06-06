@@ -472,6 +472,27 @@ export class WriteToFileToolHandler implements IFullyManagedTool {
 
 			return
 		}
+		const sandboxValidation = this.validator.checkCursorSandboxPath({
+			absolutePath,
+			displayPath: resolvedPath,
+			accessKind: "write",
+			policy: config.cursorSandboxPolicy,
+		})
+		if (!sandboxValidation.ok) {
+			const errorResponse = formatResponse.toolError(sandboxValidation.error)
+			ToolResultUtils.pushToolResult(
+				errorResponse,
+				block,
+				config.taskState.userMessageContent,
+				ToolDisplayUtils.getToolDescription,
+				config.coordinator,
+				config.taskState.toolUseIdMap,
+			)
+			if (!config.enableParallelToolCalling) {
+				config.taskState.didAlreadyUseTool = true
+			}
+			return
+		}
 
 		// Check if file exists to determine the correct UI message
 		let fileExists: boolean

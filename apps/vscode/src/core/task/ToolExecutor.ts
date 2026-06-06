@@ -158,6 +158,7 @@ export class ToolExecutor {
 			browserSettings: getEffectiveBrowserSettings(this.stateManager.getGlobalSettingsKey("browserSettings"), {
 				cursorCompatibilitySafeBrowserEvaluateEnabled: this.getCursorSafeBrowserEvaluateEnabled(),
 			}),
+			cursorSandboxPolicy: this.cursorSandboxPolicy,
 			focusChainSettings: this.stateManager.getGlobalSettingsKey("focusChainSettings"),
 			services: {
 				mcpHub: this.mcpHub,

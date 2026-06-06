@@ -1,5 +1,5 @@
 import { resolveWorkspacePath } from "@/core/workspace"
-import type { ToolValidator } from "../ToolValidator"
+import type { CursorSandboxAccessKind, ToolValidator } from "../ToolValidator"
 import type { TaskConfig } from "../types/TaskConfig"
 
 /**
@@ -22,20 +22,34 @@ export class PathResolver {
 		}
 	}
 
-	validate(resolvedPath: string): { ok: boolean; error?: string } {
-		return this.validator.checkClineIgnorePath(resolvedPath)
+	validate(
+		resolvedPath: string,
+		absolutePath: string,
+		accessKind: CursorSandboxAccessKind = "read",
+	): { ok: boolean; error?: string } {
+		const ignoreValidation = this.validator.checkClineIgnorePath(resolvedPath)
+		if (!ignoreValidation.ok) {
+			return ignoreValidation
+		}
+		return this.validator.checkCursorSandboxPath({
+			absolutePath,
+			displayPath: resolvedPath,
+			accessKind,
+			policy: this.config.cursorSandboxPolicy,
+		})
 	}
 
 	async resolveAndValidate(
 		filePath: string,
 		caller: string,
+		accessKind: CursorSandboxAccessKind = "read",
 	): Promise<{ absolutePath: string; resolvedPath: string } | undefined> {
 		const resolution = this.resolve(filePath, caller)
 		if (!resolution) {
 			return undefined
 		}
 
-		const validation = this.validate(resolution.resolvedPath)
+		const validation = this.validate(resolution.resolvedPath, resolution.absolutePath, accessKind)
 		if (!validation.ok) {
 			return undefined
 		}

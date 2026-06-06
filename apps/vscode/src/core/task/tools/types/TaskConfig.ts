@@ -1,4 +1,5 @@
 import type { ApiHandler } from "@core/api"
+import type { CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
 import type { FileContextTracker } from "@core/context/context-tracking/FileContextTracker"
 import type { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
 import type { CommandPermissionController } from "@core/permissions"
@@ -57,6 +58,7 @@ export interface TaskConfig {
 	autoApprovalSettings: AutoApprovalSettings
 	autoApprover: AutoApprove
 	browserSettings: BrowserSettings
+	cursorSandboxPolicy?: CursorSandboxRuntimePolicy
 	focusChainSettings: FocusChainSettings
 
 	// Callbacks (strongly typed)
