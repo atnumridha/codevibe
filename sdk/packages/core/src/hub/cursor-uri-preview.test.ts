@@ -1,3 +1,6 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createLocalHubScheduleRuntimeHandlers } from "./daemon/runtime-handlers";
 import { HubServerTransport } from "./server";
@@ -163,5 +166,89 @@ describe("hub Cursor URI preview command", () => {
 				message: "Invalid Cursor URI",
 			},
 		});
+	});
+
+	it("resolves safe Cursor command files when a workspace root is provided", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-hub-cursor-command-"));
+		try {
+			const commandsDir = join(root, ".cursor", "commands");
+			mkdirSync(commandsDir, { recursive: true });
+			writeFileSync(
+				join(commandsDir, "review-code.md"),
+				"Review the staged diff and call out risky changes.",
+				"utf8",
+			);
+			const transport = createTransport();
+
+			const reply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.uri.preview",
+				requestId: "req-5",
+				clientId: "client-one",
+				payload: {
+					uri: "vscode://cline.cline/command?name=review-code",
+					workspaceRoot: root,
+				},
+			});
+
+			expect(reply).toMatchObject({
+				ok: true,
+				payload: {
+					handled: true,
+					route: "command-file",
+					path: "/command",
+					requiresConfirmation: true,
+					hasPrompt: false,
+					commandFile: {
+						commandName: "review-code",
+						filename: "review-code.md",
+						relativePath: ".cursor/commands/review-code.md",
+					},
+				},
+			});
+			expect(String(reply.payload?.taskPrompt)).toContain(
+				"Review the staged diff and call out risky changes.",
+			);
+			expect(JSON.stringify(reply)).not.toContain(commandsDir);
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it("falls back to command preview when the command file exceeds the preview limit", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-hub-cursor-command-"));
+		try {
+			const commandsDir = join(root, ".cursor", "commands");
+			mkdirSync(commandsDir, { recursive: true });
+			writeFileSync(join(commandsDir, "large.md"), "0123456789", "utf8");
+			const transport = createTransport();
+
+			const reply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.uri.preview",
+				requestId: "req-6",
+				clientId: "client-one",
+				payload: {
+					uri: "vscode://cline.cline/command?name=large",
+					workspaceRoot: root,
+					maxCommandFileBytes: 5,
+				},
+			});
+
+			expect(reply).toMatchObject({
+				ok: true,
+				payload: {
+					handled: true,
+					route: "command",
+					path: "/command",
+					requiresConfirmation: true,
+					hasPrompt: false,
+				},
+			});
+			expect(reply.payload).not.toHaveProperty("commandFile");
+			expect(JSON.stringify(reply)).not.toContain("0123456789");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 });

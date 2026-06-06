@@ -24,6 +24,7 @@ import {
 	buildCursorSettingsRouteRequest,
 	CursorMcpInstallError,
 	CursorUriError,
+	resolveCursorCommandFileRouteRequest,
 } from "../../extensions/mcp/cursor-uri";
 import { LocalRuntimeHost } from "../../runtime/host/local-runtime-host";
 import type {
@@ -204,7 +205,7 @@ function requireOptionalHubStringArray(
 
 function requireOptionalHubPositiveInteger(
 	payload: Record<string, unknown>,
-	key: "maxLineBytes" | "maxEvents",
+	key: "maxLineBytes" | "maxEvents" | "maxCommandFileBytes",
 	commandName: string,
 ): number | undefined {
 	const value = payload[key];
@@ -529,7 +530,11 @@ const CURSOR_AGENT_TASK_ROUTE_PATHS = new Set([
 	"/git/commit",
 ]);
 
-function parseCursorUriPreviewInput(payload: unknown): { uri: string } {
+function parseCursorUriPreviewInput(payload: unknown): {
+	uri: string;
+	workspaceRoot?: string;
+	maxCommandFileBytes?: number;
+} {
 	if (!isPayloadObject(payload)) {
 		throw new Error("cursor.uri.preview payload must be an object.");
 	}
@@ -537,7 +542,22 @@ function parseCursorUriPreviewInput(payload: unknown): { uri: string } {
 	if (typeof value !== "string" || !value.trim()) {
 		throw new Error("cursor.uri.preview payload 'uri' must be a non-empty string.");
 	}
-	return { uri: value.trim() };
+	const workspaceRoot = payload.workspaceRoot;
+	if (workspaceRoot !== undefined && typeof workspaceRoot !== "string") {
+		throw new Error("cursor.uri.preview payload 'workspaceRoot' must be a string.");
+	}
+	const maxCommandFileBytes = requireOptionalHubPositiveInteger(
+		payload,
+		"maxCommandFileBytes",
+		"cursor.uri.preview",
+	);
+	return {
+		uri: value.trim(),
+		...(workspaceRoot?.trim()
+			? { workspaceRoot: workspaceRoot.trim() }
+			: {}),
+		...(maxCommandFileBytes !== undefined ? { maxCommandFileBytes } : {}),
+	};
 }
 
 function getRecordValue(value: unknown): Record<string, unknown> | undefined {
@@ -603,7 +623,12 @@ function parseCursorPreviewUrl(uri: string): URL {
 	}
 }
 
-function summarizeCursorUriPreview(uri: string): Record<string, unknown> {
+function summarizeCursorUriPreview(input: {
+	uri: string;
+	workspaceRoot?: string;
+	maxCommandFileBytes?: number;
+}): Record<string, unknown> {
+	const { uri } = input;
 	const parsedUrl = parseCursorPreviewUrl(uri);
 	const path = parsedUrl.pathname || "/";
 
@@ -682,6 +707,32 @@ function summarizeCursorUriPreview(uri: string): Record<string, unknown> {
 
 	if (CURSOR_AGENT_TASK_ROUTE_PATHS.has(path)) {
 		const request = buildCursorAgentTaskRouteRequest(uri);
+		const commandFile =
+			input.workspaceRoot && request.kind === "command"
+				? resolveCursorCommandFileRouteRequest(request, {
+						workspaceRoot: input.workspaceRoot,
+						...(input.maxCommandFileBytes !== undefined
+							? { maxBytes: input.maxCommandFileBytes }
+							: {}),
+					})
+				: undefined;
+		if (commandFile) {
+			return {
+				handled: true,
+				route: commandFile.kind,
+				path: request.path,
+				requiresConfirmation: true,
+				taskPrompt: commandFile.taskPrompt,
+				hasPrompt: false,
+				paramKeys: Object.keys(request.params).sort(),
+				configKeys: getCursorConfigKeys(request.params),
+				commandFile: {
+					commandName: commandFile.commandName,
+					filename: commandFile.filename,
+					relativePath: commandFile.relativePath,
+				},
+			};
+		}
 		return {
 			handled: true,
 			route: request.kind,
@@ -1135,7 +1186,7 @@ export class HubServerTransport implements NativeHubTransport {
 				version: envelope.version,
 				requestId: envelope.requestId,
 				ok: true,
-				payload: summarizeCursorUriPreview(input.uri),
+				payload: summarizeCursorUriPreview(input),
 			};
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
