@@ -370,6 +370,46 @@ describe("runCli lightweight command dispatch", () => {
 		expect(mockState.runInteractiveImports).toBe(0);
 	});
 
+	it("forwards confirmed background-agent URI options without loading runtime modules", async () => {
+		mockState.runAgentImports = 0;
+		mockState.runInteractiveImports = 0;
+
+		process.argv = [
+			"bun",
+			"src/index.ts",
+			"-P",
+			"openai-codex",
+			"-m",
+			"gpt-5.5",
+			"-k",
+			"api-key",
+			"uri",
+			"vscode://cline.cline/background-agent?prompt=fix%20the%20bug",
+			"--yes",
+			"--json",
+			"--cwd",
+			"/tmp/cursor-uri-workspace",
+		];
+
+		const { runCli } = await import("./main");
+
+		await expect(runCli()).resolves.toBeUndefined();
+		expect(process.exitCode).toBe(0);
+		expect(cursorMcpMocks.runCursorUriCommand).toHaveBeenCalledWith(
+			expect.objectContaining({
+				uri: "vscode://cline.cline/background-agent?prompt=fix%20the%20bug",
+				confirmed: true,
+				json: true,
+				cwd: "/tmp/cursor-uri-workspace",
+				providerId: "openai-codex",
+				modelId: "gpt-5.5",
+				apiKey: "api-key",
+			}),
+		);
+		expect(mockState.runAgentImports).toBe(0);
+		expect(mockState.runInteractiveImports).toBe(0);
+	});
+
 	it("does not load runtime modules for root update", async () => {
 		mockState.runAgentImports = 0;
 		mockState.runInteractiveImports = 0;

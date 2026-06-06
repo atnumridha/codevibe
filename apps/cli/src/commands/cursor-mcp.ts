@@ -6,22 +6,66 @@ import {
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
+	DefaultToolNames,
 	formatCursorMcpInstallDetail,
+	HubSessionClient,
 	resolveCursorCommandFileRouteRequest,
 } from "@cline/core";
+import type {
+	ChatRunTurnRequest,
+	ChatStartSessionRequest,
+} from "@cline/shared";
 import { resolveGlobalSettingsPath } from "@cline/shared/storage";
 import {
 	addServerRecord,
 	getSettingsPath,
 	loadServers,
 } from "../wizards/mcp/settings";
+import { ensureCliHubServer } from "../utils/hub-runtime";
 import { installPlugin } from "./plugin";
+
+const BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS = 5_000;
+
+export type BackgroundAgentHubResolution = {
+	url: string;
+	authToken: string;
+};
+
+export type BackgroundAgentSessionClient = {
+	connect?: () => Promise<void>;
+	startRuntimeSession: (
+		request: ChatStartSessionRequest,
+	) => Promise<{ sessionId: string }>;
+	sendRuntimeSession: (
+		sessionId: string,
+		request: ChatRunTurnRequest,
+		options?: { timeoutMs?: number | null },
+	) => Promise<unknown>;
+	dispose?: () => Promise<void>;
+	close?: () => void;
+};
+
+export type BackgroundAgentSessionClientFactoryOptions = {
+	address: string;
+	authToken: string;
+	workspaceRoot: string;
+	cwd: string;
+};
 
 export interface CursorMcpInstallCommandOptions {
 	uri: string;
 	confirmed?: boolean;
 	json?: boolean;
 	cwd?: string;
+	providerId?: string;
+	modelId?: string;
+	apiKey?: string;
+	ensureBackgroundAgentHub?: (
+		workspaceRoot: string,
+	) => Promise<BackgroundAgentHubResolution>;
+	createBackgroundAgentSessionClient?: (
+		options: BackgroundAgentSessionClientFactoryOptions,
+	) => BackgroundAgentSessionClient;
 	io: {
 		writeln: (text?: string) => void;
 		writeErr: (text: string) => void;
@@ -38,6 +82,16 @@ function writeCommandError(
 		options.io.writeErr(message);
 	}
 	return 1;
+}
+
+function getBackgroundAgentToolPolicies(): NonNullable<
+	ChatStartSessionRequest["toolPolicies"]
+> {
+	return {
+		"*": { enabled: false, autoApprove: false },
+		[DefaultToolNames.READ_FILES]: { enabled: true, autoApprove: true },
+		[DefaultToolNames.SEARCH_CODEBASE]: { enabled: true, autoApprove: true },
+	};
 }
 
 function writeUriError(
@@ -223,8 +277,10 @@ async function writeCursorPluginAddRoute(
 	return 0;
 }
 
-function writeAgentTaskRoute(options: CursorMcpInstallCommandOptions): number {
-	const request = buildCursorAgentTaskRouteRequest(options.uri);
+function writeAgentTaskRoutePreview(
+	options: CursorMcpInstallCommandOptions,
+	request = buildCursorAgentTaskRouteRequest(options.uri),
+): number {
 	const commandFileRequest = resolveCursorCommandFileRouteRequest(request, {
 		workspaceRoot: resolve(options.cwd ?? process.cwd()),
 	});
@@ -260,6 +316,99 @@ function writeAgentTaskRoute(options: CursorMcpInstallCommandOptions): number {
 	options.io.writeln("");
 	options.io.writeln(taskPrompt);
 	return 0;
+}
+
+async function launchCursorBackgroundAgent(
+	options: CursorMcpInstallCommandOptions,
+): Promise<number> {
+	const request = buildCursorAgentTaskRouteRequest(options.uri);
+	if (request.kind !== "background-agent") {
+		return writeAgentTaskRoutePreview(options, request);
+	}
+
+	if (!options.confirmed) {
+		return writeAgentTaskRoutePreview(options, request);
+	}
+
+	const cwd = resolve(options.cwd ?? process.cwd());
+	const workspaceRoot = cwd;
+	const providerId = options.providerId?.trim() || "openai-codex";
+	const modelId = options.modelId?.trim() || "gpt-5.5";
+	const ensureHub = options.ensureBackgroundAgentHub ?? ensureCliHubServer;
+	const hub = await ensureHub(workspaceRoot);
+	const createClient =
+		options.createBackgroundAgentSessionClient ??
+		((clientOptions: BackgroundAgentSessionClientFactoryOptions) =>
+			new HubSessionClient({
+				address: clientOptions.address,
+				authToken: clientOptions.authToken,
+				clientType: "cli-cursor-background-agent",
+				displayName: "Cline CLI (Cursor background agent)",
+				workspaceRoot: clientOptions.workspaceRoot,
+				cwd: clientOptions.cwd,
+			}));
+	const client = createClient({
+		address: hub.url,
+		authToken: hub.authToken,
+		workspaceRoot,
+		cwd,
+	});
+
+	const startRequest: ChatStartSessionRequest = {
+		workspaceRoot,
+		cwd,
+		provider: providerId,
+		model: modelId,
+		apiKey: options.apiKey?.trim() || undefined,
+		mode: "plan",
+		enableTools: true,
+		enableSpawn: false,
+		enableTeams: false,
+		autoApproveTools: false,
+		toolPolicies: getBackgroundAgentToolPolicies(),
+		source: "cline-cli-cursor-background-agent",
+		interactive: false,
+	};
+
+	try {
+		await client.connect?.();
+		const started = await client.startRuntimeSession(startRequest);
+		await client.sendRuntimeSession(
+			started.sessionId,
+			{
+				config: startRequest,
+				prompt: request.taskPrompt,
+				delivery: "queue",
+			},
+			{ timeoutMs: BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS },
+		);
+
+		if (options.json) {
+			options.io.writeln(
+				JSON.stringify({
+					handled: true,
+					route: "background-agent",
+					started: true,
+					sessionId: started.sessionId,
+					workspaceRoot,
+					cwd,
+					provider: providerId,
+					model: modelId,
+					delivery: "queue",
+					paramKeys: Object.keys(request.params).sort(),
+				}),
+			);
+		} else {
+			options.io.writeln(
+				`Started Cursor background agent session ${started.sessionId}`,
+			);
+			options.io.writeln(`Workspace: ${workspaceRoot}`);
+		}
+		return 0;
+	} finally {
+		await client.dispose?.();
+		client.close?.();
+	}
 }
 
 export async function runCursorMcpInstallCommand(
@@ -357,7 +506,7 @@ export async function runCursorUriCommand(
 	}
 
 	try {
-		return writeAgentTaskRoute(options);
+		return await launchCursorBackgroundAgent(options);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		if (!message.startsWith("Unsupported Cursor agent task route:")) {

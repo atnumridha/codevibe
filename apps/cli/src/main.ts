@@ -395,6 +395,12 @@ export async function runCli(): Promise<void> {
 		.option("-c, --cwd <path>", "Workspace directory for file-producing deeplinks")
 		.action(async (uri: string) => {
 			const opts = uriCmd.opts<{ yes?: boolean; json?: boolean; cwd?: string }>();
+			const rootOpts = program.opts<{
+				cwd?: string;
+				provider?: string;
+				model?: string;
+				key?: string;
+			}>();
 			if (opts.json) {
 				setCurrentOutputMode("json");
 			}
@@ -403,7 +409,12 @@ export async function runCli(): Promise<void> {
 				uri,
 				confirmed: opts.yes,
 				json: opts.json,
-				cwd: opts.cwd ?? program.opts<{ cwd?: string }>().cwd,
+				cwd: opts.cwd ?? rootOpts.cwd,
+				providerId: normalizeProviderId(
+					rootOpts.provider?.trim() || DEFAULT_CLI_PROVIDER_ID,
+				),
+				modelId: rootOpts.model?.trim() || DEFAULT_CLI_MODEL_ID,
+				apiKey: rootOpts.key?.trim() || undefined,
 				io,
 			});
 		});

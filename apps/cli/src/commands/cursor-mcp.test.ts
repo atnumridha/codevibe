@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	runCursorMcpInstallCommand,
 	runCursorUriCommand,
@@ -146,6 +146,114 @@ describe("Cursor MCP install command", () => {
 			requiresAgent: true,
 			prompt: "hi",
 			taskPrompt: "hi",
+		});
+	});
+
+	it("previews Cursor background-agent deeplinks without starting hub sessions", async () => {
+		const { out, io } = createIo();
+		const ensureBackgroundAgentHub = vi.fn(async () => ({
+			url: "ws://127.0.0.1:25463",
+			authToken: "hub-token",
+		}));
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/background-agent?prompt=fix%20the%20bug&repo=owner%2Frepo",
+			json: true,
+			ensureBackgroundAgentHub,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(ensureBackgroundAgentHub).not.toHaveBeenCalled();
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "background-agent",
+			path: "/background-agent",
+			requiresAgent: true,
+			prompt: "fix the bug",
+			taskPrompt: expect.stringContaining("fix the bug"),
+		});
+	});
+
+	it("starts confirmed Cursor background-agent deeplinks as safe hub sessions", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-"));
+		tempDirs.push(workspaceRoot);
+		const { out, io } = createIo();
+		const ensureBackgroundAgentHub = vi.fn(async () => ({
+			url: "ws://127.0.0.1:25463",
+			authToken: "hub-token",
+		}));
+		const sessionClient = {
+			connect: vi.fn(async () => {}),
+			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-bg" })),
+			sendRuntimeSession: vi.fn(async () => ({})),
+			dispose: vi.fn(async () => {}),
+		};
+		const createBackgroundAgentSessionClient = vi.fn(() => sessionClient);
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/background-agent?prompt=fix%20the%20bug&repo=owner%2Frepo&branch=feature%2Fsafe",
+			cwd: workspaceRoot,
+			confirmed: true,
+			json: true,
+			providerId: "openai-codex",
+			modelId: "gpt-5.5",
+			apiKey: "api-key",
+			ensureBackgroundAgentHub,
+			createBackgroundAgentSessionClient,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(ensureBackgroundAgentHub).toHaveBeenCalledWith(workspaceRoot);
+		expect(createBackgroundAgentSessionClient).toHaveBeenCalledWith({
+			address: "ws://127.0.0.1:25463",
+			authToken: "hub-token",
+			workspaceRoot,
+			cwd: workspaceRoot,
+		});
+		expect(sessionClient.startRuntimeSession).toHaveBeenCalledWith(
+			expect.objectContaining({
+				workspaceRoot,
+				cwd: workspaceRoot,
+				provider: "openai-codex",
+				model: "gpt-5.5",
+				apiKey: "api-key",
+				mode: "plan",
+				enableTools: true,
+				enableSpawn: false,
+				enableTeams: false,
+				autoApproveTools: false,
+				source: "cline-cli-cursor-background-agent",
+				interactive: false,
+				toolPolicies: {
+					"*": { enabled: false, autoApprove: false },
+					read_files: { enabled: true, autoApprove: true },
+					search_codebase: { enabled: true, autoApprove: true },
+				},
+			}),
+		);
+		expect(sessionClient.sendRuntimeSession).toHaveBeenCalledWith(
+			"session-bg",
+			expect.objectContaining({
+				prompt: expect.stringContaining("fix the bug"),
+				delivery: "queue",
+				config: expect.objectContaining({ mode: "plan" }),
+			}),
+			{ timeoutMs: 5000 },
+		);
+		expect(sessionClient.dispose).toHaveBeenCalled();
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "background-agent",
+			started: true,
+			sessionId: "session-bg",
+			workspaceRoot,
+			cwd: workspaceRoot,
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			delivery: "queue",
+			paramKeys: ["branch", "prompt", "repo"],
 		});
 	});
 
