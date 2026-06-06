@@ -5,6 +5,11 @@ import type {
 	CronSpecRecord,
 	SqliteCronStore,
 } from "../store/sqlite-cron-store";
+import {
+	parseAutomationEventNdjson,
+	type AutomationEventNdjsonParseResult,
+	type ParseAutomationEventNdjsonOptions,
+} from "./automation-event-ndjson";
 
 /**
  * Durable ingress for normalized automation events.
@@ -39,6 +44,11 @@ export interface CronEventIngressResult {
 	matchedSpecs: CronSpecRecord[];
 	queuedRuns: CronRunRecord[];
 	suppressions: CronEventSuppression[];
+}
+
+export interface CronEventNdjsonIngressResult
+	extends AutomationEventNdjsonParseResult {
+	results: CronEventIngressResult[];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -285,6 +295,18 @@ export class CronEventIngress {
 			}
 			throw err;
 		}
+	}
+
+	public ingestNdjson(
+		input: string,
+		options: Omit<ParseAutomationEventNdjsonOptions, "now"> = {},
+	): CronEventNdjsonIngressResult {
+		const parsed = parseAutomationEventNdjson(input, {
+			...options,
+			now: this.nowFn,
+		});
+		const results = parsed.events.map((event) => this.ingestEvent(event));
+		return { ...parsed, results };
 	}
 
 	private materializeForSpec(

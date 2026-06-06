@@ -105,6 +105,34 @@ describe("CronEventIngress", () => {
 		);
 	});
 
+	it("ingests matching events from NDJSON lines", () => {
+		const spec = seedEventSpec({
+			event: "git.checkout.completed",
+			filters: { repository: "acme/api" },
+		});
+
+		const result = ingress.ingestNdjson(
+			[
+				JSON.stringify({
+					id: "evt_checkout_1",
+					type: "git.checkout.completed",
+					timestamp: "2026-04-23T10:00:00.000Z",
+					data: { ref: "feature/parity" },
+					attributes: { repository: "acme/api" },
+				}),
+				"{not-json",
+			].join("\n"),
+			{ defaultSource: "cursor" },
+		);
+
+		expect(result.rejected).toHaveLength(1);
+		expect(result.events).toHaveLength(1);
+		expect(result.results).toHaveLength(1);
+		expect(result.results[0]?.queuedRuns).toHaveLength(1);
+		expect(result.results[0]?.queuedRuns[0]?.specId).toBe(spec.specId);
+		expect(result.results[0]?.event.processingStatus).toBe("queued");
+	});
+
 	it("records unmatched events without queuing", () => {
 		seedEventSpec({ filters: { repository: "acme/api" } });
 
