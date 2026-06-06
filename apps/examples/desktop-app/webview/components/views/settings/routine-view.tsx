@@ -41,6 +41,10 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import {
+	DEFAULT_CODEVIBE_MODEL_ID,
+	DEFAULT_CODEVIBE_PROVIDER_ID,
+} from "@/hooks/chat-session/constants";
 import { desktopClient } from "@/lib/desktop-client";
 import { readModelSelectionStorageFromWindow } from "@/lib/model-selection";
 import { normalizeProviderId } from "@/lib/provider-id";
@@ -132,6 +136,7 @@ interface ProcessContext {
 }
 
 const FALLBACK_PROVIDER_MODELS: Record<string, string[]> = {
+	[DEFAULT_CODEVIBE_PROVIDER_ID]: [DEFAULT_CODEVIBE_MODEL_ID],
 	cline: ["anthropic/claude-sonnet-4.6"],
 	anthropic: ["claude-sonnet-4-6"],
 	"openai-native": ["gpt-5.3-codex"],
@@ -263,8 +268,8 @@ export function RoutineSchedulesContent() {
 		scheduleMinute: "0",
 		scheduleDays: ["MON", "TUE", "WED", "THU", "FRI"],
 		prompt: "Review PRs opened yesterday and summarize issues.",
-		provider: "cline",
-		model: "openai/gpt-5.3-codex",
+		provider: DEFAULT_CODEVIBE_PROVIDER_ID,
+		model: DEFAULT_CODEVIBE_MODEL_ID,
 		mode: "act",
 		workspaceRoot: "",
 		cwd: "",
@@ -550,7 +555,7 @@ export function RoutineSchedulesContent() {
 		const preferredProvider =
 			rememberedProvider && availableProviders.includes(rememberedProvider)
 				? rememberedProvider
-				: (availableProviders[0] ?? "cline");
+				: (availableProviders[0] ?? DEFAULT_CODEVIBE_PROVIDER_ID);
 		const modelsForProvider = visibleProviderModels[preferredProvider] ?? [];
 		const rememberedModel =
 			lastModelSelection.lastModelByProvider[preferredProvider] ??
@@ -611,11 +616,11 @@ export function RoutineSchedulesContent() {
 			const provider =
 				normalizeProviderId(createForm.provider) ||
 				availableProviders[0] ||
-				"cline";
+				DEFAULT_CODEVIBE_PROVIDER_ID;
 			const model =
 				createForm.model.trim() ||
 				(visibleProviderModels[provider] ?? [])[0] ||
-				"openai/gpt-5.3-codex";
+				DEFAULT_CODEVIBE_MODEL_ID;
 			await desktopClient.invoke("create_routine_schedule", {
 				name,
 				cron_pattern: cronPattern,

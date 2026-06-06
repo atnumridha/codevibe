@@ -15,15 +15,15 @@ export const OAUTH_MANAGED_PROVIDERS = new Set([
 	"openai-codex",
 ]);
 
-// Default Cline model — keep in sync with @cline/llms CLINE_DEFAULT_MODEL
-const CLINE_DEFAULT_MODEL = "anthropic/claude-sonnet-4.6";
+export const DEFAULT_CODEVIBE_PROVIDER_ID = "openai-codex";
+export const DEFAULT_CODEVIBE_MODEL_ID = "gpt-5.5";
 
 export const DEFAULT_CHAT_CONFIG: ChatSessionConfig = {
 	sessionId: undefined,
 	workspaceRoot: "",
 	cwd: "",
-	provider: "cline",
-	model: CLINE_DEFAULT_MODEL,
+	provider: DEFAULT_CODEVIBE_PROVIDER_ID,
+	model: DEFAULT_CODEVIBE_MODEL_ID,
 	apiKey: process.env.CLINE_API_KEY || "",
 	mode: "act",
 	systemPrompt: undefined,

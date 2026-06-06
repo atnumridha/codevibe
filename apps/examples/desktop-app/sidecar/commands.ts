@@ -68,6 +68,9 @@ import type {
 	SidecarContext,
 } from "./types";
 
+const DEFAULT_CODEVIBE_PROVIDER_ID = "openai-codex";
+const DEFAULT_CODEVIBE_MODEL_ID = "gpt-5.5";
+
 function readProviderSettingsUpdate(
 	args: Record<string, unknown> | undefined,
 ): Partial<Omit<SaveProviderSettingsActionRequest, "action" | "providerId">> {
@@ -420,8 +423,9 @@ async function handleRoutineScheduleCommand(
 				cronPattern,
 				prompt,
 				modelSelection: {
-					providerId: asTrimmedString(args?.provider) ?? "cline",
-					modelId: asTrimmedString(args?.model) ?? "openai/gpt-5.3-codex",
+					providerId:
+						asTrimmedString(args?.provider) ?? DEFAULT_CODEVIBE_PROVIDER_ID,
+					modelId: asTrimmedString(args?.model) ?? DEFAULT_CODEVIBE_MODEL_ID,
 				},
 				mode: args?.mode === "plan" ? "plan" : "act",
 				workspaceRoot,

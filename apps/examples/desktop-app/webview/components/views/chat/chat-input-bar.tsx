@@ -36,6 +36,10 @@ import {
 	loadProviderModelCatalog,
 	loadProviderModels,
 } from "@/lib/provider-model-catalog";
+import {
+	DEFAULT_CODEVIBE_MODEL_ID,
+	DEFAULT_CODEVIBE_PROVIDER_ID,
+} from "@/hooks/chat-session/constants";
 import { cn } from "@/lib/utils";
 import { WorkspaceSelector } from "./workspace-selector";
 
@@ -64,6 +68,7 @@ const BUILTIN_SLASH_COMMANDS: SlashCommand[] = [
 ];
 
 const FALLBACK_PROVIDER_MODELS: Record<string, string[]> = {
+	[DEFAULT_CODEVIBE_PROVIDER_ID]: [DEFAULT_CODEVIBE_MODEL_ID],
 	cline: ["anthropic/claude-sonnet-4.6"],
 	anthropic: ["claude-sonnet-4-6"],
 	"openai-native": ["gpt-5.3-codex"],
@@ -72,6 +77,7 @@ const FALLBACK_PROVIDER_MODELS: Record<string, string[]> = {
 };
 
 const FALLBACK_PROVIDER_REASONING_MODELS: Record<string, string[]> = {
+	[DEFAULT_CODEVIBE_PROVIDER_ID]: [DEFAULT_CODEVIBE_MODEL_ID],
 	cline: ["anthropic/claude-sonnet-4.6"],
 	anthropic: ["claude-sonnet-4-6"],
 	"openai-native": ["gpt-5.3-codex"],
