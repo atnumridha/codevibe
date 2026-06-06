@@ -514,6 +514,23 @@ describe("SharedUriHandler", () => {
 				expect(openFileStub.called).to.be.false
 			})
 
+			it("should create Cursor rule files with starter content", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create/Open" })
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/rule?name=team-style")
+
+				expect(result).to.be.true
+				const rulePath = path.join(workspaceDir, ".cursor", "rules", "team-style.mdc")
+				const ruleContent = await fs.readFile(rulePath, "utf8")
+				expect(ruleContent).to.contain("description: Team Style")
+				expect(ruleContent).to.contain("alwaysApply: false")
+				expect(ruleContent).to.contain("# Team Style")
+				expect(ruleContent).to.contain("Add agent guidance for this rule here.")
+				sinon.assert.calledOnceWithExactly(openFileStub, { filePath: rulePath })
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should route Cursor rule content payloads through task review", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Create Task" })

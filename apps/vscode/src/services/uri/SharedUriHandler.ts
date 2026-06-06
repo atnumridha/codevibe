@@ -122,6 +122,36 @@ function normalizeCursorRuleTarget(route: CursorCompatibleUriRoute): {
 	}
 }
 
+function titleFromCursorRuleFilename(filename: string): string {
+	const base =
+		filename === GlobalFileNames.cursorRulesFile
+			? "project rules"
+			: path.basename(filename, path.extname(filename))
+	return base
+		.replace(/[-_]+/g, " ")
+		.replace(/\s+/g, " ")
+		.trim()
+		.replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function buildCursorRuleStarterContent(filename: string): string {
+	const title = titleFromCursorRuleFilename(filename) || "Project Rules"
+	if (filename.endsWith(".mdc")) {
+		return [
+			"---",
+			`description: ${title}`,
+			"alwaysApply: false",
+			"---",
+			"",
+			`# ${title}`,
+			"",
+			"Add agent guidance for this rule here.",
+			"",
+		].join("\n")
+	}
+	return [`# ${title}`, "", "Add project-wide agent guidance here.", ""].join("\n")
+}
+
 function normalizeCursorCommandTarget(route: CursorCompatibleUriRoute): {
 	commandName: string
 	filename: string
@@ -721,7 +751,7 @@ export class SharedUriHandler {
 		const filePath = path.resolve(cwd, target.relativePath)
 		await fs.mkdir(path.dirname(filePath), { recursive: true })
 		try {
-			await fs.writeFile(filePath, "", { flag: "wx" })
+			await fs.writeFile(filePath, buildCursorRuleStarterContent(target.filename), { flag: "wx" })
 		} catch (error) {
 			const code =
 				error && typeof error === "object" && "code" in error
