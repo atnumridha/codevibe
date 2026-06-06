@@ -23,7 +23,7 @@ import {
 const SKILL_FILE_NAME = "SKILL.md";
 const MANAGED_PLUGIN_MANIFEST_FILE_NAME = "managed.json";
 
-const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown", ".txt"]);
+const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown", ".mdc", ".txt"]);
 
 export {
 	RULES_CONFIG_DIRECTORY_NAME,

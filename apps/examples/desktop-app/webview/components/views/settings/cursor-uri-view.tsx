@@ -4,6 +4,7 @@ import {
 	AlertTriangle,
 	CheckCircle2,
 	Database,
+	FileText,
 	Loader2,
 	Play,
 	Plug,
@@ -26,6 +27,7 @@ import {
 	desktopClient,
 	type CursorAutomationIngestResponse,
 	type CursorMcpInstallResponse,
+	type CursorRuleOpenResponse,
 	type CursorUriLaunchResponse,
 	type CursorUriPreviewResponse,
 } from "@/lib/desktop-client";
@@ -107,6 +109,15 @@ function isSettingsPreview(preview: CursorUriPreviewResponse | undefined) {
 	);
 }
 
+function isRuleFilePreview(preview: CursorUriPreviewResponse | undefined) {
+	return (
+		preview?.handled === true &&
+		previewString(preview, "route") === "rule" &&
+		previewString(preview, "kind") === "file" &&
+		preview.requiresConfirmation === true
+	);
+}
+
 function JsonBlock({ value }: { value: unknown }) {
 	if (!value) {
 		return null;
@@ -134,15 +145,20 @@ export function CursorUriView({
 	const [mcpInstall, setMcpInstall] = useState<
 		CursorMcpInstallResponse | undefined
 	>();
+	const [ruleOpen, setRuleOpen] = useState<CursorRuleOpenResponse | undefined>();
 	const [error, setError] = useState<string | null>(null);
 	const [previewing, setPreviewing] = useState(false);
 	const [launching, setLaunching] = useState(false);
 	const [ingesting, setIngesting] = useState(false);
 	const [mcpInstalling, setMcpInstalling] = useState(false);
+	const [ruleOpening, setRuleOpening] = useState(false);
 
 	const taskPrompt = previewString(preview, "taskPrompt");
 	const route = previewString(preview, "route");
 	const path = previewString(preview, "path");
+	const relativePath = previewString(preview, "relativePath");
+	const filename = previewString(preview, "filename");
+	const previewReason = previewString(preview, "reason");
 	const paramKeys = useMemo(
 		() => previewStringList(preview, "paramKeys"),
 		[preview],
@@ -155,7 +171,11 @@ export function CursorUriView({
 	const canIngest = isAutomationIngestPreview(preview);
 	const canInstallMcp = isMcpInstallPreview(preview);
 	const canOpenSettings = isSettingsPreview(preview) && Boolean(onOpenSettings);
-	const isBusy = previewing || launching || ingesting || mcpInstalling;
+	const canOpenRule = isRuleFilePreview(preview);
+	const hasActionableNonPromptPreview =
+		canIngest || canInstallMcp || canOpenSettings || canOpenRule;
+	const isBusy =
+		previewing || launching || ingesting || mcpInstalling || ruleOpening;
 
 	const runPreviewForUri = useCallback(async (inputUri: string) => {
 		const trimmed = inputUri.trim();
@@ -165,6 +185,7 @@ export function CursorUriView({
 			setLaunch(undefined);
 			setIngest(undefined);
 			setMcpInstall(undefined);
+			setRuleOpen(undefined);
 			return;
 		}
 		setUri(trimmed);
@@ -173,6 +194,7 @@ export function CursorUriView({
 		setLaunch(undefined);
 		setIngest(undefined);
 		setMcpInstall(undefined);
+		setRuleOpen(undefined);
 		try {
 			const result = await desktopClient.previewCursorUri({ uri: trimmed });
 			setPreview(result);
@@ -208,6 +230,7 @@ export function CursorUriView({
 		setError(null);
 		setIngest(undefined);
 		setMcpInstall(undefined);
+		setRuleOpen(undefined);
 		try {
 			const result = await desktopClient.launchCursorUri({
 				uri: trimmed,
@@ -238,6 +261,7 @@ export function CursorUriView({
 		setError(null);
 		setLaunch(undefined);
 		setMcpInstall(undefined);
+		setRuleOpen(undefined);
 		try {
 			const result = await desktopClient.ingestCursorAutomation({
 				uri: trimmed,
@@ -262,6 +286,7 @@ export function CursorUriView({
 		setError(null);
 		setLaunch(undefined);
 		setIngest(undefined);
+		setRuleOpen(undefined);
 		try {
 			const result = await desktopClient.installCursorMcp({
 				uri: trimmed,
@@ -276,6 +301,29 @@ export function CursorUriView({
 			);
 		} finally {
 			setMcpInstalling(false);
+		}
+	};
+
+	const runRuleOpen = async () => {
+		const trimmed = uri.trim();
+		if (!trimmed || !canOpenRule) {
+			return;
+		}
+		setRuleOpening(true);
+		setError(null);
+		setLaunch(undefined);
+		setIngest(undefined);
+		setMcpInstall(undefined);
+		try {
+			const result = await desktopClient.openCursorRule({
+				uri: trimmed,
+				confirmed: true,
+			});
+			setRuleOpen(result);
+		} catch (openError) {
+			setError(openError instanceof Error ? openError.message : String(openError));
+		} finally {
+			setRuleOpening(false);
 		}
 	};
 
@@ -298,7 +346,7 @@ export function CursorUriView({
 					</div>
 					<Badge
 						variant={
-							canLaunch || canInstallMcp || canOpenSettings
+							canLaunch || canInstallMcp || canOpenSettings || canOpenRule
 								? "default"
 								: "outline"
 						}
@@ -307,7 +355,7 @@ export function CursorUriView({
 							? "Launchable"
 							: canInstallMcp
 								? "Installable"
-								: canOpenSettings
+								: canOpenRule || canOpenSettings
 									? "Openable"
 									: "Preview"}
 					</Badge>
@@ -379,6 +427,18 @@ export function CursorUriView({
 							<Settings className="size-4" />
 							Open Settings
 						</Button>
+						<Button
+							disabled={!canOpenRule || isBusy}
+							onClick={() => void runRuleOpen()}
+							variant="outline"
+						>
+							{ruleOpening ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : (
+								<FileText className="size-4" />
+							)}
+							Open Rule
+						</Button>
 					</div>
 				</div>
 
@@ -442,11 +502,37 @@ export function CursorUriView({
 					</Alert>
 				) : null}
 
+				{ruleOpen ? (
+					<Alert variant={ruleOpen.actionable ? "default" : "destructive"}>
+						{ruleOpen.actionable ? (
+							<CheckCircle2 className="size-4" />
+						) : (
+							<AlertTriangle className="size-4" />
+						)}
+						<AlertTitle>
+							{ruleOpen.actionable
+								? `${ruleOpen.created ? "Created" : "Opened"} rule ${ruleOpen.filename ?? ""}`
+								: "Rule route needs review"}
+						</AlertTitle>
+						<AlertDescription>
+							{ruleOpen.actionable
+								? (ruleOpen.relativePath ?? ruleOpen.filePath ?? "")
+								: (ruleOpen.reason ?? "This rule payload was not written.")}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
 				{preview ? (
 					<div className="flex flex-col gap-4 rounded-lg border border-border bg-background p-4">
 						<div className="flex flex-wrap items-center gap-2">
 							<Badge variant="outline">{route || "unknown"}</Badge>
 							{path ? <Badge variant="secondary">{path}</Badge> : null}
+							{relativePath ? (
+								<Badge variant="secondary">{relativePath}</Badge>
+							) : null}
+							{filename && !relativePath ? (
+								<Badge variant="secondary">{filename}</Badge>
+							) : null}
 							{preview.requiresConfirmation ? (
 								<Badge variant="outline">Confirmation</Badge>
 							) : null}
@@ -461,6 +547,11 @@ export function CursorUriView({
 								Config: {configKeys.join(", ")}
 							</div>
 						) : null}
+						{previewReason ? (
+							<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+								{previewReason}
+							</div>
+						) : null}
 						{taskPrompt ? (
 							<div className="space-y-2">
 								<Label htmlFor="cursor-uri-task-prompt">Task Prompt</Label>
@@ -471,7 +562,7 @@ export function CursorUriView({
 									value={taskPrompt}
 								/>
 							</div>
-						) : canIngest || canInstallMcp || canOpenSettings ? null : (
+						) : hasActionableNonPromptPreview ? null : (
 							<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
 								This route is available for preview only.
 							</div>

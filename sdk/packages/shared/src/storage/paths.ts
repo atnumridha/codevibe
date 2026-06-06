@@ -13,6 +13,8 @@ import type { PluginManifest } from "..";
 
 const DEPRECATED_CONFIG_DIR = ".clinerules";
 const CLINE_CONFIG_DIR = ".cline";
+const CURSOR_CONFIG_DIR = ".cursor";
+const CURSOR_RULES_FILE_NAME = ".cursorrules";
 const LEGACY_AGENT_SKILLS_CONFIG_DIR = ".agents";
 
 export const AGENT_CONFIG_DIRECTORY_NAME = "agents";
@@ -363,10 +365,14 @@ export function resolveRulesConfigSearchPaths(
 		? [
 				join(workspacePath, DEPRECATED_CONFIG_DIR),
 				join(workspacePath, CLINE_CONFIG_DIR, RULES_CONFIG_DIRECTORY_NAME),
+				join(workspacePath, CURSOR_CONFIG_DIR, RULES_CONFIG_DIRECTORY_NAME),
 			]
 		: [];
 	const workspaceAgentsFile = workspacePath
-		? [join(workspacePath, AGENTS_RULES_FILE_NAME)]
+		? [
+				join(workspacePath, AGENTS_RULES_FILE_NAME),
+				join(workspacePath, CURSOR_RULES_FILE_NAME),
+			]
 		: [];
 	return dedupePaths([
 		...workspaceAgentsFile,

@@ -357,6 +357,102 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(storedText).toContain("secret-value");
 	});
 
+	it("previews safe Cursor rule files without writing them", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-rule-open-"));
+		tempDirs.push(workspace);
+		const targetPath = join(workspace, ".cursor", "rules", "team-style.mdc");
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_rule_open", {
+			uri: "vscode://cline.cline/rule?name=team-style",
+		});
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "rule",
+			kind: "file",
+			confirmed: false,
+			actionable: true,
+			created: false,
+			opened: false,
+			relativePath: ".cursor/rules/team-style.mdc",
+			filePath: targetPath,
+		});
+		await expect(readFile(targetPath, "utf8")).rejects.toThrow();
+	});
+
+	it("creates confirmed safe Cursor rule files and exposes them in settings", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-rule-open-"));
+		tempDirs.push(workspace);
+		const targetPath = join(workspace, ".cursor", "rules", "team-style.mdc");
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_rule_open", {
+			uri: "vscode://cline.cline/rule?name=team-style",
+			confirmed: true,
+			open: false,
+		});
+		const content = await readFile(targetPath, "utf8");
+		const settings = (await handleCommand(
+			ctx,
+			"list_user_instruction_configs",
+			{},
+		)) as { rules: Array<{ name: string; path: string }> };
+
+		expect(result).toMatchObject({
+			confirmed: true,
+			actionable: true,
+			created: true,
+			opened: false,
+			filename: "team-style.mdc",
+			relativePath: ".cursor/rules/team-style.mdc",
+			filePath: targetPath,
+		});
+		expect(content).toContain("# Team Style");
+		expect(content).toContain("alwaysApply: false");
+		expect(settings.rules).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					name: "team-style",
+					path: targetPath,
+				}),
+			]),
+		);
+	});
+
+	it("keeps Cursor rule payload routes review-only", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-rule-open-"));
+		tempDirs.push(workspace);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_rule_open", {
+			uri: "vscode://cline.cline/rule?name=team-style&content=Use%20small%20commits",
+			confirmed: true,
+			open: false,
+		});
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "rule",
+			kind: "review",
+			confirmed: true,
+			actionable: false,
+			created: false,
+			opened: false,
+			name: "team-style",
+		});
+		expect(JSON.stringify(result)).not.toContain("Use small commits");
+	});
+
 	it("requires confirmation before launching Cursor deeplinks", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

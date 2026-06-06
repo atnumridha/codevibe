@@ -61,8 +61,10 @@ describe("user instruction config loader", () => {
 		expect(resolveRulesConfigSearchPaths(workspacePath)).toEqual(
 			expect.arrayContaining([
 				join(workspacePath, "AGENTS.md"),
+				join(workspacePath, ".cursorrules"),
 				join(workspacePath, ".clinerules"),
 				join(workspacePath, ".cline", "rules"),
+				join(workspacePath, ".cursor", "rules"),
 			]),
 		);
 		expect(

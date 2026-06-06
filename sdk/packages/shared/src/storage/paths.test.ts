@@ -163,6 +163,18 @@ describe("storage path resolution", () => {
 		);
 	});
 
+	it("resolves Cursor-compatible workspace rule paths", () => {
+		snapshot = captureEnv();
+		const workspacePath = "/repo/demo";
+
+		expect(resolveRulesConfigSearchPaths(workspacePath)).toEqual(
+			expect.arrayContaining([
+				join(workspacePath, ".cursorrules"),
+				join(workspacePath, ".cursor", RULES_CONFIG_DIRECTORY_NAME),
+			]),
+		);
+	});
+
 	it("resolves legacy and new workflow paths, with .cline paths later for duplicate-name precedence", () => {
 		snapshot = captureEnv();
 		process.env.CLINE_DIR = "/tmp/home/.cline";
