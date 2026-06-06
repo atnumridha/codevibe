@@ -311,6 +311,7 @@ export {
 	registerMcpServersFromSettingsFile,
 	resolveCursorMcpSettingsPath,
 	resolveDefaultMcpSettingsPath,
+	resolveGlobalCursorMcpSettingsPath,
 	resolveMcpServerRegistrationSources,
 	resolveMcpServerRegistrations,
 	resolveMcpSettingsPaths,

@@ -24,10 +24,13 @@ function makeConnection(name: string): FakeConnection {
 	}
 }
 
-function createHub(settingsDir: string, workspaceRoots: string[]): McpHub {
+function createHub(settingsDir: string, workspaceRoots: string[], cursorSettingsPaths?: string[]): McpHub {
 	const hub = Object.create(McpHub.prototype) as McpHub
 	;(hub as any).getSettingsDirectoryPath = async () => settingsDir
 	;(hub as any).getWorkspaceRootPaths = async () => workspaceRoots
+	;(hub as any).getCursorMcpSettingsFilePaths = async () =>
+		cursorSettingsPaths ??
+		workspaceRoots.map((root) => path.join(root, ".cursor", "mcp.json"))
 	;(hub as any).serverSettingsFiles = new Map<string, string>()
 	;(hub as any).lastServerOrder = []
 	;(hub as any).isUpdatingClineSettings = false
@@ -84,6 +87,40 @@ describe("McpHub Cursor MCP settings", () => {
 		;(hub as any).serverSettingsFiles.get("alpha").should.equal(nativeSettingsPath)
 		;(hub as any).serverSettingsFiles.get("beta").should.equal(cursorSettingsPath)
 		;(hub as any).lastServerOrder.should.deepEqual(["alpha", "duplicate", "beta"])
+	})
+
+	it("merges global Cursor MCP settings after workspace settings", async () => {
+		const globalCursorSettingsPath = path.join(tempDir, "home", ".cursor", "mcp.json")
+		await writeJson(nativeSettingsPath, {
+			mcpServers: {
+				alpha: { type: "stdio", command: "native-alpha" },
+			},
+		})
+		await writeJson(cursorSettingsPath, {
+			mcpServers: {
+				shared: { type: "stdio", command: "workspace-shared" },
+				beta: { type: "stdio", command: "workspace-beta" },
+			},
+		})
+		await writeJson(globalCursorSettingsPath, {
+			mcpServers: {
+				shared: { type: "stdio", command: "global-shared" },
+				gamma: { type: "stdio", command: "global-gamma" },
+			},
+		})
+
+		const hub = createHub(settingsDir, [workspaceRoot], [
+			cursorSettingsPath,
+			globalCursorSettingsPath,
+		])
+		const settings = await (hub as any).readAndValidateMcpSettingsFile()
+
+		Object.keys(settings.mcpServers).should.deepEqual(["alpha", "shared", "beta", "gamma"])
+		settings.mcpServers.shared.command.should.equal("workspace-shared")
+		settings.mcpServers.gamma.command.should.equal("global-gamma")
+		;(hub as any).serverSettingsFiles.get("shared").should.equal(cursorSettingsPath)
+		;(hub as any).serverSettingsFiles.get("gamma").should.equal(globalCursorSettingsPath)
+		;(hub as any).lastServerOrder.should.deepEqual(["alpha", "shared", "beta", "gamma"])
 	})
 
 	it("expands Cursor workspace variables from .cursor/mcp.json", async () => {

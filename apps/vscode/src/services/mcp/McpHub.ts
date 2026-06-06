@@ -34,6 +34,7 @@ import chokidar, { FSWatcher } from "chokidar"
 import deepEqual from "fast-deep-equal"
 import * as fs from "fs/promises"
 import { nanoid } from "nanoid"
+import * as os from "os"
 import * as path from "path"
 import ReconnectingEventSource from "reconnecting-eventsource"
 import { z } from "zod"
@@ -183,15 +184,27 @@ export class McpHub {
 
 	private async getCursorMcpSettingsFilePaths(): Promise<string[]> {
 		const roots = this.getWorkspaceRootPaths ? await this.getWorkspaceRootPaths() : []
-		return [...new Set(roots.filter(Boolean).map((root) => path.join(root, CURSOR_MCP_SETTINGS_RELATIVE_PATH)))]
+		return [
+			...new Set([
+				...roots
+					.filter(Boolean)
+					.map((root) => path.join(root, CURSOR_MCP_SETTINGS_RELATIVE_PATH)),
+				path.join(os.homedir(), CURSOR_MCP_SETTINGS_RELATIVE_PATH),
+			]),
+		]
 	}
 
-	private getCursorMcpWorkspaceRootForSettingsPath(settingsPath: string): string | undefined {
+	private async getCursorMcpWorkspaceRootForSettingsPath(settingsPath: string): Promise<string | undefined> {
 		const normalizedPath = path.normalize(settingsPath)
-		if (!normalizedPath.endsWith(CURSOR_MCP_SETTINGS_RELATIVE_PATH)) {
-			return undefined
+		const roots = this.getWorkspaceRootPaths ? await this.getWorkspaceRootPaths() : []
+		for (const root of roots.filter(Boolean)) {
+			const cursorSettingsPath = path.normalize(path.join(root, CURSOR_MCP_SETTINGS_RELATIVE_PATH))
+			if (normalizedPath === cursorSettingsPath) {
+				return root
+			}
 		}
-		return path.dirname(path.dirname(normalizedPath))
+		const globalCursorSettingsPath = path.normalize(path.join(os.homedir(), CURSOR_MCP_SETTINGS_RELATIVE_PATH))
+		return normalizedPath === globalCursorSettingsPath && roots.length === 1 ? roots[0] : undefined
 	}
 
 	/**
@@ -235,7 +248,7 @@ export class McpHub {
 			// Expand environment variables before validation
 			// This allows ${env:VAR_NAME} syntax in URLs, headers, env vars, etc.
 			config = expandEnvironmentVariables(config, {
-				workspaceRoot: this.getCursorMcpWorkspaceRootForSettingsPath(settingsPath),
+				workspaceRoot: await this.getCursorMcpWorkspaceRootForSettingsPath(settingsPath),
 			})
 
 			// Validate against schema

@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, normalize } from "node:path";
 import { resolveMcpSettingsPath } from "@cline/shared/storage";
 import { z } from "zod";
@@ -186,6 +187,7 @@ export interface LoadMcpSettingsOptions {
 export interface ResolveMcpSettingsPathsOptions extends LoadMcpSettingsOptions {
 	filePaths?: string[];
 	includeCursorMcp?: boolean;
+	includeGlobalCursorMcp?: boolean;
 }
 
 export type RegisterMcpServersFromSettingsOptions =
@@ -212,6 +214,11 @@ export function resolveCursorMcpSettingsPath(workspaceRoot: string): string {
 		throw new Error("Workspace root is required to resolve .cursor/mcp.json.");
 	}
 	return join(root, CURSOR_MCP_SETTINGS_RELATIVE_PATH);
+}
+
+export function resolveGlobalCursorMcpSettingsPath(userHome?: string): string {
+	const home = userHome?.trim() || homedir();
+	return join(home, CURSOR_MCP_SETTINGS_RELATIVE_PATH);
 }
 
 function dedupeSettingsPaths(paths: ReadonlyArray<string | undefined>): string[] {
@@ -242,6 +249,12 @@ export function resolveMcpSettingsPaths(
 	const workspaceRoot = options.workspaceRoot?.trim();
 	if (workspaceRoot && options.includeCursorMcp !== false) {
 		paths.push(resolveCursorMcpSettingsPath(workspaceRoot));
+	}
+	if (
+		options.includeCursorMcp !== false &&
+		options.includeGlobalCursorMcp !== false
+	) {
+		paths.push(resolveGlobalCursorMcpSettingsPath(options.userHome));
 	}
 	return dedupeSettingsPaths(paths);
 }
@@ -275,11 +288,18 @@ function getCursorMcpVariableContext(
 	filePath: string,
 	options: LoadMcpSettingsOptions,
 ): CursorMcpVariableContext {
+	const normalizedPath = normalize(filePath);
+	const normalizedGlobalPath = normalize(
+		resolveGlobalCursorMcpSettingsPath(options.userHome),
+	);
 	return {
 		env: options.env,
 		userHome: options.userHome,
 		workspaceRoot:
-			options.workspaceRoot?.trim() || inferCursorMcpWorkspaceRoot(filePath),
+			options.workspaceRoot?.trim() ||
+			(normalizedPath === normalizedGlobalPath
+				? undefined
+				: inferCursorMcpWorkspaceRoot(filePath)),
 	};
 }
 

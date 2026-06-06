@@ -10,6 +10,7 @@ import {
 	resolveCursorMcpSettingsPath,
 	resolveMcpServerRegistrationSources,
 	resolveMcpServerRegistrations,
+	resolveGlobalCursorMcpSettingsPath,
 	resolveMcpSettingsPaths,
 	setMcpServerDisabled,
 	updateMcpServerOAuthState,
@@ -234,6 +235,79 @@ describe("mcp config loader", () => {
 				],
 			},
 		]);
+	});
+
+	it("merges global Cursor MCP settings after workspace settings", async () => {
+		const tempRoot = await mkdtemp(join(tmpdir(), "core-mcp-config-loader-"));
+		tempRoots.push(tempRoot);
+		const homeRoot = join(tempRoot, "home");
+		const nativePath = join(tempRoot, "cline_mcp_settings.json");
+		const cursorPath = resolveCursorMcpSettingsPath(tempRoot);
+		const globalCursorPath = resolveGlobalCursorMcpSettingsPath(homeRoot);
+		const previousSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
+		await mkdir(join(tempRoot, ".cursor"), { recursive: true });
+		await mkdir(join(homeRoot, ".cursor"), { recursive: true });
+		await writeFile(
+			nativePath,
+			JSON.stringify({
+				mcpServers: {
+					native: { command: "node" },
+				},
+			}),
+			"utf8",
+		);
+		await writeFile(
+			cursorPath,
+			JSON.stringify({
+				mcpServers: {
+					shared: { command: "workspace-server" },
+					workspaceOnly: { command: "workspace-only" },
+				},
+			}),
+			"utf8",
+		);
+		await writeFile(
+			globalCursorPath,
+			JSON.stringify({
+				mcpServers: {
+					shared: { command: "global-server" },
+					globalOnly: { command: "global-only" },
+				},
+			}),
+			"utf8",
+		);
+
+		process.env.CLINE_MCP_SETTINGS_PATH = nativePath;
+		try {
+			expect(
+				resolveMcpSettingsPaths({
+					workspaceRoot: tempRoot,
+					userHome: homeRoot,
+				}),
+			).toEqual([nativePath, cursorPath, globalCursorPath]);
+
+			const sources = resolveMcpServerRegistrationSources({
+				workspaceRoot: tempRoot,
+				userHome: homeRoot,
+			});
+
+			expect(sources.map((source) => source.filePath)).toEqual([
+				nativePath,
+				cursorPath,
+				globalCursorPath,
+			]);
+			expect(
+				sources.flatMap((source) =>
+					source.registrations.map((registration) => registration.name),
+				),
+			).toEqual(["native", "shared", "workspaceOnly", "globalOnly"]);
+		} finally {
+			if (previousSettingsPath === undefined) {
+				delete process.env.CLINE_MCP_SETTINGS_PATH;
+			} else {
+				process.env.CLINE_MCP_SETTINGS_PATH = previousSettingsPath;
+			}
+		}
 	});
 
 	it("normalizes Cursor MCP aliases and variables", async () => {
