@@ -210,6 +210,18 @@ describe("SharedUriHandler", () => {
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
 			})
 
+			it("should create a task from a native codevibe:// createchat route", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+
+				const result = await SharedUriHandler.handleUri("codevibe://createchat?prompt=Review%20the%20diff")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor chat task?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
+				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
+			})
+
 			it("should preserve encoded Cursor prompt separators as prompt text", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Create Task" })
@@ -237,6 +249,23 @@ describe("SharedUriHandler", () => {
 			it("should confirm and install a Cursor MCP install route", async () => {
 				const result = await SharedUriHandler.handleUri(
 					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install MCP server "docs"?')
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				expect(addServerFromConfigStub.firstCall.args[0]).to.equal("docs")
+				expect(addServerFromConfigStub.firstCall.args[1]).to.deep.include({
+					type: "streamableHttp",
+					url: "https://mcp.example.com",
+				})
+				sinon.assert.calledOnce(postStateToWebviewStub)
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should confirm and install a native CodeVibe MCP install route", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"codevibe://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				)
 
 				expect(result).to.be.true
@@ -328,6 +357,25 @@ describe("SharedUriHandler", () => {
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(".worktreeinclude")
 				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["Launch and Create Worktree"])
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
+				sinon.assert.calledOnce(handleCursorBackgroundAgentLaunchStub)
+				expect(handleTaskCreationStub.called).to.be.false
+				const launchRequest = handleCursorBackgroundAgentLaunchStub.firstCall.args[0]
+				expect(launchRequest.prompt).to.equal("Fix the queue")
+				expect(launchRequest.repository).to.equal("owner/repo")
+				expect(launchRequest.requestedBranch).to.equal("main")
+				expect(launchRequest.routePrompt).to.contain("Cursor-compatible background agent deeplink")
+			})
+
+			it("should launch native CodeVibe background-agent routes through the controller background path", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Launch and Create Worktree" })
+
+				const result = await SharedUriHandler.handleUri(
+					"codevibe://background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Cursor background agent?")
 				sinon.assert.calledOnce(handleCursorBackgroundAgentLaunchStub)
 				expect(handleTaskCreationStub.called).to.be.false
 				const launchRequest = handleCursorBackgroundAgentLaunchStub.firstCall.args[0]
