@@ -135,6 +135,7 @@ describe("UnifiedSessionPersistenceService", () => {
 				rootSessionId,
 				"java-haiku-agent",
 				"Write a haiku about Java",
+				"run_00042",
 			);
 			await service.onTeamTaskEnd(
 				rootSessionId,
@@ -187,6 +188,7 @@ describe("UnifiedSessionPersistenceService", () => {
 			const row = childSessions.find(
 				(item) => item.sessionId === teammateSessionId,
 			);
+			expect(row?.conversationId).toBe("run_00042");
 			expect(row?.messagesPath).toBeTruthy();
 			const path = row?.messagesPath as string;
 			const payload = JSON.parse(readFileSync(path, "utf8")) as {

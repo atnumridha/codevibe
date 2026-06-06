@@ -93,6 +93,7 @@ export async function dispatchTeamEventToBackend(
 				rootSessionId,
 				event.agentId,
 				event.message,
+				event.runId,
 			);
 			break;
 		case "task_end": {

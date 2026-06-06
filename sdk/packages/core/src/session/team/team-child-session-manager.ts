@@ -263,6 +263,7 @@ export class TeamChildSessionManager {
 		rootSessionId: string,
 		agentId: string,
 		message: string,
+		runId?: string,
 	): Promise<void> {
 		const root = await this.adapter.getSession(rootSessionId);
 		if (!root) return;
@@ -278,6 +279,7 @@ export class TeamChildSessionManager {
 				parentSessionId: rootSessionId,
 				parentAgentId: "lead",
 				agentId,
+				...(runId !== undefined ? { conversationId: runId } : {}),
 				prompt: message || `Team task for ${agentId}`,
 				startedAt,
 				messagesPath,

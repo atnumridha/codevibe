@@ -207,6 +207,7 @@ export interface ReviewTeamOutcomeFragmentInput {
 
 export interface RouteToTeammateOptions {
 	taskId?: string;
+	runId?: string;
 	fromAgentId?: string;
 	continueConversation?: boolean;
 }

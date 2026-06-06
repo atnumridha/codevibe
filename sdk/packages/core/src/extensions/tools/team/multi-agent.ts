@@ -83,10 +83,16 @@ export interface TaskResult {
 }
 
 export type TeamEvent =
-	| { type: TeamMessageType.TaskStart; agentId: string; message: string }
+	| {
+			type: TeamMessageType.TaskStart;
+			agentId: string;
+			message: string;
+			runId?: string;
+	  }
 	| {
 			type: TeamMessageType.TaskEnd;
 			agentId: string;
+			runId?: string;
 			result?: AgentResult;
 			error?: Error;
 			messages?: AgentResult["messages"];
@@ -1028,7 +1034,12 @@ export class AgentTeamsRuntime {
 
 		member.runningCount++;
 		member.status = "running";
-		this.emitEvent({ type: TeamMessageType.TaskStart, agentId, message });
+		this.emitEvent({
+			type: TeamMessageType.TaskStart,
+			agentId,
+			message,
+			...(options?.runId !== undefined ? { runId: options.runId } : {}),
+		});
 
 		try {
 			const unreadMail = this.listMailbox(agentId, {
@@ -1042,7 +1053,12 @@ export class AgentTeamsRuntime {
 			const result = options?.continueConversation
 				? await member.agent.continue(enrichedMessage)
 				: await member.agent.run(enrichedMessage);
-			this.emitEvent({ type: TeamMessageType.TaskEnd, agentId, result });
+			this.emitEvent({
+				type: TeamMessageType.TaskEnd,
+				agentId,
+				...(options?.runId !== undefined ? { runId: options.runId } : {}),
+				result,
+			});
 			this.recordProgressStep(
 				agentId,
 				`Completed a delegated run (${result.iterations} iterations)`,
@@ -1055,6 +1071,7 @@ export class AgentTeamsRuntime {
 			this.emitEvent({
 				type: TeamMessageType.TaskEnd,
 				agentId,
+				...(options?.runId !== undefined ? { runId: options.runId } : {}),
 				error: err,
 				messages: member.agent.getMessages(),
 			});
@@ -1216,6 +1233,7 @@ export class AgentTeamsRuntime {
 				: run.message;
 			const result = await this.routeToTeammate(run.agentId, runMessage, {
 				taskId: run.taskId,
+				runId: run.id,
 				continueConversation: run.continueConversation,
 			});
 			run.status = "completed";
