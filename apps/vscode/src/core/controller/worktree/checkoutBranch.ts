@@ -1,4 +1,5 @@
 import { CheckoutBranchRequest, WorktreeResult } from "@shared/proto/cline/worktree"
+import { normalizeGitBranchName } from "@utils/git-helper"
 import { getWorkspacePath } from "@utils/path"
 import simpleGit from "simple-git"
 import { Controller } from ".."
@@ -27,13 +28,21 @@ export async function checkoutBranch(_controller: Controller, request: CheckoutB
 		})
 	}
 
+	const normalizedBranch = normalizeGitBranchName(branch)
+	if (!normalizedBranch.ok) {
+		return WorktreeResult.create({
+			success: false,
+			message: normalizedBranch.error,
+		})
+	}
+
 	try {
 		const git = simpleGit(cwd)
-		await git.checkout(branch)
+		await git.checkout(normalizedBranch.value)
 
 		return WorktreeResult.create({
 			success: true,
-			message: `Switched to branch '${branch}'`,
+			message: `Switched to branch '${normalizedBranch.value}'`,
 		})
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error)

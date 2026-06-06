@@ -146,6 +146,7 @@ export class Controller {
 			() => ensureSettingsDirectoryExists(),
 			ExtensionRegistryInfo.version,
 			telemetryService,
+			async () => (await this.ensureWorkspaceManager())?.getRoots().map((root) => root.path) ?? [],
 		)
 
 		// Clean up legacy checkpoints

@@ -34,6 +34,7 @@ import chokidar, { FSWatcher } from "chokidar"
 import deepEqual from "fast-deep-equal"
 import * as fs from "fs/promises"
 import { nanoid } from "nanoid"
+import * as path from "path"
 import ReconnectingEventSource from "reconnecting-eventsource"
 import { z } from "zod"
 import { HostProvider } from "@/hosts/host-provider"
@@ -48,16 +49,31 @@ import { McpOAuthManager } from "./McpOAuthManager"
 import { StreamableHttpReconnectHandler } from "./StreamableHttpReconnectHandler"
 import { BaseConfigSchema, McpSettingsSchema, ServerConfigSchema } from "./schemas"
 import { McpConnection, McpServerConfig, Transport } from "./types"
+
+type McpSettings = z.infer<typeof McpSettingsSchema>
+
+type McpSettingsReadResult = {
+	settings: McpSettings
+	serverOrder: string[]
+	serverSettingsFiles: Map<string, string>
+}
+
+const CURSOR_MCP_SETTINGS_RELATIVE_PATH = path.join(".cursor", "mcp.json")
+
 export class McpHub {
 	getMcpServersPath: () => Promise<string>
 	private getSettingsDirectoryPath: () => Promise<string>
+	private getWorkspaceRootPaths?: () => Promise<string[]> | string[]
 	private clientVersion: string
 	private telemetryService: TelemetryService
 	private mcpOAuthManager: McpOAuthManager
 
 	private settingsWatcher?: FSWatcher
+	private cursorSettingsWatcher?: FSWatcher
 	private fileWatchers: Map<string, FSWatcher> = new Map()
 	connections: McpConnection[] = []
+	private serverSettingsFiles: Map<string, string> = new Map()
+	private lastServerOrder: string[] = []
 	isConnecting = false
 	/**
 	 * Flag to skip file watcher processing when we're updating Cline-specific settings
@@ -99,9 +115,11 @@ export class McpHub {
 		getSettingsDirectoryPath: () => Promise<string>,
 		clientVersion: string,
 		telemetryService: TelemetryService,
+		getWorkspaceRootPaths?: () => Promise<string[]> | string[],
 	) {
 		this.getMcpServersPath = getMcpServersPath
 		this.getSettingsDirectoryPath = getSettingsDirectoryPath
+		this.getWorkspaceRootPaths = getWorkspaceRootPaths
 		this.clientVersion = clientVersion
 		this.telemetryService = telemetryService
 		this.mcpOAuthManager = new McpOAuthManager()
@@ -150,6 +168,24 @@ export class McpHub {
 		return getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
 	}
 
+	private async getNativeMcpSettingsFilePath(): Promise<string> {
+		return getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
+	}
+
+	private async pathExists(filePath: string): Promise<boolean> {
+		try {
+			await fs.access(filePath)
+			return true
+		} catch {
+			return false
+		}
+	}
+
+	private async getCursorMcpSettingsFilePaths(): Promise<string[]> {
+		const roots = this.getWorkspaceRootPaths ? await this.getWorkspaceRootPaths() : []
+		return [...new Set(roots.filter(Boolean).map((root) => path.join(root, CURSOR_MCP_SETTINGS_RELATIVE_PATH)))]
+	}
+
 	/**
 	 * Sets the flag to indicate remote config is updating
 	 * Used to prevent watcher from triggering on remote config writes
@@ -165,9 +201,8 @@ export class McpHub {
 		return this.isUpdatingFromRemoteConfig
 	}
 
-	private async readAndValidateMcpSettingsFile(): Promise<z.infer<typeof McpSettingsSchema> | undefined> {
+	private async readAndValidateMcpSettingsPath(settingsPath: string, sourceLabel: string): Promise<McpSettings | undefined> {
 		try {
-			const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
 			const content = await fs.readFile(settingsPath, "utf-8")
 
 			let config: any
@@ -184,7 +219,7 @@ export class McpHub {
 			} catch (_error) {
 				HostProvider.window.showMessage({
 					type: ShowMessageType.ERROR,
-					message: "Invalid MCP settings format. Please ensure your settings follow the correct JSON format.",
+					message: `Invalid ${sourceLabel} MCP settings format. Please ensure your settings follow the correct JSON format.`,
 				})
 				return undefined
 			}
@@ -198,20 +233,133 @@ export class McpHub {
 			if (!result.success) {
 				HostProvider.window.showMessage({
 					type: ShowMessageType.ERROR,
-					message: "Invalid MCP settings schema.",
+					message: `Invalid ${sourceLabel} MCP settings schema.`,
 				})
 				return undefined
 			}
 
 			return result.data
 		} catch (error) {
-			Logger.error("Failed to read MCP settings:", error)
+			Logger.error(`Failed to read ${sourceLabel} MCP settings:`, error)
 			return undefined
 		}
 	}
 
+	private async readNativeMcpSettingsFile(): Promise<McpSettings | undefined> {
+		return this.readAndValidateMcpSettingsPath(await this.getNativeMcpSettingsFilePath(), "Cline")
+	}
+
+	private async readAllMcpSettingsFiles(): Promise<McpSettingsReadResult | undefined> {
+		const nativeSettingsPath = await this.getNativeMcpSettingsFilePath()
+		const nativeSettings = await this.readAndValidateMcpSettingsPath(nativeSettingsPath, "Cline")
+		if (!nativeSettings) {
+			return undefined
+		}
+
+		const mergedServers: McpSettings["mcpServers"] = { ...nativeSettings.mcpServers }
+		const serverOrder = Object.keys(nativeSettings.mcpServers)
+		const serverSettingsFiles = new Map<string, string>()
+
+		for (const serverName of serverOrder) {
+			serverSettingsFiles.set(serverName, nativeSettingsPath)
+		}
+
+		for (const cursorSettingsPath of await this.getCursorMcpSettingsFilePaths()) {
+			if (!(await this.pathExists(cursorSettingsPath))) {
+				continue
+			}
+
+			const cursorSettings = await this.readAndValidateMcpSettingsPath(cursorSettingsPath, ".cursor/mcp.json")
+			if (!cursorSettings) {
+				return undefined
+			}
+
+			for (const [serverName, serverConfig] of Object.entries(cursorSettings.mcpServers)) {
+				if (serverName in mergedServers) {
+					Logger.log(
+						`[McpHub] Skipping Cursor MCP server "${serverName}" from ${cursorSettingsPath}; a higher-priority MCP settings file already defines it.`,
+					)
+					continue
+				}
+				mergedServers[serverName] = serverConfig
+				serverOrder.push(serverName)
+				serverSettingsFiles.set(serverName, cursorSettingsPath)
+			}
+		}
+
+		this.serverSettingsFiles = serverSettingsFiles
+		this.lastServerOrder = serverOrder
+
+		return {
+			settings: { mcpServers: mergedServers },
+			serverOrder,
+			serverSettingsFiles,
+		}
+	}
+
+	private async readAndValidateMcpSettingsFile(): Promise<McpSettings | undefined> {
+		return (await this.readAllMcpSettingsFiles())?.settings
+	}
+
+	private async getSettingsFilePathForServer(serverName: string): Promise<string> {
+		return this.serverSettingsFiles.get(serverName) ?? (await this.getNativeMcpSettingsFilePath())
+	}
+
+	private async readWritableMcpSettingsForServer(
+		serverName: string,
+	): Promise<{ settingsPath: string; settings: McpSettings }> {
+		const settingsPath = await this.getSettingsFilePathForServer(serverName)
+		const settings = await this.readAndValidateMcpSettingsPath(settingsPath, settingsPath.endsWith(CURSOR_MCP_SETTINGS_RELATIVE_PATH) ? ".cursor/mcp.json" : "Cline")
+		if (!settings) {
+			throw new Error("Failed to read or validate MCP settings")
+		}
+		return { settingsPath, settings }
+	}
+
+	private async reloadMcpServersFromSettings(): Promise<void> {
+		const readResult = await this.readAllMcpSettingsFiles()
+		if (!readResult) {
+			return
+		}
+
+		try {
+			const settings = readResult.settings
+			// Re-add any remotely configured servers that were manually removed from all settings files.
+			const remoteServers = StateManager.get().getRemoteConfigSettings().remoteMCPServers
+			if (remoteServers?.length) {
+				let fileNeedsUpdate = false
+				const nativeSettingsPath = await this.getNativeMcpSettingsFilePath()
+				const nativeSettings = (await this.readNativeMcpSettingsFile()) ?? { mcpServers: {} }
+
+				for (const rs of remoteServers) {
+					if (!settings.mcpServers[rs.name]) {
+						;(settings.mcpServers as Record<string, any>)[rs.name] = {
+							url: rs.url,
+							type: "streamableHttp",
+							disabled: false,
+							autoApprove: [],
+							remoteConfigured: true,
+						}
+						;(nativeSettings.mcpServers as Record<string, any>)[rs.name] = settings.mcpServers[rs.name]
+						this.serverSettingsFiles.set(rs.name, nativeSettingsPath)
+						this.lastServerOrder.push(rs.name)
+						fileNeedsUpdate = true
+					}
+				}
+				if (fileNeedsUpdate) {
+					this.isUpdatingFromRemoteConfig = true
+					await fs.writeFile(nativeSettingsPath, JSON.stringify({ mcpServers: nativeSettings.mcpServers }, null, 2))
+					this.isUpdatingFromRemoteConfig = false
+				}
+			}
+			await this.updateServerConnections(settings.mcpServers)
+		} catch (error) {
+			Logger.error("Failed to process MCP settings change:", error)
+		}
+	}
+
 	private async watchMcpSettingsFile(): Promise<void> {
-		const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
+		const settingsPath = await this.getNativeMcpSettingsFilePath()
 
 		this.settingsWatcher = chokidar.watch(settingsPath, {
 			persistent: true, // Keep the process running as long as files are being watched
@@ -234,49 +382,42 @@ export class McpHub {
 				return
 			}
 
-			const settings = await this.readAndValidateMcpSettingsFile()
-			if (settings) {
-				try {
-					// Re-add any remotely configured servers that were manually removed from the file
-					const remoteServers = StateManager.get().getRemoteConfigSettings().remoteMCPServers
-					if (remoteServers?.length) {
-						let fileNeedsUpdate = false
-						for (const rs of remoteServers) {
-							if (!settings.mcpServers[rs.name]) {
-								;(settings.mcpServers as Record<string, any>)[rs.name] = {
-									url: rs.url,
-									type: "streamableHttp",
-									disabled: false,
-									autoApprove: [],
-									remoteConfigured: true,
-								}
-								fileNeedsUpdate = true
-							}
-						}
-						if (fileNeedsUpdate) {
-							this.isUpdatingFromRemoteConfig = true
-							const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
-							await fs.writeFile(settingsPath, JSON.stringify({ mcpServers: settings.mcpServers }, null, 2))
-							this.isUpdatingFromRemoteConfig = false
-						}
-					}
-					await this.updateServerConnections(settings.mcpServers)
-				} catch (error) {
-					Logger.error("Failed to process MCP settings change:", error)
-				}
-			}
+			await this.reloadMcpServersFromSettings()
 		})
 
 		this.settingsWatcher.on("error", (error) => {
 			Logger.error("Error watching MCP settings file:", error)
 		})
+
+		const cursorSettingsPaths = await this.getCursorMcpSettingsFilePaths()
+		if (cursorSettingsPaths.length > 0) {
+			this.cursorSettingsWatcher = chokidar.watch(cursorSettingsPaths, {
+				persistent: true,
+				ignoreInitial: true,
+				awaitWriteFinish: {
+					stabilityThreshold: 100,
+					pollInterval: 100,
+				},
+				atomic: true,
+			})
+
+			const handleCursorSettingsChange = async () => {
+				if (this.isUpdatingClineSettings) {
+					return
+				}
+				await this.reloadMcpServersFromSettings()
+			}
+			this.cursorSettingsWatcher.on("add", handleCursorSettingsChange)
+			this.cursorSettingsWatcher.on("change", handleCursorSettingsChange)
+			this.cursorSettingsWatcher.on("unlink", handleCursorSettingsChange)
+			this.cursorSettingsWatcher.on("error", (error) => {
+				Logger.error("Error watching Cursor MCP settings file:", error)
+			})
+		}
 	}
 
 	private async initializeMcpServers(): Promise<void> {
-		const settings = await this.readAndValidateMcpSettingsFile()
-		if (settings) {
-			await this.updateServerConnections(settings.mcpServers)
-		}
+		await this.reloadMcpServersFromSettings()
 	}
 
 	private findConnection(name: string, _source: "rpc" | "internal"): McpConnection | undefined {
@@ -692,9 +833,7 @@ export class McpHub {
 			})
 
 			// Get autoApprove settings
-			const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
-			const content = await fs.readFile(settingsPath, "utf-8")
-			const config = JSON.parse(content)
+			const { settings: config } = await this.readWritableMcpSettingsForServer(serverName)
 			const autoApproveConfig = config.mcpServers[serverName]?.autoApprove || []
 
 			// Mark tools as always allowed based on settings
@@ -1035,13 +1174,8 @@ export class McpHub {
 
 		this.isConnecting = false
 
-		const config = await this.readAndValidateMcpSettingsFile()
-		if (!config) {
-			throw new Error("Failed to read or validate MCP settings")
-		}
-
-		const serverOrder = Object.keys(config.mcpServers || {})
-		return this.getSortedMcpServers(serverOrder)
+		await this.readAllMcpSettingsFiles()
+		return this.getSortedMcpServers(this.lastServerOrder)
 	}
 
 	async restartConnection(serverName: string): Promise<void> {
@@ -1090,20 +1224,28 @@ export class McpHub {
 			.sort((a, b) => {
 				const indexA = serverOrder.indexOf(a.server.name)
 				const indexB = serverOrder.indexOf(b.server.name)
+				if (indexA === -1 && indexB === -1) {
+					return a.server.name.localeCompare(b.server.name)
+				}
+				if (indexA === -1) {
+					return 1
+				}
+				if (indexB === -1) {
+					return -1
+				}
 				return indexA - indexB
 			})
 			.map((connection) => connection.server)
 	}
 
 	private async notifyWebviewOfServerChanges(): Promise<void> {
-		// servers should always be sorted in the order they are defined in the settings file
-		const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
-		const content = await fs.readFile(settingsPath, "utf-8")
-		const config = JSON.parse(content)
-		const serverOrder = Object.keys(config.mcpServers || {})
+		// Servers are sorted by native settings first, then imported Cursor settings.
+		if (this.lastServerOrder.length === 0) {
+			await this.readAllMcpSettingsFiles()
+		}
 
 		// Get sorted servers
-		const sortedServers = this.getSortedMcpServers(serverOrder)
+		const sortedServers = this.getSortedMcpServers(this.lastServerOrder)
 
 		// Send update using gRPC stream
 		await sendMcpServersUpdate({
@@ -1122,8 +1264,7 @@ export class McpHub {
 			return []
 		}
 
-		const serverOrder = Object.keys(settings.mcpServers || {})
-		return this.getSortedMcpServers(serverOrder)
+		return this.getSortedMcpServers(this.lastServerOrder)
 	}
 
 	// Using server
@@ -1132,15 +1273,11 @@ export class McpHub {
 
 	public async toggleServerDisabledRPC(serverName: string, disabled: boolean): Promise<McpServer[]> {
 		try {
-			const config = await this.readAndValidateMcpSettingsFile()
-			if (!config) {
-				throw new Error("Failed to read or validate MCP settings")
-			}
+			const { settingsPath, settings: config } = await this.readWritableMcpSettingsForServer(serverName)
 
 			if (config.mcpServers[serverName]) {
 				config.mcpServers[serverName].disabled = disabled
 
-				const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
 				await fs.writeFile(settingsPath, JSON.stringify(config, null, 2))
 
 				const connection = this.connections.find((conn) => conn.server.name === serverName)
@@ -1153,8 +1290,8 @@ export class McpHub {
 					}
 				}
 
-				const serverOrder = Object.keys(config.mcpServers || {})
-				return this.getSortedMcpServers(serverOrder)
+				await this.readAllMcpSettingsFiles()
+				return this.getSortedMcpServers(this.lastServerOrder)
 			}
 			Logger.error(`Server "${serverName}" not found in MCP configuration`)
 			throw new Error(`Server "${serverName}" not found in MCP configuration`)
@@ -1318,9 +1455,7 @@ export class McpHub {
 		// Set flag to prevent file watcher from triggering during our update
 		this.isUpdatingClineSettings = true
 		try {
-			const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
-			const content = await fs.readFile(settingsPath, "utf-8")
-			const config = JSON.parse(content)
+			const { settingsPath, settings: config } = await this.readWritableMcpSettingsForServer(serverName)
 
 			// Initialize autoApprove if it doesn't exist
 			if (!config.mcpServers[serverName].autoApprove) {
@@ -1353,8 +1488,8 @@ export class McpHub {
 			}
 
 			// Return sorted servers without notifying webview
-			const serverOrder = Object.keys(config.mcpServers || {})
-			return this.getSortedMcpServers(serverOrder)
+			await this.readAllMcpSettingsFiles()
+			return this.getSortedMcpServers(this.lastServerOrder)
 		} catch (error) {
 			Logger.error("Failed to update autoApprove settings:", error)
 			throw error // Re-throw to ensure the error is properly handled
@@ -1371,9 +1506,7 @@ export class McpHub {
 		// Set flag to prevent file watcher from triggering during our update
 		this.isUpdatingClineSettings = true
 		try {
-			const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
-			const content = await fs.readFile(settingsPath, "utf-8")
-			const config = JSON.parse(content)
+			const { settingsPath, settings: config } = await this.readWritableMcpSettingsForServer(serverName)
 
 			// Initialize autoApprove if it doesn't exist
 			if (!config.mcpServers[serverName].autoApprove) {
@@ -1424,12 +1557,13 @@ export class McpHub {
 		// Set flag to prevent file watcher from triggering during our update
 		this.isUpdatingClineSettings = true
 		try {
-			const settings = await this.readAndValidateMcpSettingsFile()
-			if (!settings) {
+			const mergedSettings = await this.readAndValidateMcpSettingsFile()
+			const nativeSettings = await this.readNativeMcpSettingsFile()
+			if (!mergedSettings || !nativeSettings) {
 				throw new Error("Failed to read MCP settings")
 			}
 
-			if (settings.mcpServers[serverName]) {
+			if (mergedSettings.mcpServers[serverName]) {
 				throw new Error(`An MCP server with the name "${serverName}" already exists`)
 			}
 
@@ -1450,8 +1584,10 @@ export class McpHub {
 
 			const parsedConfig = ServerConfigSchema.parse(expandedConfig)
 
-			settings.mcpServers[serverName] = parsedConfig
-			const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
+			nativeSettings.mcpServers[serverName] = parsedConfig
+			mergedSettings.mcpServers[serverName] = parsedConfig
+			const settingsPath = await this.getNativeMcpSettingsFilePath()
+			this.serverSettingsFiles.set(serverName, settingsPath)
 
 			// We don't write the zod-transformed version to the file.
 			// The above parse() call adds the transportType field to the server config
@@ -1460,13 +1596,12 @@ export class McpHub {
 			// ToDo: We could benefit from input / output types reflecting the non-transformed / transformed versions
 			await fs.writeFile(
 				settingsPath,
-				JSON.stringify({ mcpServers: { ...settings.mcpServers, [serverName]: serverConfig } }, null, 2),
+				JSON.stringify({ mcpServers: { ...nativeSettings.mcpServers, [serverName]: serverConfig } }, null, 2),
 			)
 
-			await this.updateServerConnectionsRPC(settings.mcpServers)
+			await this.reloadMcpServersFromSettings()
 
-			const serverOrder = Object.keys(settings.mcpServers || {})
-			return this.getSortedMcpServers(serverOrder)
+			return this.getSortedMcpServers(this.lastServerOrder)
 		} catch (error) {
 			Logger.error("Failed to add remote MCP server:", error)
 			throw error
@@ -1490,9 +1625,7 @@ export class McpHub {
 			// Clear OAuth data BEFORE removing from config (while we still have the connection/URL)
 			await this.clearOAuthForConnection(serverName)
 
-			const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
-			const content = await fs.readFile(settingsPath, "utf-8")
-			const config = JSON.parse(content)
+			const { settingsPath, settings: config } = await this.readWritableMcpSettingsForServer(serverName)
 			if (!config.mcpServers || typeof config.mcpServers !== "object") {
 				config.mcpServers = {}
 			}
@@ -1503,11 +1636,11 @@ export class McpHub {
 					mcpServers: config.mcpServers,
 				}
 				await fs.writeFile(settingsPath, JSON.stringify(updatedConfig, null, 2))
-				await this.updateServerConnectionsRPC(config.mcpServers)
+				this.serverSettingsFiles.delete(serverName)
+				await this.reloadMcpServersFromSettings()
 
 				// Get the servers in their correct order from settings
-				const serverOrder = Object.keys(config.mcpServers || {})
-				return this.getSortedMcpServers(serverOrder)
+				return this.getSortedMcpServers(this.lastServerOrder)
 			}
 			throw new Error(`${serverName} not found in MCP configuration`)
 		} catch (error) {
@@ -1531,9 +1664,7 @@ export class McpHub {
 				throw new Error(`Invalid timeout value: ${timeout}. Must be at minimum ${MIN_MCP_TIMEOUT_SECONDS} seconds.`)
 			}
 
-			const settingsPath = await getMcpSettingsFilePathHelper(await this.getSettingsDirectoryPath())
-			const content = await fs.readFile(settingsPath, "utf-8")
-			const config = JSON.parse(content)
+			const { settingsPath, settings: config } = await this.readWritableMcpSettingsForServer(serverName)
 
 			if (!config.mcpServers?.[serverName]) {
 				throw new Error(`Server "${serverName}" not found in settings`)
@@ -1554,8 +1685,8 @@ export class McpHub {
 				connection.server.config = JSON.stringify(currentConfig)
 			}
 
-			const serverOrder = Object.keys(config.mcpServers || {})
-			return this.getSortedMcpServers(serverOrder)
+			await this.readAllMcpSettingsFiles()
+			return this.getSortedMcpServers(this.lastServerOrder)
 		} catch (error) {
 			Logger.error("Failed to update server timeout:", error)
 			if (error instanceof Error) {
@@ -1682,6 +1813,9 @@ export class McpHub {
 		this.connections = []
 		if (this.settingsWatcher) {
 			await this.settingsWatcher.close()
+		}
+		if (this.cursorSettingsWatcher) {
+			await this.cursorSettingsWatcher.close()
 		}
 	}
 }

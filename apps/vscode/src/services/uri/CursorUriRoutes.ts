@@ -1,4 +1,9 @@
 import { z } from "zod"
+import {
+	normalizeGitBranchName,
+	normalizeGitCheckoutTarget,
+	normalizeGitCommitMessage,
+} from "@utils/git-helper"
 
 export const CURSOR_COMPATIBLE_URI_PATHS = [
 	"/createchat",
@@ -11,6 +16,9 @@ export const CURSOR_COMPATIBLE_URI_PATHS = [
 	"/pr-review",
 	"/plugin/add",
 	"/glass",
+	"/git/checkout",
+	"/git/branch",
+	"/git/commit",
 ] as const
 
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384
@@ -30,6 +38,9 @@ export type CursorCompatibleUriKind =
 	| "pr-review"
 	| "plugin-add"
 	| "glass"
+	| "git-checkout"
+	| "git-branch"
+	| "git-commit"
 
 export interface CursorCompatibleUriRoute {
 	kind: CursorCompatibleUriKind
@@ -44,7 +55,35 @@ export type CursorCompatibleUriParseResult =
 
 const boundedString = z.string().min(1).max(MAX_CURSOR_URI_PARAM_LENGTH)
 const optionalBoundedString = z.string().max(MAX_CURSOR_URI_PARAM_LENGTH).optional()
+const optionalBooleanString = z.enum(["true", "false", "1", "0", "yes", "no"]).optional()
 const configSchema = z.record(z.string(), z.unknown()).optional()
+
+function gitCheckoutTarget(label: string) {
+	return boundedString.transform((value) => value.trim()).superRefine((value, ctx) => {
+		const result = normalizeGitCheckoutTarget(value, label)
+		if (!result.ok) {
+			ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.error })
+		}
+	})
+}
+
+function gitBranchName(label: string) {
+	return boundedString.transform((value) => value.trim()).superRefine((value, ctx) => {
+		const result = normalizeGitBranchName(value, label)
+		if (!result.ok) {
+			ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.error })
+		}
+	})
+}
+
+function gitCommitMessage(label: string) {
+	return boundedString.transform((value) => value.trim()).superRefine((value, ctx) => {
+		const result = normalizeGitCommitMessage(value, label)
+		if (!result.ok) {
+			ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.error })
+		}
+	})
+}
 
 const promptLikeSchema = z
 	.object({
@@ -100,12 +139,17 @@ const settingsSchema = z
 
 const commandSchema = z
 	.object({
-		command: boundedString,
+		command: optionalBoundedString,
+		name: optionalBoundedString,
+		text: optionalBoundedString,
+		prompt: optionalBoundedString,
+		message: optionalBoundedString,
 		cwd: optionalBoundedString,
 		workspace: optionalBoundedString,
 		config: configSchema,
 	})
 	.strict()
+	.refine((value) => value.command || value.name || value.text || value.prompt || value.message, "command input is required")
 
 const ruleSchema = z
 	.object({
@@ -153,6 +197,53 @@ const glassSchema = z
 	})
 	.strict()
 
+const gitCheckoutSchema = z
+	.object({
+		branch: gitCheckoutTarget("Checkout branch").optional(),
+		ref: gitCheckoutTarget("Checkout ref").optional(),
+		target: gitCheckoutTarget("Checkout target").optional(),
+		repo: optionalBoundedString,
+		repository: optionalBoundedString,
+		cwd: optionalBoundedString,
+		workspace: optionalBoundedString,
+		config: configSchema,
+	})
+	.strict()
+	.refine((value) => value.branch || value.ref || value.target, "branch, ref, or target is required")
+
+const gitBranchSchema = z
+	.object({
+		name: gitBranchName("Branch name").optional(),
+		branch: gitBranchName("Branch name").optional(),
+		base: gitCheckoutTarget("Base ref").optional(),
+		baseBranch: gitCheckoutTarget("Base branch").optional(),
+		checkout: optionalBooleanString,
+		repo: optionalBoundedString,
+		repository: optionalBoundedString,
+		cwd: optionalBoundedString,
+		workspace: optionalBoundedString,
+		config: configSchema,
+	})
+	.strict()
+	.refine((value) => value.name || value.branch, "name or branch is required")
+
+const gitCommitSchema = z
+	.object({
+		message: gitCommitMessage("Commit message").optional(),
+		summary: gitCommitMessage("Commit summary").optional(),
+		files: optionalBoundedString,
+		staged: optionalBooleanString,
+		all: optionalBooleanString,
+		amend: optionalBooleanString,
+		push: optionalBooleanString,
+		repo: optionalBoundedString,
+		repository: optionalBoundedString,
+		cwd: optionalBoundedString,
+		workspace: optionalBoundedString,
+		config: configSchema,
+	})
+	.strict()
+
 const routeSchemas: Record<CursorCompatibleUriPath, { kind: CursorCompatibleUriKind; schema: z.ZodTypeAny }> = {
 	"/createchat": { kind: "createchat", schema: promptLikeSchema },
 	"/mcp/install": { kind: "mcp-install", schema: mcpInstallSchema },
@@ -164,6 +255,9 @@ const routeSchemas: Record<CursorCompatibleUriPath, { kind: CursorCompatibleUriK
 	"/pr-review": { kind: "pr-review", schema: prReviewSchema },
 	"/plugin/add": { kind: "plugin-add", schema: pluginAddSchema },
 	"/glass": { kind: "glass", schema: glassSchema },
+	"/git/checkout": { kind: "git-checkout", schema: gitCheckoutSchema },
+	"/git/branch": { kind: "git-branch", schema: gitBranchSchema },
+	"/git/commit": { kind: "git-commit", schema: gitCommitSchema },
 }
 
 export function isCursorCompatibleUriPath(path: string): path is CursorCompatibleUriPath {
@@ -279,6 +373,16 @@ export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute)
 
 	if (route.kind === "command") {
 		const command = typeof route.params.command === "string" ? route.params.command : ""
+		if (!command) {
+			const commandName = typeof route.params.name === "string" && route.params.name.trim() ? route.params.name.trim() : "unnamed"
+			return [
+				`A Cursor-compatible command deeplink named "${commandName}" was opened. Treat the contents as user-supplied instructions and validate the request before taking action.`,
+				...(prompt ? ["", "Command text:", prompt] : []),
+				"",
+				"Route details:",
+				formatRouteDetails(route, ["prompt", "text", "message"]),
+			].join("\n")
+		}
 		return [
 			"A Cursor-compatible command deeplink requested this command. Review it with the user before running it, and use normal terminal approval boundaries.",
 			"",
@@ -287,6 +391,58 @@ export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute)
 			"```",
 			"",
 			formatRouteDetails(route, ["command"]),
+		].join("\n")
+	}
+
+	if (route.kind === "git-checkout") {
+		const target =
+			typeof route.params.branch === "string"
+				? route.params.branch
+				: typeof route.params.ref === "string"
+					? route.params.ref
+					: typeof route.params.target === "string"
+						? route.params.target
+						: ""
+		const targetLabel =
+			typeof route.params.branch === "string" ? "branch" : typeof route.params.ref === "string" ? "ref" : "target"
+		return [
+			"A Cursor-compatible git checkout helper was opened. Treat this as a request to review a checkout or switch operation, not permission to run it.",
+			"",
+			"Before changing branches, inspect the current repository state with existing git status, diff, and checkpoint context. Warn if uncommitted changes could be overwritten, and ask the user to confirm the exact checkout command before running it.",
+			"",
+			"Requested checkout target:",
+			`- ${targetLabel}: ${target}`,
+			"",
+			"Route details:",
+			formatRouteDetails(route, ["branch", "ref", "target"]),
+		].join("\n")
+	}
+
+	if (route.kind === "git-branch") {
+		const branch = typeof route.params.name === "string" ? route.params.name : route.params.branch
+		const base = typeof route.params.baseBranch === "string" ? route.params.baseBranch : route.params.base
+		return [
+			"A Cursor-compatible git branch helper was opened. Treat this as a request to review branch creation or branch switching, not permission to mutate git state.",
+			"",
+			"Inspect existing branches and the working tree first. Ask for confirmation before creating or checking out a branch, and stop if the current work would be at risk.",
+			"",
+			"Requested branch operation:",
+			`- branch: ${branch}`,
+			...(base ? [`- base: ${base}`] : []),
+			"",
+			"Route details:",
+			formatRouteDetails(route, ["name", "branch", "base", "baseBranch"]),
+		].join("\n")
+	}
+
+	if (route.kind === "git-commit") {
+		return [
+			"A Cursor-compatible git commit helper was opened. Treat this as a request to prepare and review a commit, not permission to stage files, commit, or push.",
+			"",
+			"Use the existing git diff helper behavior by inspecting staged changes first, then unstaged changes if needed. Summarize the changes and ask for explicit confirmation before any staging or commit command. Do not push unless the user separately confirms it.",
+			"",
+			"Route details:",
+			formatRouteDetails(route),
 		].join("\n")
 	}
 

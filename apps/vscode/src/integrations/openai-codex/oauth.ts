@@ -4,6 +4,7 @@ import * as http from "http"
 import * as os from "os"
 import * as path from "path"
 import { URL } from "url"
+import * as vscode from "vscode"
 import { z } from "zod"
 import { StateManager } from "@/core/storage/StateManager"
 import { fetch } from "@/shared/net"
@@ -35,6 +36,12 @@ export const OPENAI_CODEX_BACKEND_CONFIG = {
 
 // Token storage key - must match the key in SECRETS_KEYS (state-keys.ts)
 const OPENAI_CODEX_CREDENTIALS_KEY = "openai-codex-oauth-credentials"
+
+const OPENAI_CODEX_AUTH_SOURCES = ["codexHome", "vscodeSecret", "auto"] as const
+export type OpenAiCodexAuthSource = (typeof OPENAI_CODEX_AUTH_SOURCES)[number]
+const DEFAULT_OPENAI_CODEX_AUTH_SOURCE: OpenAiCodexAuthSource = "codexHome"
+
+type OpenAiCodexCredentialSource = "codex-home" | "vscode-secret"
 
 // Credentials schema
 const openAiCodexCredentialsSchema = z.object({
@@ -180,6 +187,90 @@ function extractExpiryMs(accessToken: string, now: () => number = Date.now): num
 
 function getCodexHomePath(codexHome?: string): string {
 	return codexHome || process.env.CODEX_HOME || path.join(os.homedir(), ".codex")
+}
+
+function isOpenAiCodexAuthSource(value: unknown): value is OpenAiCodexAuthSource {
+	return typeof value === "string" && OPENAI_CODEX_AUTH_SOURCES.includes(value as OpenAiCodexAuthSource)
+}
+
+function safeErrorSummary(error: unknown): string {
+	if (error instanceof z.ZodError) {
+		return (
+			error.issues
+				.map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "credentials"}: ${issue.message}`)
+				.join("; ") || "credentials failed validation"
+		)
+	}
+	if (error instanceof SyntaxError) {
+		return error.message
+	}
+	if (error instanceof Error) {
+		const code =
+			typeof (error as NodeJS.ErrnoException).code === "string"
+				? ` code=${(error as NodeJS.ErrnoException).code}`
+				: ""
+		const status =
+			typeof (error as { status?: unknown }).status === "number"
+				? ` status=${(error as { status: number }).status}`
+				: ""
+		const errorCode =
+			typeof (error as { errorCode?: unknown }).errorCode === "string"
+				? ` code=${(error as { errorCode: string }).errorCode}`
+				: ""
+		return `${error.name}${code}${status}${errorCode}`
+	}
+	return "Unknown error"
+}
+
+function getOpenAiCodexAuthSource(): OpenAiCodexAuthSource {
+	try {
+		const configuredSource = vscode.workspace
+			.getConfiguration("cline")
+			.get<OpenAiCodexAuthSource>("openAiCodex.authSource", DEFAULT_OPENAI_CODEX_AUTH_SOURCE)
+
+		if (isOpenAiCodexAuthSource(configuredSource)) {
+			return configuredSource
+		}
+
+		Logger.warn(
+			`[openai-codex-oauth] Invalid openAiCodex.authSource setting "${String(
+				configuredSource,
+			)}"; using ${DEFAULT_OPENAI_CODEX_AUTH_SOURCE}`,
+		)
+	} catch (error) {
+		Logger.warn(
+			`[openai-codex-oauth] Failed to read openAiCodex.authSource setting; using ${DEFAULT_OPENAI_CODEX_AUTH_SOURCE}: ${safeErrorSummary(
+				error,
+			)}`,
+		)
+	}
+	return DEFAULT_OPENAI_CODEX_AUTH_SOURCE
+}
+
+function getCredentialSourceOrder(authSource: OpenAiCodexAuthSource): OpenAiCodexCredentialSource[] {
+	switch (authSource) {
+		case "codexHome":
+			return ["codex-home", "vscode-secret"]
+		case "vscodeSecret":
+		case "auto":
+			return ["vscode-secret", "codex-home"]
+	}
+}
+
+async function loadVscodeSecretCredentials(): Promise<OpenAiCodexCredentials | null> {
+	const stateManager = StateManager.get()
+	const credentialsJson = stateManager.getSecretKey(OPENAI_CODEX_CREDENTIALS_KEY)
+	if (!credentialsJson) {
+		return null
+	}
+
+	const parsed = JSON.parse(credentialsJson)
+	return openAiCodexCredentialsSchema.parse(parsed)
+}
+
+function logCredentialSourceLoadFailure(source: OpenAiCodexCredentialSource, error: unknown): void {
+	const label = source === "codex-home" ? "Codex home" : "VS Code secret"
+	Logger.error(`[openai-codex-oauth] Failed to load ${label} credentials: ${safeErrorSummary(error)}`)
 }
 
 async function readOptionalText(filePath: string): Promise<string | undefined> {
@@ -498,7 +589,7 @@ export class OpenAiCodexOAuthManager {
 			return newCredentials.access_token
 		} catch (error) {
 			this.refreshPromise = null
-			Logger.error("[openai-codex-oauth] Failed to force refresh token:", error)
+			Logger.error(`[openai-codex-oauth] Failed to force refresh token: ${safeErrorSummary(error)}`)
 			if (error instanceof OpenAiCodexOAuthTokenError && error.isLikelyInvalidGrant()) {
 				Logger.log("[openai-codex-oauth] Refresh token appears invalid; clearing stored credentials")
 				await this.clearCredentials()
@@ -508,25 +599,30 @@ export class OpenAiCodexOAuthManager {
 	}
 
 	/**
-	 * Load credentials from storage via StateManager.
+	 * Load credentials from the configured auth source order.
 	 */
-	async loadCredentials(): Promise<OpenAiCodexCredentials | null> {
-		try {
-			const stateManager = StateManager.get()
-			const credentialsJson = stateManager.getSecretKey("openai-codex-oauth-credentials")
-
-			if (credentialsJson) {
-				const parsed = JSON.parse(credentialsJson)
-				this.credentials = openAiCodexCredentialsSchema.parse(parsed)
-				return this.credentials
+	async loadCredentials(options?: {
+		authSource?: OpenAiCodexAuthSource
+		codexHome?: string
+	}): Promise<OpenAiCodexCredentials | null> {
+		const authSource = options?.authSource ?? getOpenAiCodexAuthSource()
+		for (const source of getCredentialSourceOrder(authSource)) {
+			try {
+				const credentials =
+					source === "codex-home"
+						? await loadCodexHomeCredentials({ codexHome: options?.codexHome })
+						: await loadVscodeSecretCredentials()
+				if (credentials) {
+					this.credentials = credentials
+					return this.credentials
+				}
+			} catch (error) {
+				logCredentialSourceLoadFailure(source, error)
 			}
-
-			this.credentials = await loadCodexHomeCredentials()
-			return this.credentials
-		} catch (error) {
-			Logger.error("[openai-codex-oauth] Failed to load credentials:", error)
-			return null
 		}
+
+		this.credentials = null
+		return null
 	}
 
 	/**
@@ -575,7 +671,7 @@ export class OpenAiCodexOAuthManager {
 				await this.saveCredentials(newCredentials)
 			} catch (error) {
 				this.refreshPromise = null
-				Logger.error("[openai-codex-oauth] Failed to refresh token:", error)
+				Logger.error(`[openai-codex-oauth] Failed to refresh token: ${safeErrorSummary(error)}`)
 
 				// Only clear secrets when the refresh token is clearly invalid/revoked.
 				if (error instanceof OpenAiCodexOAuthTokenError && error.isLikelyInvalidGrant()) {
