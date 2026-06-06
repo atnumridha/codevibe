@@ -21,6 +21,8 @@ describe("SharedUriHandler", () => {
 	let addServerFromConfigStub: sinon.SinonStub
 	let postStateToWebviewStub: sinon.SinonStub
 	let showMessageStub: sinon.SinonStub
+	let openSettingsStub: sinon.SinonStub
+	let openFileStub: sinon.SinonStub
 
 	beforeEach(async () => {
 		sandbox = sinon.createSandbox()
@@ -54,6 +56,8 @@ describe("SharedUriHandler", () => {
 		showMessageStub = sandbox.stub()
 		showMessageStub.onFirstCall().resolves({ selectedOption: "Install" })
 		showMessageStub.resolves({ selectedOption: undefined })
+		openSettingsStub = sandbox.stub().resolves({})
+		openFileStub = sandbox.stub().resolves({})
 		const mockWebviewProvider = {
 			controller: {
 				handleOpenRouterCallback: handleOpenRouterCallbackStub,
@@ -62,6 +66,10 @@ describe("SharedUriHandler", () => {
 				handleCursorBackgroundAgentLaunch: handleCursorBackgroundAgentLaunchStub,
 				handleMcpOAuthCallback: handleMcpOAuthCallbackStub,
 				postStateToWebview: postStateToWebviewStub,
+				stateManager: {
+					getWorkspaceStateKey: sandbox.stub().returns({}),
+					setWorkspaceState: sandbox.stub(),
+				},
 				mcpHub: {
 					addServerFromConfig: addServerFromConfigStub,
 				},
@@ -69,7 +77,14 @@ describe("SharedUriHandler", () => {
 		} as any
 		sandbox.stub(WebviewProvider, "getVisibleInstance").returns(mockWebviewProvider)
 		sandbox.stub(WebviewProvider, "getInstance").returns(mockWebviewProvider)
-		sandbox.stub(HostProvider, "window").get(() => ({ showMessage: showMessageStub }) as any)
+		sandbox.stub(HostProvider, "window").get(
+			() =>
+				({
+					showMessage: showMessageStub,
+					openSettings: openSettingsStub,
+					openFile: openFileStub,
+				}) as any,
+		)
 	})
 
 	afterEach(() => {
@@ -185,6 +200,39 @@ describe("SharedUriHandler", () => {
 				expect(launchRequest.repository).to.equal("owner/repo")
 				expect(launchRequest.requestedBranch).to.equal("main")
 				expect(launchRequest.routePrompt).to.contain("Cursor-compatible background agent deeplink")
+			})
+
+			it("should open settings routes directly through the host", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/settings?query=%40id%3Acline.apiProvider",
+				)
+
+				expect(result).to.be.true
+				sinon.assert.calledOnceWithExactly(openSettingsStub, { query: "@id:cline.apiProvider" })
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should confirm safe Cursor rule routes without creating a task", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/rule?name=team-style")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Create or open Cursor rule "team-style.mdc"?')
+				expect(handleTaskCreationStub.called).to.be.false
+				expect(openFileStub.called).to.be.false
+			})
+
+			it("should route Cursor rule content payloads through task review", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/rule?name=team-style&content=Use%20short%20commits",
+				)
+
+				expect(result).to.be.true
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Cursor-compatible rule deeplink")
+				expect(openFileStub.called).to.be.false
 			})
 
 			it("should reject invalid Cursor command routes", async () => {

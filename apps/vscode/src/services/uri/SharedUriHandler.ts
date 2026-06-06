@@ -1,13 +1,18 @@
 import fs from "fs/promises"
+import path from "path"
+import { refreshExternalRulesToggles } from "@core/context/instructions/user-instructions/external-rules"
+import { GlobalFileNames } from "@core/storage/disk"
 import { WebviewProvider } from "@/core/webview"
 import { HostProvider } from "@/hosts/host-provider"
 import { writeLgWebhookConfig, writeLgWebhookHooks } from "@/services/lg-cns-integration/webhook-hooks"
 import { ShowMessageType } from "@/shared/proto/host/window"
 import { Logger } from "@/shared/services/Logger"
+import { getCwd, getDesktopDir } from "@/utils/path"
 import {
 	buildCursorCompatibleBackgroundAgentLaunchRequest,
 	buildCursorCompatibleTaskPrompt,
 	parseCursorCompatibleUri,
+	type CursorCompatibleUriRoute,
 } from "./CursorUriRoutes"
 import {
 	buildCursorMcpInstallRequest,
@@ -32,12 +37,17 @@ interface SharedUriController {
 	handleHicapCallback(code: string): Promise<void>
 	handleCursorBackgroundAgentLaunch(request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>): Promise<unknown>
 	postStateToWebview(): Promise<void>
+	stateManager?: {
+		getWorkspaceStateKey(key: string): unknown
+		setWorkspaceState(key: string, value: unknown): void
+	}
 	mcpHub: {
 		addServerFromConfig(serverName: string, serverConfig: CursorMcpServerConfig): Promise<unknown>
 	}
 }
 
 const MCP_OAUTH_CALLBACK_PATTERN = /^\/mcp-auth\/callback\/[^/]+$/
+const CURSOR_RULE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/
 
 function parseUri(url: string): {
 	parsedUrl: URL
@@ -53,6 +63,51 @@ function parseUri(url: string): {
 	const query = new URLSearchParams(queryString.replace(/\+/g, "%2B"))
 
 	return { parsedUrl, path, query }
+}
+
+function getRouteStringParam(route: CursorCompatibleUriRoute, key: string): string | undefined {
+	const value = route.params[key]
+	return typeof value === "string" && value.trim() ? value.trim() : undefined
+}
+
+function getSettingsQuery(route: CursorCompatibleUriRoute): string | undefined {
+	return (
+		getRouteStringParam(route, "query") ||
+		getRouteStringParam(route, "section") ||
+		getRouteStringParam(route, "tab")
+	)
+}
+
+function normalizeCursorRuleTarget(route: CursorCompatibleUriRoute): {
+	filename: string
+	relativePath: string
+} | undefined {
+	if (getRouteStringParam(route, "content") || getRouteStringParam(route, "url")) {
+		return undefined
+	}
+
+	const requested = (getRouteStringParam(route, "name") || getRouteStringParam(route, "path"))?.replace(/\\/g, "/")
+	if (!requested || requested.includes("\0") || path.isAbsolute(requested) || requested.split("/").includes("..")) {
+		return undefined
+	}
+
+	if (requested === GlobalFileNames.cursorRulesFile || requested.endsWith(`/${GlobalFileNames.cursorRulesFile}`)) {
+		return {
+			filename: GlobalFileNames.cursorRulesFile,
+			relativePath: GlobalFileNames.cursorRulesFile,
+		}
+	}
+
+	const basename = path.basename(requested)
+	if (!basename || !CURSOR_RULE_FILENAME_PATTERN.test(basename)) {
+		return undefined
+	}
+
+	const filename = basename.endsWith(".mdc") ? basename : `${basename}.mdc`
+	return {
+		filename,
+		relativePath: path.join(GlobalFileNames.cursorRulesDir, filename),
+	}
 }
 
 /**
@@ -158,6 +213,17 @@ export class SharedUriHandler {
 							buildCursorCompatibleBackgroundAgentLaunchRequest(cursorRoute.route),
 						)
 						return true
+					}
+					if (cursorRoute.route.kind === "settings") {
+						const settingsQuery = getSettingsQuery(cursorRoute.route)
+						await HostProvider.window.openSettings(settingsQuery ? { query: settingsQuery } : {})
+						return true
+					}
+					if (cursorRoute.route.kind === "rule") {
+						const handled = await this.handleCursorRuleRoute(controller, cursorRoute.route)
+						if (handled) {
+							return true
+						}
 					}
 					await controller.handleTaskCreation(
 						buildCursorCompatibleTaskPrompt(cursorRoute.route),
@@ -276,5 +342,54 @@ export class SharedUriHandler {
 			Logger.error("SharedUriHandler: Error processing URI:", error)
 			return false
 		}
+	}
+
+	private static async handleCursorRuleRoute(
+		controller: SharedUriController,
+		route: CursorCompatibleUriRoute,
+	): Promise<boolean> {
+		const target = normalizeCursorRuleTarget(route)
+		if (!target) {
+			return false
+		}
+
+		const choice = await HostProvider.window.showMessage({
+			type: ShowMessageType.WARNING,
+			message: `Create or open Cursor rule "${target.filename}"?`,
+			options: {
+				modal: true,
+				items: ["Create/Open"],
+				detail: `Target: ${target.relativePath}`,
+			},
+		})
+		if (choice.selectedOption !== "Create/Open") {
+			return true
+		}
+
+		const cwd = await getCwd(getDesktopDir())
+		const filePath = path.resolve(cwd, target.relativePath)
+		await fs.mkdir(path.dirname(filePath), { recursive: true })
+		try {
+			await fs.writeFile(filePath, "", { flag: "wx" })
+		} catch (error) {
+			const code =
+				error && typeof error === "object" && "code" in error
+					? (error as { code?: unknown }).code
+					: undefined
+			if (code !== "EEXIST") {
+				throw error
+			}
+		}
+
+		if (controller.stateManager) {
+			await refreshExternalRulesToggles(controller as any, cwd)
+			await controller.postStateToWebview()
+		}
+		await HostProvider.window.openFile({ filePath })
+		await HostProvider.window.showMessage({
+			type: ShowMessageType.INFORMATION,
+			message: `Opened Cursor rule "${target.filename}".`,
+		})
+		return true
 	}
 }
