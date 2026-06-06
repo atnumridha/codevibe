@@ -39,6 +39,10 @@ import {
 import { BannerService } from "@/services/banner/BannerService"
 import { featureFlagsService } from "@/services/feature-flags"
 import { getDistinctId } from "@/services/logging/distinctId"
+import {
+	installPlugin,
+	type PluginInstallResult,
+} from "@/services/plugins/CursorPluginInstaller"
 import { telemetryService } from "@/services/telemetry"
 import type { CursorCompatibleAutomationIngestRequest } from "@/services/uri/CursorUriRoutes"
 import { ClineExtensionContext } from "@/shared/cline"
@@ -687,6 +691,41 @@ export class Controller {
 			message,
 		})
 		return result
+	}
+
+	async handleCursorPluginAdd(request: {
+		source: string
+		sourceParam: "id" | "name" | "url"
+		detail: string
+	}): Promise<PluginInstallResult> {
+		try {
+			const workspaceManager = await this.ensureWorkspaceManager()
+			const cwd = workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
+			const result = await installPlugin({
+				source: request.source,
+				cwd,
+				io: {
+					writeln: (message = "") => Logger.info(`Cursor plugin install: ${message}`),
+					writeErr: (message) => Logger.warn(`Cursor plugin install: ${message}`),
+				},
+			})
+			await HostProvider.window.showMessage({
+				type: ShowMessageType.INFORMATION,
+				message: `Installed Cursor plugin from ${result.source}.`,
+				options: {
+					detail: [`Path: ${result.installPath}`, `Entries: ${result.entryPaths.length}`].join("\n"),
+				},
+			})
+			return result
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			Logger.error("Failed to install Cursor plugin:", error)
+			await HostProvider.window.showMessage({
+				type: ShowMessageType.ERROR,
+				message: `Failed to install Cursor plugin: ${message}`,
+			})
+			throw error
+		}
 	}
 
 	getBackgroundAgentTaskRecords(): BackgroundAgentTaskRecord[] {

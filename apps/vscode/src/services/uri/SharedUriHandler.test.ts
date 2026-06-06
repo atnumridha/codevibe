@@ -26,6 +26,7 @@ describe("SharedUriHandler", () => {
 	let handleTaskCreationStub: sinon.SinonStub
 	let handleCursorAutomationIngestStub: sinon.SinonStub
 	let handleCursorBackgroundAgentLaunchStub: sinon.SinonStub
+	let handleCursorPluginAddStub: sinon.SinonStub
 	let handleMcpOAuthCallbackStub: sinon.SinonStub
 	let addServerFromConfigStub: sinon.SinonStub
 	let postStateToWebviewStub: sinon.SinonStub
@@ -69,6 +70,11 @@ describe("SharedUriHandler", () => {
 			strictFailed: false,
 		})
 		handleCursorBackgroundAgentLaunchStub = sandbox.stub().resolves()
+		handleCursorPluginAddStub = sandbox.stub().resolves({
+			source: "docs-helper",
+			installPath: "/tmp/.cline/plugins/_installed/official/docs-helper",
+			entryPaths: ["/tmp/.cline/plugins/_installed/official/docs-helper/index.ts"],
+		})
 		handleMcpOAuthCallbackStub = sandbox.stub().resolves()
 		addServerFromConfigStub = sandbox.stub().resolves([])
 		postStateToWebviewStub = sandbox.stub().resolves()
@@ -84,6 +90,7 @@ describe("SharedUriHandler", () => {
 				handleTaskCreation: handleTaskCreationStub,
 				handleCursorAutomationIngest: handleCursorAutomationIngestStub,
 				handleCursorBackgroundAgentLaunch: handleCursorBackgroundAgentLaunchStub,
+				handleCursorPluginAdd: handleCursorPluginAddStub,
 				handleMcpOAuthCallback: handleMcpOAuthCallbackStub,
 				postStateToWebview: postStateToWebviewStub,
 				stateManager: {
@@ -381,12 +388,35 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should handle Cursor plugin add routes explicitly without creating a task", async () => {
+			it("should confirm and install Cursor plugin add routes without creating a task", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Install Plugin" })
+
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor plugin add requested: docs-helper")
-				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Install with CLI")
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Cursor plugin "docs-helper"?')
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("requires confirmation")
+				sinon.assert.calledOnce(handleCursorPluginAddStub)
+				expect(handleCursorPluginAddStub.firstCall.args[0]).to.deep.include({
+					source: "docs-helper",
+					sourceParam: "id",
+				})
+				expect(handleCursorPluginAddStub.firstCall.args[0].detail).to.equal(
+					showMessageStub.firstCall.args[0].options.detail,
+				)
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should not install Cursor plugin routes when confirmation is cancelled", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Cursor plugin "docs-helper"?')
+				expect(handleCursorPluginAddStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -402,6 +432,7 @@ describe("SharedUriHandler", () => {
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor plugin add requires review")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: source, token")
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
+				expect(handleCursorPluginAddStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 

@@ -29,6 +29,12 @@ interface SharedUriHandlerOptions {
 	cursorCompatibleDeepLinksEnabled?: boolean
 }
 
+interface CursorPluginAddInstallRequest {
+	source: string
+	sourceParam: "id" | "name" | "url"
+	detail: string
+}
+
 interface SharedUriController {
 	handleOpenRouterCallback(code: string): Promise<void>
 	handleRequestyCallback(code: string): Promise<void>
@@ -39,6 +45,7 @@ interface SharedUriController {
 	handleHicapCallback(code: string): Promise<void>
 	handleCursorAutomationIngest(request: CursorCompatibleAutomationIngestRequest): Promise<unknown>
 	handleCursorBackgroundAgentLaunch(request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>): Promise<unknown>
+	handleCursorPluginAdd(request: CursorPluginAddInstallRequest): Promise<unknown>
 	postStateToWebview(): Promise<void>
 	stateManager?: {
 		getWorkspaceStateKey(key: string): unknown
@@ -184,7 +191,7 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 				`Plugin source: ${source}`,
 				`Source parameter: ${sourceParam}`,
 				...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
-				"Install with CLI: cline cursor-uri --yes <this deeplink>",
+				"Install action: requires confirmation before downloading or writing plugin files.",
 			]
 		: [
 				"Plugin source: config payload",
@@ -486,7 +493,7 @@ export class SharedUriHandler {
 						return true
 					}
 					if (cursorRoute.route.kind === "plugin-add") {
-						await this.handleCursorPluginAddRoute(cursorRoute.route)
+						await this.handleCursorPluginAddRoute(controller, cursorRoute.route)
 						return true
 					}
 					if (cursorRoute.route.kind === "pr-review") {
@@ -748,13 +755,35 @@ export class SharedUriHandler {
 		return choice.selectedOption === "Create Task"
 	}
 
-	private static async handleCursorPluginAddRoute(route: CursorCompatibleUriRoute): Promise<void> {
+	private static async handleCursorPluginAddRoute(
+		controller: SharedUriController,
+		route: CursorCompatibleUriRoute,
+	): Promise<void> {
 		const request = buildCursorPluginAddDetail(route)
+		if (request.source && request.sourceParam) {
+			const choice = await HostProvider.window.showMessage({
+				type: ShowMessageType.WARNING,
+				message: `Install Cursor plugin "${request.source}"?`,
+				options: {
+					modal: true,
+					items: ["Install Plugin"],
+					detail: request.detail,
+				},
+			})
+			if (choice.selectedOption !== "Install Plugin") {
+				return
+			}
+			await controller.handleCursorPluginAdd({
+				source: request.source,
+				sourceParam: request.sourceParam,
+				detail: request.detail,
+			})
+			return
+		}
+
 		await HostProvider.window.showMessage({
-			type: request.source ? ShowMessageType.WARNING : ShowMessageType.INFORMATION,
-			message: request.source
-				? `Cursor plugin add requested: ${request.source}`
-				: "Cursor plugin add requires review",
+			type: ShowMessageType.INFORMATION,
+			message: "Cursor plugin add requires review",
 			options: {
 				modal: true,
 				items: ["OK"],
