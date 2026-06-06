@@ -10,7 +10,12 @@ import {
 	stopLocalHubServerGracefully,
 	toHubHealthUrl,
 } from "@cline/core";
-import type { HubUINotifyPayload, SessionRecord } from "@cline/shared";
+import type {
+	CursorUriPreviewRequest,
+	CursorUriPreviewResponse,
+	HubUINotifyPayload,
+	SessionRecord,
+} from "@cline/shared";
 
 interface TrackedClient {
 	clientId: string;
@@ -104,9 +109,14 @@ interface ProviderLaunchAuth {
 }
 
 interface SidecarCommand {
-	type: "new_chat" | "shutdown_hub" | "abort_session";
+	type: "new_chat" | "shutdown_hub" | "abort_session" | "cursor_uri_preview";
+	requestId?: string;
 	prompt?: string;
 	sessionId?: string;
+	uri?: string;
+	workspaceRoot?: string;
+	workspaceRoots?: string[];
+	maxCommandFileBytes?: number;
 }
 
 function isVisibleClient(clientType: string): boolean {
@@ -155,6 +165,79 @@ function asNumber(value: unknown): number | undefined {
 	return typeof value === "number" && Number.isFinite(value)
 		? value
 		: undefined;
+}
+
+function asPositiveInt(value: unknown): number | undefined {
+	const number = asNumber(value);
+	if (number === undefined) {
+		return undefined;
+	}
+	const rounded = Math.trunc(number);
+	return rounded > 0 ? rounded : undefined;
+}
+
+function asStringArray(value: unknown): string[] | undefined {
+	if (value === undefined) {
+		return undefined;
+	}
+	if (!Array.isArray(value)) {
+		throw new Error("workspaceRoots must be an array of strings");
+	}
+	const values = value.map((entry) => {
+		if (typeof entry !== "string") {
+			throw new Error("workspaceRoots must be an array of strings");
+		}
+		return entry.trim();
+	});
+	const filtered = values.filter(Boolean);
+	return filtered.length > 0 ? filtered : undefined;
+}
+
+function readCursorUriPreviewRequest(
+	command: SidecarCommand,
+	workspaceRoot: string,
+): CursorUriPreviewRequest {
+	const uri = asString(command.uri);
+	if (!uri) {
+		throw new Error("cursor_uri_preview requires a non-empty uri");
+	}
+	const commandWorkspaceRoot =
+		asString(command.workspaceRoot) || asString(workspaceRoot);
+	const workspaceRoots = asStringArray(command.workspaceRoots);
+	const maxCommandFileBytes = asPositiveInt(command.maxCommandFileBytes);
+	return {
+		uri,
+		...(commandWorkspaceRoot ? { workspaceRoot: commandWorkspaceRoot } : {}),
+		...(workspaceRoots ? { workspaceRoots } : {}),
+		...(maxCommandFileBytes ? { maxCommandFileBytes } : {}),
+	};
+}
+
+function emitCommandResult(
+	requestId: string | undefined,
+	result: CursorUriPreviewResponse,
+): void {
+	if (!requestId) {
+		return;
+	}
+	emit({
+		type: "command_result",
+		requestId,
+		ok: true,
+		payload: result,
+	});
+}
+
+function emitCommandError(requestId: string | undefined, error: unknown): void {
+	if (!requestId) {
+		return;
+	}
+	emit({
+		type: "command_result",
+		requestId,
+		ok: false,
+		error: error instanceof Error ? error.message : String(error),
+	});
 }
 
 function basename(value: string | undefined): string {
@@ -699,6 +782,19 @@ async function main(): Promise<void> {
 			if (typeof command.sessionId === "string") {
 				void abortBackgroundSession(command.sessionId);
 			}
+			return;
+		}
+		if (command?.type === "cursor_uri_preview") {
+			void (async () => {
+				try {
+					const preview = await sessionClient.previewCursorUri(
+						readCursorUriPreviewRequest(command, workspaceRoot),
+					);
+					emitCommandResult(command.requestId, preview);
+				} catch (error) {
+					emitCommandError(command.requestId, error);
+				}
+			})();
 		}
 	});
 

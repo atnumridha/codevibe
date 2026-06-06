@@ -1,10 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::Write;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -80,6 +82,10 @@ struct NotificationRecord {
 struct SidecarMessage {
     #[serde(rename = "type")]
     msg_type: String,
+    request_id: Option<String>,
+    ok: Option<bool>,
+    payload: Option<serde_json::Value>,
+    error: Option<String>,
     ws_endpoint: Option<String>,
     endpoint: Option<String>,
     connected: Option<bool>,
@@ -101,6 +107,8 @@ struct AppState {
     last_hub_state_log: Mutex<Option<(bool, usize, usize)>>,
     ws_endpoint: Mutex<Option<String>>,
     app_handle: Mutex<Option<tauri::AppHandle>>,
+    pending_sidecar_requests:
+        Mutex<HashMap<String, mpsc::Sender<Result<serde_json::Value, String>>>>,
 }
 
 impl AppState {
@@ -111,6 +119,7 @@ impl AppState {
             last_hub_state_log: Mutex::new(None),
             ws_endpoint: Mutex::new(None),
             app_handle: Mutex::new(None),
+            pending_sidecar_requests: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -337,6 +346,26 @@ fn start_sidecar(
 
 fn handle_sidecar_message(state: &Arc<AppState>, msg: SidecarMessage, raw: &str) {
     match msg.msg_type.as_str() {
+        "command_result" => {
+            let Some(request_id) = msg.request_id else {
+                return;
+            };
+            let sender = state
+                .pending_sidecar_requests
+                .lock()
+                .ok()
+                .and_then(|mut pending| pending.remove(&request_id));
+            if let Some(sender) = sender {
+                let result = if msg.ok.unwrap_or(false) {
+                    Ok(msg.payload.unwrap_or_else(|| serde_json::json!({})))
+                } else {
+                    Err(msg
+                        .error
+                        .unwrap_or_else(|| "sidecar command failed".to_string()))
+                };
+                let _ = sender.send(result);
+            }
+        }
         "ready" => {
             let url = msg.ws_endpoint.or(msg.endpoint);
             if let Some(url) = url {
@@ -481,6 +510,60 @@ fn send_sidecar_command(state: &Arc<AppState>, command: serde_json::Value) -> Re
         .flush()
         .map_err(|error| format!("failed to flush sidecar stdin: {error}"))?;
     Ok(())
+}
+
+fn next_sidecar_request_id() -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or_default();
+    format!("menubar-{nanos}")
+}
+
+fn send_sidecar_command_with_response(
+    state: &Arc<AppState>,
+    mut command: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let request_id = next_sidecar_request_id();
+    let (sender, receiver) = mpsc::channel();
+    {
+        let mut pending = state
+            .pending_sidecar_requests
+            .lock()
+            .map_err(|_| "failed to lock sidecar request map".to_string())?;
+        pending.insert(request_id.clone(), sender);
+    }
+    if let Some(object) = command.as_object_mut() {
+        object.insert(
+            "requestId".to_string(),
+            serde_json::Value::String(request_id.clone()),
+        );
+    } else {
+        let _ = state
+            .pending_sidecar_requests
+            .lock()
+            .map(|mut pending| pending.remove(&request_id));
+        return Err("sidecar command must be an object".to_string());
+    }
+
+    if let Err(error) = send_sidecar_command(state, command) {
+        let _ = state
+            .pending_sidecar_requests
+            .lock()
+            .map(|mut pending| pending.remove(&request_id));
+        return Err(error);
+    }
+
+    match receiver.recv_timeout(Duration::from_secs(30)) {
+        Ok(result) => result,
+        Err(_) => {
+            let _ = state
+                .pending_sidecar_requests
+                .lock()
+                .map(|mut pending| pending.remove(&request_id));
+            Err("timed out waiting for sidecar command response".to_string())
+        }
+    }
 }
 
 fn refresh_tray_menu(state: &Arc<AppState>) {
@@ -654,6 +737,49 @@ fn abort_session(
     )
 }
 
+#[tauri::command]
+fn cursor_uri_preview(
+    uri: String,
+    workspace_root: Option<String>,
+    workspace_roots: Option<Vec<String>>,
+    max_command_file_bytes: Option<u64>,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<serde_json::Value, String> {
+    let trimmed_uri = uri.trim();
+    if trimmed_uri.is_empty() {
+        return Err("cursor_uri_preview requires a non-empty uri".to_string());
+    }
+    let mut command = serde_json::json!({
+        "type": "cursor_uri_preview",
+        "uri": trimmed_uri,
+    });
+    if let Some(root) = workspace_root.and_then(|value| {
+        let trimmed = value.trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    }) {
+        command["workspaceRoot"] = serde_json::Value::String(root);
+    }
+    if let Some(roots) = workspace_roots {
+        let values: Vec<serde_json::Value> = roots
+            .into_iter()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .map(serde_json::Value::String)
+            .collect();
+        if !values.is_empty() {
+            command["workspaceRoots"] = serde_json::Value::Array(values);
+        }
+    }
+    if let Some(max_bytes) = max_command_file_bytes.filter(|value| *value > 0) {
+        command["maxCommandFileBytes"] = serde_json::json!(max_bytes);
+    }
+    send_sidecar_command_with_response(state.inner(), command)
+}
+
 fn main() {
     let app_state = Arc::new(AppState::new());
     let launch_cwd = std::env::current_dir()
@@ -810,7 +936,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_hub_state,
             start_new_session,
-            abort_session
+            abort_session,
+            cursor_uri_preview
         ])
         .run(tauri::generate_context!())
         .expect("error running menubar app");
