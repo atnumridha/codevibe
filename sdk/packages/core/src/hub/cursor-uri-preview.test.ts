@@ -20,6 +20,31 @@ function createTransport(): HubServerTransport {
 }
 
 describe("hub Cursor URI preview command", () => {
+	it("previews native cursor:// route-host deeplinks", async () => {
+		const transport = createTransport();
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.preview",
+			requestId: "req-native",
+			clientId: "client-one",
+			payload: {
+				uri: "cursor://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fcontext",
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: true,
+			payload: {
+				handled: true,
+				route: "mcp-install",
+				requiresConfirmation: true,
+				serverName: "docs",
+				urlOrigin: "https://mcp.example.com",
+			},
+		});
+	});
+
 	it("validates automation ingest deeplinks without echoing raw event payloads", async () => {
 		const transport = createTransport();
 		const ndjson = encodeURIComponent(

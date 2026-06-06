@@ -30,6 +30,23 @@ describe("installCursorMcpServer", () => {
 		expect(addServerFromConfig.called).to.equal(false)
 	})
 
+	it("previews native cursor:// MCP install routes", async () => {
+		const addServerFromConfig = sinon.stub().resolves([])
+		const response = await installCursorMcpServer(
+			createController(addServerFromConfig),
+			CursorMcpServerInstallRequest.create({
+				uri: "cursor://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				confirmed: false,
+			}),
+		)
+
+		expect(response.installed).to.equal(false)
+		expect(response.serverName).to.equal("docs")
+		expect(response.detail).to.contain("https://mcp.example.com")
+		expect(response.error).to.equal(undefined)
+		expect(addServerFromConfig.called).to.equal(false)
+	})
+
 	it("installs a Cursor MCP server after explicit confirmation", async () => {
 		const addServerFromConfig = sinon.stub().resolves([])
 		const response = await installCursorMcpServer(

@@ -6,7 +6,10 @@ import {
 	buildCursorMcpInstallRequest,
 	formatCursorMcpInstallDetail,
 } from "@/services/uri/CursorMcpInstall"
-import { parseCursorCompatibleUri } from "@/services/uri/CursorUriRoutes"
+import {
+	getCursorCompatibleUriPath,
+	parseCursorCompatibleUri,
+} from "@/services/uri/CursorUriRoutes"
 import type { Controller } from "../index"
 
 function buildQueryPreservingPlus(parsedUrl: URL): URLSearchParams {
@@ -15,7 +18,10 @@ function buildQueryPreservingPlus(parsedUrl: URL): URLSearchParams {
 
 function parseCursorMcpInstallRoute(uri: string) {
 	const parsedUrl = new URL(uri)
-	const parsedRoute = parseCursorCompatibleUri(parsedUrl.pathname, buildQueryPreservingPlus(parsedUrl))
+	const parsedRoute = parseCursorCompatibleUri(
+		getCursorCompatibleUriPath(parsedUrl),
+		buildQueryPreservingPlus(parsedUrl),
+	)
 	if (!parsedRoute.recognized) {
 		throw new Error("URI is not a recognized Cursor-compatible route")
 	}

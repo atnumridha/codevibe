@@ -57,10 +57,31 @@ const CURSOR_COMPATIBLE_NATIVE_URI_PATHS = new Set([
 ]);
 
 const CURSOR_COMPATIBLE_NATIVE_URI_HOSTS = new Set([
+	"anysphere.cursor-deeplink",
+	"anysphere.cursor-mcp",
 	"cline.cline",
 	"codevibe",
 	"atnumridha.codevibe",
 ]);
+
+function getCursorCompatibleNativeUriPath(parsed: URL): string {
+	const pathname = parsed.pathname || "/";
+	if (CURSOR_COMPATIBLE_NATIVE_URI_PATHS.has(pathname)) {
+		return pathname;
+	}
+
+	if (parsed.protocol.toLowerCase() === "cursor:") {
+		const host = parsed.hostname.toLowerCase();
+		if (host && !CURSOR_COMPATIBLE_NATIVE_URI_HOSTS.has(host)) {
+			const combinedPath = `/${host}${pathname === "/" ? "" : pathname}`;
+			if (CURSOR_COMPATIBLE_NATIVE_URI_PATHS.has(combinedPath)) {
+				return combinedPath;
+			}
+		}
+	}
+
+	return pathname;
+}
 
 function normalizeNativeDeepLinkPayload(payload: unknown): string[] {
 	if (typeof payload === "string") {
@@ -96,7 +117,9 @@ function isCursorCompatibleNativeUri(uri: string): boolean {
 		) {
 			return false;
 		}
-		return CURSOR_COMPATIBLE_NATIVE_URI_PATHS.has(parsed.pathname || "/");
+		return CURSOR_COMPATIBLE_NATIVE_URI_PATHS.has(
+			getCursorCompatibleNativeUriPath(parsed),
+		);
 	} catch {
 		return false;
 	}

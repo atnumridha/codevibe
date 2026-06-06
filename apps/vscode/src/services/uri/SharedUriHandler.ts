@@ -12,6 +12,7 @@ import {
 	buildCursorCompatibleAutomationIngestRequest,
 	buildCursorCompatibleBackgroundAgentLaunchRequest,
 	buildCursorCompatibleTaskPrompt,
+	getCursorCompatibleUriPath,
 	parseCursorCompatibleUri,
 	type CursorCompatibleAutomationIngestRequest,
 	type CursorCompatibleUriRoute,
@@ -67,7 +68,7 @@ function parseUri(url: string): {
 	query: URLSearchParams
 } {
 	const parsedUrl = new URL(url)
-	const path = parsedUrl.pathname
+	const path = getCursorCompatibleUriPath(parsedUrl)
 
 	// Create URLSearchParams from the query string, but preserve plus signs
 	// by replacing them with a placeholder before parsing

@@ -27,12 +27,21 @@ export const CURSOR_COMPATIBLE_URI_PATHS = [
 	"/git/commit",
 ] as const
 
+export const CURSOR_COMPATIBLE_URI_HOST_ALIASES = [
+	"anysphere.cursor-deeplink",
+	"anysphere.cursor-mcp",
+	"atnumridha.codevibe",
+	"cline.cline",
+	"codevibe",
+] as const
+
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384
 const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024
 const SECRET_PARAM_PATTERN = /(token|secret|password|authorization|api[-_]?key|credential)/i
 const CURSOR_BOOLEAN_STRING_VALUES = new Set(["true", "false", "1", "0", "yes", "no"])
 
 type CursorCompatibleUriPath = (typeof CURSOR_COMPATIBLE_URI_PATHS)[number]
+type CursorCompatibleUriHostAlias = (typeof CURSOR_COMPATIBLE_URI_HOST_ALIASES)[number]
 
 export type CursorCompatibleUriKind =
 	| "createchat"
@@ -307,6 +316,29 @@ const routeSchemas: Record<CursorCompatibleUriPath, { kind: CursorCompatibleUriK
 
 export function isCursorCompatibleUriPath(path: string): path is CursorCompatibleUriPath {
 	return (CURSOR_COMPATIBLE_URI_PATHS as readonly string[]).includes(path)
+}
+
+function isCursorCompatibleUriHostAlias(host: string): host is CursorCompatibleUriHostAlias {
+	return (CURSOR_COMPATIBLE_URI_HOST_ALIASES as readonly string[]).includes(host)
+}
+
+export function getCursorCompatibleUriPath(url: URL): string {
+	const pathname = url.pathname || "/"
+	if (isCursorCompatibleUriPath(pathname)) {
+		return pathname
+	}
+
+	if (url.protocol.toLowerCase() === "cursor:") {
+		const host = url.hostname.toLowerCase()
+		if (host && !isCursorCompatibleUriHostAlias(host)) {
+			const combinedPath = `/${host}${pathname === "/" ? "" : pathname}`
+			if (isCursorCompatibleUriPath(combinedPath)) {
+				return combinedPath
+			}
+		}
+	}
+
+	return pathname
 }
 
 function decodeBase64JsonConfig(value: string): Record<string, unknown> {

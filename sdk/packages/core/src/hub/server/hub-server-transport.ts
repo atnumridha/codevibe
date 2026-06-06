@@ -26,6 +26,7 @@ import {
 	buildCursorSettingsRouteRequest,
 	CursorMcpInstallError,
 	CursorUriError,
+	getCursorCompatibleUriPath,
 	resolveCursorCommandFileRouteRequest,
 } from "../../extensions/mcp/cursor-uri";
 import { LocalRuntimeHost } from "../../runtime/host/local-runtime-host";
@@ -644,7 +645,7 @@ function summarizeCursorUriPreview(
 ): CursorUriPreviewResponse {
 	const { uri } = input;
 	const parsedUrl = parseCursorPreviewUrl(uri);
-	const path = parsedUrl.pathname || "/";
+	const path = getCursorCompatibleUriPath(parsedUrl);
 
 	if (path === "/mcp/install") {
 		return summarizeCursorMcpInstall(uri);

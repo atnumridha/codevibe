@@ -18,6 +18,7 @@ import {
 	CursorMcpInstallError,
 	CursorUriError,
 	formatCursorMcpInstallDetail,
+	getCursorCompatibleUriPath,
 	resolveCursorCommandFileRouteRequest,
 } from "./cursor-uri";
 
@@ -38,6 +39,21 @@ function encodeConfig(config: Record<string, unknown>): string {
 }
 
 describe("Cursor MCP install URI parser", () => {
+	it("normalizes native cursor:// route hosts into Cursor route paths", () => {
+		expect(getCursorCompatibleUriPath("cursor://createchat?prompt=hi")).toBe(
+			"/createchat",
+		);
+		expect(getCursorCompatibleUriPath("cursor://mcp/install?name=docs")).toBe(
+			"/mcp/install",
+		);
+		expect(getCursorCompatibleUriPath("cursor://plugin/add?id=docs")).toBe(
+			"/plugin/add",
+		);
+		expect(
+			getCursorCompatibleUriPath("cursor://anysphere.cursor-deeplink/createchat?prompt=hi"),
+		).toBe("/createchat");
+	});
+
 	it("builds a direct streamable HTTP server request", () => {
 		const request = buildCursorMcpInstallRequest(
 			route({ name: "docs", url: "https://mcp.example.com/context" }),
@@ -84,6 +100,21 @@ describe("Cursor MCP install URI parser", () => {
 			command: "npx",
 			args: ["-y", "@modelcontextprotocol/server-filesystem"],
 			type: "stdio",
+		});
+	});
+
+	it("builds MCP install requests from native cursor:// route hosts", () => {
+		const request = buildCursorMcpInstallRequest(
+			"cursor://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fcontext",
+		);
+
+		expect(request).toMatchObject({
+			serverName: "docs",
+			source: "direct",
+			serverConfig: {
+				url: "https://mcp.example.com/context",
+				type: "streamableHttp",
+			},
 		});
 	});
 
@@ -383,6 +414,17 @@ describe("Cursor MCP install URI parser", () => {
 		expect(
 			buildCursorAgentTaskRouteRequest(
 				"vscode://cline.cline/createchat?prompt=Review%20the%20diff",
+			),
+		).toMatchObject({
+			kind: "createchat",
+			path: "/createchat",
+			prompt: "Review the diff",
+			taskPrompt: "Review the diff",
+		});
+
+		expect(
+			buildCursorAgentTaskRouteRequest(
+				"cursor://createchat?prompt=Review%20the%20diff",
 			),
 		).toMatchObject({
 			kind: "createchat",

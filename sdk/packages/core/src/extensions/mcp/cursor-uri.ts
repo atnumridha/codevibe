@@ -23,12 +23,35 @@ const GIT_REF_ALLOWED_CHARS = /^[A-Za-z0-9._/-]+$/;
 const GIT_REF_FORBIDDEN_CHARS = /[\x00-\x20~^:?*[\\]/;
 const GIT_HEX_OBJECT_PATTERN = /^[0-9a-f]{7,64}$/i;
 const CURSOR_BOOLEAN_STRING_VALUES = new Set(["true", "false", "1", "0", "yes", "no"]);
+const CURSOR_COMPATIBLE_URI_HOST_ALIASES = new Set([
+	"anysphere.cursor-deeplink",
+	"anysphere.cursor-mcp",
+	"atnumridha.codevibe",
+	"cline.cline",
+	"codevibe",
+]);
 const RESERVED_MCP_SERVER_NAMES = new Set([
 	"__proto__",
 	"constructor",
 	"prototype",
 ]);
 const SYMBOLIC_GIT_REFS = new Set(["HEAD", "FETCH_HEAD", "MERGE_HEAD", "ORIG_HEAD"]);
+const CURSOR_COMPATIBLE_URI_PATHS = new Set([
+	"/createchat",
+	"/mcp/install",
+	"/background-agent",
+	"/settings",
+	"/prompt",
+	"/command",
+	"/rule",
+	"/pr-review",
+	"/plugin/add",
+	"/glass",
+	"/automation/ingest",
+	"/git/checkout",
+	"/git/branch",
+	"/git/commit",
+]);
 
 export type CursorAgentTaskRoutePath =
 	| "/createchat"
@@ -152,6 +175,33 @@ export class CursorUriError extends Error {
 		super(message);
 		this.name = "CursorUriError";
 	}
+}
+
+function combineCursorSchemeHostAndPath(parsedUrl: URL): string | undefined {
+	const host = parsedUrl.hostname.toLowerCase();
+	if (!host || CURSOR_COMPATIBLE_URI_HOST_ALIASES.has(host)) {
+		return undefined;
+	}
+
+	const pathname = parsedUrl.pathname || "/";
+	return `/${host}${pathname === "/" ? "" : pathname}`;
+}
+
+export function getCursorCompatibleUriPath(uriOrUrl: string | URL): string {
+	const parsedUrl = typeof uriOrUrl === "string" ? new URL(uriOrUrl) : uriOrUrl;
+	const pathname = parsedUrl.pathname || "/";
+	if (CURSOR_COMPATIBLE_URI_PATHS.has(pathname)) {
+		return pathname;
+	}
+
+	if (parsedUrl.protocol.toLowerCase() === "cursor:") {
+		const combinedPath = combineCursorSchemeHostAndPath(parsedUrl);
+		if (combinedPath && CURSOR_COMPATIBLE_URI_PATHS.has(combinedPath)) {
+			return combinedPath;
+		}
+	}
+
+	return pathname;
 }
 
 export interface CursorMcpInstallRequest {
@@ -300,9 +350,10 @@ function parseCursorRouteParams(
 	expectedPath: string,
 ): Record<string, string | Record<string, unknown>> {
 	const parsedUrl = new URL(uri);
-	if (parsedUrl.pathname !== expectedPath) {
+	const path = getCursorCompatibleUriPath(parsedUrl);
+	if (path !== expectedPath) {
 		throw new CursorUriError(
-			`Expected ${expectedPath} route, received ${parsedUrl.pathname || "/"}`,
+			`Expected ${expectedPath} route, received ${path}`,
 		);
 	}
 
@@ -1270,7 +1321,7 @@ export function buildCursorAgentTaskRouteRequest(
 	uri: string,
 ): CursorAgentTaskRouteRequest {
 	const parsedUrl = new URL(uri);
-	const path = parsedUrl.pathname || "/";
+	const path = getCursorCompatibleUriPath(parsedUrl);
 	if (!isCursorAgentTaskRoutePath(path)) {
 		throw new CursorUriError(`Unsupported Cursor agent task route: ${path}`);
 	}

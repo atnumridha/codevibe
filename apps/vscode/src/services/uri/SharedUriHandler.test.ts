@@ -198,6 +198,18 @@ describe("SharedUriHandler", () => {
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
 			})
 
+			it("should create a task from a native cursor:// createchat route", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+
+				const result = await SharedUriHandler.handleUri("cursor://createchat?prompt=Review%20the%20diff")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor chat task?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
+				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
+			})
+
 			it("should preserve encoded Cursor prompt separators as prompt text", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Create Task" })

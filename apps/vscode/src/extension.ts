@@ -53,7 +53,10 @@ import { ExtensionRegistryInfo } from "./registry"
 import { AuthService } from "./services/auth/AuthService"
 import { LogoutReason } from "./services/auth/types"
 import { telemetryService } from "./services/telemetry"
-import { isCursorCompatibleUriPath } from "./services/uri/CursorUriRoutes"
+import {
+	getCursorCompatibleUriPath,
+	isCursorCompatibleUriPath,
+} from "./services/uri/CursorUriRoutes"
 import { getRawExtensionUriString } from "./services/uri/ExtensionUriString"
 import { LG_TASK_URI_PATH, SharedUriHandler, TASK_URI_PATH } from "./services/uri/SharedUriHandler"
 import { ShowMessageType } from "./shared/proto/host/window"
@@ -646,7 +649,7 @@ function setupHostProvider(context: ExtensionContext) {
 
 function getUriPath(url: string): string | undefined {
 	try {
-		return new URL(url).pathname
+		return getCursorCompatibleUriPath(new URL(url))
 	} catch {
 		return undefined
 	}

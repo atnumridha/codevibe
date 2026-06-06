@@ -3,6 +3,7 @@ import { describe, it } from "mocha"
 import {
 	buildCursorCompatibleAutomationIngestRequest,
 	buildCursorCompatibleTaskPrompt,
+	getCursorCompatibleUriPath,
 	isCursorCompatibleUriPath,
 	parseCursorCompatibleUri,
 } from "./CursorUriRoutes"
@@ -20,6 +21,15 @@ describe("CursorUriRoutes", () => {
 		expect(isCursorCompatibleUriPath("/createchat")).to.equal(true)
 		expect(isCursorCompatibleUriPath("/mcp/install")).to.equal(true)
 		expect(isCursorCompatibleUriPath("/not-cursor")).to.equal(false)
+	})
+
+	it("normalizes native cursor:// route hosts into Cursor route paths", () => {
+		expect(getCursorCompatibleUriPath(new URL("cursor://createchat?prompt=hi"))).to.equal("/createchat")
+		expect(getCursorCompatibleUriPath(new URL("cursor://mcp/install?name=docs"))).to.equal("/mcp/install")
+		expect(getCursorCompatibleUriPath(new URL("cursor://plugin/add?id=docs"))).to.equal("/plugin/add")
+		expect(
+			getCursorCompatibleUriPath(new URL("cursor://anysphere.cursor-deeplink/createchat?prompt=hi")),
+		).to.equal("/createchat")
 	})
 
 	it("parses createchat and prompt routes into task prompts", () => {
