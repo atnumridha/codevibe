@@ -62,6 +62,34 @@ describe("enrichPromptWithMentions", () => {
 		}
 	});
 
+	it("ignores mentioned files excluded from Cursor indexing", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "generated"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"generated/\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "generated", "types.ts"),
+				"export type Secret = string\n",
+				"utf8",
+			);
+
+			const result = await enrichPromptWithMentions(
+				"Use @generated/types.ts",
+				cwd,
+			);
+
+			expect(result.mentions).toEqual(["generated/types.ts"]);
+			expect(result.matchedFiles).toEqual([]);
+			expect(result.ignoredMentions).toEqual(["generated/types.ts"]);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it("respects maxTotalBytes while keeping prompt unchanged", async () => {
 		const cwd = await createTempWorkspace();
 		try {

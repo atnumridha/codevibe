@@ -107,6 +107,7 @@ const DEFAULT_EXCLUDE_DIRS = [
 	"bin",
 	"obj",
 ];
+const RIPGREP_MAX_FILTERED_PATH_ARGS = 1000;
 
 /**
  * Search result for a single file match
@@ -156,15 +157,30 @@ function checkRipgrepAvailable(): Promise<boolean> {
 function searchWithRipgrep(
 	query: string,
 	cwd: string,
+	fileList: Set<string>,
 	maxResults: number,
 	contextLines: number,
 	timeoutMs: number = 5000,
 	abortSignal?: AbortSignal,
 ): Promise<SearchMatch[] | null> {
 	return new Promise((resolve) => {
+		if (fileList.size === 0 || fileList.size > RIPGREP_MAX_FILTERED_PATH_ARGS) {
+			resolve(null);
+			return;
+		}
+
 		const child = spawn(
 			"rg",
-			["--json", `--context=${contextLines}`, "--max-count=1", "-i", query],
+			[
+				"--json",
+				`--context=${contextLines}`,
+				"--max-count=1",
+				"-i",
+				"-e",
+				query,
+				"--",
+				...Array.from(fileList),
+			],
 			{
 				cwd,
 				stdio: ["ignore", "pipe", "pipe"],
@@ -220,6 +236,7 @@ function searchWithRipgrep(
 				try {
 					const matches: SearchMatch[] = [];
 					const lines = stdout.split("\n").filter((line) => line.trim());
+					let lastMatchAccepted = false;
 
 					for (const line of lines) {
 						if (matches.length >= maxResults) break;
@@ -227,19 +244,33 @@ function searchWithRipgrep(
 						const json = JSON.parse(line);
 						if (json.type === "match") {
 							const matchData = json.data;
+							const file = String(matchData.path?.text ?? "").replace(
+								/\\/g,
+								"/",
+							);
+							if (!fileList.has(file)) {
+								lastMatchAccepted = false;
+								continue;
+							}
+							lastMatchAccepted = false;
 							const contextLines: string[] = [];
 
 							if (json.data.submatches && json.data.submatches.length > 0) {
 								const submatch = json.data.submatches[0];
+								lastMatchAccepted = true;
 								matches.push({
-									file: matchData.path.text,
+									file,
 									line: matchData.line_number,
 									column: (submatch?.start ?? 0) + 1,
 									match: submatch?.match?.text ?? "",
 									context: contextLines,
 								});
 							}
-						} else if (json.type === "context" && matches.length > 0) {
+						} else if (
+							json.type === "context" &&
+							matches.length > 0 &&
+							lastMatchAccepted
+						) {
 							const lastMatch = matches[matches.length - 1];
 							const prefix =
 								json.data.line_number === lastMatch.line ? ">" : " ";
@@ -330,10 +361,12 @@ export function createSearchExecutor(
 		// Try ripgrep first if available
 		const isRgAvailable = await checkRipgrepAvailable();
 		let rgMatches: SearchMatch[] | null = null;
+		const fileList = await getFileIndex(cwd);
 		if (isRgAvailable) {
 			rgMatches = await searchWithRipgrep(
 				query,
 				cwd,
+				fileList,
 				maxResults,
 				contextLines,
 				5000,
@@ -374,8 +407,6 @@ export function createSearchExecutor(
 
 		const matches: SearchMatch[] = [];
 		let totalFilesSearched = 0;
-
-		const fileList = await getFileIndex(cwd);
 
 		// Search files from the fast index.
 		for (const relativePath of fileList) {

@@ -60,6 +60,100 @@ describe("file indexer", () => {
 		}
 	});
 
+	it("excludes files blocked by Cursor privacy ignore rules", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "private"), { recursive: true });
+			await mkdir(path.join(cwd, "src"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorignore"),
+				"private/\n*.secret\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "src", "app.ts"),
+				"export const app = 1\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "src", "token.secret"),
+				"secret\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "private", "notes.md"),
+				"private\n",
+				"utf8",
+			);
+
+			const index = await getFileIndex(cwd, { ttlMs: 0 });
+			expect(index.has("src/app.ts")).toBe(true);
+			expect(index.has("src/token.secret")).toBe(false);
+			expect(index.has("private/notes.md")).toBe(false);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
+	it("excludes files blocked by Cursor indexing ignore rules", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "docs"), { recursive: true });
+			await mkdir(path.join(cwd, "generated"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"generated/\n*.snapshot\n",
+				"utf8",
+			);
+			await writeFile(path.join(cwd, "docs", "guide.md"), "guide\n", "utf8");
+			await writeFile(
+				path.join(cwd, "docs", "view.snapshot"),
+				"snapshot\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "generated", "types.ts"),
+				"generated\n",
+				"utf8",
+			);
+
+			const index = await getFileIndex(cwd, { ttlMs: 0 });
+			expect(index.has("docs/guide.md")).toBe(true);
+			expect(index.has("docs/view.snapshot")).toBe(false);
+			expect(index.has("generated/types.ts")).toBe(false);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
+	it("honors later negated Cursor indexing ignore rules", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "generated"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"generated/\n!generated/keep.ts\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "generated", "drop.ts"),
+				"export const drop = 1\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "generated", "keep.ts"),
+				"export const keep = 1\n",
+				"utf8",
+			);
+
+			const index = await getFileIndex(cwd, { ttlMs: 0 });
+			expect(index.has("generated/drop.ts")).toBe(false);
+			expect(index.has("generated/keep.ts")).toBe(true);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it("prewarm rebuilds index and includes new files", async () => {
 		const cwd = await createTempWorkspace();
 		try {
