@@ -8,6 +8,7 @@ import {
 	Loader2,
 	Play,
 	Plug,
+	Puzzle,
 	Search,
 	Settings,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import {
 	desktopClient,
 	type CursorAutomationIngestResponse,
 	type CursorMcpInstallResponse,
+	type CursorPluginAddResponse,
 	type CursorRuleOpenResponse,
 	type CursorUriLaunchResponse,
 	type CursorUriPreviewResponse,
@@ -118,6 +120,15 @@ function isRuleFilePreview(preview: CursorUriPreviewResponse | undefined) {
 	);
 }
 
+function isPluginAddPreview(preview: CursorUriPreviewResponse | undefined) {
+	return (
+		preview?.handled === true &&
+		previewString(preview, "route") === "plugin-add" &&
+		preview.requiresConfirmation === true &&
+		preview.requiresReview !== true
+	);
+}
+
 function JsonBlock({ value }: { value: unknown }) {
 	if (!value) {
 		return null;
@@ -146,12 +157,16 @@ export function CursorUriView({
 		CursorMcpInstallResponse | undefined
 	>();
 	const [ruleOpen, setRuleOpen] = useState<CursorRuleOpenResponse | undefined>();
+	const [pluginAdd, setPluginAdd] = useState<
+		CursorPluginAddResponse | undefined
+	>();
 	const [error, setError] = useState<string | null>(null);
 	const [previewing, setPreviewing] = useState(false);
 	const [launching, setLaunching] = useState(false);
 	const [ingesting, setIngesting] = useState(false);
 	const [mcpInstalling, setMcpInstalling] = useState(false);
 	const [ruleOpening, setRuleOpening] = useState(false);
+	const [pluginAdding, setPluginAdding] = useState(false);
 
 	const taskPrompt = previewString(preview, "taskPrompt");
 	const route = previewString(preview, "route");
@@ -172,10 +187,20 @@ export function CursorUriView({
 	const canInstallMcp = isMcpInstallPreview(preview);
 	const canOpenSettings = isSettingsPreview(preview) && Boolean(onOpenSettings);
 	const canOpenRule = isRuleFilePreview(preview);
+	const canAddPlugin = isPluginAddPreview(preview);
 	const hasActionableNonPromptPreview =
-		canIngest || canInstallMcp || canOpenSettings || canOpenRule;
+		canIngest ||
+		canInstallMcp ||
+		canOpenSettings ||
+		canOpenRule ||
+		canAddPlugin;
 	const isBusy =
-		previewing || launching || ingesting || mcpInstalling || ruleOpening;
+		previewing ||
+		launching ||
+		ingesting ||
+		mcpInstalling ||
+		ruleOpening ||
+		pluginAdding;
 
 	const runPreviewForUri = useCallback(async (inputUri: string) => {
 		const trimmed = inputUri.trim();
@@ -186,6 +211,7 @@ export function CursorUriView({
 			setIngest(undefined);
 			setMcpInstall(undefined);
 			setRuleOpen(undefined);
+			setPluginAdd(undefined);
 			return;
 		}
 		setUri(trimmed);
@@ -195,6 +221,7 @@ export function CursorUriView({
 		setIngest(undefined);
 		setMcpInstall(undefined);
 		setRuleOpen(undefined);
+		setPluginAdd(undefined);
 		try {
 			const result = await desktopClient.previewCursorUri({ uri: trimmed });
 			setPreview(result);
@@ -231,6 +258,7 @@ export function CursorUriView({
 		setIngest(undefined);
 		setMcpInstall(undefined);
 		setRuleOpen(undefined);
+		setPluginAdd(undefined);
 		try {
 			const result = await desktopClient.launchCursorUri({
 				uri: trimmed,
@@ -262,6 +290,7 @@ export function CursorUriView({
 		setLaunch(undefined);
 		setMcpInstall(undefined);
 		setRuleOpen(undefined);
+		setPluginAdd(undefined);
 		try {
 			const result = await desktopClient.ingestCursorAutomation({
 				uri: trimmed,
@@ -287,6 +316,7 @@ export function CursorUriView({
 		setLaunch(undefined);
 		setIngest(undefined);
 		setRuleOpen(undefined);
+		setPluginAdd(undefined);
 		try {
 			const result = await desktopClient.installCursorMcp({
 				uri: trimmed,
@@ -314,6 +344,7 @@ export function CursorUriView({
 		setLaunch(undefined);
 		setIngest(undefined);
 		setMcpInstall(undefined);
+		setPluginAdd(undefined);
 		try {
 			const result = await desktopClient.openCursorRule({
 				uri: trimmed,
@@ -324,6 +355,30 @@ export function CursorUriView({
 			setError(openError instanceof Error ? openError.message : String(openError));
 		} finally {
 			setRuleOpening(false);
+		}
+	};
+
+	const runPluginAdd = async () => {
+		const trimmed = uri.trim();
+		if (!trimmed || !canAddPlugin) {
+			return;
+		}
+		setPluginAdding(true);
+		setError(null);
+		setLaunch(undefined);
+		setIngest(undefined);
+		setMcpInstall(undefined);
+		setRuleOpen(undefined);
+		try {
+			const result = await desktopClient.addCursorPlugin({
+				uri: trimmed,
+				confirmed: true,
+			});
+			setPluginAdd(result);
+		} catch (addError) {
+			setError(addError instanceof Error ? addError.message : String(addError));
+		} finally {
+			setPluginAdding(false);
 		}
 	};
 
@@ -346,7 +401,11 @@ export function CursorUriView({
 					</div>
 					<Badge
 						variant={
-							canLaunch || canInstallMcp || canOpenSettings || canOpenRule
+							canLaunch ||
+							canInstallMcp ||
+							canOpenSettings ||
+							canOpenRule ||
+							canAddPlugin
 								? "default"
 								: "outline"
 						}
@@ -355,7 +414,7 @@ export function CursorUriView({
 							? "Launchable"
 							: canInstallMcp
 								? "Installable"
-								: canOpenRule || canOpenSettings
+								: canOpenRule || canOpenSettings || canAddPlugin
 									? "Openable"
 									: "Preview"}
 					</Badge>
@@ -439,6 +498,18 @@ export function CursorUriView({
 							)}
 							Open Rule
 						</Button>
+						<Button
+							disabled={!canAddPlugin || isBusy}
+							onClick={() => void runPluginAdd()}
+							variant="outline"
+						>
+							{pluginAdding ? (
+								<Loader2 className="size-4 animate-spin" />
+							) : (
+								<Puzzle className="size-4" />
+							)}
+							Add Plugin
+						</Button>
 					</div>
 				</div>
 
@@ -518,6 +589,26 @@ export function CursorUriView({
 							{ruleOpen.actionable
 								? (ruleOpen.relativePath ?? ruleOpen.filePath ?? "")
 								: (ruleOpen.reason ?? "This rule payload was not written.")}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
+				{pluginAdd ? (
+					<Alert variant={pluginAdd.installed ? "default" : "destructive"}>
+						{pluginAdd.installed ? (
+							<CheckCircle2 className="size-4" />
+						) : (
+							<AlertTriangle className="size-4" />
+						)}
+						<AlertTitle>
+							{pluginAdd.installed
+								? `Installed plugin ${pluginAdd.sourceLabel ?? ""}`
+								: "Plugin install blocked"}
+						</AlertTitle>
+						<AlertDescription>
+							{pluginAdd.installed
+								? `${pluginAdd.entryCount ?? 0} entry file(s)`
+								: (pluginAdd.reason ?? pluginAdd.detail ?? "Review required.")}
 						</AlertDescription>
 					</Alert>
 				) : null}

@@ -13,6 +13,7 @@ import type {
 	ClineAccountActionRequest,
 	CursorAutomationIngestRouteRequest,
 	CursorMcpInstallRequest,
+	CursorPluginAddRouteRequest,
 	CursorRuleRouteRequest,
 	ProviderCapability,
 	ProviderClient,
@@ -23,6 +24,7 @@ import {
 	addLocalProvider,
 	buildCursorAutomationIngestRouteRequest,
 	buildCursorMcpInstallRequest,
+	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
 	ClineAccountService,
 	ClineCore,
@@ -40,6 +42,7 @@ import {
 	listLocalProviders,
 	listPluginTools,
 	loginLocalProvider,
+	installPlugin,
 	normalizeOAuthProvider,
 	ProviderSettingsManager,
 	readGlobalSettings,
@@ -161,6 +164,25 @@ type CursorRuleActionResponse = {
 	reason?: string;
 	name?: string;
 	path?: string;
+};
+
+type CursorPluginAddResponse = {
+	handled: true;
+	route: "plugin-add";
+	confirmed: boolean;
+	installed: boolean;
+	actionable: boolean;
+	requiresReview: boolean;
+	workspaceRoot: string;
+	sourceParam?: CursorPluginAddRouteRequest["sourceParam"];
+	sourceLabel?: string;
+	reason?: string;
+	detail?: string;
+	paramKeys: string[];
+	configKeys: string[];
+	installPath?: string;
+	entryCount?: number;
+	entryPaths?: string[];
 };
 
 function readProviderSettingsUpdate(
@@ -346,6 +368,61 @@ function buildCursorMcpInstallResponse(
 		...(Array.isArray(transport.args) ? { argCount: transport.args.length } : {}),
 		...(env ? { envKeys: Object.keys(env).sort() } : {}),
 		...(headers ? { headerKeys: Object.keys(headers).sort() } : {}),
+	};
+}
+
+function safeCursorPluginSourceLabel(
+	source: string | undefined,
+	sourceParam: CursorPluginAddRouteRequest["sourceParam"],
+): string | undefined {
+	if (!source) {
+		return undefined;
+	}
+	if (sourceParam !== "url") {
+		return source;
+	}
+	try {
+		return new URL(source).origin;
+	} catch {
+		return "[provided]";
+	}
+}
+
+function buildCursorPluginAddResponse(
+	request: CursorPluginAddRouteRequest,
+	input: {
+		confirmed: boolean;
+		installed: boolean;
+		workspaceRoot: string;
+		result?: { installPath: string; entryPaths: string[] };
+	},
+): CursorPluginAddResponse {
+	const config = getRecordValue(request.params.config);
+	const sourceLabel = safeCursorPluginSourceLabel(
+		request.source,
+		request.sourceParam,
+	);
+	return {
+		handled: true,
+		route: "plugin-add",
+		confirmed: input.confirmed,
+		installed: input.installed,
+		actionable: !request.requiresReview && Boolean(request.source),
+		requiresReview: request.requiresReview,
+		workspaceRoot: input.workspaceRoot,
+		...(request.sourceParam ? { sourceParam: request.sourceParam } : {}),
+		...(sourceLabel ? { sourceLabel } : {}),
+		...(request.reason ? { reason: request.reason } : {}),
+		...(request.requiresReview ? { detail: request.detail } : {}),
+		paramKeys: Object.keys(request.params).sort(),
+		configKeys: Object.keys(config ?? {}).sort(),
+		...(input.result
+			? {
+					installPath: input.result.installPath,
+					entryCount: input.result.entryPaths.length,
+					entryPaths: input.result.entryPaths,
+				}
+			: {}),
 	};
 }
 
@@ -952,6 +1029,40 @@ async function handleCursorRuleOpenCommand(
 	};
 }
 
+async function handleCursorPluginAddCommand(
+	ctx: SidecarContext,
+	args?: Record<string, unknown>,
+): Promise<CursorPluginAddResponse> {
+	const input = readCursorUriPreviewRequest(ctx, args);
+	const workspaceRoot = input.workspaceRoot ?? ctx.workspaceRoot;
+	const request = buildCursorPluginAddRouteRequest(input.uri);
+	const confirmed = args?.confirmed === true;
+	const preview = buildCursorPluginAddResponse(request, {
+		confirmed,
+		installed: false,
+		workspaceRoot,
+	});
+	if (!confirmed || !preview.actionable || !request.source) {
+		return preview;
+	}
+
+	const result = await installPlugin({
+		source: request.source,
+		cwd: workspaceRoot,
+		force: args?.force === true,
+		io: {
+			writeln: () => undefined,
+			writeErr: () => undefined,
+		},
+	});
+	return buildCursorPluginAddResponse(request, {
+		confirmed: true,
+		installed: true,
+		workspaceRoot,
+		result,
+	});
+}
+
 async function handleRoutineScheduleCommand(
 	command: string,
 	args?: Record<string, unknown>,
@@ -1357,6 +1468,9 @@ export async function handleCommand(
 	}
 	if (command === "cursor_rule_open") {
 		return await handleCursorRuleOpenCommand(ctx, args);
+	}
+	if (command === "cursor_plugin_add") {
+		return await handleCursorPluginAddCommand(ctx, args);
 	}
 	if (command === "get_chat_ws_endpoint") {
 		return "";

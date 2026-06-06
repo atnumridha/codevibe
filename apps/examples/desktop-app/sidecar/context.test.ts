@@ -453,6 +453,149 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(JSON.stringify(result)).not.toContain("Use small commits");
 	});
 
+	it("previews explicit Cursor plugin sources without installing them", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-plugin-add-"));
+		tempDirs.push(workspace);
+		const pluginPath = join(workspace, "docs-plugin.js");
+		await writeFile(pluginPath, "export default { name: 'docs-plugin' };\n");
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				name: "./docs-plugin.js",
+			}).toString()}`,
+		});
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			confirmed: false,
+			installed: false,
+			actionable: true,
+			requiresReview: false,
+			sourceParam: "name",
+			sourceLabel: "./docs-plugin.js",
+			configKeys: [],
+		});
+	});
+
+	it("redacts URL query details from Cursor plugin previews", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-plugin-add-"));
+		tempDirs.push(workspace);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				url: "https://example.com/plugin.js?token=secret-value",
+			}).toString()}`,
+		});
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			confirmed: false,
+			installed: false,
+			actionable: true,
+			sourceParam: "url",
+			sourceLabel: "https://example.com",
+		});
+		expect(JSON.stringify(result)).not.toContain("secret-value");
+		expect(JSON.stringify(result)).not.toContain("plugin.js");
+	});
+
+	it("installs confirmed local Cursor plugin sources through the plugin installer", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-plugin-add-"));
+		tempDirs.push(workspace);
+		const pluginPath = join(workspace, "docs-plugin.js");
+		await writeFile(
+			pluginPath,
+			[
+				"export default {",
+				"  name: 'docs-plugin',",
+				"  manifest: { capabilities: [] },",
+				"  activate() {}",
+				"};",
+				"",
+			].join("\n"),
+		);
+		const ctx = createSidecarContext(workspace);
+
+		const result = (await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				name: "./docs-plugin.js",
+			}).toString()}`,
+			confirmed: true,
+		})) as {
+			installed: boolean;
+			entryCount: number;
+			entryPaths: string[];
+			installPath: string;
+		};
+		const settings = (await handleCommand(
+			ctx,
+			"list_user_instruction_configs",
+			{},
+		)) as { plugins: Array<{ name: string; path: string; enabled: boolean }> };
+
+		expect(result).toMatchObject({
+			installed: true,
+			entryCount: 1,
+		});
+		expect(result.installPath).toContain(join(workspace, ".cline", "plugins"));
+		expect(result.entryPaths[0]).toContain("docs-plugin.js");
+		await expect(readFile(result.entryPaths[0], "utf8")).resolves.toContain(
+			"docs-plugin",
+		);
+		expect(settings.plugins).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					enabled: true,
+					path: result.entryPaths[0],
+				}),
+			]),
+		);
+	});
+
+	it("keeps Cursor plugin config-only payloads review-only", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-plugin-add-"));
+		tempDirs.push(workspace);
+		const ctx = createSidecarContext(workspace);
+		const config = encodeCursorConfig({
+			source: "docs-plugin",
+			token: "secret-value",
+		});
+
+		const result = await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				config,
+			}).toString()}`,
+			confirmed: true,
+		});
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			confirmed: true,
+			installed: false,
+			actionable: false,
+			requiresReview: true,
+			configKeys: ["source", "token"],
+		});
+		expect(JSON.stringify(result)).not.toContain("secret-value");
+	});
+
 	it("requires confirmation before launching Cursor deeplinks", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
