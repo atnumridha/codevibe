@@ -416,7 +416,19 @@ function formatParamValue(key: string, value: string | Record<string, unknown>):
 	if (SECRET_PARAM_PATTERN.test(key)) {
 		return "[redacted]"
 	}
+	if (key.toLowerCase() === "url") {
+		return formatUrlForDisplay(value) ?? "[provided url]"
+	}
 	return value
+}
+
+function formatUrlForDisplay(value: string): string | undefined {
+	try {
+		const url = new URL(value)
+		return `${url.origin}${url.pathname}${url.search ? "?[redacted]" : ""}${url.hash ? "#[redacted]" : ""}`
+	} catch {
+		return undefined
+	}
 }
 
 function formatRouteDetails(route: CursorCompatibleUriRoute, skipKeys: string[] = []): string {

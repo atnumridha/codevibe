@@ -513,6 +513,15 @@ describe("Cursor MCP install URI parser", () => {
 		expect(prReview.taskPrompt).toContain("pull request review");
 		expect(prReview.taskPrompt).toContain("repo: owner/repo");
 		expect(prReview.taskPrompt).toContain("number: 42");
+
+		const prReviewByUrl = buildCursorAgentTaskRouteRequest(
+			"vscode://cline.cline/pr-review?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Fpull%2F42%3Ftoken%3Dsecret-value%23secret-fragment",
+		);
+		expect(prReviewByUrl.taskPrompt).toContain(
+			"url: https://github.com/owner/repo/pull/42?[redacted]#[redacted]",
+		);
+		expect(prReviewByUrl.taskPrompt).not.toContain("secret-value");
+		expect(prReviewByUrl.taskPrompt).not.toContain("secret-fragment");
 	});
 
 	it("builds explicit plugin add route requests", () => {

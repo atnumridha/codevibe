@@ -301,11 +301,15 @@ function formatCursorPluginSource(source: string | undefined, sourceParam: "id" 
 	if (sourceParam !== "url") {
 		return source
 	}
+	return formatCursorUrlForDisplay(source) ?? "[provided url]"
+}
+
+function formatCursorUrlForDisplay(source: string): string | undefined {
 	try {
 		const url = new URL(source)
 		return `${url.origin}${url.pathname}${url.search ? "?[redacted]" : ""}${url.hash ? "#[redacted]" : ""}`
 	} catch {
-		return "[provided url]"
+		return undefined
 	}
 }
 
@@ -319,7 +323,7 @@ function buildCursorPrReviewDetail(route: CursorCompatibleUriRoute): string {
 		config && typeof config === "object" && !Array.isArray(config)
 			? Object.keys(config).sort()
 			: []
-	const target = url || (repo && number ? `${repo}#${number}` : undefined)
+	const target = url ? formatCursorUrlForDisplay(url) || "[provided url]" : repo && number ? `${repo}#${number}` : undefined
 	return [
 		`Pull request: ${target ?? "unknown"}`,
 		...(instructions ? [`Instructions: ${instructions}`] : []),

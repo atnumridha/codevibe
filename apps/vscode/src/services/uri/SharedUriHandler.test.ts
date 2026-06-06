@@ -495,6 +495,27 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("repo: owner/repo")
 			})
 
+			it("should redact Cursor PR review URL query values in modal details and task prompts", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Start Review" })
+				const reviewUrl = "https://github.com/owner/repo/pull/42?token=secret-value#secret-fragment"
+
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/pr-review?url=${encodeURIComponent(reviewUrl)}`,
+				)
+
+				expect(result).to.be.true
+				const detail = showMessageStub.firstCall.args[0].options.detail
+				expect(detail).to.contain("https://github.com/owner/repo/pull/42?[redacted]#[redacted]")
+				expect(detail).not.to.contain("secret-value")
+				expect(detail).not.to.contain("secret-fragment")
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				const prompt = handleTaskCreationStub.firstCall.args[0]
+				expect(prompt).to.contain("https://github.com/owner/repo/pull/42?[redacted]#[redacted]")
+				expect(prompt).not.to.contain("secret-value")
+				expect(prompt).not.to.contain("secret-fragment")
+			})
+
 			it("should not create a task when Cursor PR review confirmation is cancelled", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
