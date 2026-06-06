@@ -19,7 +19,7 @@
         "build:models": "bun -F @cline/llms generate:models && bun format --write",
         "dev": "bun --conditions=development run build:sdk && bun run cli && bun run cli hub stop",
         "cli": "bun --conditions=development --cwd apps/cli dev",
-        "code": "bun --conditions=development -F @cline/code dev",
+        "code": "bun --conditions=development -F @codevibe/code dev",
         "clean": "bun run sdk/scripts/clean.ts",
         "types": "bun --parallel -F '*' typecheck",
         "test": "bun --parallel -F './sdk/packages/**' -F @cline/cli test",

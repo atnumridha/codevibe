@@ -1,4 +1,4 @@
-# Sidecar Architecture — @cline/code
+# Sidecar Architecture — @codevibe/code
 
 ## Overview
 
