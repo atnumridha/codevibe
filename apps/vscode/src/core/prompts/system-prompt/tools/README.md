@@ -83,6 +83,7 @@ The following tools are currently registered:
 - `ask_followup_question`
 - `attempt_completion`
 - `browser_action`
+- `browser_snapshot`
 - `execute_command`
 - `focus_chain`
 - `list_code_definition_names`

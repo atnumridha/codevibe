@@ -1,6 +1,6 @@
 import { setTimeout as setTimeoutPromise } from "node:timers/promises"
 import { Controller } from "@core/controller"
-import { BrowserActionResult } from "@shared/ExtensionMessage"
+import { BrowserActionResult, BrowserSnapshotNode } from "@shared/ExtensionMessage"
 import { fileExistsAtPath } from "@utils/fs"
 import axios from "axios"
 import { spawn } from "child_process"
@@ -25,6 +25,8 @@ export interface BrowserConnectionInfo {
 }
 
 const DEBUG_PORT = 9222 // Chrome's default debugging port
+const MAX_BROWSER_SNAPSHOT_TEXT_LENGTH = 12_000
+const MAX_BROWSER_SNAPSHOT_HTML_LENGTH = 12_000
 
 // helper function required to append custom browser arguments from UI
 function splitArgs(str?: string | null): string[] {
@@ -378,7 +380,7 @@ export class BrowserSession {
 	async doAction(action: (page: Page) => Promise<void>): Promise<BrowserActionResult> {
 		if (!this.page) {
 			throw new Error(
-				"Browser is not launched. This may occur if the browser was automatically closed by a non-`browser_action` tool.",
+				"Browser is not launched. This may occur if the browser was automatically closed by a non-browser tool.",
 			)
 		}
 
@@ -619,8 +621,89 @@ export class BrowserSession {
 		}
 	}
 
+	async snapshot(): Promise<BrowserActionResult> {
+		this.browserActions.push("snapshot")
+
+		let title = ""
+		let text = ""
+		let html = ""
+		let nodes: BrowserSnapshotNode[] | undefined
+		const actionResult = await this.doAction(async (page) => {
+			title = await page.title().catch(() => "")
+			html = truncateBrowserSnapshotText(await page.content().catch(() => ""), MAX_BROWSER_SNAPSHOT_HTML_LENGTH)
+			const pageText = await page
+				.evaluate(() => {
+					const bodyText = document.body?.innerText
+					const rootText = document.documentElement?.innerText
+					return (bodyText || rootText || "").trim()
+				})
+				.catch(() => "")
+
+			text = truncateBrowserSnapshotText(typeof pageText === "string" ? pageText : "", MAX_BROWSER_SNAPSHOT_TEXT_LENGTH)
+			const accessibilityNode = await captureAccessibilitySnapshot(page)
+			nodes = accessibilityNode ? [accessibilityNode] : undefined
+		})
+
+		return {
+			...actionResult,
+			title,
+			text,
+			html,
+			nodes,
+		}
+	}
+
 	async dispose() {
 		await this.closeBrowser()
+	}
+}
+
+function truncateBrowserSnapshotText(text: string, maxLength: number): string {
+	if (text.length <= maxLength) {
+		return text
+	}
+
+	return `${text.slice(0, maxLength)}\n[truncated]`
+}
+
+type AccessibilitySnapshotNode = {
+	role?: string
+	name?: string
+	value?: unknown
+	checked?: unknown
+	disabled?: unknown
+	expanded?: unknown
+	focused?: unknown
+	selected?: unknown
+	children?: AccessibilitySnapshotNode[]
+}
+
+async function captureAccessibilitySnapshot(page: Page): Promise<BrowserSnapshotNode | undefined> {
+	const pageWithAccessibility = page as Page & {
+		accessibility?: {
+			snapshot: (options?: { interestingOnly?: boolean }) => Promise<AccessibilitySnapshotNode | null>
+		}
+	}
+
+	const snapshot = await pageWithAccessibility.accessibility?.snapshot({ interestingOnly: true }).catch(() => null)
+	return snapshot ? normalizeAccessibilityNode(snapshot) : undefined
+}
+
+function normalizeAccessibilityNode(node: AccessibilitySnapshotNode): BrowserSnapshotNode {
+	const attributes: Record<string, string> = {}
+	for (const key of ["checked", "disabled", "expanded", "focused", "selected"] as const) {
+		const value = node[key]
+		if (value !== undefined) {
+			attributes[key] = String(value)
+		}
+	}
+
+	return {
+		role: node.role,
+		name: node.name,
+		value: node.value === undefined ? undefined : String(node.value),
+		attributes: Object.keys(attributes).length > 0 ? attributes : undefined,
+		children: node.children?.map(normalizeAccessibilityNode),
 	}
 }
 

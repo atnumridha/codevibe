@@ -1,4 +1,10 @@
-import { BrowserAction, BrowserActionResult, browserActions, ClineSayBrowserAction } from "@shared/ExtensionMessage"
+import {
+	BrowserAction,
+	BrowserActionResult,
+	BrowserSnapshotNode,
+	browserActions,
+	ClineSayBrowserAction,
+} from "@shared/ExtensionMessage"
 import { ClineDefaultTool } from "@/shared/tools"
 import { ToolUse } from "../../../assistant-message"
 import { formatResponse } from "../../../prompts/responses"
@@ -11,6 +17,8 @@ import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
 
 const MAX_BROWSER_EVALUATE_RESULT_LENGTH = 12_000
+const MAX_BROWSER_SNAPSHOT_TEXT_LENGTH = 12_000
+const MAX_BROWSER_SNAPSHOT_HTML_LENGTH = 12_000
 const REDACTED_VALUE = "[REDACTED]"
 
 export function redactSensitiveBrowserText(text: string | undefined): string | undefined {
@@ -34,16 +42,53 @@ export function redactSensitiveBrowserText(text: string | undefined): string | u
 
 export function sanitizeBrowserActionResult(result: BrowserActionResult): BrowserActionResult {
 	const redactedEvaluationResult = redactSensitiveBrowserText(result.evaluationResult)
+	const redactedSnapshotText = redactSensitiveBrowserText(result.text)
+	const redactedSnapshotHtml = redactSensitiveBrowserText(result.html)
 
 	return {
 		...result,
 		logs: redactSensitiveBrowserText(result.logs),
 		currentUrl: redactSensitiveBrowserText(result.currentUrl),
+		title: redactSensitiveBrowserText(result.title),
+		nodes: sanitizeBrowserSnapshotNodes(result.nodes),
+		text:
+			redactedSnapshotText && redactedSnapshotText.length > MAX_BROWSER_SNAPSHOT_TEXT_LENGTH
+				? `${redactedSnapshotText.slice(0, MAX_BROWSER_SNAPSHOT_TEXT_LENGTH)}\n[truncated]`
+				: redactedSnapshotText,
+		html:
+			redactedSnapshotHtml && redactedSnapshotHtml.length > MAX_BROWSER_SNAPSHOT_HTML_LENGTH
+				? `${redactedSnapshotHtml.slice(0, MAX_BROWSER_SNAPSHOT_HTML_LENGTH)}\n[truncated]`
+				: redactedSnapshotHtml,
 		evaluationResult:
 			redactedEvaluationResult && redactedEvaluationResult.length > MAX_BROWSER_EVALUATE_RESULT_LENGTH
 				? `${redactedEvaluationResult.slice(0, MAX_BROWSER_EVALUATE_RESULT_LENGTH)}\n[truncated]`
 				: redactedEvaluationResult,
 	}
+}
+
+function sanitizeBrowserSnapshotNodes(nodes: BrowserSnapshotNode[] | undefined): BrowserSnapshotNode[] | undefined {
+	return nodes?.map((node) => ({
+		...node,
+		name: redactSensitiveBrowserText(node.name),
+		text: redactSensitiveBrowserText(node.text),
+		value: redactSensitiveBrowserText(node.value),
+		attributes: sanitizeBrowserSnapshotAttributes(node.attributes),
+		children: sanitizeBrowserSnapshotNodes(node.children),
+	}))
+}
+
+function sanitizeBrowserSnapshotAttributes(
+	attributes: Record<string, string> | undefined,
+): Record<string, string> | undefined {
+	if (!attributes) {
+		return attributes
+	}
+
+	const redactedAttributes = Object.entries(attributes).map(([key, value]) => [
+		redactSensitiveBrowserText(key) ?? key,
+		redactSensitiveBrowserText(value) ?? value,
+	])
+	return Object.fromEntries(redactedAttributes)
 }
 
 export class BrowserToolHandler implements IFullyManagedTool {

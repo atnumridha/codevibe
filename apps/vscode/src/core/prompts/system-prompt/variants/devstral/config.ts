@@ -43,6 +43,7 @@ export const config = createVariant(ModelFamily.DEVSTRAL)
 		ClineDefaultTool.LIST_FILES,
 		ClineDefaultTool.LIST_CODE_DEF,
 		ClineDefaultTool.BROWSER,
+		ClineDefaultTool.BROWSER_SNAPSHOT,
 		ClineDefaultTool.WEB_FETCH,
 		ClineDefaultTool.WEB_SEARCH,
 		ClineDefaultTool.MCP_USE,

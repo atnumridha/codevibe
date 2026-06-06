@@ -366,7 +366,7 @@ export class ToolExecutor {
 			}
 
 			// Close browser for non-browser tools
-			if (block.name !== "browser_action") {
+			if (block.name !== ClineDefaultTool.BROWSER && block.name !== ClineDefaultTool.BROWSER_SNAPSHOT) {
 				await this.browserSession.closeBrowser()
 			}
 

@@ -5,6 +5,7 @@ import { ClineDefaultTool } from "@/shared/tools"
 import type { ClineToolSpec } from "../spec"
 import { toolSpecFunctionDeclarations, toolSpecFunctionDefinition, toolSpecInputSchema } from "../spec"
 import { browser_action_variants } from "../tools/browser_action"
+import { browser_snapshot_variants } from "../tools/browser_snapshot"
 import type { SystemPromptContext } from "../types"
 
 const mockContext: SystemPromptContext = {
@@ -139,6 +140,18 @@ describe("browser_action tool docs", () => {
 			expect(docs).to.include("evaluate")
 			expect(docs).to.include("browser JavaScript evaluation")
 			expect(docs).to.include("cline.cursorCompatibility.safeBrowserEvaluate.enabled")
+		}
+	})
+
+	it("documents browser_snapshot as read-only active-page inspection", () => {
+		for (const spec of browser_snapshot_variants) {
+			const docs = `${spec.description}\n${spec.parameters?.map((parameter) => parameter.instruction).join("\n") ?? ""}`
+
+			expect(docs).to.include("read-only")
+			expect(docs).to.include("browser_action")
+			expect(docs).to.include("browser_snapshot")
+			expect(docs).to.include("without clicking")
+			expect(docs).to.include("running user-provided JavaScript")
 		}
 	})
 })

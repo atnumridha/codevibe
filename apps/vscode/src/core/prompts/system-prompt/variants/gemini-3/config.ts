@@ -53,6 +53,7 @@ export const config = createVariant(ModelFamily.GEMINI_3)
 		ClineDefaultTool.LIST_FILES,
 		ClineDefaultTool.LIST_CODE_DEF,
 		ClineDefaultTool.BROWSER,
+		ClineDefaultTool.BROWSER_SNAPSHOT,
 		ClineDefaultTool.WEB_FETCH,
 		ClineDefaultTool.MCP_USE,
 		ClineDefaultTool.MCP_ACCESS,

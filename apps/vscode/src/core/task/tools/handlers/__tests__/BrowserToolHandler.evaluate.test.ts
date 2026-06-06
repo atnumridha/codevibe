@@ -3,6 +3,7 @@ import { getEffectiveBrowserSettings } from "@shared/BrowserSettings"
 import { ClineDefaultTool } from "@shared/tools"
 import { describe, it } from "mocha"
 import sinon from "sinon"
+import { BrowserSnapshotToolHandler } from "../BrowserSnapshotToolHandler"
 import { BrowserToolHandler, sanitizeBrowserActionResult } from "../BrowserToolHandler"
 
 function createConfig(allowBrowserEvaluate: boolean, evaluateResult?: unknown) {
@@ -36,11 +37,51 @@ function makeEvaluateBlock(text = "document.title") {
 	}
 }
 
+function createSnapshotConfig(snapshotResult?: unknown) {
+	const browserSession = {
+		snapshot: sinon.stub().resolves(snapshotResult ?? {}),
+		closeBrowser: sinon.stub().resolves({}),
+	}
+	const callbacks = {
+		say: sinon.stub().resolves(undefined),
+		sayAndCreateMissingParamError: sinon.stub().resolves("missing"),
+	}
+
+	return {
+		config: {
+			taskState: { consecutiveMistakeCount: 0 },
+			browserSettings: { allowBrowserEvaluate: false },
+			services: { browserSession },
+			callbacks,
+		} as any,
+		browserSession,
+		callbacks,
+	}
+}
+
+function makeSnapshotBlock() {
+	return {
+		type: "tool_use" as const,
+		name: ClineDefaultTool.BROWSER_SNAPSHOT,
+		params: {},
+		partial: false,
+	}
+}
+
 describe("BrowserToolHandler evaluate safety", () => {
 	it("redacts likely secrets from browser action results", () => {
 		const result = sanitizeBrowserActionResult({
 			logs: "Authorization: Bearer secret-token-value-1234567890",
 			currentUrl: "https://example.com/?access_token=secret-token-value-1234567890",
+			title: "token=secret-token-value-1234567890",
+			text: "api_key=sk-secret-value-1234567890",
+			html: "<input value='password=secret-token-value-1234567890'>",
+			nodes: [
+				{
+					role: "textbox",
+					value: "password=secret-token-value-1234567890",
+				},
+			],
 			evaluationResult: JSON.stringify({
 				apiKey: "sk-secret-value-1234567890",
 				ok: true,
@@ -93,6 +134,47 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert(!serializedResponse.includes("secret-token-value-1234567890"))
 		assert(!serializedResponse.includes("sk-secret-value-1234567890"))
 		assert(serializedResponse.includes("[REDACTED]"))
+	})
+
+	it("captures a read-only browser snapshot with redacted text and DOM", async () => {
+		const { config, browserSession, callbacks } = createSnapshotConfig({
+			screenshot: "data:image/png;base64,abc",
+			logs: "Authorization: Bearer secret-token-value-1234567890",
+			currentUrl: "https://example.com/?access_token=secret-token-value-1234567890",
+			title: "Dashboard",
+			text: "api_key=sk-secret-value-1234567890",
+			html: "<input value='password=secret-token-value-1234567890'>",
+			nodes: [
+				{
+					role: "textbox",
+					value: "password=secret-token-value-1234567890",
+				},
+			],
+		})
+
+		const response = await new BrowserSnapshotToolHandler().execute(config, makeSnapshotBlock())
+		const serializedResponse = JSON.stringify(response)
+		const resultSay = callbacks.say.getCalls().find((call) => call.args[0] === "browser_action_result")
+
+		assert.equal(browserSession.snapshot.calledOnce, true)
+		assert.equal(browserSession.closeBrowser.called, false)
+		assert(resultSay)
+		assert(!String(resultSay?.args[1]).includes("secret-token-value-1234567890"))
+		assert(!String(resultSay?.args[1]).includes("sk-secret-value-1234567890"))
+		assert(!serializedResponse.includes("secret-token-value-1234567890"))
+		assert(!serializedResponse.includes("sk-secret-value-1234567890"))
+		assert(serializedResponse.includes("[REDACTED]"))
+		assert(serializedResponse.includes("DOM snapshot"))
+	})
+
+	it("returns a tool error when no active browser snapshot is available", async () => {
+		const { config, browserSession } = createSnapshotConfig()
+		browserSession.snapshot.rejects(new Error("Browser is not launched"))
+
+		const response = await new BrowserSnapshotToolHandler().execute(config, makeSnapshotBlock())
+
+		assert.equal(config.taskState.consecutiveMistakeCount, 1)
+		assert(String(response).includes("Browser snapshot failed"))
 	})
 
 	it("redacts evaluate text while streaming partial browser action display", async () => {

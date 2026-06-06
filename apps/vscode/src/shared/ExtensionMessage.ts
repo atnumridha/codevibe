@@ -307,12 +307,26 @@ export interface ClineSaySubagentStatus {
 	items: SubagentStatusItem[]
 }
 
+export type BrowserSnapshotNode = {
+	ref?: string
+	role?: string
+	name?: string
+	text?: string
+	value?: string
+	attributes?: Record<string, string>
+	children?: BrowserSnapshotNode[]
+}
+
 export type BrowserActionResult = {
 	screenshot?: string
 	logs?: string
 	evaluationResult?: string
 	currentUrl?: string
 	currentMousePosition?: string
+	title?: string
+	text?: string
+	html?: string
+	nodes?: BrowserSnapshotNode[]
 }
 
 export interface ClineAskUseMcpServer {

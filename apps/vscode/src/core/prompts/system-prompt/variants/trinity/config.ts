@@ -45,6 +45,7 @@ export const config = createVariant(ModelFamily.TRINITY)
 		ClineDefaultTool.LIST_FILES,
 		ClineDefaultTool.LIST_CODE_DEF,
 		ClineDefaultTool.BROWSER,
+		ClineDefaultTool.BROWSER_SNAPSHOT,
 		ClineDefaultTool.MCP_USE,
 		ClineDefaultTool.MCP_ACCESS,
 		ClineDefaultTool.ASK,
