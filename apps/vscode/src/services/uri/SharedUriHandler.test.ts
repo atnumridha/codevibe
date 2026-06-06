@@ -31,9 +31,11 @@ describe("SharedUriHandler", () => {
 	let showMessageStub: sinon.SinonStub
 	let openSettingsStub: sinon.SinonStub
 	let openFileStub: sinon.SinonStub
+	let workspaceDir: string
 
 	beforeEach(async () => {
 		sandbox = sinon.createSandbox()
+		workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "cline-uri-workspace-"))
 
 		// Mock Logger methods to avoid HostProvider dependency
 		sandbox.stub(Logger, "info").returns()
@@ -93,10 +95,16 @@ describe("SharedUriHandler", () => {
 					openFile: openFileStub,
 				}) as any,
 		)
+		sandbox.stub(HostProvider, "workspace").value({
+			getWorkspacePaths: sandbox.stub().resolves({ paths: [workspaceDir] }),
+		})
 	})
 
-	afterEach(() => {
+	afterEach(async () => {
 		sandbox.restore()
+		if (workspaceDir) {
+			await fs.rm(workspaceDir, { recursive: true, force: true })
+		}
 	})
 
 	describe("handleUri", () => {
@@ -268,6 +276,77 @@ describe("SharedUriHandler", () => {
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Cursor-compatible rule deeplink")
 				expect(openFileStub.called).to.be.false
+			})
+
+			it("should create a task from a Cursor custom command file", async () => {
+				const commandsDir = path.join(workspaceDir, ".cursor", "commands")
+				await fs.mkdir(commandsDir, { recursive: true })
+				await fs.writeFile(
+					path.join(commandsDir, "review-code.md"),
+					"Review the staged diff and call out risky changes.",
+					"utf8",
+				)
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+
+				expect(result).to.be.true
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				const prompt = handleTaskCreationStub.firstCall.args[0]
+				expect(prompt).to.contain('A Cursor-compatible command deeplink named "review-code" was opened.')
+				expect(prompt).to.contain(".cursor/commands/review-code.md")
+				expect(prompt).to.contain("Review the staged diff and call out risky changes.")
+				expect(prompt).to.contain("normal permission boundaries")
+				expect(prompt).not.to.contain("```sh")
+			})
+
+			it("should fall back to a review prompt when a Cursor command file is missing", async () => {
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=missing-command")
+
+				expect(result).to.be.true
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				const prompt = handleTaskCreationStub.firstCall.args[0]
+				expect(prompt).to.contain('Cursor-compatible command deeplink named "missing-command"')
+				expect(prompt).to.contain("Route details:")
+			})
+
+			it("should not read Cursor command files for unsafe command names", async () => {
+				const commandsDir = path.join(workspaceDir, ".cursor", "commands")
+				await fs.mkdir(commandsDir, { recursive: true })
+				await fs.writeFile(path.join(commandsDir, "secret.md"), "SHOULD_NOT_LOAD", "utf8")
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=..%2Fsecret")
+
+				expect(result).to.be.true
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).not.to.contain("SHOULD_NOT_LOAD")
+			})
+
+			it("should not read symlinked Cursor command files", async () => {
+				const commandsDir = path.join(workspaceDir, ".cursor", "commands")
+				await fs.mkdir(commandsDir, { recursive: true })
+				const targetPath = path.join(workspaceDir, "outside-command.md")
+				await fs.writeFile(targetPath, "SHOULD_NOT_LOAD", "utf8")
+				await fs.symlink(targetPath, path.join(commandsDir, "review-code.md"))
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+
+				expect(result).to.be.true
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				const prompt = handleTaskCreationStub.firstCall.args[0]
+				expect(prompt).to.contain('Cursor-compatible command deeplink named "review-code"')
+				expect(prompt).not.to.contain("SHOULD_NOT_LOAD")
+			})
+
+			it("should not read dot-only Cursor command names", async () => {
+				const commandsDir = path.join(workspaceDir, ".cursor", "commands")
+				await fs.mkdir(commandsDir, { recursive: true })
+				await fs.writeFile(path.join(commandsDir, ".md"), "SHOULD_NOT_LOAD", "utf8")
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=.")
+
+				expect(result).to.be.true
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).not.to.contain("SHOULD_NOT_LOAD")
 			})
 
 			it("should reject invalid Cursor command routes", async () => {

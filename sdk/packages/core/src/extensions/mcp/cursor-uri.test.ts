@@ -1,3 +1,12 @@
+import {
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	buildCursorAgentTaskRouteRequest,
@@ -7,6 +16,7 @@ import {
 	CursorMcpInstallError,
 	CursorUriError,
 	formatCursorMcpInstallDetail,
+	resolveCursorCommandFileRouteRequest,
 } from "./cursor-uri";
 
 function route(params: Record<string, string>): string {
@@ -191,6 +201,77 @@ describe("Cursor MCP install URI parser", () => {
 		expect(command.taskPrompt).toContain("Review it with the user before running it");
 		expect(command.taskPrompt).toContain("```sh\nnpm install\n```");
 		expect(command.taskPrompt).not.toContain("secret");
+	});
+
+	it("resolves standalone Cursor command files when a workspace root is provided", () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-cursor-command-"));
+		try {
+			const commandsDir = join(root, ".cursor", "commands");
+			mkdirSync(commandsDir, { recursive: true });
+			writeFileSync(
+				join(commandsDir, "review-code.md"),
+				"Review the staged diff and call out risky changes.",
+				"utf8",
+			);
+
+			const request = buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/command?name=review-code",
+			);
+			const resolved = resolveCursorCommandFileRouteRequest(request, {
+				workspaceRoot: root,
+			});
+
+			expect(resolved).toMatchObject({
+				kind: "command-file",
+				commandName: "review-code",
+				filename: "review-code.md",
+				relativePath: ".cursor/commands/review-code.md",
+			});
+			expect(resolved?.taskPrompt).toContain(
+				"Review the staged diff and call out risky changes.",
+			);
+			expect(resolved?.taskPrompt).toContain("normal permission boundaries");
+			expect(resolved?.taskPrompt).not.toContain("```sh");
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it("does not resolve unsafe or symlinked standalone Cursor command files", () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-cursor-command-"));
+		try {
+			const commandsDir = join(root, ".cursor", "commands");
+			mkdirSync(commandsDir, { recursive: true });
+			writeFileSync(join(commandsDir, ".md"), "SHOULD_NOT_LOAD", "utf8");
+			writeFileSync(join(root, "outside-command.md"), "SHOULD_NOT_LOAD", "utf8");
+			symlinkSync(
+				join(root, "outside-command.md"),
+				join(commandsDir, "review-code.md"),
+			);
+
+			const unsafe = buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/command?name=..%2Foutside-command",
+			);
+			expect(
+				resolveCursorCommandFileRouteRequest(unsafe, { workspaceRoot: root }),
+			).toBeUndefined();
+
+			const dotOnly = buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/command?name=.",
+			);
+			expect(
+				resolveCursorCommandFileRouteRequest(dotOnly, { workspaceRoot: root }),
+			).toBeUndefined();
+
+			const symlinked = buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/command?name=review-code",
+			);
+			expect(
+				resolveCursorCommandFileRouteRequest(symlinked, { workspaceRoot: root }),
+			).toBeUndefined();
+		} finally {
+			rmSync(root, { recursive: true, force: true });
+		}
 	});
 
 	it("validates standalone task routes before producing prompts", () => {

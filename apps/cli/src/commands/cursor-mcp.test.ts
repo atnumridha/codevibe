@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -282,6 +282,42 @@ describe("Cursor MCP install command", () => {
 			paramKeys: ["command", "config"],
 		});
 		expect(out[0]).not.toContain("secret-value");
+	});
+
+	it("previews Cursor command files for standalone agent task routes", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-command-"));
+		tempDirs.push(workspaceRoot);
+		const commandsDir = join(workspaceRoot, ".cursor", "commands");
+		await mkdir(commandsDir, { recursive: true });
+		await writeFile(
+			join(commandsDir, "review-code.md"),
+			"Review the staged diff and call out risky changes.",
+			"utf8",
+		);
+		const { out, io } = createIo();
+
+		const code = await runCursorUriCommand({
+			uri: "vscode://cline.cline/command?name=review-code",
+			cwd: workspaceRoot,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(0);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			handled: true,
+			route: "command-file",
+			path: "/command",
+			requiresAgent: true,
+			commandFile: {
+				commandName: "review-code",
+				filename: "review-code.md",
+				relativePath: ".cursor/commands/review-code.md",
+			},
+			taskPrompt: expect.stringContaining(
+				"Review the staged diff and call out risky changes.",
+			),
+		});
 	});
 
 	it("previews PR review, plugin add, and glass deeplinks", async () => {

@@ -27,6 +27,7 @@ export {
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
+	resolveCursorCommandFileRouteRequest,
 	CursorMcpInstallError,
 	CursorUriError,
 	formatCursorMcpInstallDetail,
@@ -35,9 +36,11 @@ export type {
 	CursorAgentTaskRouteKind,
 	CursorAgentTaskRoutePath,
 	CursorAgentTaskRouteRequest,
+	CursorCommandFileRouteRequest,
 	CursorMcpInstallRequest,
 	CursorRuleRouteRequest,
 	CursorSettingsRouteRequest,
+	ResolveCursorCommandFileRouteOptions,
 } from "./cursor-uri";
 export { InMemoryMcpManager } from "./manager";
 export type {

@@ -60,6 +60,7 @@ export const GlobalFileNames = {
 	clineSkillsDir: ".cline/skills",
 	claudeSkillsDir: ".claude/skills",
 	agentsSkillsDir: ".agents/skills",
+	cursorCommandsDir: ".cursor/commands",
 	cursorRulesDir: ".cursor/rules",
 	cursorRulesFile: ".cursorrules",
 	windsurfRules: ".windsurfrules",

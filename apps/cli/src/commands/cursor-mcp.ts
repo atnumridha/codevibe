@@ -6,6 +6,7 @@ import {
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
 	formatCursorMcpInstallDetail,
+	resolveCursorCommandFileRouteRequest,
 } from "@cline/core";
 import { resolveGlobalSettingsPath } from "@cline/shared/storage";
 import {
@@ -155,24 +156,40 @@ function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
 
 function writeAgentTaskRoute(options: CursorMcpInstallCommandOptions): number {
 	const request = buildCursorAgentTaskRouteRequest(options.uri);
+	const commandFileRequest = resolveCursorCommandFileRouteRequest(request, {
+		workspaceRoot: resolve(options.cwd ?? process.cwd()),
+	});
+	const taskPrompt = commandFileRequest?.taskPrompt ?? request.taskPrompt;
 	if (options.json) {
 		options.io.writeln(
 			JSON.stringify({
 				handled: true,
-				route: request.kind,
+				route: commandFileRequest?.kind ?? request.kind,
 				path: request.path,
 				requiresAgent: true,
 				prompt: request.prompt,
-				taskPrompt: request.taskPrompt,
+				taskPrompt,
 				paramKeys: Object.keys(request.params).sort(),
+				commandFile: commandFileRequest
+					? {
+							commandName: commandFileRequest.commandName,
+							filename: commandFileRequest.filename,
+							relativePath: commandFileRequest.relativePath,
+							filePath: commandFileRequest.filePath,
+						}
+					: undefined,
 			}),
 		);
 		return 0;
 	}
 
-	options.io.writeln(`Cursor ${request.kind} deeplink requires an agent task.`);
+	options.io.writeln(
+		commandFileRequest
+			? `Cursor command file "${commandFileRequest.relativePath}" requires an agent task.`
+			: `Cursor ${request.kind} deeplink requires an agent task.`,
+	);
 	options.io.writeln("");
-	options.io.writeln(request.taskPrompt);
+	options.io.writeln(taskPrompt);
 	return 0;
 }
 

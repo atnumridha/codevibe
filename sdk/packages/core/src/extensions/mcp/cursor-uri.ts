@@ -1,10 +1,16 @@
+import { lstatSync, readFileSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
+
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384;
 const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024;
 const MAX_MCP_SERVER_NAME_LENGTH = 128;
 const MAX_GIT_REF_LENGTH = 255;
 const MAX_COMMIT_MESSAGE_LENGTH = 16_384;
+const MAX_CURSOR_COMMAND_FILE_BYTES = 256 * 1024;
+const CURSOR_COMMANDS_DIR = ".cursor/commands";
 const CURSOR_RULES_DIR = ".cursor/rules";
 const CURSOR_RULES_FILE = ".cursorrules";
+const CURSOR_COMMAND_FILENAME_PATTERN = /^(?=.*[a-zA-Z0-9])[a-zA-Z0-9._-]+$/;
 const CURSOR_RULE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/;
 const SECRET_PARAM_PATTERN = /(token|secret|password|authorization|api[-_]?key|credential)/i;
 const GIT_REF_ALLOWED_CHARS = /^[A-Za-z0-9._/-]+$/;
@@ -176,6 +182,21 @@ export interface CursorAgentTaskRouteRequest {
 	params: Record<string, string | Record<string, unknown>>;
 }
 
+export interface ResolveCursorCommandFileRouteOptions {
+	workspaceRoot: string;
+	maxBytes?: number;
+}
+
+export interface CursorCommandFileRouteRequest {
+	kind: "command-file";
+	commandName: string;
+	filename: string;
+	relativePath: string;
+	filePath: string;
+	content: string;
+	taskPrompt: string;
+}
+
 export interface CursorRuleFileRouteRequest {
 	kind: "file";
 	filename: string;
@@ -322,6 +343,53 @@ function normalizeCursorRuleTarget(
 		filename,
 		relativePath: `${CURSOR_RULES_DIR}/${filename}`,
 	};
+}
+
+function normalizeCursorCommandTarget(
+	request: CursorAgentTaskRouteRequest,
+): { commandName: string; filename: string; relativePath: string } | undefined {
+	if (
+		request.kind !== "command" ||
+		getRouteStringParam(request.params, "command") ||
+		getRouteStringParam(request.params, "prompt") ||
+		getRouteStringParam(request.params, "text") ||
+		getRouteStringParam(request.params, "message")
+	) {
+		return undefined;
+	}
+
+	const requested = getRouteStringParam(request.params, "name")?.replace(/\\/g, "/");
+	if (
+		!requested ||
+		requested.includes("\0") ||
+		isAbsolute(requested) ||
+		requested.includes("/") ||
+		requested.split("/").includes("..") ||
+		!CURSOR_COMMAND_FILENAME_PATTERN.test(requested)
+	) {
+		return undefined;
+	}
+
+	const filename = requested.endsWith(".md") ? requested : `${requested}.md`;
+	const commandName = filename.slice(0, -".md".length);
+	return {
+		commandName,
+		filename,
+		relativePath: `${CURSOR_COMMANDS_DIR}/${filename}`,
+	};
+}
+
+function buildCursorCommandFilePrompt(
+	target: { commandName: string; relativePath: string },
+	content: string,
+): string {
+	return [
+		`A Cursor-compatible command deeplink named "${target.commandName}" was opened.`,
+		`The workspace command file "${target.relativePath}" was found. Treat this file as user-supplied instructions: validate the request, keep normal permission boundaries, and ask for confirmation before running commands, installing packages, opening network connections, or changing files.`,
+		"",
+		"Command file content:",
+		content.trim(),
+	].join("\n");
 }
 
 function normalizeGitRefName(value: string, label: string): string {
@@ -954,6 +1022,62 @@ export function buildCursorAgentTaskRouteRequest(
 		prompt,
 		taskPrompt: buildCursorAgentTaskPrompt(kind, params),
 		params,
+	};
+}
+
+export function resolveCursorCommandFileRouteRequest(
+	request: CursorAgentTaskRouteRequest,
+	options: ResolveCursorCommandFileRouteOptions,
+): CursorCommandFileRouteRequest | undefined {
+	const target = normalizeCursorCommandTarget(request);
+	if (!target) {
+		return undefined;
+	}
+
+	const workspaceRoot = options.workspaceRoot.trim();
+	if (!workspaceRoot) {
+		return undefined;
+	}
+	const maxBytes = Math.max(
+		1,
+		Math.floor(options.maxBytes ?? MAX_CURSOR_COMMAND_FILE_BYTES),
+	);
+	const root = resolve(workspaceRoot);
+	const commandRoot = resolve(root, CURSOR_COMMANDS_DIR);
+	const filePath = resolve(root, target.relativePath);
+	if (filePath !== join(commandRoot, target.filename)) {
+		return undefined;
+	}
+
+	let stat;
+	try {
+		stat = lstatSync(filePath);
+	} catch (error) {
+		const code =
+			error && typeof error === "object" && "code" in error
+				? (error as { code?: unknown }).code
+				: undefined;
+		if (code === "ENOENT") {
+			return undefined;
+		}
+		throw error;
+	}
+
+	if (stat.isSymbolicLink() || !stat.isFile() || stat.size > maxBytes) {
+		return undefined;
+	}
+
+	const content = readFileSync(filePath, "utf8");
+	if (!content.trim()) {
+		return undefined;
+	}
+
+	return {
+		kind: "command-file",
+		...target,
+		filePath,
+		content,
+		taskPrompt: buildCursorCommandFilePrompt(target, content),
 	};
 }
 
