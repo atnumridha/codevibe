@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RuntimeCapabilities } from "@cline/core";
@@ -284,6 +284,46 @@ describe("Code sidecar runtime capabilities", () => {
 			maxCommandFileBytes: 4096,
 		});
 		expect(result).toEqual({ handled: true, route: "settings" });
+	});
+
+	it("searches workspace files through Cursor privacy ignore rules", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-search-"));
+		tempDirs.push(workspace);
+		await mkdir(join(workspace, "src"), { recursive: true });
+		await mkdir(join(workspace, "private"), { recursive: true });
+		await writeFile(join(workspace, ".cursorignore"), "private/\n*.secret\n");
+		await writeFile(join(workspace, "src", "secret-guide.md"), "visible\n");
+		await writeFile(join(workspace, "src", "token.secret"), "hidden\n");
+		await writeFile(join(workspace, "private", "secret.md"), "hidden\n");
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "search_workspace_files", {
+			query: "secret",
+			limit: 10,
+		});
+
+		expect(result).toEqual(["src/secret-guide.md"]);
+	});
+
+	it("rejects workspace file search outside the active workspace", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-search-root-"));
+		const outside = await mkdtemp(join(tmpdir(), "codevibe-search-outside-"));
+		tempDirs.push(workspace, outside);
+		await writeFile(join(outside, "secret-guide.md"), "outside\n");
+		const ctx = createSidecarContext(workspace);
+
+		await expect(
+			handleCommand(ctx, "search_workspace_files", {
+				workspaceRoot: outside,
+				query: "secret",
+			}),
+		).rejects.toThrow("inside the active workspace");
 	});
 
 	it("previews Cursor MCP installs without mutating settings", async () => {

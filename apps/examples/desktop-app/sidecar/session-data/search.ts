@@ -1,14 +1,34 @@
+import { isAbsolute, relative, resolve } from "node:path";
 import { getFileIndex } from "@cline/core";
 import type { SidecarContext } from "../types";
+
+function isInsideOrSame(parent: string, candidate: string): boolean {
+	const rel = relative(parent, candidate);
+	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function resolveSearchRoot(
+	ctx: Pick<SidecarContext, "workspaceRoot">,
+	args?: Record<string, unknown>,
+): string {
+	const activeRoot = resolve(ctx.workspaceRoot);
+	const requestedRoot =
+		typeof args?.workspaceRoot === "string" && args.workspaceRoot.trim()
+			? resolve(args.workspaceRoot.trim())
+			: activeRoot;
+	if (!isInsideOrSame(activeRoot, requestedRoot)) {
+		throw new Error(
+			"search_workspace_files workspaceRoot must be inside the active workspace",
+		);
+	}
+	return requestedRoot;
+}
 
 export function searchWorkspaceFiles(
 	ctx: Pick<SidecarContext, "workspaceRoot">,
 	args?: Record<string, unknown>,
 ): Promise<string[]> {
-	const root =
-		typeof args?.workspaceRoot === "string" && args.workspaceRoot.trim()
-			? args.workspaceRoot.trim()
-			: ctx.workspaceRoot;
+	const root = resolveSearchRoot(ctx, args);
 	const query =
 		typeof args?.query === "string" ? args.query.trim().toLowerCase() : "";
 	const limit =
