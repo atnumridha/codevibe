@@ -49,6 +49,8 @@ const githubVsixManifestOverrides = {
 	homepage: "https://github.com/atnumridha/codevibe",
 }
 
+const visibleManifestStringKeys = new Set(["category", "description", "title"])
+
 function usage() {
 	console.error(
 		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--install] [--verify-install] [--code <path>] [--print-metadata]",
@@ -226,12 +228,34 @@ function writePackageJson(packageJson) {
 	fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, "\t")}\n`)
 }
 
+function replaceVisibleClineBrand(value) {
+	return value.replace(/\bCline\b/g, "CodeVibe")
+}
+
+function brandVisibleManifestStrings(value, key) {
+	if (typeof value === "string") {
+		return visibleManifestStringKeys.has(key) ? replaceVisibleClineBrand(value) : value
+	}
+	if (Array.isArray(value)) {
+		return value.map((item) => brandVisibleManifestStrings(item, ""))
+	}
+	if (value && typeof value === "object") {
+		return Object.fromEntries(
+			Object.entries(value).map(([entryKey, entryValue]) => [
+				entryKey,
+				brandVisibleManifestStrings(entryValue, entryKey),
+			]),
+		)
+	}
+	return value
+}
+
 function createGithubVsixPackageJson(packageJson) {
-	return {
+	return brandVisibleManifestStrings({
 		...packageJson,
 		...githubVsixManifestOverrides,
 		keywords: Array.from(new Set(["codevibe", ...(Array.isArray(packageJson.keywords) ? packageJson.keywords : [])])),
-	}
+	}, "")
 }
 
 function readPackageMetadata(packageJson = readPackageJson()) {
@@ -304,6 +328,25 @@ function assertObjectHasKey(object, key, label) {
 	return object[key]
 }
 
+function assertVisibleManifestStringsBranded(value, label, pathParts = []) {
+	if (typeof value === "string") {
+		const key = pathParts.at(-1) ?? ""
+		if (visibleManifestStringKeys.has(key) && /\bCline\b/.test(value)) {
+			throw new Error(`${label} visible manifest string ${pathParts.join(".")} must use CodeVibe branding`)
+		}
+		return
+	}
+	if (Array.isArray(value)) {
+		value.forEach((item, index) => assertVisibleManifestStringsBranded(item, label, [...pathParts, String(index)]))
+		return
+	}
+	if (value && typeof value === "object") {
+		for (const [key, entryValue] of Object.entries(value)) {
+			assertVisibleManifestStringsBranded(entryValue, label, [...pathParts, key])
+		}
+	}
+}
+
 function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (packageJson.name !== "codevibe") {
 		throw new Error(`${label} must use name codevibe`)
@@ -358,6 +401,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (properties["cline.cursorCompatibility.sandboxPolicy"].default !== "prompt") {
 		throw new Error(`${label} must default cline.cursorCompatibility.sandboxPolicy to prompt`)
 	}
+	assertVisibleManifestStringsBranded(packageJson, label)
 	for (const value of ["prompt", "workspace", "readOnly", "disabled"]) {
 		assertArrayIncludes(
 			properties["cline.cursorCompatibility.sandboxPolicy"].enum,
