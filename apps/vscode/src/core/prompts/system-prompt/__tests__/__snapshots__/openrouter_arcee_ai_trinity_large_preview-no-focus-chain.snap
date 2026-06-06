@@ -139,7 +139,7 @@ Usage:
 ## browser_action
 Description: Request to interact with a Puppeteer-controlled browser. Every action, except `close`, will be responded to with a screenshot of the browser's current state, along with any new console logs. You may only perform one browser action per message, and wait for the user's response including a screenshot and logs to determine the next action.
 - The sequence of actions **must always start with** launching the browser at a URL, and **must always end with** closing the browser. If you need to visit a new URL that is not possible to navigate to from the current webpage, you must first close the browser, then launch again at the new URL.
-- While the browser is active, only the `browser_action` tool can be used. No other tools should be called during this time. You may proceed to use other tools only after closing the browser. For example if you run into an error and need to fix a file, you must close the browser, then use other tools to make the necessary changes, then re-launch the browser to verify the result.
+- While the browser is active, only the `browser_action` and read-only `browser_snapshot` tools can be used. No other tools should be called during this time. You may proceed to use other tools only after closing the browser. For example if you run into an error and need to fix a file, you must close the browser, then use other tools to make the necessary changes, then re-launch the browser to verify the result.
 - The `evaluate` action runs JavaScript in the active page and is disabled unless browser JavaScript evaluation is enabled in Browser Settings or `cline.cursorCompatibility.safeBrowserEvaluate.enabled`. Use it only on trusted pages for inspection or verification.
 - The browser window has a resolution of **1280x720** pixels. When performing any click actions, ensure the coordinates are within this resolution range.
 - Before clicking on any elements such as icons, links, or buttons, you must consult the provided screenshot of the page to determine the coordinates of the element. The click should be targeted at the **center of the element**, not on its edges.
@@ -173,6 +173,22 @@ Usage:
 <coordinate>x,y coordinates (optional)</coordinate>
 <text>Text to type or JavaScript to evaluate (optional)</text>
 </browser_action>
+
+## browser_snapshot
+Description: Capture a read-only snapshot of the currently launched Puppeteer-controlled browser tab. The result includes a screenshot, current URL, page title, visible page text, and new console logs.
+- Use this after `browser_action` has launched a browser when you need to re-inspect the current page state without clicking, typing, scrolling, navigating, closing, or running user-provided JavaScript.
+- Omit `tab_id` or use `active`; this VS Code extension currently snapshots the active browser tab only.
+- While the browser is active, only `browser_action` and `browser_snapshot` should be used. Close the browser with `browser_action` before using non-browser tools.
+Parameters:
+- tab_id: (optional) Optional browser tab identifier. Omit it or use 'active' to snapshot the active browser tab.
+- include_screenshot: (optional) Whether to include a screenshot in the snapshot result. Defaults to true.
+- include_logs: (optional) Whether to include recent console logs in the snapshot result. Defaults to true.
+Usage:
+<browser_snapshot>
+<tab_id>active</tab_id>
+<include_screenshot>true</include_screenshot>
+<include_logs>true</include_logs>
+</browser_snapshot>
 
 ## use_mcp_tool
 Description: Request to use a tool provided by a connected MCP server. Each MCP server can provide multiple tools with different capabilities. Tools have defined input schemas that specify required and optional parameters.
