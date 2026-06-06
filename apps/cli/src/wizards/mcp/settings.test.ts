@@ -154,4 +154,62 @@ describe("MCP wizard settings", () => {
 
 		await expect(readFile(settingsPath, "utf8")).resolves.toBe(before);
 	});
+
+	it("keeps invalid JSON settings unchanged when writing servers", async () => {
+		const settingsPath = await useTempSettingsPath();
+		const invalid = "{ not json";
+		await writeFile(settingsPath, invalid);
+
+		expect(loadServers()).toEqual([]);
+		expect(() =>
+			addServerRecord("linear", {
+				command: "npx",
+				args: ["-y", "@modelcontextprotocol/server-linear"],
+				type: "stdio",
+			}),
+		).toThrow("contains invalid JSON");
+
+		await expect(readFile(settingsPath, "utf8")).resolves.toBe(invalid);
+	});
+
+	it("keeps malformed mcpServers settings unchanged when writing servers", async () => {
+		const settingsPath = await useTempSettingsPath();
+		const malformed = `${JSON.stringify(
+			{
+				otherSetting: true,
+				mcpServers: "not an object",
+			},
+			null,
+			2,
+		)}\n`;
+		await writeFile(settingsPath, malformed);
+
+		expect(loadServers()).toEqual([]);
+		expect(() =>
+			addServerRecord("linear", {
+				command: "npx",
+				args: ["-y", "@modelcontextprotocol/server-linear"],
+				type: "stdio",
+			}),
+		).toThrow("mcpServers must be a JSON object");
+
+		await expect(readFile(settingsPath, "utf8")).resolves.toBe(malformed);
+	});
+
+	it("keeps non-object root settings unchanged when writing servers", async () => {
+		const settingsPath = await useTempSettingsPath();
+		const malformed = "[]\n";
+		await writeFile(settingsPath, malformed);
+
+		expect(loadServers()).toEqual([]);
+		expect(() =>
+			addServerRecord("linear", {
+				command: "npx",
+				args: ["-y", "@modelcontextprotocol/server-linear"],
+				type: "stdio",
+			}),
+		).toThrow("must contain a JSON object");
+
+		await expect(readFile(settingsPath, "utf8")).resolves.toBe(malformed);
+	});
 });

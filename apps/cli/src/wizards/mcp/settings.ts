@@ -35,6 +35,9 @@ export function loadServers(): McpServerEntry[] {
 			mcpServers?: Record<string, unknown>;
 		};
 		const servers = parsed.mcpServers ?? {};
+		if (!servers || typeof servers !== "object" || Array.isArray(servers)) {
+			return [];
+		}
 		return Object.entries(servers).map(([name, value]) => {
 			const entry = value as Record<string, unknown>;
 			const transport = (entry.transport ?? entry) as McpTransport;
@@ -56,26 +59,41 @@ export function loadServers(): McpServerEntry[] {
 	}
 }
 
-function readRawSettings(): Record<string, unknown> {
+function readRawSettingsForWrite(): Record<string, unknown> {
 	const path = getSettingsPath();
 	if (!existsSync(path)) return {};
+
+	let parsed: unknown;
 	try {
 		const raw = readFileSync(path, "utf-8");
-		const parsed = JSON.parse(raw);
-		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-			? (parsed as Record<string, unknown>)
-			: {};
-	} catch {
-		return {};
+		parsed = JSON.parse(raw) as unknown;
+	} catch (error) {
+		const reason = error instanceof Error ? error.message : String(error);
+		throw new Error(
+			`Cannot modify MCP settings because ${path} contains invalid JSON: ${reason}`,
+		);
 	}
+
+	if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+		throw new Error(
+			`Cannot modify MCP settings because ${path} must contain a JSON object`,
+		);
+	}
+
+	return parsed as Record<string, unknown>;
 }
 
-function readRawServers(): Record<string, unknown> {
-	const settings = readRawSettings();
+function readRawServersForWrite(
+	settings: Record<string, unknown>,
+): Record<string, unknown> {
 	const servers = settings.mcpServers;
-	return servers && typeof servers === "object" && !Array.isArray(servers)
-		? { ...(servers as Record<string, unknown>) }
-		: {};
+	if (servers === undefined) return {};
+	if (servers && typeof servers === "object" && !Array.isArray(servers)) {
+		return { ...(servers as Record<string, unknown>) };
+	}
+	throw new Error(
+		"Cannot modify MCP settings because mcpServers must be a JSON object",
+	);
 }
 
 function getOwnServerRecord(
@@ -92,9 +110,11 @@ function getOwnServerRecord(
 	return value as Record<string, unknown>;
 }
 
-function writeServers(servers: Record<string, unknown>): void {
+function writeServers(
+	settings: Record<string, unknown>,
+	servers: Record<string, unknown>,
+): void {
 	const path = getSettingsPath();
-	const settings = readRawSettings();
 	mkdirSync(dirname(path), { recursive: true });
 	writeFileSync(
 		path,
@@ -103,51 +123,57 @@ function writeServers(servers: Record<string, unknown>): void {
 }
 
 export function addServer(name: string, transport: McpTransport): void {
-	const servers = readRawServers();
+	const settings = readRawSettingsForWrite();
+	const servers = readRawServersForWrite(settings);
 	servers[name] = { transport };
-	writeServers(servers);
+	writeServers(settings, servers);
 }
 
 export function addServerRecord(
 	name: string,
 	record: Record<string, unknown>,
 ): void {
-	const servers = readRawServers();
+	const settings = readRawSettingsForWrite();
+	const servers = readRawServersForWrite(settings);
 	servers[name] = record;
-	writeServers(servers);
+	writeServers(settings, servers);
 }
 
 export function removeServer(name: string): boolean {
-	const servers = readRawServers();
+	const settings = readRawSettingsForWrite();
+	const servers = readRawServersForWrite(settings);
 	if (!(name in servers)) return false;
 	delete servers[name];
-	writeServers(servers);
+	writeServers(settings, servers);
 	return true;
 }
 
 export function updateServer(name: string, transport: McpTransport): void {
-	const servers = readRawServers();
+	const settings = readRawSettingsForWrite();
+	const servers = readRawServersForWrite(settings);
 	const existing =
 		servers[name] && typeof servers[name] === "object"
 			? (servers[name] as Record<string, unknown>)
 			: {};
 	servers[name] = { ...existing, transport };
-	writeServers(servers);
+	writeServers(settings, servers);
 }
 
 export function clearServerOAuth(name: string): void {
-	const servers = readRawServers();
+	const settings = readRawSettingsForWrite();
+	const servers = readRawServersForWrite(settings);
 	const existing = getOwnServerRecord(servers, name);
 	if (!existing) {
 		return;
 	}
 	delete existing.oauth;
 	servers[name] = existing;
-	writeServers(servers);
+	writeServers(settings, servers);
 }
 
 export function toggleServer(name: string, disabled: boolean): void {
-	const servers = readRawServers();
+	const settings = readRawSettingsForWrite();
+	const servers = readRawServersForWrite(settings);
 	const existing =
 		servers[name] && typeof servers[name] === "object"
 			? (servers[name] as Record<string, unknown>)
@@ -158,5 +184,5 @@ export function toggleServer(name: string, disabled: boolean): void {
 		delete existing.disabled;
 	}
 	servers[name] = existing;
-	writeServers(servers);
+	writeServers(settings, servers);
 }

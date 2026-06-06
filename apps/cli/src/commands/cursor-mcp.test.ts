@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -77,6 +77,27 @@ describe("Cursor MCP install command", () => {
 			args: ["-y", "@modelcontextprotocol/server-linear"],
 			type: "stdio",
 		});
+	});
+
+	it("does not overwrite invalid MCP settings during confirmed installs", async () => {
+		const settingsPath = await useTempSettingsPath();
+		const invalid = "{ not json";
+		await writeFile(settingsPath, invalid);
+		const { out, io } = createIo();
+
+		const code = await runCursorMcpInstallCommand({
+			uri: "vscode://cline.cline/mcp/install?name=linear&package=%40modelcontextprotocol%2Fserver-linear",
+			confirmed: true,
+			json: true,
+			io,
+		});
+
+		expect(code).toBe(1);
+		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
+			installed: false,
+			error: expect.stringContaining("contains invalid JSON"),
+		});
+		await expect(readFile(settingsPath, "utf8")).resolves.toBe(invalid);
 	});
 
 	it("returns JSON errors without writing secret details", async () => {
