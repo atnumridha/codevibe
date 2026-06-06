@@ -77,6 +77,21 @@ export function supportsReasoningEffortForModelId(modelId?: string, _allowShortO
 	return reasoningSupport.supportsReasoningEffortForModel(modelId)
 }
 
+export interface DynamicProviderModels {
+	liteLlmModels?: Record<string, ModelInfo>
+	basetenModels?: Record<string, ModelInfo>
+	openAiCodexModels?: Record<string, ModelInfo>
+}
+
+export function getOpenAiCodexModelOptions(
+	backendModels?: Record<string, ModelInfo>,
+): Record<string, ModelInfo> {
+	return {
+		...(backendModels ?? {}),
+		...openAiCodexModels,
+	}
+}
+
 /**
  * Returns the static model list for a provider.
  * For providers with dynamic models (openrouter, cline, ollama, etc.), returns undefined.
@@ -85,7 +100,7 @@ export function supportsReasoningEffortForModelId(modelId?: string, _allowShortO
 export function getModelsForProvider(
 	provider: ApiProvider,
 	apiConfiguration?: ApiConfiguration,
-	dynamicModels: { liteLlmModels?: Record<string, ModelInfo>; basetenModels?: Record<string, ModelInfo> } = {},
+	dynamicModels: DynamicProviderModels = {},
 ): Record<string, ModelInfo> | undefined {
 	switch (provider) {
 		case "anthropic":
@@ -101,7 +116,7 @@ export function getModelsForProvider(
 		case "openai-native":
 			return openAiNativeModels
 		case "openai-codex":
-			return openAiCodexModels
+			return getOpenAiCodexModelOptions(dynamicModels.openAiCodexModels)
 		case "deepseek":
 			return deepSeekModels
 		case "qwen":
@@ -180,6 +195,7 @@ export interface NormalizedApiConfig {
 export function normalizeApiConfiguration(
 	apiConfiguration: ApiConfiguration | undefined,
 	currentMode: Mode,
+	dynamicModels: DynamicProviderModels = {},
 ): NormalizedApiConfig {
 	const provider =
 		(currentMode === "plan" ? apiConfiguration?.planModeApiProvider : apiConfiguration?.actModeApiProvider) || "anthropic"
@@ -235,7 +251,10 @@ export function normalizeApiConfiguration(
 		case "openai-native":
 			return getProviderData(openAiNativeModels, openAiNativeDefaultModelId)
 		case "openai-codex":
-			return getProviderData(openAiCodexModels, openAiCodexDefaultModelId)
+			return getProviderData(
+				getOpenAiCodexModelOptions(dynamicModels.openAiCodexModels),
+				openAiCodexDefaultModelId,
+			)
 		case "deepseek":
 			return getProviderData(deepSeekModels, deepSeekDefaultModelId)
 		case "qwen":

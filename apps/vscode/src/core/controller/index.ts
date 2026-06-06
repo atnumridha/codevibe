@@ -9,7 +9,13 @@ import type { WorkspaceRootManager } from "@core/workspace/WorkspaceRootManager"
 import { cleanupLegacyCheckpoints } from "@integrations/checkpoints/CheckpointMigration"
 import { ClineAccountService } from "@services/account/ClineAccountService"
 import { McpHub } from "@services/mcp/McpHub"
-import { DEFAULT_API_PROVIDER, type ApiProvider, type ModelInfo } from "@shared/api"
+import {
+	DEFAULT_API_PROVIDER,
+	type ApiProvider,
+	type ModelInfo,
+	openAiCodexDefaultModelId,
+	openAiCodexModels,
+} from "@shared/api"
 import type { ChatContent } from "@shared/ChatContent"
 import type { ExtensionState, Platform } from "@shared/ExtensionMessage"
 import type { HistoryItem } from "@shared/HistoryItem"
@@ -28,6 +34,7 @@ import * as vscode from "vscode"
 import { ClineEnv } from "@/config"
 import type { FolderLockWithRetryResult } from "@/core/locks/types"
 import { HostProvider } from "@/hosts/host-provider"
+import type { OpenAiCodexBackendModel } from "@/integrations/openai-codex/oauth"
 import { ExtensionRegistryInfo } from "@/registry"
 import { AuthService } from "@/services/auth/AuthService"
 import { OcaAuthService } from "@/services/auth/oca/OcaAuthService"
@@ -83,6 +90,8 @@ https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default
 https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/customSidebarViewProvider.ts
 */
 
+const OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS = 5 * 60 * 1000
+
 export class Controller {
 	task?: Task
 
@@ -97,6 +106,11 @@ export class Controller {
 	private backgroundCommandRunning = false
 	private backgroundCommandTaskId?: string
 	private backgroundAgentTaskRecords = new Map<string, BackgroundAgentTaskRecord>()
+	private openAiCodexBackendModelsCache?: {
+		expiresAt: number
+		models: Record<string, ModelInfo>
+	}
+	private openAiCodexBackendModelsPromise?: Promise<Record<string, ModelInfo>>
 
 	// Flag to prevent duplicate cancellations from spam clicking
 	private cancelInProgress = false
@@ -959,6 +973,68 @@ export class Controller {
 		await sendStateUpdate(state)
 	}
 
+	private toOpenAiCodexBackendModelInfo(model: OpenAiCodexBackendModel): ModelInfo {
+		return {
+			...openAiCodexModels[openAiCodexDefaultModelId],
+			name: model.name?.trim() || model.id,
+		}
+	}
+
+	private async getOpenAiCodexBackendModelsForState(
+		isAuthenticated: boolean,
+	): Promise<Record<string, ModelInfo> | undefined> {
+		if (!isAuthenticated) {
+			this.openAiCodexBackendModelsCache = undefined
+			this.openAiCodexBackendModelsPromise = undefined
+			return undefined
+		}
+
+		const now = Date.now()
+		if (
+			this.openAiCodexBackendModelsCache &&
+			this.openAiCodexBackendModelsCache.expiresAt > now
+		) {
+			return Object.keys(this.openAiCodexBackendModelsCache.models).length > 0
+				? this.openAiCodexBackendModelsCache.models
+				: undefined
+		}
+
+		if (!this.openAiCodexBackendModelsPromise) {
+			this.openAiCodexBackendModelsPromise = (async () => {
+				const { openAiCodexOAuthManager } = await import(
+					"@/integrations/openai-codex/oauth"
+				)
+				const backendModels = await openAiCodexOAuthManager.listBackendModels()
+				const models = Object.fromEntries(
+					backendModels.map((model) => [
+						model.id,
+						this.toOpenAiCodexBackendModelInfo(model),
+					]),
+				)
+				this.openAiCodexBackendModelsCache = {
+					expiresAt: Date.now() + OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS,
+					models,
+				}
+				return models
+			})()
+				.catch((error) => {
+					Logger.error("[OpenAI Codex] Failed to list backend models:", error)
+					const models = this.openAiCodexBackendModelsCache?.models ?? {}
+					this.openAiCodexBackendModelsCache = {
+						expiresAt: Date.now() + OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS,
+						models,
+					}
+					return models
+				})
+				.finally(() => {
+					this.openAiCodexBackendModelsPromise = undefined
+				})
+		}
+
+		const models = await this.openAiCodexBackendModelsPromise
+		return Object.keys(models).length > 0 ? models : undefined
+	}
+
 	async getStateToPostToWebview(): Promise<ExtensionState> {
 		// Get API configuration from cache for immediate access
 		const onboardingModels = getClineOnboardingModels()
@@ -1036,6 +1112,8 @@ export class Controller {
 		// Check OpenAI Codex authentication status
 		const { openAiCodexOAuthManager } = await import("@/integrations/openai-codex/oauth")
 		const openAiCodexIsAuthenticated = await openAiCodexOAuthManager.isAuthenticated()
+		const openAiCodexBackendModels =
+			await this.getOpenAiCodexBackendModelsForState(openAiCodexIsAuthenticated)
 
 		return {
 			version,
@@ -1121,6 +1199,7 @@ export class Controller {
 			banners,
 			welcomeBanners,
 			openAiCodexIsAuthenticated,
+			...(openAiCodexBackendModels ? { openAiCodexModels: openAiCodexBackendModels } : {}),
 		}
 	}
 

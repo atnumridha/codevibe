@@ -1,4 +1,3 @@
-import { openAiCodexModels } from "@shared/api"
 import { Mode } from "@shared/storage/types"
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import { useExtensionState } from "@/context/ExtensionStateContext"
@@ -6,7 +5,11 @@ import { AccountServiceClient } from "@/services/grpc-client"
 import { ModelInfoView } from "../common/ModelInfoView"
 import { ModelSelector } from "../common/ModelSelector"
 import ReasoningEffortSelector from "../ReasoningEffortSelector"
-import { normalizeApiConfiguration, supportsReasoningEffortForModelId } from "../utils/providerUtils"
+import {
+	getOpenAiCodexModelOptions,
+	normalizeApiConfiguration,
+	supportsReasoningEffortForModelId,
+} from "../utils/providerUtils"
 import { useApiConfigurationHandlers } from "../utils/useApiConfigurationHandlers"
 
 interface OpenAiCodexProviderProps {
@@ -20,10 +23,13 @@ interface OpenAiCodexProviderProps {
  * Uses OAuth authentication instead of API keys.
  */
 export const OpenAiCodexProvider = ({ showModelOptions, isPopup, currentMode }: OpenAiCodexProviderProps) => {
-	const { apiConfiguration, openAiCodexIsAuthenticated } = useExtensionState()
+	const { apiConfiguration, openAiCodexIsAuthenticated, openAiCodexModels } = useExtensionState()
 	const { handleModeFieldChange } = useApiConfigurationHandlers()
+	const codexModels = getOpenAiCodexModelOptions(openAiCodexModels)
 
-	const { selectedModelId, selectedModelInfo } = normalizeApiConfiguration(apiConfiguration, currentMode)
+	const { selectedModelId, selectedModelInfo } = normalizeApiConfiguration(apiConfiguration, currentMode, {
+		openAiCodexModels,
+	})
 	const showReasoningEffort = supportsReasoningEffortForModelId(selectedModelId, true)
 
 	const handleSignIn = async () => {
@@ -71,7 +77,7 @@ export const OpenAiCodexProvider = ({ showModelOptions, isPopup, currentMode }: 
 				<>
 					<ModelSelector
 						label="Model"
-						models={openAiCodexModels}
+						models={codexModels}
 						onChange={(e: any) =>
 							handleModeFieldChange(
 								{ plan: "planModeApiModelId", act: "actModeApiModelId" },
