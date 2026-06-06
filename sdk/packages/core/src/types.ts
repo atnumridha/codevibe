@@ -133,6 +133,16 @@ export {
 	listPluginTools,
 	listPluginToolsWithDiagnostics,
 } from "./services/plugin-tools";
+export {
+	installPlugin,
+	isOfficialPluginSlug,
+	parsePluginSource,
+	type ParsedPluginSource,
+	type PluginInstallIo,
+	type PluginInstallOptions,
+	type PluginInstallResult,
+	type PluginInstallSourceType,
+} from "./services/plugin-install";
 export type {
 	WorkspaceManager,
 	WorkspaceManagerEvent,

@@ -10,6 +10,7 @@ import {
 	DefaultToolNames,
 	formatCursorMcpInstallDetail,
 	HubSessionClient,
+	installPlugin,
 	parseAutomationEventNdjson,
 	resolveCursorCommandFileRouteRequest,
 	type AutomationEventEnvelope,
@@ -28,7 +29,6 @@ import {
 	loadServers,
 } from "../wizards/mcp/settings";
 import { ensureCliHubServer } from "../utils/hub-runtime";
-import { installPlugin } from "./plugin";
 
 const BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS = 5_000;
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384;

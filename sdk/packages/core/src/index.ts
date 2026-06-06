@@ -192,6 +192,16 @@ export {
 	type AutomationEventNdjsonRejectReason,
 	type ParseAutomationEventNdjsonOptions,
 } from "./cron/events/automation-event-ndjson";
+export {
+	installPlugin,
+	isOfficialPluginSlug,
+	parsePluginSource,
+	type ParsedPluginSource,
+	type PluginInstallIo,
+	type PluginInstallOptions,
+	type PluginInstallResult,
+	type PluginInstallSourceType,
+} from "./services/plugin-install";
 export type {
 	LoadAgentPluginFromPathOptions,
 	PluginInitializationFailure,
