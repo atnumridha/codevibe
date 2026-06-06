@@ -1,5 +1,7 @@
 import type {
 	HubClientRecord,
+	CursorUriPreviewRequest,
+	CursorUriPreviewResponse,
 	HubEventEnvelope,
 	HubUINotifyPayload,
 	HubUIShowWindowPayload,
@@ -82,6 +84,13 @@ export class HubUIClient {
 		return Array.isArray(reply.payload?.sessions)
 			? (reply.payload.sessions as SessionRecord[])
 			: [];
+	}
+
+	async previewCursorUri(
+		input: CursorUriPreviewRequest,
+		options?: { timeoutMs?: number | null },
+	): Promise<CursorUriPreviewResponse> {
+		return this.client.previewCursorUri(input, options);
 	}
 
 	/**

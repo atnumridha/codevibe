@@ -229,4 +229,32 @@ describe("hub UI events", () => {
 			sessions.some((session) => session.workspaceRoot === "/tmp/project"),
 		).toBe(true);
 	}, 10_000);
+
+	it("previews Cursor-compatible URIs through UI clients", async () => {
+		const server = await startHubServer({
+			port: 0,
+			runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
+		});
+		servers.push(server);
+
+		const ui = new HubUIClient({
+			address: server.url,
+			authToken: server.authToken,
+			clientType: "test-ui",
+			displayName: "Test UI",
+		});
+
+		const preview = await ui.previewCursorUri({
+			uri: "codevibe://settings?query=%40id%3Acline.apiProvider",
+			workspaceRoot: "/tmp/project",
+		});
+		ui.close();
+
+		expect(preview).toMatchObject({
+			handled: true,
+			route: "settings",
+			requiresConfirmation: true,
+			query: "@id:cline.apiProvider",
+		});
+	}, 10_000);
 });
