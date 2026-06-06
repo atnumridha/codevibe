@@ -75,6 +75,41 @@ describe("Cursor MCP install URI parser", () => {
 		expect(detail).not.toContain("secret-value");
 	});
 
+	it("selects one configured server from Cursor bare config maps", () => {
+		const config = encodeConfig({
+			postgres: {
+				command: "node",
+				args: ["postgres-mcp.js"],
+				env: { POSTGRES_TOKEN: "secret-value" },
+			},
+		});
+
+		const request = buildCursorMcpInstallRequest(
+			route({ name: "postgres", config }),
+		);
+		const detail = formatCursorMcpInstallDetail(request);
+
+		expect(request.serverName).toBe("postgres");
+		expect(request.source).toBe("config");
+		expect(request.serverConfig).toMatchObject({
+			command: "node",
+			args: ["postgres-mcp.js"],
+		});
+		expect(detail).toContain("Environment keys: POSTGRES_TOKEN");
+		expect(detail).not.toContain("secret-value");
+	});
+
+	it("requires a selector for multi-server Cursor bare config maps", () => {
+		const config = encodeConfig({
+			alpha: { command: "node" },
+			beta: { command: "node" },
+		});
+
+		expect(() => buildCursorMcpInstallRequest(route({ config }))).toThrow(
+			"multiple servers",
+		);
+	});
+
 	it("rejects unsafe server names and non-install routes", () => {
 		expect(() =>
 			buildCursorMcpInstallRequest(

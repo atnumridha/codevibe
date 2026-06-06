@@ -63,6 +63,28 @@ describe("CursorMcpInstall", () => {
 		expect(formatCursorMcpInstallDetail(request)).to.not.contain("secret")
 	})
 
+	it("selects a named server from Cursor bare config maps", () => {
+		const request = buildCursorMcpInstallRequest(
+			route({
+				name: "postgres",
+				config: {
+					postgres: {
+						command: "node",
+						args: ["postgres-mcp.js"],
+						env: { POSTGRES_TOKEN: "secret" },
+					},
+				},
+			}),
+		)
+
+		expect(request.serverName).to.equal("postgres")
+		expect(request.source).to.equal("config")
+		expect((request.serverConfig as any).command).to.equal("node")
+		expect((request.serverConfig as any).args).to.deep.equal(["postgres-mcp.js"])
+		expect(formatCursorMcpInstallDetail(request)).to.contain("Environment keys: POSTGRES_TOKEN")
+		expect(formatCursorMcpInstallDetail(request)).to.not.contain("secret")
+	})
+
 	it("requires a server selector when config contains multiple servers", () => {
 		expect(() =>
 			buildCursorMcpInstallRequest(
@@ -72,6 +94,19 @@ describe("CursorMcpInstall", () => {
 							alpha: { command: "node" },
 							beta: { command: "node" },
 						},
+					},
+				}),
+			),
+		).to.throw(CursorMcpInstallError, "multiple servers")
+	})
+
+	it("requires a selector when Cursor bare config maps contain multiple servers", () => {
+		expect(() =>
+			buildCursorMcpInstallRequest(
+				route({
+					config: {
+						alpha: { command: "node" },
+						beta: { command: "node" },
 					},
 				}),
 			),

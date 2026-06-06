@@ -488,6 +488,51 @@ function selectConfiguredServer(
 	];
 }
 
+function getConfiguredServerEntries(
+	config: Record<string, unknown> | undefined,
+): Array<[string, unknown]> | undefined {
+	if (!config) {
+		return undefined;
+	}
+	if (
+		config.mcpServers &&
+		typeof config.mcpServers === "object" &&
+		!Array.isArray(config.mcpServers)
+	) {
+		return Object.entries(config.mcpServers);
+	}
+	if (isBareMcpServerMap(config)) {
+		return Object.entries(config);
+	}
+	return undefined;
+}
+
+function isBareMcpServerMap(config: Record<string, unknown>): boolean {
+	const entries = Object.entries(config);
+	if (entries.length === 0 || looksLikeSingleServerConfig(config)) {
+		return false;
+	}
+	return entries.every(([, value]) => Boolean(getRecord(value)));
+}
+
+function looksLikeSingleServerConfig(config: Record<string, unknown>): boolean {
+	return [
+		"type",
+		"transport",
+		"transportType",
+		"command",
+		"args",
+		"cwd",
+		"env",
+		"url",
+		"headers",
+		"autoApprove",
+		"disabled",
+		"timeout",
+		"remoteConfigured",
+	].some((key) => Object.hasOwn(config, key));
+}
+
 function buildDirectServerConfig(
 	params: Record<string, string | Record<string, unknown>>,
 	config: Record<string, unknown> | undefined,
@@ -614,12 +659,9 @@ export function buildCursorMcpInstallRequest(
 		false,
 	);
 
-	if (
-		config?.mcpServers &&
-		typeof config.mcpServers === "object" &&
-		!Array.isArray(config.mcpServers)
-	) {
-		const entries = Object.entries(config.mcpServers);
+	const configuredServers = getConfiguredServerEntries(config);
+	if (configuredServers) {
+		const entries = configuredServers;
 		if (entries.length === 0) {
 			throw new CursorMcpInstallError(
 				"MCP config must include at least one server",

@@ -11,6 +11,14 @@ import { Logger } from "@/shared/services/Logger"
 import { ErrorService } from "../error"
 import { SharedUriHandler } from "./SharedUriHandler"
 
+function encodeConfig(config: Record<string, unknown>): string {
+	return Buffer.from(JSON.stringify(config), "utf8")
+		.toString("base64")
+		.replace(/\+/g, "-")
+		.replace(/\//g, "_")
+		.replace(/=+$/g, "")
+}
+
 describe("SharedUriHandler", () => {
 	let sandbox: sinon.SinonSandbox
 	let handleOpenRouterCallbackStub: sinon.SinonStub
@@ -171,6 +179,33 @@ describe("SharedUriHandler", () => {
 					url: "https://mcp.example.com",
 				})
 				sinon.assert.calledOnce(postStateToWebviewStub)
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should install a Cursor MCP route with a bare named-server config map", async () => {
+				const config = encodeConfig({
+					postgres: {
+						command: "node",
+						args: ["postgres-mcp.js"],
+						env: { POSTGRES_TOKEN: "secret" },
+					},
+				})
+
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/mcp/install?name=postgres&config=${config}`,
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install MCP server "postgres"?')
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Environment keys: POSTGRES_TOKEN")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret")
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				expect(addServerFromConfigStub.firstCall.args[0]).to.equal("postgres")
+				expect(addServerFromConfigStub.firstCall.args[1]).to.deep.include({
+					type: "stdio",
+					command: "node",
+				})
+				expect(addServerFromConfigStub.firstCall.args[1].args).to.deep.equal(["postgres-mcp.js"])
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
