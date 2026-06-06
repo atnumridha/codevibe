@@ -528,9 +528,9 @@ async function main() {
 		swapInMarketplaceReadme()
 		writePackageJson(githubVsixPackageJson)
 		assertPackageInputs(githubVsixPackageJson)
-		assertBuildOutputs()
 		fs.mkdirSync(outDir, { recursive: true })
 		runCommand(commandCandidates("vsce"), ["package", "--allow-package-secrets", "sendgrid", "--out", outPath])
+		assertBuildOutputs()
 		assertPackagedVsix(outPath)
 		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
 
