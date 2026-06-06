@@ -133,4 +133,31 @@ describe("McpHub Cursor MCP settings", () => {
 		;(nativeSettings.mcpServers.beta === undefined).should.be.true()
 		cursorSettings.mcpServers.beta.autoApprove.should.deepEqual(["search"])
 	})
+
+	it("adds full MCP server configs to native settings", async () => {
+		await writeJson(nativeSettingsPath, {
+			mcpServers: {
+				alpha: { type: "stdio", command: "native-alpha" },
+			},
+		})
+
+		const hub = createHub(settingsDir, [workspaceRoot])
+		;(hub as any).connections = [makeConnection("alpha")]
+		;(hub as any).reloadMcpServersFromSettings = async () => {
+			await (hub as any).readAndValidateMcpSettingsFile()
+		}
+		await (hub as any).readAndValidateMcpSettingsFile()
+
+		await hub.addServerFromConfig("beta", {
+			type: "stdio",
+			command: "node",
+			args: ["server.js"],
+			env: { TOKEN: "secret" },
+		} as any)
+
+		const nativeSettings = JSON.parse(await fs.readFile(nativeSettingsPath, "utf-8"))
+		nativeSettings.mcpServers.beta.command.should.equal("node")
+		nativeSettings.mcpServers.beta.args.should.deepEqual(["server.js"])
+		nativeSettings.mcpServers.beta.env.should.deepEqual({ TOKEN: "secret" })
+	})
 })

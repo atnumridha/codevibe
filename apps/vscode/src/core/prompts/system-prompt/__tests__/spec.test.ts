@@ -4,6 +4,7 @@ import { ModelFamily } from "@/shared/prompts"
 import { ClineDefaultTool } from "@/shared/tools"
 import type { ClineToolSpec } from "../spec"
 import { toolSpecFunctionDeclarations, toolSpecFunctionDefinition, toolSpecInputSchema } from "../spec"
+import { browser_action_variants } from "../tools/browser_action"
 import type { SystemPromptContext } from "../types"
 
 const mockContext: SystemPromptContext = {
@@ -124,6 +125,20 @@ describe("native tool placeholder replacement", () => {
 			expect(desc).to.include("Use @workspace:path syntax")
 			expect(desc).to.not.include("{{CWD}}")
 			expect(desc).to.not.include("{{MULTI_ROOT_HINT}}")
+		}
+	})
+})
+
+describe("browser_action tool docs", () => {
+	it("documents evaluate as discoverable and gated for every browser action variant", () => {
+		for (const spec of browser_action_variants) {
+			const action = spec.parameters.find((parameter) => parameter.name === "action")
+			const text = spec.parameters.find((parameter) => parameter.name === "text")
+			const docs = `${spec.description}\n${action?.instruction ?? ""}\n${action?.usage ?? ""}\n${text?.instruction ?? ""}\n${text?.usage ?? ""}`
+
+			expect(docs).to.include("evaluate")
+			expect(docs).to.include("browser JavaScript evaluation")
+			expect(docs).to.include("cline.cursorCompatibility.safeBrowserEvaluate.enabled")
 		}
 	})
 })

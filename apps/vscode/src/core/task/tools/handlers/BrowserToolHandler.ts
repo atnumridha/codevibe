@@ -81,12 +81,13 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					.catch(() => {})
 			}
 		} else {
+			const displayText = uiHelpers.removeClosingTag(block, "text", text)
 			await uiHelpers.say(
 				this.name,
 				JSON.stringify({
 					action: action as BrowserAction,
 					coordinate: uiHelpers.removeClosingTag(block, "coordinate", coordinate),
-					text: uiHelpers.removeClosingTag(block, "text", text),
+					text: action === "evaluate" ? redactSensitiveBrowserText(displayText) : displayText,
 				} satisfies ClineSayBrowserAction),
 				undefined,
 				undefined,
@@ -189,7 +190,7 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					if (!config.browserSettings.allowBrowserEvaluate) {
 						config.taskState.consecutiveMistakeCount++
 						return formatResponse.toolError(
-							"Browser JavaScript evaluation is disabled. Ask the user to enable it in Browser Settings before using the evaluate action.",
+							"Browser JavaScript evaluation is disabled. Ask the user to enable it in Browser Settings or set cline.cursorCompatibility.safeBrowserEvaluate.enabled before using the evaluate action.",
 						)
 					}
 				}

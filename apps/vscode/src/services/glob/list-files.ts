@@ -1,11 +1,19 @@
 import { workspaceResolver } from "@core/workspace"
+import {
+	type IgnoreRule,
+	hasNegatedDescendantRule,
+	isPathIgnored,
+	normalizeRelativePath,
+	readIgnoreRules,
+	shouldSkipWalkError,
+	toPosixRelative,
+} from "@services/workspace/ignore-rules"
 import { isDirectory } from "@utils/fs"
 import { arePathsEqual } from "@utils/path"
+import type { Dirent } from "node:fs"
 import * as fs from "fs/promises"
-import { globby, Options } from "globby"
 import * as os from "os"
 import * as path from "path"
-import { Logger } from "@/shared/services/Logger"
 
 // Constants
 const DEFAULT_IGNORE_DIRECTORIES = [
@@ -23,12 +31,6 @@ const DEFAULT_IGNORE_DIRECTORIES = [
 	"temp",
 	"deps",
 	"Pods",
-]
-
-const WORKSPACE_IGNORE_FILE_NAMES = [
-	".gitignore",
-	".cursorignore",
-	".cursorindexingignore",
 ]
 
 // Helper functions
@@ -53,83 +55,83 @@ function isTargetingHiddenDirectory(absolutePath: string): boolean {
 	return dirName.startsWith(".")
 }
 
-/**
- * Read workspace ignore files and convert their patterns to glob ignore patterns.
- *
- * We do NOT use globby's built-in `gitignore: true` option because it recursively
- * reads ALL .gitignore files in the entire directory tree upfront - including those
- * inside directories that are themselves gitignored. In projects with large gitignored
- * directories containing many nested repos (each with their own .gitignore), this
- * causes V8 to run out of memory during regex compilation, crashing the extension host.
- *
- * Instead, we read ignore files incrementally during BFS traversal: only from
- * directories we actually enter (which are not ignored), never from ignored directories.
- */
-async function readIgnoreFilePatterns(dirPath: string, fileName: string): Promise<string[]> {
-	try {
-		const ignorePath = path.join(dirPath, fileName)
-		const content = await fs.readFile(ignorePath, "utf8")
-		const patterns: string[] = []
-
-		for (const line of content.split("\n")) {
-			const trimmed = line.trim()
-			// Skip empty lines and comments
-			if (!trimmed || trimmed.startsWith("#")) {
-				continue
-			}
-			// Skip negation patterns - they're complex to convert and rarely
-			// critical for the directory listing use case
-			if (trimmed.startsWith("!")) {
-				continue
-			}
-			// Convert gitignore patterns to glob ignore patterns
-			if (trimmed.endsWith("/")) {
-				// Directory pattern: "ignored-dir/" → match the directory itself and its contents.
-				// Two explicit patterns avoid ambiguity across glob library versions:
-				const dirName = trimmed.slice(0, -1)
-				patterns.push(`**/${dirName}`)
-				patterns.push(`**/${dirName}/**`)
-			} else {
-				// File or ambiguous pattern: "*.log" -> "**/*.log" and "**/*.log/**"
-				patterns.push(`**/${trimmed}`)
-				patterns.push(`**/${trimmed}/**`)
-			}
+function isDefaultIgnoredDirectory(relativePath: string, entryName: string, isTargetHidden: boolean): boolean {
+	if (!isTargetHidden && entryName.startsWith(".")) {
+		return true
+	}
+	const normalized = normalizeRelativePath(relativePath)
+	return DEFAULT_IGNORE_DIRECTORIES.some((ignoredDir) => {
+		const ignored = normalizeRelativePath(ignoredDir)
+		if (!ignored.includes("/")) {
+			return normalized.split("/").includes(ignored)
 		}
+		return normalized === ignored || normalized.endsWith(`/${ignored}`)
+	})
+}
 
-		return patterns
-	} catch {
-		return []
+function toDirectoryResultPath(absolutePath: string): string {
+	return absolutePath.split(path.sep).join("/") + "/"
+}
+
+async function readDirectoryEntries(dirPath: string): Promise<Dirent[]> {
+	try {
+		return await fs.readdir(dirPath, { withFileTypes: true })
+	} catch (error) {
+		if (shouldSkipWalkError(error)) {
+			return []
+		}
+		throw error
 	}
 }
 
-async function readWorkspaceIgnorePatterns(dirPath: string): Promise<string[]> {
-	const patterns = await Promise.all(
-		WORKSPACE_IGNORE_FILE_NAMES.map((fileName) =>
-			readIgnoreFilePatterns(dirPath, fileName),
-		),
-	)
-	return patterns.flat()
-}
-
-async function buildIgnorePatterns(absolutePath: string): Promise<string[]> {
+async function listFilesLevelByLevel(absolutePath: string, recursive: boolean, limit: number): Promise<string[]> {
+	const results: string[] = []
+	const queue: { dirPath: string; rules: IgnoreRule[] }[] = [{ dirPath: absolutePath, rules: [] }]
 	const isTargetHidden = isTargetingHiddenDirectory(absolutePath)
 
-	const patterns = [...DEFAULT_IGNORE_DIRECTORIES]
+	while (queue.length > 0 && results.length < limit) {
+		const { dirPath, rules } = queue.shift()!
+		const relativeDir = normalizeRelativePath(toPosixRelative(absolutePath, dirPath))
+		const activeRules = [...rules, ...(await readIgnoreRules(absolutePath, relativeDir === "." ? "" : relativeDir))]
+		const entries = (await readDirectoryEntries(dirPath)).sort((a, b) => {
+			if (a.isDirectory() !== b.isDirectory()) {
+				return a.isDirectory() ? -1 : 1
+			}
+			return a.name.localeCompare(b.name)
+		})
 
-	// Only ignore hidden directories if we're not explicitly targeting a hidden directory
-	if (!isTargetHidden) {
-		patterns.push(".*")
+		for (const entry of entries) {
+			if (results.length >= limit) {
+				break
+			}
+
+			const entryPath = path.join(dirPath, entry.name)
+			const relativePath = toPosixRelative(absolutePath, entryPath)
+
+			if (entry.isDirectory()) {
+				const ignoredByRules = isPathIgnored(relativePath, true, activeRules)
+				const hasNegatedDescendant = hasNegatedDescendantRule(relativePath, activeRules)
+				if (
+					(recursive && isDefaultIgnoredDirectory(relativePath, entry.name, isTargetHidden)) ||
+					(ignoredByRules && !hasNegatedDescendant)
+				) {
+					continue
+				}
+
+				results.push(toDirectoryResultPath(entryPath))
+				if (recursive) {
+					queue.push({ dirPath: entryPath, rules: activeRules })
+				}
+				continue
+			}
+
+			if (entry.isFile() && !isPathIgnored(relativePath, false, activeRules)) {
+				results.push(entryPath)
+			}
+		}
 	}
 
-	const globPatterns = patterns.map((dir) => `**/${dir}/**`)
-
-	// Read root ignore files to seed the initial ignore patterns.
-	// Additional ignore files from subdirectories are read incrementally
-	// during BFS traversal in globbyLevelByLevel().
-	const workspaceIgnorePatterns = await readWorkspaceIgnorePatterns(absolutePath)
-	globPatterns.push(...workspaceIgnorePatterns)
-
-	return globPatterns
+	return results
 }
 
 export async function listFiles(dirPath: string, recursive: boolean, limit: number): Promise<[string[], boolean]> {
@@ -141,98 +143,12 @@ export async function listFiles(dirPath: string, recursive: boolean, limit: numb
 		return [[], false]
 	}
 
-	// globby requires cwd to point to a directory
+	// Directory traversal requires cwd to point to a directory
 	if (!(await isDirectory(absolutePath))) {
 		return [[], false]
 	}
 
-	const options: Options = {
-		cwd: absolutePath,
-		dot: true, // do not ignore hidden files/directories
-		absolute: true,
-		markDirectories: true, // Append a / on any directories matched
-		gitignore: false, // We handle .gitignore ourselves incrementally during BFS to avoid OOM
-		ignore: recursive ? await buildIgnorePatterns(absolutePath) : undefined,
-		onlyFiles: false, // include directories in results
-		suppressErrors: true,
-	}
-
-	const filePaths = recursive ? await globbyLevelByLevel(limit, options) : (await globby("*", options)).slice(0, limit)
+	const filePaths = await listFilesLevelByLevel(absolutePath, recursive, limit)
 
 	return [filePaths, filePaths.length >= limit]
-}
-
-/*
-Breadth-first traversal of directory structure level by level up to a limit:
-   - Queue-based approach ensures proper breadth-first traversal
-   - Processes directory patterns level by level
-   - Captures a representative sample of the directory structure up to the limit
-   - Minimizes risk of missing deeply nested files
-   - Reads ignore files incrementally from each non-ignored directory entered,
-     avoiding the OOM crash caused by globby's gitignore:true reading ALL nested
-     .gitignore files upfront (including those inside gitignored directories)
-
-- Notes:
-   - Relies on globby to mark directories with /
-   - Potential for loops if symbolic links reference back to parent (we could use followSymlinks: false but that may not be ideal for some projects and it's pointless if they're not using symlinks wrong)
-   - Timeout mechanism prevents infinite loops
-*/
-async function globbyLevelByLevel(limit: number, options?: Options) {
-	const results: Set<string> = new Set()
-	const queue: string[] = ["*"]
-	// Track all ignore patterns, starting with whatever was passed in options.
-	// We'll add patterns from workspace ignore files as we discover non-ignored directories.
-	const currentIgnore: string[] = [...((options?.ignore as string[]) ?? [])]
-
-	const globbingProcess = async () => {
-		while (queue.length > 0 && results.size < limit) {
-			const pattern = queue.shift()!
-			// Use current accumulated ignore patterns for each globby call
-			const currentOptions = { ...options, ignore: currentIgnore }
-			const filesAtLevel = await globby(pattern, currentOptions)
-
-			for (const file of filesAtLevel) {
-				if (results.size >= limit) {
-					break
-				}
-				results.add(file)
-				if (file.endsWith("/")) {
-					// This directory passed the ignore filters, so it's not gitignored.
-					// Read its workspace ignore files (if any) and add patterns to the ignore list
-					// so deeper traversal respects them.
-					const dirIgnorePatterns = await readWorkspaceIgnorePatterns(file)
-					if (dirIgnorePatterns.length > 0) {
-						currentIgnore.push(...dirIgnorePatterns)
-					}
-
-					// Queue as a RELATIVE path to cwd so that ignore patterns (like **/tmp/**)
-					// are checked against relative entry paths, not absolute ones. Using absolute
-					// patterns causes false matches when the project is under a directory whose
-					// name collides with DEFAULT_IGNORE_DIRECTORIES (e.g., /tmp on Linux).
-					const cwd = options?.cwd?.toString() ?? ""
-					const relativeDir = path.relative(cwd, file)
-					// Escape backslashes and parentheses in the path to prevent glob pattern interpretation.
-					// This is crucial for NextJS folder naming conventions which use parentheses like (auth), (dashboard).
-					// Without escaping, glob treats backslashes as escapes and parentheses as special pattern grouping characters.
-					const escapedDir = relativeDir
-						.replace(/\\/g, "\\\\")
-						.replace(/\(/g, "\\(")
-						.replace(/\)/g, "\\)")
-					queue.push(`${escapedDir}/*`)
-				}
-			}
-		}
-		return Array.from(results).slice(0, limit)
-	}
-
-	// Timeout after 10 seconds and return partial results
-	const timeoutPromise = new Promise<string[]>((_, reject) => {
-		setTimeout(() => reject(new Error("Globbing timeout")), 10_000)
-	})
-	try {
-		return await Promise.race([globbingProcess(), timeoutPromise])
-	} catch (_error) {
-		Logger.warn("Globbing timed out, returning partial results")
-		return Array.from(results)
-	}
 }

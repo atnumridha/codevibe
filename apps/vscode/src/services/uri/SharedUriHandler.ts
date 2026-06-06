@@ -1,11 +1,18 @@
 import fs from "fs/promises"
 import { WebviewProvider } from "@/core/webview"
+import { HostProvider } from "@/hosts/host-provider"
 import { writeLgWebhookConfig, writeLgWebhookHooks } from "@/services/lg-cns-integration/webhook-hooks"
+import { ShowMessageType } from "@/shared/proto/host/window"
 import { Logger } from "@/shared/services/Logger"
 import {
+	buildCursorCompatibleBackgroundAgentLaunchRequest,
 	buildCursorCompatibleTaskPrompt,
 	parseCursorCompatibleUri,
 } from "./CursorUriRoutes"
+import {
+	buildCursorMcpInstallRequest,
+	formatCursorMcpInstallDetail,
+} from "./CursorMcpInstall"
 
 export const TASK_URI_PATH = "/task"
 export const LG_TASK_URI_PATH = "/lg-task"
@@ -13,6 +20,8 @@ export const LG_TASK_URI_PATH = "/lg-task"
 interface SharedUriHandlerOptions {
 	cursorCompatibleDeepLinksEnabled?: boolean
 }
+
+const MCP_OAUTH_CALLBACK_PATTERN = /^\/mcp-auth\/callback\/[^/]+$/
 
 /**
  * Shared URI handler that processes both VSCode URI events and HTTP server callbacks
@@ -44,7 +53,16 @@ export class SharedUriHandler {
 				}),
 		)
 
-		const visibleWebview = WebviewProvider.getVisibleInstance()
+		const isMcpOAuthCallback = MCP_OAUTH_CALLBACK_PATTERN.test(path)
+		let visibleWebview = WebviewProvider.getVisibleInstance()
+		if (!visibleWebview && isMcpOAuthCallback) {
+			try {
+				visibleWebview = WebviewProvider.getInstance()
+			} catch {
+				// The extension URI handler opens the sidebar before callbacks. HTTP callback
+				// paths can still arrive during startup, so keep the normal false return.
+			}
+		}
 
 		if (!visibleWebview) {
 			Logger.warn("SharedUriHandler: No visible webview found")
@@ -60,6 +78,37 @@ export class SharedUriHandler {
 							`SharedUriHandler: Invalid Cursor-compatible URI: ${cursorRoute.error}`,
 						)
 						return false
+					}
+					if (cursorRoute.route.kind === "mcp-install") {
+						const installRequest = buildCursorMcpInstallRequest(cursorRoute.route)
+						const choice = await HostProvider.window.showMessage({
+							type: ShowMessageType.WARNING,
+							message: `Install MCP server "${installRequest.serverName}"?`,
+							options: {
+								modal: true,
+								items: ["Install"],
+								detail: formatCursorMcpInstallDetail(installRequest),
+							},
+						})
+						if (choice.selectedOption !== "Install") {
+							return true
+						}
+						await visibleWebview.controller.mcpHub.addServerFromConfig(
+							installRequest.serverName,
+							installRequest.serverConfig,
+						)
+						await visibleWebview.controller.postStateToWebview()
+						await HostProvider.window.showMessage({
+							type: ShowMessageType.INFORMATION,
+							message: `Installed MCP server "${installRequest.serverName}".`,
+						})
+						return true
+					}
+					if (cursorRoute.route.kind === "background-agent") {
+						await visibleWebview.controller.handleCursorBackgroundAgentLaunch(
+							buildCursorCompatibleBackgroundAgentLaunchRequest(cursorRoute.route),
+						)
+						return true
 					}
 					await visibleWebview.controller.handleTaskCreation(
 						buildCursorCompatibleTaskPrompt(cursorRoute.route),
@@ -148,13 +197,13 @@ export class SharedUriHandler {
 					return true
 				}
 				// Match /mcp-auth/callback/{hash}
-				case path.match(/^\/mcp-auth\/callback\/[^/]+$/)?.input: {
+				case path.match(MCP_OAUTH_CALLBACK_PATTERN)?.input: {
 					const serverHash = path.split("/").pop()
 					const code = query.get("code")
 					const state = query.get("state")
 
-					if (!code || !serverHash) {
-						Logger.warn("SharedUriHandler: Missing code or hash in MCP OAuth callback")
+					if (!code || !serverHash || !state) {
+						Logger.warn("SharedUriHandler: Missing code, hash, or state in MCP OAuth callback")
 						return false
 					}
 

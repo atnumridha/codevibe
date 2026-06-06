@@ -424,7 +424,7 @@
 				"cline.cursorCompatibility.safeBrowserEvaluate.enabled": {
 					"type": "boolean",
 					"default": false,
-					"description": "Allows gated browser evaluate support for Cursor-compatible browser automation flows. Keep disabled unless you trust the active task."
+					"description": "Enables the same gated browser_action evaluate permission as Browser Settings > Allow browser JavaScript evaluation for Cursor-compatible browser automation flows. Keep disabled unless you trust the active task."
 				}
 			}
 		}

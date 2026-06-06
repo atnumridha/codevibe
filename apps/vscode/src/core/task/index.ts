@@ -56,6 +56,7 @@ import { listFiles } from "@services/glob/list-files"
 import { McpHub } from "@services/mcp/McpHub"
 import { ApiConfiguration } from "@shared/api"
 import { findLast, findLastIndex } from "@shared/array"
+import { getEffectiveBrowserSettings } from "@shared/BrowserSettings"
 import { combineApiRequests } from "@shared/combineApiRequests"
 import { combineCommandSequences } from "@shared/combineCommandSequences"
 import { ClineApiReqCancelReason, ClineApiReqInfo, ClineAsk, ClineMessage, ClineSay } from "@shared/ExtensionMessage"
@@ -148,6 +149,7 @@ type TaskParams = {
 	vscodeTerminalExecutionMode: "vscodeTerminal" | "backgroundExec"
 	cwd: string
 	cursorSandboxPolicy?: CursorSandboxRuntimePolicy
+	getCursorSafeBrowserEvaluateEnabled: () => boolean
 	stateManager: StateManager
 	workspaceManager?: WorkspaceRootManager
 	task?: string
@@ -227,6 +229,7 @@ export class Task {
 	private initialCheckpointCommitPromise?: Promise<string | undefined>
 	private clineIgnoreController: ClineIgnoreController
 	private cursorSandboxPolicy?: CursorSandboxRuntimePolicy
+	private getCursorSafeBrowserEvaluateEnabled: () => boolean
 	private commandPermissionController: CommandPermissionController
 	private toolExecutor: ToolExecutor
 	/**
@@ -289,6 +292,7 @@ export class Task {
 			vscodeTerminalExecutionMode,
 			cwd,
 			cursorSandboxPolicy,
+			getCursorSafeBrowserEvaluateEnabled,
 			stateManager,
 			workspaceManager,
 			task,
@@ -320,6 +324,7 @@ export class Task {
 		this.cancelTask = cancelTask
 		this.clineIgnoreController = new ClineIgnoreController(cwd)
 		this.cursorSandboxPolicy = cursorSandboxPolicy
+		this.getCursorSafeBrowserEvaluateEnabled = getCursorSafeBrowserEvaluateEnabled
 		this.commandPermissionController = new CommandPermissionController(cursorSandboxPolicy?.commandPermissions)
 		this.taskLockAcquired = taskLockAcquired
 		// Determine terminal execution mode and create appropriate terminal manager
@@ -598,6 +603,7 @@ export class Task {
 			this.contextManager,
 			this.stateManager,
 			this.cursorSandboxPolicy,
+			this.getCursorSafeBrowserEvaluateEnabled,
 			cwd,
 			this.taskId,
 			this.ulid,
@@ -1880,7 +1886,9 @@ export class Task {
 		const host = await HostProvider.env.getHostVersion({})
 		const ide = host?.platform || "Unknown"
 		const isCliEnvironment = host.clineType === ClineClient.Cli
-		const browserSettings = this.stateManager.getGlobalSettingsKey("browserSettings")
+		const browserSettings = getEffectiveBrowserSettings(this.stateManager.getGlobalSettingsKey("browserSettings"), {
+			cursorCompatibilitySafeBrowserEvaluateEnabled: this.getCursorSafeBrowserEvaluateEnabled(),
+		})
 		const disableBrowserTool = browserSettings.disableToolUse ?? false
 		// cline browser tool uses image recognition for navigation (requires model image support).
 		const modelSupportsBrowserUse = providerInfo.model.info.supportsImages ?? false
@@ -1981,7 +1989,7 @@ export class Task {
 			localAgentsRulesFileInstructions,
 			clineIgnoreInstructions,
 			preferredLanguageInstructions,
-			browserSettings: this.stateManager.getGlobalSettingsKey("browserSettings"),
+			browserSettings,
 			yoloModeToggled: this.stateManager.getGlobalSettingsKey("yoloModeToggled"),
 			subagentsEnabled: this.stateManager.getGlobalSettingsKey("subagentsEnabled"),
 			clineWebToolsEnabled:

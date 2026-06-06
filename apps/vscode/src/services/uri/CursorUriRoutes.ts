@@ -48,6 +48,15 @@ export interface CursorCompatibleUriRoute {
 	params: Record<string, string | Record<string, unknown>>
 }
 
+export interface CursorCompatibleBackgroundAgentLaunchRequest {
+	prompt: string
+	routePrompt: string
+	repository?: string
+	requestedBranch?: string
+	requestedBaseBranch?: string
+	config?: Record<string, unknown>
+}
+
 export type CursorCompatibleUriParseResult =
 	| { recognized: false }
 	| { recognized: true; route: CursorCompatibleUriRoute }
@@ -462,4 +471,35 @@ export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute)
 		"Route details:",
 		formatRouteDetails(route, ["prompt", "task", "text", "message"]),
 	].join("\n")
+}
+
+function getStringParam(
+	route: CursorCompatibleUriRoute,
+	key: string,
+): string | undefined {
+	const value = route.params[key]
+	return typeof value === "string" && value.trim() ? value.trim() : undefined
+}
+
+export function buildCursorCompatibleBackgroundAgentLaunchRequest(
+	route: CursorCompatibleUriRoute,
+): CursorCompatibleBackgroundAgentLaunchRequest {
+	if (route.kind !== "background-agent") {
+		throw new Error(`Expected background-agent route, received ${route.kind}`)
+	}
+
+	const prompt = getPromptText(route)
+	if (!prompt) {
+		throw new Error("background-agent prompt is required")
+	}
+
+	const config = route.params.config
+	return {
+		prompt,
+		routePrompt: buildCursorCompatibleTaskPrompt(route),
+		repository: getStringParam(route, "repository") || getStringParam(route, "repo"),
+		requestedBranch: getStringParam(route, "branch"),
+		requestedBaseBranch: getStringParam(route, "baseBranch"),
+		config: typeof config === "object" ? config : undefined,
+	}
 }

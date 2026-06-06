@@ -378,7 +378,8 @@ export const BrowserSettingsSection: React.FC<BrowserSettingsSectionProps> = ({ 
 										margin: "4px 0 0 0",
 									}}>
 									Enable Cline to run JavaScript in the active browser page. Evaluation output and console logs are
-									redacted before they are returned.
+									redacted before they are returned. Cursor-compatible flows can also enable this with
+									cline.cursorCompatibility.safeBrowserEvaluate.enabled.
 								</p>
 							</div>
 						</div>

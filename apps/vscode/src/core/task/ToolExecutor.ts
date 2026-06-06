@@ -10,6 +10,7 @@ import type { CommandExecutionOptions } from "@integrations/terminal"
 import { BrowserSession } from "@services/browser/BrowserSession"
 import { UrlContentFetcher } from "@services/browser/UrlContentFetcher"
 import { McpHub } from "@services/mcp/McpHub"
+import { getEffectiveBrowserSettings } from "@shared/BrowserSettings"
 import { ClineAsk, ClineSay } from "@shared/ExtensionMessage"
 import { ClineContent } from "@shared/messages/content"
 import { ClineDefaultTool, toolUseNames } from "@shared/tools"
@@ -72,6 +73,7 @@ export class ToolExecutor {
 		private contextManager: ContextManager,
 		private stateManager: StateManager,
 		private cursorSandboxPolicy: CursorSandboxRuntimePolicy | undefined,
+		private getCursorSafeBrowserEvaluateEnabled: () => boolean,
 
 		// Configuration & Settings
 
@@ -153,7 +155,9 @@ export class ToolExecutor {
 			api: this.api,
 			autoApprovalSettings: this.stateManager.getGlobalSettingsKey("autoApprovalSettings"),
 			autoApprover: this.autoApprover,
-			browserSettings: this.stateManager.getGlobalSettingsKey("browserSettings"),
+			browserSettings: getEffectiveBrowserSettings(this.stateManager.getGlobalSettingsKey("browserSettings"), {
+				cursorCompatibilitySafeBrowserEvaluateEnabled: this.getCursorSafeBrowserEvaluateEnabled(),
+			}),
 			focusChainSettings: this.stateManager.getGlobalSettingsKey("focusChainSettings"),
 			services: {
 				mcpHub: this.mcpHub,

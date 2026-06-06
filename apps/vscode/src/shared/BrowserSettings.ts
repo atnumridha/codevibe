@@ -14,6 +14,10 @@ export interface BrowserSettings {
 	customArgs?: string
 }
 
+export interface EffectiveBrowserSettingsOptions {
+	cursorCompatibilitySafeBrowserEvaluateEnabled?: boolean
+}
+
 export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
 	viewport: {
 		width: 900,
@@ -26,6 +30,17 @@ export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
 	disableToolUse: true,
 	allowBrowserEvaluate: false,
 	customArgs: "",
+}
+
+export function getEffectiveBrowserSettings(
+	browserSettings: BrowserSettings,
+	options: EffectiveBrowserSettingsOptions = {},
+): BrowserSettings {
+	return {
+		...browserSettings,
+		allowBrowserEvaluate:
+			browserSettings.allowBrowserEvaluate || options.cursorCompatibilitySafeBrowserEvaluateEnabled || false,
+	}
 }
 
 export const BROWSER_VIEWPORT_PRESETS = {

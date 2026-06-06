@@ -1,6 +1,8 @@
 import * as fileSearch from "@services/search/file-search"
 import * as childProcess from "child_process"
 import * as fs from "fs"
+import * as os from "os"
+import * as path from "path"
 import type { FzfResultItem } from "fzf"
 import { describe, it } from "mocha"
 import should from "should"
@@ -285,6 +287,89 @@ describe("File Search", () => {
 
 			should(result.source).equal("ripgrep")
 			should(result.items).containDeep([{ path: expectedPath, type: "file", label: "main.ts" }])
+		})
+
+		it("filters host-index results through Cursor privacy ignore rules", async () => {
+			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-host-ignore-"))
+			try {
+				await fs.promises.mkdir(path.join(workspace, "private"), { recursive: true })
+				await fs.promises.mkdir(path.join(workspace, "src"), { recursive: true })
+				await fs.promises.writeFile(path.join(workspace, ".cursorignore"), "private/\n")
+				await fs.promises.writeFile(path.join(workspace, "private", "secret.ts"), "secret\n")
+				await fs.promises.writeFile(path.join(workspace, "src", "main.ts"), "main\n")
+
+				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+					SearchWorkspaceItemsResponse.create({
+						items: [
+							{
+								path: "private/secret.ts",
+								type: SearchWorkspaceItemsRequest_SearchItemType.FILE,
+								label: "secret.ts",
+							},
+							{ path: "src/main.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "main.ts" },
+						],
+					}),
+				)
+
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 20)
+
+				should(result.source).equal("host_index")
+				result.items.map((item) => item.path).should.containEql("src/main.ts")
+				result.items.map((item) => item.path).should.not.containEql("private/secret.ts")
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
+		})
+
+		it("filters ripgrep fallback results through Cursor indexing ignore negations", async () => {
+			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-rg-ignore-"))
+			try {
+				await fs.promises.mkdir(path.join(workspace, "generated"), { recursive: true })
+				await fs.promises.writeFile(path.join(workspace, ".cursorindexingignore"), "generated/\n!generated/keep.ts\n")
+				await fs.promises.writeFile(path.join(workspace, "generated", "drop.ts"), "drop\n")
+				await fs.promises.writeFile(path.join(workspace, "generated", "keep.ts"), "keep\n")
+
+				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").rejects({ code: 12, message: "not implemented" })
+
+				const mockStdout = new Readable({
+					read() {
+						this.push(
+							[
+								path.join(workspace, "generated", "drop.ts"),
+								path.join(workspace, "generated", "keep.ts"),
+							].join("\n"),
+						)
+						this.push(null)
+					},
+				})
+				const mockStderr = new Readable({
+					read() {
+						this.push(null)
+					},
+				})
+
+				spawnStub.returns({
+					stdout: mockStdout,
+					stderr: mockStderr,
+					on: function (event: string, callback: Function) {
+						if (event === "exit") {
+							setImmediate(() => callback(0))
+						}
+						return this
+					},
+					kill: () => {},
+				} as unknown as childProcess.ChildProcess)
+
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 20)
+
+				should(result.source).equal("ripgrep")
+				result.items.map((item) => item.path).should.containEql("generated/keep.ts")
+				result.items.map((item) => item.path).should.not.containEql("generated/drop.ts")
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
 		})
 
 		it("should apply fuzzy matching for non-empty query", async () => {

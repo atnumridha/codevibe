@@ -42,6 +42,7 @@ import { ShowMessageType } from "@/shared/proto/host/window"
 import { Logger } from "@/shared/services/Logger"
 import { Session } from "@/shared/services/Session"
 import { getLatestAnnouncementId } from "@/utils/announcements"
+import { createWorktree as createWorktreeUtil } from "@/utils/git-worktree"
 import { getCwd, getDesktopDir } from "@/utils/path"
 import { PromptRegistry } from "../prompts/system-prompt"
 import {
@@ -55,6 +56,11 @@ import { fetchRemoteConfig } from "../storage/remote-config/fetch"
 import { clearRemoteConfig } from "../storage/remote-config/utils"
 import { type PersistenceErrorEvent, StateManager } from "../storage/StateManager"
 import { Task } from "../task"
+import {
+	type BackgroundAgentTaskRecord,
+	type CursorBackgroundAgentLaunchRequest,
+	launchCursorBackgroundAgent,
+} from "./background-agent/launch"
 import { sendMcpMarketplaceCatalogEvent } from "./mcp/subscribeToMcpMarketplaceCatalog"
 import { getClineOnboardingModels } from "./models/getClineOnboardingModels"
 import { appendClineStealthModels } from "./models/refreshOpenRouterModels"
@@ -81,6 +87,7 @@ export class Controller {
 	private workspaceManager?: WorkspaceRootManager
 	private backgroundCommandRunning = false
 	private backgroundCommandTaskId?: string
+	private backgroundAgentTaskRecords = new Map<string, BackgroundAgentTaskRecord>()
 
 	// Flag to prevent duplicate cancellations from spam clicking
 	private cancelInProgress = false
@@ -281,9 +288,17 @@ export class Controller {
 
 		const cwd = this.workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
 		const clineConfig = vscode.workspace.getConfiguration("cline")
+		const cursorCompatibilityEnabled = clineConfig.get<boolean>("cursorCompatibility.enabled", true)
+		const getCursorSafeBrowserEvaluateEnabled = () => {
+			const currentConfig = vscode.workspace.getConfiguration("cline")
+			return (
+				currentConfig.get<boolean>("cursorCompatibility.enabled", true) &&
+				currentConfig.get<boolean>("cursorCompatibility.safeBrowserEvaluate.enabled", false)
+			)
+		}
 		const cursorSandboxPolicy = await resolveCursorSandboxPolicy({
 			workspaceRoot: cwd,
-			enabled: clineConfig.get<boolean>("cursorCompatibility.enabled", true),
+			enabled: cursorCompatibilityEnabled,
 			policySetting: clineConfig.get<string>("cursorCompatibility.sandboxPolicy", "prompt"),
 			logger: { warn: (message) => Logger.warn(message) },
 		})
@@ -327,6 +342,7 @@ export class Controller {
 			vscodeTerminalExecutionMode,
 			cwd,
 			cursorSandboxPolicy,
+			getCursorSafeBrowserEvaluateEnabled,
 			stateManager: this.stateManager,
 			workspaceManager: this.workspaceManager,
 			task,
@@ -624,7 +640,7 @@ export class Controller {
 		}
 	}
 
-	async handleMcpOAuthCallback(serverHash: string, code: string, state: string | null) {
+	async handleMcpOAuthCallback(serverHash: string, code: string, state: string) {
 		try {
 			await this.mcpHub.completeOAuth(serverHash, code, state)
 			await this.postStateToWebview()
@@ -644,6 +660,30 @@ export class Controller {
 	async handleTaskCreation(prompt: string) {
 		await sendChatButtonClickedEvent()
 		await this.initTask(prompt)
+	}
+
+	getBackgroundAgentTaskRecords(): BackgroundAgentTaskRecord[] {
+		return Array.from(this.backgroundAgentTaskRecords.values()).sort((a, b) => a.createdAt - b.createdAt)
+	}
+
+	private updateBackgroundAgentTaskRecord(record: BackgroundAgentTaskRecord) {
+		this.backgroundAgentTaskRecords.set(record.id, { ...record })
+	}
+
+	async handleCursorBackgroundAgentLaunch(request: CursorBackgroundAgentLaunchRequest) {
+		await sendChatButtonClickedEvent()
+		return launchCursorBackgroundAgent(request, {
+			getWorkspaceRoot: async () => {
+				const workspaceManager = await this.ensureWorkspaceManager()
+				return workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
+			},
+			areWorktreesEnabled: () =>
+				Boolean(this.stateManager.getGlobalSettingsKey("worktreesEnabled")) &&
+				featureFlagsService.getWorktreesEnabled(),
+			createWorktree: (cwd, worktreePath, options) => createWorktreeUtil(cwd, worktreePath, options),
+			startTask: (prompt, taskSettings) => this.initTask(prompt, undefined, undefined, undefined, taskSettings),
+			onRecordChange: (record) => this.updateBackgroundAgentTaskRecord(record),
+		})
 	}
 
 	// MCP Marketplace

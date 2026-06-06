@@ -163,13 +163,14 @@ export async function activate(context: vscode.ExtensionContext) {
 		const url = decodeURIComponent(uri.toString())
 		const uriPath = getUriPath(url)
 		const isTaskUri = uriPath === TASK_URI_PATH || uriPath === LG_TASK_URI_PATH
+		const isMcpAuthCallbackUri = /^\/mcp-auth\/callback\/[^/]+$/.test(uriPath ?? "")
 		const cursorDeepLinksEnabled = vscode.workspace
 			.getConfiguration("cline")
 			.get<boolean>("cursorCompatibility.deepLinks.enabled", true)
 		const isCursorCompatibleUri =
 			cursorDeepLinksEnabled && uriPath ? isCursorCompatibleUriPath(uriPath) : false
 
-		if (isTaskUri || isCursorCompatibleUri) {
+		if (isTaskUri || isCursorCompatibleUri || isMcpAuthCallbackUri) {
 			await openClineSidebarForTaskUri()
 		}
 
@@ -178,7 +179,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		})
 
 		// Task deeplinks can race with first-time sidebar initialization.
-		if (!success && (isTaskUri || isCursorCompatibleUri)) {
+		if (!success && (isTaskUri || isCursorCompatibleUri || isMcpAuthCallbackUri)) {
 			await openClineSidebarForTaskUri()
 			success = await SharedUriHandler.handleUri(url, {
 				cursorCompatibleDeepLinksEnabled: cursorDeepLinksEnabled,

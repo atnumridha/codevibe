@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { getEffectiveBrowserSettings } from "@shared/BrowserSettings"
 import { ClineDefaultTool } from "@shared/tools"
 import { describe, it } from "mocha"
 import sinon from "sinon"
@@ -61,6 +62,18 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert(String(response).includes("Browser JavaScript evaluation is disabled"))
 	})
 
+	it("runs evaluate when Cursor-compatible safe browser evaluate enables the effective gate", async () => {
+		const { config, browserSession } = createConfig(false)
+		config.browserSettings = getEffectiveBrowserSettings(
+			{ viewport: { width: 900, height: 600 }, allowBrowserEvaluate: false },
+			{ cursorCompatibilitySafeBrowserEvaluateEnabled: true },
+		)
+
+		await new BrowserToolHandler().execute(config, makeEvaluateBlock("document.title"))
+
+		assert.equal(browserSession.evaluate.calledOnceWith("document.title"), true)
+	})
+
 	it("runs evaluate when enabled and redacts returned output", async () => {
 		const { config, browserSession, callbacks } = createConfig(true, {
 			screenshot: "data:image/png;base64,abc",
@@ -80,5 +93,24 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert(!serializedResponse.includes("secret-token-value-1234567890"))
 		assert(!serializedResponse.includes("sk-secret-value-1234567890"))
 		assert(serializedResponse.includes("[REDACTED]"))
+	})
+
+	it("redacts evaluate text while streaming partial browser action display", async () => {
+		const say = sinon.stub().resolves(undefined)
+		const uiHelpers = {
+			shouldAutoApproveTool: sinon.stub().returns(false),
+			removeClosingTag: sinon.stub().callsFake((_block, _tag, value) => value),
+			say,
+		} as any
+
+		await new BrowserToolHandler().handlePartialBlock(
+			makeEvaluateBlock("window.localStorage.setItem('apiKey', 'sk-secret-value-1234567890')"),
+			uiHelpers,
+		)
+
+		const payload = JSON.parse(say.firstCall.args[1])
+		assert.equal(payload.action, "evaluate")
+		assert(!payload.text.includes("sk-secret-value-1234567890"))
+		assert(payload.text.includes("[REDACTED]"))
 	})
 })

@@ -224,4 +224,18 @@ describe("listFiles gitignore handling", () => {
 		normalized.some((f) => f.includes("generated")).should.equal(false)
 		normalized.some((f) => f.endsWith(".snapshot")).should.equal(false)
 	})
+
+	it("honors later negated .cursorindexingignore rules", async () => {
+		const project = path.join(baseDir, "test-cursorindexingignore-negation")
+		await fs.mkdir(path.join(project, "generated"), { recursive: true })
+		await fs.writeFile(path.join(project, ".cursorindexingignore"), "generated/\n!generated/keep.ts\n")
+		await fs.writeFile(path.join(project, "generated", "drop.ts"), "drop\n")
+		await fs.writeFile(path.join(project, "generated", "keep.ts"), "keep\n")
+
+		const [files] = await listFiles(project, true, 200)
+		const normalized = files.map(normalizeForComparison)
+
+		normalized.should.containEql(normalizeForComparison(path.join(project, "generated", "keep.ts")))
+		normalized.should.not.containEql(normalizeForComparison(path.join(project, "generated", "drop.ts")))
+	})
 })

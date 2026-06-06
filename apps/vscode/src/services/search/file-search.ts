@@ -9,6 +9,7 @@ import { HostProvider } from "@/hosts/host-provider"
 import { GetOpenTabsRequest } from "@/shared/proto/host/window"
 import { SearchWorkspaceItemsRequest, SearchWorkspaceItemsRequest_SearchItemType } from "@/shared/proto/host/workspace"
 import { Logger } from "@/shared/services/Logger"
+import { filterIgnoredWorkspaceItems, type WorkspaceSearchItem } from "@/services/workspace/file-indexer"
 import { getBinaryLocation } from "@/utils/fs"
 
 /**
@@ -133,7 +134,9 @@ export async function executeRipgrepForFiles(
 				type: "folder",
 				label: path.basename(dirPath),
 			}))
-			resolve([...fileResults, ...dirResults])
+			filterIgnoredWorkspaceItems(workspacePath, [...fileResults, ...dirResults])
+				.then(resolve)
+				.catch(reject)
 		})
 
 		rgProcess.on("error", (error) => {
@@ -282,7 +285,7 @@ export async function searchWorkspaceFiles(
 	try {
 		// Get currently active files and convert to search format
 		const activeFilePaths = await getActiveFiles()
-		const activeFiles: { path: string; type: "file" | "folder"; label?: string }[] = []
+		const activeFiles: WorkspaceSearchItem[] = []
 
 		for (const filePath of activeFilePaths) {
 			if (filePath.startsWith(workspacePath + path.sep) || filePath.startsWith(workspacePath + "/")) {
@@ -298,13 +301,17 @@ export async function searchWorkspaceFiles(
 
 		const hostItems = await executeHostIndexForFiles(query, workspacePath, selectedType)
 
-		const allItems = hostItems ?? (await executeRipgrepForFiles(workspacePath, 5000))
+		const allItems = await filterIgnoredWorkspaceItems(
+			workspacePath,
+			hostItems ?? (await executeRipgrepForFiles(workspacePath, 5000)),
+		)
 		const source: FileSearchSource = hostItems ? "host_index" : "ripgrep"
+		const allowedActiveFiles = await filterIgnoredWorkspaceItems(workspacePath, activeFiles)
 
 		// Combine active files with all items, removing duplicates (like the old WorkspaceTracker)
-		const combinedItems = [...activeFiles]
+		const combinedItems = [...allowedActiveFiles]
 		for (const item of allItems) {
-			if (!activeFiles.some((activeFile) => activeFile.path === item.path)) {
+			if (!allowedActiveFiles.some((activeFile) => activeFile.path === item.path)) {
 				combinedItems.push(item)
 			}
 		}

@@ -1613,6 +1613,38 @@ export class McpHub {
 		}
 	}
 
+	public async addServerFromConfig(serverName: string, serverConfig: McpServerConfig): Promise<McpServer[]> {
+		this.isUpdatingClineSettings = true
+		try {
+			const mergedSettings = await this.readAndValidateMcpSettingsFile()
+			const nativeSettings = await this.readNativeMcpSettingsFile()
+			if (!mergedSettings || !nativeSettings) {
+				throw new Error("Failed to read MCP settings")
+			}
+
+			if (mergedSettings.mcpServers[serverName]) {
+				throw new Error(`An MCP server with the name "${serverName}" already exists`)
+			}
+
+			const parsedConfig = ServerConfigSchema.parse(serverConfig)
+			nativeSettings.mcpServers[serverName] = parsedConfig
+
+			const settingsPath = await this.getNativeMcpSettingsFilePath()
+			this.serverSettingsFiles.set(serverName, settingsPath)
+			await fs.writeFile(settingsPath, JSON.stringify({ mcpServers: nativeSettings.mcpServers }, null, 2))
+
+			await this.reloadMcpServersFromSettings()
+			return this.getSortedMcpServers(this.lastServerOrder)
+		} catch (error) {
+			Logger.error("Failed to add MCP server config:", error)
+			throw error
+		} finally {
+			setTimeout(() => {
+				this.isUpdatingClineSettings = false
+			}, 300)
+		}
+	}
+
 	/**
 	 * RPC variant of deleteServer that returns the updated server list directly
 	 * @param serverName The name of the server to delete
@@ -1762,7 +1794,7 @@ export class McpHub {
 	 * Completes OAuth flow after callback
 	 * Validates state, calls finishAuth, and reconnects
 	 */
-	async completeOAuth(serverHash: string, code: string, state: string | null): Promise<void> {
+	async completeOAuth(serverHash: string, code: string, state: string): Promise<void> {
 		// Find the connection by matching the server hash
 		const connection = this.connections.find((conn) => {
 			const config = JSON.parse(conn.server.config)
@@ -1777,8 +1809,8 @@ export class McpHub {
 			throw new Error(`No connection found for server hash: ${serverHash}`)
 		}
 
-		// Validate state for CSRF protection (if provided)
-		if (state && !this.mcpOAuthManager.validateAndClearState(serverHash, state)) {
+		// Validate state for CSRF protection.
+		if (!this.mcpOAuthManager.validateAndClearState(serverHash, state)) {
 			throw new Error("Invalid OAuth state - possible CSRF attack")
 		}
 

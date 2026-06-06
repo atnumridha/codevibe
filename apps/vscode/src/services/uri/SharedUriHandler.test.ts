@@ -5,6 +5,7 @@ import os from "os"
 import path from "path"
 import * as sinon from "sinon"
 import { WebviewProvider } from "@/core/webview"
+import { HostProvider } from "@/hosts/host-provider"
 import * as webhookHooks from "@/services/lg-cns-integration/webhook-hooks"
 import { Logger } from "@/shared/services/Logger"
 import { ErrorService } from "../error"
@@ -15,6 +16,11 @@ describe("SharedUriHandler", () => {
 	let handleOpenRouterCallbackStub: sinon.SinonStub
 	let handleAuthCallbackStub: sinon.SinonStub
 	let handleTaskCreationStub: sinon.SinonStub
+	let handleCursorBackgroundAgentLaunchStub: sinon.SinonStub
+	let handleMcpOAuthCallbackStub: sinon.SinonStub
+	let addServerFromConfigStub: sinon.SinonStub
+	let postStateToWebviewStub: sinon.SinonStub
+	let showMessageStub: sinon.SinonStub
 
 	beforeEach(async () => {
 		sandbox = sinon.createSandbox()
@@ -41,14 +47,29 @@ describe("SharedUriHandler", () => {
 		handleOpenRouterCallbackStub = sandbox.stub().resolves()
 		handleAuthCallbackStub = sandbox.stub().resolves()
 		handleTaskCreationStub = sandbox.stub().resolves()
+		handleCursorBackgroundAgentLaunchStub = sandbox.stub().resolves()
+		handleMcpOAuthCallbackStub = sandbox.stub().resolves()
+		addServerFromConfigStub = sandbox.stub().resolves([])
+		postStateToWebviewStub = sandbox.stub().resolves()
+		showMessageStub = sandbox.stub()
+		showMessageStub.onFirstCall().resolves({ selectedOption: "Install" })
+		showMessageStub.resolves({ selectedOption: undefined })
 		const mockWebviewProvider = {
 			controller: {
 				handleOpenRouterCallback: handleOpenRouterCallbackStub,
 				handleAuthCallback: handleAuthCallbackStub,
 				handleTaskCreation: handleTaskCreationStub,
+				handleCursorBackgroundAgentLaunch: handleCursorBackgroundAgentLaunchStub,
+				handleMcpOAuthCallback: handleMcpOAuthCallbackStub,
+				postStateToWebview: postStateToWebviewStub,
+				mcpHub: {
+					addServerFromConfig: addServerFromConfigStub,
+				},
 			},
 		} as any
 		sandbox.stub(WebviewProvider, "getVisibleInstance").returns(mockWebviewProvider)
+		sandbox.stub(WebviewProvider, "getInstance").returns(mockWebviewProvider)
+		sandbox.stub(HostProvider, "window").get(() => ({ showMessage: showMessageStub }) as any)
 	})
 
 	afterEach(() => {
@@ -121,17 +142,49 @@ describe("SharedUriHandler", () => {
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
 			})
 
-			it("should create a confirmation task from a Cursor MCP install route", async () => {
+			it("should confirm and install a Cursor MCP install route", async () => {
 				const result = await SharedUriHandler.handleUri(
 					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				)
 
 				expect(result).to.be.true
-				sinon.assert.calledOnce(handleTaskCreationStub)
-				const taskPrompt = handleTaskCreationStub.firstCall.args[0] as string
-				expect(taskPrompt).to.contain("Cursor-compatible MCP install deeplink")
-				expect(taskPrompt).to.contain("ask for confirmation")
-				expect(taskPrompt).to.contain("name: docs")
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install MCP server "docs"?')
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				expect(addServerFromConfigStub.firstCall.args[0]).to.equal("docs")
+				expect(addServerFromConfigStub.firstCall.args[1]).to.deep.include({
+					type: "streamableHttp",
+					url: "https://mcp.example.com",
+				})
+				sinon.assert.calledOnce(postStateToWebviewStub)
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should not install a Cursor MCP route when confirmation is cancelled", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				)
+
+				expect(result).to.be.true
+				expect(addServerFromConfigStub.called).to.be.false
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should launch Cursor background-agent routes through the controller background path", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main",
+				)
+
+				expect(result).to.be.true
+				sinon.assert.calledOnce(handleCursorBackgroundAgentLaunchStub)
+				expect(handleTaskCreationStub.called).to.be.false
+				const launchRequest = handleCursorBackgroundAgentLaunchStub.firstCall.args[0]
+				expect(launchRequest.prompt).to.equal("Fix the queue")
+				expect(launchRequest.repository).to.equal("owner/repo")
+				expect(launchRequest.requestedBranch).to.equal("main")
+				expect(launchRequest.routePrompt).to.contain("Cursor-compatible background agent deeplink")
 			})
 
 			it("should reject invalid Cursor command routes", async () => {
@@ -148,6 +201,26 @@ describe("SharedUriHandler", () => {
 
 				expect(result).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
+			})
+		})
+
+		describe("MCP OAuth callback handling", () => {
+			it("should handle MCP OAuth callbacks with code and state", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/mcp-auth/callback/hash123?code=code123&state=state123",
+				)
+
+				expect(result).to.be.true
+				sinon.assert.calledOnceWithExactly(handleMcpOAuthCallbackStub, "hash123", "code123", "state123")
+			})
+
+			it("should reject MCP OAuth callbacks without state", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/mcp-auth/callback/hash123?code=code123",
+				)
+
+				expect(result).to.be.false
+				expect(handleMcpOAuthCallbackStub.called).to.be.false
 			})
 		})
 
