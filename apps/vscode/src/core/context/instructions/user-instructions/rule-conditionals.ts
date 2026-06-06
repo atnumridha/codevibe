@@ -7,6 +7,7 @@
  * Notes:
  * - Unknown conditional keys are ignored for forward compatibility.
  * - The `paths` conditional matches if any candidate path matches any glob pattern.
+ * - Cursor-compatible `.cursor/rules/*.mdc` files may also use `globs` and `alwaysApply`.
  * - Candidate paths are expected to be workspace-root-relative POSIX paths.
  */
 import * as path from "path"
@@ -30,6 +31,7 @@ type ConditionalEvaluatorResult = {
 }
 
 type ConditionalEvaluatorWithMatch = (frontmatterValue: unknown, context: RuleEvaluationContext) => ConditionalEvaluatorResult
+export type RuleFrontmatterDialect = "cline" | "cursor"
 
 function toPosix(p: string): string {
 	return p.replace(/\\/g, "/")
@@ -78,17 +80,48 @@ const conditionalEvaluators: Record<string, ConditionalEvaluatorWithMatch> = {
 	paths: evaluatePathsConditional,
 }
 
+const cursorConditionalEvaluators: Record<string, ConditionalEvaluatorWithMatch> = {
+	...conditionalEvaluators,
+	globs: evaluatePathsConditional,
+}
+
+function hasUsablePathConditional(frontmatter: Record<string, unknown>, key: "paths" | "globs"): boolean {
+	const value = frontmatter[key]
+	if (!isNonEmptyStringArray(value)) {
+		return false
+	}
+	return value.map((p) => p.trim()).filter(Boolean).length > 0
+}
+
 export function evaluateRuleConditionals(
 	frontmatter: Record<string, unknown>,
 	context: RuleEvaluationContext,
+	opts?: { dialect?: RuleFrontmatterDialect },
 ): {
 	passed: boolean
 	matchedConditions: MatchedConditions
 } {
 	const matchedConditions: MatchedConditions = {}
+	const dialect = opts?.dialect ?? "cline"
+	const evaluators = dialect === "cursor" ? cursorConditionalEvaluators : conditionalEvaluators
+
+	if (dialect === "cursor") {
+		const alwaysApply = frontmatter.alwaysApply
+		if (alwaysApply === true) {
+			return { passed: true, matchedConditions }
+		}
+
+		if (
+			alwaysApply === false &&
+			!hasUsablePathConditional(frontmatter, "paths") &&
+			!hasUsablePathConditional(frontmatter, "globs")
+		) {
+			return { passed: false, matchedConditions: {} }
+		}
+	}
 
 	for (const [key, value] of Object.entries(frontmatter)) {
-		const evaluator = conditionalEvaluators[key]
+		const evaluator = evaluators[key]
 		if (!evaluator) {
 			continue // unknown conditional: ignore
 		}

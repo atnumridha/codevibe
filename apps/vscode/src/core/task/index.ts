@@ -1928,10 +1928,9 @@ export class Task {
 
 		const localRules = await getLocalClineRules(this.cwd, localToggles, { evaluationContext })
 		const localClineRulesFileInstructions = localRules.instructions
-		const [localCursorRulesFileInstructions, localCursorRulesDirInstructions] = await getLocalCursorRules(
-			this.cwd,
-			cursorLocalToggles,
-		)
+		const cursorRules = await getLocalCursorRules(this.cwd, cursorLocalToggles, { evaluationContext })
+		const localCursorRulesFileInstructions = cursorRules.fileInstructions
+		const localCursorRulesDirInstructions = cursorRules.directoryInstructions
 		const localWindsurfRulesFileInstructions = await getLocalWindsurfRules(this.cwd, windsurfLocalToggles)
 
 		const localAgentsRulesFileInstructions = await getLocalAgentsRules(this.cwd, agentsLocalToggles)
@@ -2006,7 +2005,11 @@ export class Task {
 		}
 
 		// Notify user if any conditional rules were applied for this request
-		const activatedConditionalRules = [...globalRules.activatedConditionalRules, ...localRules.activatedConditionalRules]
+		const activatedConditionalRules = [
+			...globalRules.activatedConditionalRules,
+			...localRules.activatedConditionalRules,
+			...cursorRules.activatedConditionalRules,
+		]
 		if (activatedConditionalRules.length > 0) {
 			await this.say("conditional_rules_applied", JSON.stringify({ rules: activatedConditionalRules }))
 		}

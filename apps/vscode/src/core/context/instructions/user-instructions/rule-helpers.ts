@@ -7,7 +7,7 @@ import * as path from "path"
 import { Controller } from "@/core/controller"
 import { Logger } from "@/shared/services/Logger"
 import { parseYamlFrontmatter } from "./frontmatter"
-import { evaluateRuleConditionals, RuleEvaluationContext } from "./rule-conditionals"
+import { evaluateRuleConditionals, type RuleEvaluationContext, type RuleFrontmatterDialect } from "./rule-conditionals"
 
 /**
  * Recursively traverses directory and finds all files, including checking for optional whitelisted file extension
@@ -180,9 +180,14 @@ export const getRuleFilesTotalContentWithMetadata = async (
 	rulesFilePaths: string[],
 	basePath: string,
 	toggles: ClineRulesToggles,
-	opts?: { evaluationContext?: RuleEvaluationContext; ruleNamePrefix?: keyof typeof RULE_SOURCE_PREFIX },
+	opts?: {
+		evaluationContext?: RuleEvaluationContext
+		frontmatterDialect?: RuleFrontmatterDialect
+		ruleNamePrefix?: keyof typeof RULE_SOURCE_PREFIX
+	},
 ): Promise<RuleLoadResult> => {
 	const evaluationContext = opts?.evaluationContext ?? {}
+	const frontmatterDialect = opts?.frontmatterDialect ?? "cline"
 	const prefix = RULE_SOURCE_PREFIX[opts?.ruleNamePrefix ?? "global"]
 
 	type RuleLoadPart = {
@@ -212,7 +217,9 @@ export const getRuleFilesTotalContentWithMetadata = async (
 				return { contentPart: `${ruleFilePathRelative}\n${raw}`, activatedRule: null }
 			}
 
-			const { passed, matchedConditions } = evaluateRuleConditionals(data, evaluationContext)
+			const { passed, matchedConditions } = evaluateRuleConditionals(data, evaluationContext, {
+				dialect: frontmatterDialect,
+			})
 			if (!passed) {
 				return { contentPart: null, activatedRule: null }
 			}
@@ -239,10 +246,11 @@ export const getRuleFilesTotalContentWithMetadata = async (
 export function getRemoteRulesTotalContentWithMetadata(
 	remoteRules: GlobalInstructionsFile[],
 	remoteToggles: ClineRulesToggles,
-	opts?: { evaluationContext?: RuleEvaluationContext },
+	opts?: { evaluationContext?: RuleEvaluationContext; frontmatterDialect?: RuleFrontmatterDialect },
 ): RuleLoadResult {
 	const activatedConditionalRules: ActivatedConditionalRule[] = []
 	const evaluationContext = opts?.evaluationContext ?? {}
+	const frontmatterDialect = opts?.frontmatterDialect ?? "cline"
 	let combinedContent = ""
 
 	for (const rule of remoteRules) {
@@ -260,7 +268,9 @@ export function getRemoteRulesTotalContentWithMetadata(
 			continue
 		}
 
-		const { passed, matchedConditions } = evaluateRuleConditionals(data, evaluationContext)
+		const { passed, matchedConditions } = evaluateRuleConditionals(data, evaluationContext, {
+			dialect: frontmatterDialect,
+		})
 		if (!passed) continue
 
 		if (hadFrontmatter && Object.keys(matchedConditions).length > 0) {

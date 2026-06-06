@@ -30,6 +30,53 @@ describe("rule-conditionals", () => {
 		})
 	})
 
+	describe("evaluateRuleConditionals(cursor)", () => {
+		it("treats globs as Cursor path-scoped auto-attach patterns", () => {
+			const res = evaluateRuleConditionals(
+				{ globs: ["src/**", "apps/**"] },
+				{ paths: ["apps/web/src/App.tsx"] },
+				{ dialect: "cursor" },
+			)
+			expect(res.passed).to.equal(true)
+			expect(res.matchedConditions.globs).to.deep.equal(["apps/**"])
+		})
+
+		it("keeps globs as ordinary metadata outside the Cursor dialect", () => {
+			const res = evaluateRuleConditionals({ globs: ["src/**"] }, { paths: [] })
+			expect(res.passed).to.equal(true)
+			expect(res.matchedConditions).to.deep.equal({})
+		})
+
+		it("lets alwaysApply true override non-matching globs", () => {
+			const res = evaluateRuleConditionals(
+				{ alwaysApply: true, globs: ["src/**"] },
+				{ paths: ["docs/readme.md"] },
+				{ dialect: "cursor" },
+			)
+			expect(res.passed).to.equal(true)
+			expect(res.matchedConditions).to.deep.equal({})
+		})
+
+		it("does not auto-attach alwaysApply false rules without paths or globs", () => {
+			const res = evaluateRuleConditionals(
+				{ alwaysApply: false, description: "Use this when editing tests" },
+				{ paths: ["src/index.ts"] },
+				{ dialect: "cursor" },
+			)
+			expect(res.passed).to.equal(false)
+		})
+
+		it("allows alwaysApply false rules to auto-attach when globs match", () => {
+			const res = evaluateRuleConditionals(
+				{ alwaysApply: false, globs: ["src/**"] },
+				{ paths: ["src/index.ts"] },
+				{ dialect: "cursor" },
+			)
+			expect(res.passed).to.equal(true)
+			expect(res.matchedConditions.globs).to.deep.equal(["src/**"])
+		})
+	})
+
 	describe("extractPathLikeStrings", () => {
 		it("extracts basic relative paths", () => {
 			const res = extractPathLikeStrings("edit apps/web/src/App.tsx and packages/foo/src")

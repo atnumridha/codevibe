@@ -2,6 +2,7 @@ import { expect } from "chai"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { getLocalCursorRules } from "../external-rules"
 import { getRuleFilesTotalContentWithMetadata } from "../rule-helpers"
 
 describe("rule loading with paths frontmatter", () => {
@@ -110,6 +111,50 @@ describe("rule loading with paths frontmatter", () => {
 			})
 
 			expect(res.activatedConditionalRules.map((r) => r.name)).to.deep.equal(files.map((f) => `global:${f}`))
+		} finally {
+			await fs.rm(tmp, { recursive: true, force: true })
+		}
+	})
+
+	it("loads .cursorrules and .cursor/rules/*.mdc with Cursor globs", async () => {
+		const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "cursor-rules-test-"))
+		try {
+			const cursorRulesDir = path.join(tmp, ".cursor", "rules")
+			await fs.mkdir(cursorRulesDir, { recursive: true })
+			await fs.writeFile(path.join(tmp, ".cursorrules"), `---\nglobs:\n  - "src/**"\n---\n\nLegacy Cursor rule`)
+			await fs.writeFile(
+				path.join(cursorRulesDir, "frontend.mdc"),
+				`---\nalwaysApply: false\nglobs:\n  - "web/**"\n---\n\nFrontend Cursor rule`,
+			)
+			await fs.writeFile(
+				path.join(cursorRulesDir, "manual.mdc"),
+				`---\nalwaysApply: false\ndescription: "Use manually for release tasks"\n---\n\nManual Cursor rule`,
+			)
+
+			const toggles: Record<string, boolean> = {
+				[path.join(tmp, ".cursorrules")]: true,
+				[path.join(cursorRulesDir, "frontend.mdc")]: true,
+				[path.join(cursorRulesDir, "manual.mdc")]: true,
+			}
+
+			const srcResult = await getLocalCursorRules(tmp, toggles, {
+				evaluationContext: { paths: ["src/index.ts"] },
+			})
+			expect(srcResult.fileInstructions).to.contain("Legacy Cursor rule")
+			expect(srcResult.directoryInstructions).to.equal(undefined)
+			expect(srcResult.activatedConditionalRules.map((rule) => rule.name)).to.deep.equal(["workspace:.cursorrules"])
+			expect(srcResult.activatedConditionalRules[0].matchedConditions.globs).to.deep.equal(["src/**"])
+
+			const webResult = await getLocalCursorRules(tmp, toggles, {
+				evaluationContext: { paths: ["web/App.tsx"] },
+			})
+			expect(webResult.fileInstructions).to.equal(undefined)
+			expect(webResult.directoryInstructions).to.contain("Frontend Cursor rule")
+			expect(webResult.directoryInstructions).to.not.contain("Manual Cursor rule")
+			expect(webResult.activatedConditionalRules.map((rule) => rule.name)).to.deep.equal([
+				"workspace:.cursor/rules/frontend.mdc",
+			])
+			expect(webResult.activatedConditionalRules[0].matchedConditions.globs).to.deep.equal(["web/**"])
 		} finally {
 			await fs.rm(tmp, { recursive: true, force: true })
 		}

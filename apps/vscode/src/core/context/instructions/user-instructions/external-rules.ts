@@ -1,8 +1,10 @@
 import {
 	combineRuleToggles,
-	getRuleFilesTotalContent,
+	getRuleFilesTotalContentWithMetadata,
+	RULE_SOURCE_PREFIX,
 	readDirectoryRecursive,
 	synchronizeRuleToggles,
+	type ActivatedConditionalRule,
 } from "@core/context/instructions/user-instructions/rule-helpers"
 import { formatResponse } from "@core/prompts/responses"
 import { GlobalFileNames } from "@core/storage/disk"
@@ -13,6 +15,8 @@ import fs from "fs/promises"
 import path from "path"
 import { Controller } from "@/core/controller"
 import { Logger } from "@/shared/services/Logger"
+import { parseYamlFrontmatter } from "./frontmatter"
+import { evaluateRuleConditionals, type RuleEvaluationContext } from "./rule-conditionals"
 
 /**
  * Refreshes the toggles for windsurf, cursor, and agents rules
@@ -87,18 +91,50 @@ export const getLocalWindsurfRules = async (cwd: string, toggles: ClineRulesTogg
 /**
  * Gather formatted cursor rules, which can come from two sources
  */
-export const getLocalCursorRules = async (cwd: string, toggles: ClineRulesToggles) => {
+export type CursorRuleLoadResult = {
+	fileInstructions?: string
+	directoryInstructions?: string
+	activatedConditionalRules: ActivatedConditionalRule[]
+}
+
+export const getLocalCursorRules = async (
+	cwd: string,
+	toggles: ClineRulesToggles,
+	opts?: { evaluationContext?: RuleEvaluationContext },
+): Promise<CursorRuleLoadResult> => {
 	// we first check for the .cursorrules file
 	const cursorRulesFilePath = path.resolve(cwd, GlobalFileNames.cursorRulesFile)
 	let cursorRulesFileInstructions: string | undefined
+	const activatedConditionalRules: ActivatedConditionalRule[] = []
 
 	if (await fileExistsAtPath(cursorRulesFilePath)) {
 		if (!(await isDirectory(cursorRulesFilePath))) {
 			try {
 				if (cursorRulesFilePath in toggles && toggles[cursorRulesFilePath] !== false) {
-					const ruleFileContent = (await fs.readFile(cursorRulesFilePath, "utf8")).trim()
-					if (ruleFileContent) {
-						cursorRulesFileInstructions = formatResponse.cursorRulesLocalFileInstructions(cwd, ruleFileContent)
+					const raw = (await fs.readFile(cursorRulesFilePath, "utf8")).trim()
+					if (raw) {
+						const parsed = parseYamlFrontmatter(raw)
+						if (parsed.hadFrontmatter && parsed.parseError) {
+							cursorRulesFileInstructions = formatResponse.cursorRulesLocalFileInstructions(cwd, raw)
+						} else {
+							const { passed, matchedConditions } = evaluateRuleConditionals(
+								parsed.data,
+								opts?.evaluationContext ?? {},
+								{ dialect: "cursor" },
+							)
+							if (passed) {
+								cursorRulesFileInstructions = formatResponse.cursorRulesLocalFileInstructions(
+									cwd,
+									parsed.body.trim(),
+								)
+								if (parsed.hadFrontmatter && Object.keys(matchedConditions).length > 0) {
+									activatedConditionalRules.push({
+										name: `${RULE_SOURCE_PREFIX.workspace}:${GlobalFileNames.cursorRulesFile}`,
+										matchedConditions,
+									})
+								}
+							}
+						}
 					}
 				}
 			} catch {
@@ -115,9 +151,14 @@ export const getLocalCursorRules = async (cwd: string, toggles: ClineRulesToggle
 		if (await isDirectory(cursorRulesDirPath)) {
 			try {
 				const rulesFilePaths = await readDirectoryRecursive(cursorRulesDirPath, ".mdc")
-				const rulesFilesTotalContent = await getRuleFilesTotalContent(rulesFilePaths, cwd, toggles)
-				if (rulesFilesTotalContent) {
-					cursorRulesDirInstructions = formatResponse.cursorRulesLocalDirectoryInstructions(cwd, rulesFilesTotalContent)
+				const rulesFilesTotal = await getRuleFilesTotalContentWithMetadata(rulesFilePaths, cwd, toggles, {
+					evaluationContext: opts?.evaluationContext,
+					frontmatterDialect: "cursor",
+					ruleNamePrefix: "workspace",
+				})
+				if (rulesFilesTotal.content) {
+					cursorRulesDirInstructions = formatResponse.cursorRulesLocalDirectoryInstructions(cwd, rulesFilesTotal.content)
+					activatedConditionalRules.push(...rulesFilesTotal.activatedConditionalRules)
 				}
 			} catch {
 				Logger.error(`Failed to read .cursor/rules directory at ${cursorRulesDirPath}`)
@@ -125,7 +166,11 @@ export const getLocalCursorRules = async (cwd: string, toggles: ClineRulesToggle
 		}
 	}
 
-	return [cursorRulesFileInstructions, cursorRulesDirInstructions]
+	return {
+		fileInstructions: cursorRulesFileInstructions,
+		directoryInstructions: cursorRulesDirInstructions,
+		activatedConditionalRules,
+	}
 }
 
 /**
