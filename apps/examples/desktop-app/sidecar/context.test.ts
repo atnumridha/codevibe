@@ -807,6 +807,96 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(JSON.stringify(result)).not.toContain("Use small commits");
 	});
 
+	it("launches Cursor rule review routes as queued review sessions", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-rule-review-"));
+		tempDirs.push(workspace);
+		const config = encodeCursorConfig({
+			owner: "workspace",
+			target: ".cursor/rules/team-style.mdc",
+		});
+		const uri = `vscode://cline.cline/rule?${new URLSearchParams({
+			name: "team-style",
+			content: "Use small commits",
+			url: "https://example.com/rules?token=secret#private",
+			config,
+		}).toString()}`;
+		previewCursorUriMock.mockResolvedValueOnce({
+			handled: true,
+			route: "rule",
+			path: "/rule",
+			kind: "review",
+			requiresConfirmation: true,
+			paramKeys: ["config", "content", "name", "url"],
+			configKeys: ["owner", "target"],
+		});
+		const startMock = vi.fn(async () => ({ sessionId: "session-rule-review" }));
+		const sendMock = vi.fn(async () => ({}));
+		const pendingListMock = vi.fn(async () => []);
+		const ctx = createSidecarContext(workspace);
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+			send: sendMock,
+			pendingPrompts: { list: pendingListMock },
+		} as never;
+
+		const result = await handleCommand(ctx, "cursor_uri_launch", {
+			uri,
+			confirmed: true,
+		});
+
+		expect(startMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				sessionMetadata: expect.objectContaining({
+					cursor: expect.objectContaining({
+						source: "cursor-uri",
+						route: "rule",
+						path: "/rule",
+						paramKeys: ["config", "content", "name", "url"],
+						configKeys: ["owner", "target"],
+					}),
+				}),
+				toolPolicies: {
+					"*": { enabled: false, autoApprove: false },
+					read_files: { enabled: true, autoApprove: true },
+					search_codebase: { enabled: true, autoApprove: true },
+				},
+			}),
+		);
+		const prompt = String(sendMock.mock.calls[0]?.[0]?.prompt ?? "");
+		expect(prompt).toContain("requires agent review before writing project rules");
+		expect(prompt).toContain("inspect the existing Cursor rule files first");
+		expect(prompt).toContain("- name: team-style");
+		expect(prompt).toContain("- url: https://example.com/rules?[redacted]#[redacted]");
+		expect(prompt).toContain("- config keys: owner, target");
+		expect(prompt).toContain("Use small commits");
+		expect(prompt).not.toContain("token=secret");
+		expect(sendMock).toHaveBeenCalledWith({
+			sessionId: "session-rule-review",
+			prompt,
+			delivery: "queue",
+			userImages: undefined,
+		});
+		await expect(readFile(join(workspace, ".cursorrules"), "utf8")).rejects.toThrow();
+		await expect(readFile(join(workspace, ".cursor", "rules", "team-style.mdc"), "utf8")).rejects.toThrow();
+		expect(result).toMatchObject({
+			handled: true,
+			launched: true,
+			route: "rule",
+			path: "/rule",
+			sessionId: "session-rule-review",
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			mode: "plan",
+			queued: true,
+		});
+	});
+
 	it("previews explicit Cursor plugin sources without installing them", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

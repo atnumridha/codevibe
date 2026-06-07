@@ -134,12 +134,15 @@ function backgroundLaunchContext(launch: CursorUriLaunchResponse): string {
 function isLaunchablePreview(preview: CursorUriPreviewResponse | undefined) {
 	const path = previewString(preview, "path");
 	const route = previewString(preview, "route");
+	const isRuleReview =
+		route === "rule" && previewString(preview, "kind") === "review";
 	return Boolean(
 		preview?.handled &&
-			previewString(preview, "taskPrompt") &&
-			path &&
-			(LAUNCHABLE_AGENT_PATHS.has(path) ||
-				(route === "command-file" && path === "/command")),
+			(isRuleReview ||
+				(previewString(preview, "taskPrompt") &&
+					path &&
+					(LAUNCHABLE_AGENT_PATHS.has(path) ||
+						(route === "command-file" && path === "/command")))),
 	);
 }
 
