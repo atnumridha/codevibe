@@ -36,6 +36,11 @@ const builds: Parameters<typeof Bun.build>[0][] = [
 		...buildConfig,
 	},
 	{
+		entrypoints: ["./src/background-agent/index.ts"],
+		outdir: "./dist/background-agent",
+		...buildConfig,
+	},
+	{
 		entrypoints: ["./src/hub/index.ts"],
 		outdir: "./dist/hub",
 		...buildConfig,

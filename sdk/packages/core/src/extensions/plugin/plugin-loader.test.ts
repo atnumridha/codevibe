@@ -182,8 +182,9 @@ describe("plugin-loader", () => {
 			join(packagedSdkSubpathDir, "index.ts"),
 			[
 				"import { createConfiguredTelemetryHandle } from '@cline/core/telemetry';",
+				"import { launchCursorBackgroundAgent } from '@cline/core/background-agent';",
 				"export default {",
-				"  name: typeof createConfiguredTelemetryHandle === 'function' ? 'sdk-subpath-ok' : 'invalid',",
+				"  name: typeof createConfiguredTelemetryHandle === 'function' && typeof launchCursorBackgroundAgent === 'function' ? 'sdk-subpath-ok' : 'invalid',",
 				"  manifest: { capabilities: ['tools'] },",
 				"};",
 			].join("\n"),

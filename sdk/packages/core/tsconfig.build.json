@@ -11,6 +11,7 @@
 	},
 	"include": [
 		"src/index.ts",
+		"src/background-agent/index.ts",
 		"src/hub/index.ts",
 		"src/hub/daemon/entry.ts",
 		"src/services/telemetry/index.ts"

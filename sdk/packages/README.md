@@ -37,6 +37,7 @@ This directory is the single documentation source for package-level responsibili
 
 - Node-oriented imports exist where packages expose a distinct Node alias.
 - `@cline/core` itself is now the Node/runtime-oriented entry point for host/session services.
+- `@cline/core/background-agent` exposes the Cursor-compatible background-agent launch lifecycle without forcing hosts to import the broad core barrel.
 - Browser entry points still exist in packages that intentionally publish a browser surface, but `@cline/core` no longer does.
 
 ## Notes for Doc Consolidation

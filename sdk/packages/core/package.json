@@ -19,6 +19,10 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
+		"./background-agent": {
+			"types": "./dist/background-agent/index.d.ts",
+			"import": "./dist/background-agent/index.js"
+		},
 		"./hub": {
 			"types": "./dist/hub/index.d.ts",
 			"import": "./dist/hub/index.js"
