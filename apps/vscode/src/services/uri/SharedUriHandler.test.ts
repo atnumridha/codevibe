@@ -632,8 +632,25 @@ describe("SharedUriHandler", () => {
 				expect(sectionResult).to.be.true
 				expect(tabResult).to.be.true
 				sinon.assert.calledTwice(openSettingsStub)
-				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "Providers" })
-				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({ query: "Cursor Links" })
+				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "@id:cline.apiProvider" })
+				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({
+					query: "@id:cline.cursorCompatibility.deepLinks.enabled",
+				})
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should normalize known Cursor settings slugs and fall back for unknown labels", async () => {
+				const codexResult = await SharedUriHandler.handleUri("cursor://settings?section=codex-auth")
+				const ndjsonResult = await SharedUriHandler.handleUri("cursor://settings?tab=NDJSON")
+				const customResult = await SharedUriHandler.handleUri("cursor://settings?section=Custom%20Tools")
+
+				expect(codexResult).to.be.true
+				expect(ndjsonResult).to.be.true
+				expect(customResult).to.be.true
+				sinon.assert.calledThrice(openSettingsStub)
+				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "@id:cline.openAiCodex.authSource" })
+				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({ query: "@id:ndjson.port" })
+				expect(openSettingsStub.thirdCall.args[0]).to.deep.equal({ query: "Custom Tools" })
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 

@@ -65,6 +65,27 @@ const MCP_OAUTH_CALLBACK_PATTERN = /^\/mcp-auth\/callback\/[^/]+$/
 const CURSOR_RULE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/
 const CURSOR_COMMAND_FILENAME_PATTERN = /^(?=.*[a-zA-Z0-9])[a-zA-Z0-9._-]+$/
 const MAX_CURSOR_COMMAND_FILE_BYTES = 256 * 1024
+const CURSOR_SETTINGS_SECTION_QUERIES = new Map<string, string>([
+	["provider", "@id:cline.apiProvider"],
+	["providers", "@id:cline.apiProvider"],
+	["cursor-compatibility", "@id:cline.cursorCompatibility.enabled"],
+	["cursor-links", "@id:cline.cursorCompatibility.deepLinks.enabled"],
+	["deep-links", "@id:cline.cursorCompatibility.deepLinks.enabled"],
+	["deeplinks", "@id:cline.cursorCompatibility.deepLinks.enabled"],
+	["retrieval-indexing", "@id:cline.cursorCompatibility.retrievalIndexing.privacyGate"],
+	["indexing", "@id:cline.cursorCompatibility.retrievalIndexing.privacyGate"],
+	["privacy-gate", "@id:cline.cursorCompatibility.retrievalIndexing.privacyGate"],
+	["sandbox", "@id:cline.cursorCompatibility.sandboxPolicy"],
+	["sandbox-policy", "@id:cline.cursorCompatibility.sandboxPolicy"],
+	["codex-auth", "@id:cline.openAiCodex.authSource"],
+	["openai-codex-auth", "@id:cline.openAiCodex.authSource"],
+	["openai-codex", "@id:cline.openAiCodex.authSource"],
+	["codex", "@id:cline.openAiCodex.authSource"],
+	["ndjson", "@id:ndjson.port"],
+	["automation-ingest", "@id:ndjson.port"],
+	["browser-evaluate", "@id:cline.cursorCompatibility.safeBrowserEvaluate.enabled"],
+	["safe-browser-evaluate", "@id:cline.cursorCompatibility.safeBrowserEvaluate.enabled"],
+])
 
 function parseUri(url: string): {
 	parsedUrl: URL
@@ -87,12 +108,34 @@ function getRouteStringParam(route: CursorCompatibleUriRoute, key: string): stri
 	return typeof value === "string" && value.trim() ? value.trim() : undefined
 }
 
+function normalizeSettingsSectionKey(value: string): string {
+	return value
+		.trim()
+		.toLowerCase()
+		.replace(/['"]/g, "")
+		.replace(/&/g, " and ")
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+}
+
+function getKnownCursorSettingsQuery(value: string | undefined): string | undefined {
+	if (!value) {
+		return undefined
+	}
+
+	return CURSOR_SETTINGS_SECTION_QUERIES.get(normalizeSettingsSectionKey(value))
+}
+
 function getSettingsQuery(route: CursorCompatibleUriRoute): string | undefined {
-	return (
-		getRouteStringParam(route, "query") ||
-		getRouteStringParam(route, "section") ||
-		getRouteStringParam(route, "tab")
-	)
+	const explicitQuery = getRouteStringParam(route, "query")
+	if (explicitQuery) {
+		return explicitQuery
+	}
+
+	const section = getRouteStringParam(route, "section")
+	const tab = getRouteStringParam(route, "tab")
+
+	return getKnownCursorSettingsQuery(section) || getKnownCursorSettingsQuery(tab) || section || tab
 }
 
 function normalizeCursorRuleTarget(route: CursorCompatibleUriRoute): {
