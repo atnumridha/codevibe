@@ -160,6 +160,34 @@ describe("CursorNdjsonIngestServer", () => {
 		}
 	})
 
+	it("rejects invalid boolean query parameters instead of treating them as false", async () => {
+		const status = await server.start({ port: 0, bindAddress: "127.0.0.1" })
+		const ndjson = JSON.stringify({
+			id: "evt-invalid-boolean",
+			type: "git.commit.created",
+		})
+
+		const response = await request(`${status.url}/ingest?strict=sometimes`, {
+			method: "POST",
+			body: ndjson,
+			headers: {
+				"content-type": "application/x-ndjson",
+				"x-debug-session-id": status.sessionId ?? "",
+			},
+		})
+
+		expect(response.statusCode).to.equal(400)
+		expect(JSON.parse(response.body)).to.deep.equal({
+			error: "strict must be one of true, false, 1, 0, yes, or no",
+		})
+		try {
+			await fs.stat(resolveCursorAutomationIngestStorePath(storageDir))
+			throw new Error("expected store file to be missing")
+		} catch (error) {
+			expect((error as NodeJS.ErrnoException).code).to.equal("ENOENT")
+		}
+	})
+
 	it("keeps strict-invalid ingest preview-only", async () => {
 		const status = await server.start({ port: 0, bindAddress: "127.0.0.1" })
 		const ndjson = [

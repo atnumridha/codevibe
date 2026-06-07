@@ -12,6 +12,7 @@ const DEFAULT_MAX_EVENTS = 100
 const MAX_MAX_LINE_BYTES = 64 * 1024
 const MAX_MAX_EVENTS = 1_000
 const MAX_REQUEST_BYTES = 1024 * 1024
+const CURSOR_BOOLEAN_STRING_VALUES = new Set(["true", "false", "1", "0", "yes", "no"])
 
 export interface CursorNdjsonIngestServerSettings {
 	port?: number
@@ -42,14 +43,18 @@ function normalizePort(port?: number): number {
 	return Number.isInteger(port) && port !== undefined && port >= 0 && port <= 65535 ? port : 0
 }
 
-function parseBoolean(value: unknown): boolean {
+function parseBoolean(value: unknown, key: string): boolean {
+	if (value === undefined) {
+		return false
+	}
 	if (typeof value === "boolean") {
 		return value
 	}
-	if (typeof value !== "string") {
-		return false
+	const normalized = typeof value === "string" ? value.trim().toLowerCase() : undefined
+	if (!normalized || !CURSOR_BOOLEAN_STRING_VALUES.has(normalized)) {
+		throw new Error(`${key} must be one of true, false, 1, 0, yes, or no`)
 	}
-	return ["true", "1", "yes"].includes(value.trim().toLowerCase())
+	return ["true", "1", "yes"].includes(normalized)
 }
 
 function readPositiveInteger(value: unknown, key: string, maximum: number): number | undefined {
@@ -147,7 +152,7 @@ function parseRequestPayload(request: IncomingMessage, rawBody: string): ParsedI
 
 	return {
 		ndjson,
-		strict: parseBoolean(read("strict")),
+		strict: parseBoolean(read("strict"), "strict"),
 		options,
 		paramKeys: Array.from(query.keys()).sort(),
 		configKeys: Object.keys(config).sort(),
