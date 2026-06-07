@@ -461,7 +461,18 @@ describe("OpenAI Codex OAuth local profile support", () => {
 				return new Response(
 					JSON.stringify({
 						models: [
-							{ display_name: "GPT-5.5", slug: "gpt-5.5", supported_in_api: true },
+							{
+								display_name: "GPT-5.5",
+								slug: "gpt-5.5",
+								supported_in_api: true,
+								context_window: 1_000_000,
+								max_output_tokens: 64_000,
+								supports_images: false,
+								supports_prompt_cache: false,
+								supports_reasoning: true,
+								api_format: "openai_responses",
+								description: "Backend-authoritative Codex model",
+							},
 							{ display_name: "Hidden", slug: "hidden", supported_in_api: false },
 						],
 					}),
@@ -480,6 +491,19 @@ describe("OpenAI Codex OAuth local profile support", () => {
 		})
 		expect((seenHeaders as Record<string, string>)?.session_id).to.be.a("string").and.not.equal("")
 		expect((seenHeaders as Record<string, string>)?.["User-Agent"]).to.match(/^Cline\//)
-		expect(models).to.deep.equal([{ id: "gpt-5.5", name: "GPT-5.5", supportedInApi: true }])
+		expect(models).to.deep.equal([
+			{
+				id: "gpt-5.5",
+				name: "GPT-5.5",
+				supportedInApi: true,
+				contextWindow: 1_000_000,
+				maxTokens: 64_000,
+				supportsImages: false,
+				supportsPromptCache: false,
+				supportsReasoning: true,
+				apiFormat: "openai_responses",
+				description: "Backend-authoritative Codex model",
+			},
+		])
 	})
 })

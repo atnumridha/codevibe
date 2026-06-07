@@ -68,6 +68,13 @@ export interface OpenAiCodexBackendModel {
 	id: string
 	name?: string
 	supportedInApi?: boolean
+	contextWindow?: number
+	maxTokens?: number
+	supportsImages?: boolean
+	supportsPromptCache?: boolean
+	supportsReasoning?: boolean
+	apiFormat?: string
+	description?: string
 }
 
 export interface OpenAiCodexBackendHeaderOptions {
@@ -143,6 +150,21 @@ const codexBackendModelsSchema = z
 					slug: z.string().min(1),
 					display_name: z.string().min(1).optional(),
 					supported_in_api: z.boolean().optional(),
+					context_window: z.number().positive().optional(),
+					contextWindow: z.number().positive().optional(),
+					max_tokens: z.number().positive().optional(),
+					maxTokens: z.number().positive().optional(),
+					max_output_tokens: z.number().positive().optional(),
+					maxOutputTokens: z.number().positive().optional(),
+					supports_images: z.boolean().optional(),
+					supportsImages: z.boolean().optional(),
+					supports_prompt_cache: z.boolean().optional(),
+					supportsPromptCache: z.boolean().optional(),
+					supports_reasoning: z.boolean().optional(),
+					supportsReasoning: z.boolean().optional(),
+					api_format: z.string().min(1).optional(),
+					apiFormat: z.string().min(1).optional(),
+					description: z.string().min(1).optional(),
 				})
 				.passthrough(),
 		),
@@ -902,6 +924,13 @@ export class OpenAiCodexOAuthManager {
 				id: model.slug,
 				name: model.display_name,
 				supportedInApi: model.supported_in_api,
+				contextWindow: model.context_window ?? model.contextWindow,
+				maxTokens: model.max_output_tokens ?? model.maxOutputTokens ?? model.max_tokens ?? model.maxTokens,
+				supportsImages: model.supports_images ?? model.supportsImages,
+				supportsPromptCache: model.supports_prompt_cache ?? model.supportsPromptCache,
+				supportsReasoning: model.supports_reasoning ?? model.supportsReasoning,
+				apiFormat: model.api_format ?? model.apiFormat,
+				description: model.description,
 			}))
 	}
 

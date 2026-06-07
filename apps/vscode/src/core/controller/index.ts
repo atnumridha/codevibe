@@ -20,6 +20,7 @@ import type { ChatContent } from "@shared/ChatContent"
 import type { ExtensionState, Platform } from "@shared/ExtensionMessage"
 import type { HistoryItem } from "@shared/HistoryItem"
 import type { McpMarketplaceCatalog, McpMarketplaceItem } from "@shared/mcp"
+import { ApiFormat } from "@shared/proto/cline/models"
 import { type Settings } from "@shared/storage/state-keys"
 import type { Mode } from "@shared/storage/types"
 import type { TelemetrySetting } from "@shared/TelemetrySetting"
@@ -990,10 +991,34 @@ export class Controller {
 		await sendStateUpdate(state)
 	}
 
+	private toOpenAiCodexApiFormat(value: string | undefined): ApiFormat | undefined {
+		if (!value) {
+			return undefined
+		}
+		const normalized = value.trim().toLowerCase().replace(/[-_\s]/g, "")
+		if (normalized === "openairesponses" || normalized === "responses") {
+			return ApiFormat.OPENAI_RESPONSES
+		}
+		if (normalized === "openairesponseswebsocket" || normalized === "responseswebsocket") {
+			return ApiFormat.OPENAI_RESPONSES_WEBSOCKET_MODE
+		}
+		return undefined
+	}
+
 	private toOpenAiCodexBackendModelInfo(model: OpenAiCodexBackendModel): ModelInfo {
+		const defaultInfo = openAiCodexModels[openAiCodexDefaultModelId]
 		return {
-			...openAiCodexModels[openAiCodexDefaultModelId],
+			...defaultInfo,
 			name: model.name?.trim() || model.id,
+			...(typeof model.maxTokens === "number" ? { maxTokens: model.maxTokens } : {}),
+			...(typeof model.contextWindow === "number" ? { contextWindow: model.contextWindow } : {}),
+			...(typeof model.supportsImages === "boolean" ? { supportsImages: model.supportsImages } : {}),
+			...(typeof model.supportsPromptCache === "boolean" ? { supportsPromptCache: model.supportsPromptCache } : {}),
+			...(typeof model.supportsReasoning === "boolean" ? { supportsReasoning: model.supportsReasoning } : {}),
+			...(model.description ? { description: model.description } : {}),
+			apiFormat: this.toOpenAiCodexApiFormat(model.apiFormat) ?? defaultInfo.apiFormat,
+			inputPrice: 0,
+			outputPrice: 0,
 		}
 	}
 

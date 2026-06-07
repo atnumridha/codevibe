@@ -29,6 +29,20 @@ describe("providerUtils OpenAI Codex models", () => {
 		expect(models["gpt-5.5"]).toBeDefined()
 	})
 
+	it("prefers authenticated backend Codex model metadata over bundled metadata", () => {
+		const models = getOpenAiCodexModelOptions({
+			"gpt-5.5": {
+				...model("GPT-5.5 Backend"),
+				contextWindow: 1_000_000,
+				supportsImages: false,
+			},
+		})
+
+		expect(models["gpt-5.5"]?.name).toBe("GPT-5.5 Backend")
+		expect(models["gpt-5.5"]?.contextWindow).toBe(1_000_000)
+		expect(models["gpt-5.5"]?.supportsImages).toBe(false)
+	})
+
 	it("returns backend Codex models from provider model lookup", () => {
 		const models = getModelsForProvider("openai-codex", undefined, {
 			openAiCodexModels: {

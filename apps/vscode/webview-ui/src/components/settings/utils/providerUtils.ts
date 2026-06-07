@@ -88,8 +88,8 @@ export function getOpenAiCodexModelOptions(
 	backendModels?: Record<string, ModelInfo>,
 ): Record<string, ModelInfo> {
 	return {
-		...(backendModels ?? {}),
 		...openAiCodexModels,
+		...(backendModels ?? {}),
 	}
 }
 
