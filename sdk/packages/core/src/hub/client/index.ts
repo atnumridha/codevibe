@@ -6,6 +6,7 @@ import {
 	type CursorNdjsonIngestStatusResponse,
 	type CursorUriPreviewRequest,
 	type CursorUriPreviewResponse,
+	type HubCurrentAccountResponse,
 	type HubClientRegistration,
 	type HubCommandEnvelope,
 	type HubEventEnvelope,
@@ -509,6 +510,26 @@ export class NodeHubClient {
 			{ timeoutMs: options?.timeoutMs },
 		);
 		return (reply.payload ?? { handled: false }) as CursorUriPreviewResponse;
+	}
+
+	async getCurrentAccount(options?: {
+		sessionId?: string;
+		timeoutMs?: number | null;
+	}): Promise<HubCurrentAccountResponse> {
+		const reply = await this.command(
+			"cline.account.get_current",
+			{},
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return (reply.payload ?? {
+			providerId: "openai-codex",
+			providerSource: "default",
+			codex: {
+				authSource: "codex-home",
+				authenticated: false,
+			},
+		}) as HubCurrentAccountResponse;
 	}
 
 	async ingestCursorNdjson(

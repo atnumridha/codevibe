@@ -460,6 +460,94 @@ describe("NodeHubClient", () => {
 		});
 	});
 
+	describe("account", () => {
+		const originalWebSocket = globalThis.WebSocket;
+
+		beforeEach(() => {
+			FakeWebSocket.instances = [];
+			(
+				globalThis as unknown as { WebSocket?: typeof FakeWebSocket }
+			).WebSocket = FakeWebSocket;
+		});
+
+		afterEach(() => {
+			if (originalWebSocket) {
+				globalThis.WebSocket = originalWebSocket;
+			} else {
+				delete (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
+			}
+		});
+
+		it("sends typed current account commands", async () => {
+			const client = new NodeHubClient({ url: "ws://127.0.0.1:25463/hub" });
+			const connectPromise = client.connect();
+			const socket = FakeWebSocket.instances[0];
+			if (!socket) {
+				throw new Error("expected fake websocket instance");
+			}
+			socket.open();
+			await connectPromise;
+
+			const accountPromise = client.getCurrentAccount({ timeoutMs: 5_000 });
+			const accountFrame = [...socket.sentFrames].reverse().find((frame) => {
+				const envelope = (frame as { envelope?: { command?: string } })
+					.envelope;
+				return envelope?.command === "cline.account.get_current";
+			}) as
+				| {
+						kind?: string;
+						envelope?: {
+							requestId?: string;
+							command?: string;
+							payload?: Record<string, unknown>;
+							timeoutMs?: number | null;
+						};
+				  }
+				| undefined;
+			expect(accountFrame).toMatchObject({
+				kind: "command",
+				envelope: {
+					command: "cline.account.get_current",
+					payload: {},
+					timeoutMs: 5_000,
+				},
+			});
+
+			(
+				socket as unknown as { emit: (type: string, payload: unknown) => void }
+			).emit("message", {
+				data: JSON.stringify({
+					kind: "reply",
+					envelope: {
+						version: "v1",
+						requestId: accountFrame?.envelope?.requestId,
+						ok: true,
+						payload: {
+							providerId: "openai-codex",
+							modelId: "gpt-5.5",
+							providerSource: "default",
+							codex: {
+								authSource: "codex-home",
+								authenticated: true,
+								accountId: "acct_123",
+							},
+						},
+					},
+				}),
+			});
+
+			await expect(accountPromise).resolves.toMatchObject({
+				providerId: "openai-codex",
+				modelId: "gpt-5.5",
+				codex: {
+					authenticated: true,
+					accountId: "acct_123",
+				},
+			});
+			await client.dispose();
+		});
+	});
+
 	describe("cursor NDJSON ingest", () => {
 		const originalWebSocket = globalThis.WebSocket;
 

@@ -375,6 +375,24 @@ export interface CursorUriPreviewResponse extends Record<string, unknown> {
 	requiresConfirmation?: boolean;
 }
 
+export interface HubCurrentAccountResponse extends Record<string, unknown> {
+	providerId: string;
+	modelId?: string;
+	providerSource: "provider-settings" | "default";
+	codex: {
+		authSource: "codex-home";
+		authenticated: boolean;
+		tokenSource?: string;
+		accountId?: string;
+		email?: string;
+		expiresAt?: string;
+		expired?: boolean;
+		installationId?: string;
+		clientVersion?: string;
+		authMode?: string;
+	};
+}
+
 export interface CursorNdjsonIngestRequest extends Record<string, unknown> {
 	ndjson?: string;
 	input?: string;
