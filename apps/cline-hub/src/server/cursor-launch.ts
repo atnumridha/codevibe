@@ -1,8 +1,14 @@
 import {
+	type BackgroundAgentTaskRecord,
 	buildCursorAgentTaskRouteRequest,
 	buildCursorRuleRouteRequest,
+	type CursorBackgroundAgentLaunchRequest,
 	DefaultToolNames,
+	launchCursorBackgroundAgent,
+	resolveBackgroundAgentRecordsPath,
+	resolveClineDataDir,
 	SessionSource,
+	upsertBackgroundAgentTaskRecordFile,
 } from "@cline/core";
 import type {
 	AgentConfig,
@@ -352,6 +358,80 @@ function buildCursorLaunchMetadata(
 	};
 }
 
+function backgroundAgentRecordsPath(): string {
+	return resolveBackgroundAgentRecordsPath(resolveClineDataDir());
+}
+
+function buildBackgroundAgentLaunchRequest(
+	uri: string,
+	taskPrompt: string,
+	backgroundAgentDetails: JsonRecord | undefined,
+): CursorBackgroundAgentLaunchRequest {
+	let prompt = taskPrompt;
+	let config: Record<string, unknown> | undefined;
+	try {
+		const request = buildCursorAgentTaskRouteRequest(uri);
+		prompt = request.prompt ?? request.taskPrompt;
+		config =
+			request.params.config &&
+			typeof request.params.config === "object" &&
+			!Array.isArray(request.params.config)
+				? request.params.config
+				: undefined;
+	} catch {
+		// Fall back to the already validated preview prompt.
+	}
+	return {
+		prompt,
+		routePrompt: taskPrompt,
+		repository: asTrimmedString(backgroundAgentDetails?.repository),
+		requestedBranch: asTrimmedString(backgroundAgentDetails?.requestedBranch),
+		requestedBaseBranch: asTrimmedString(
+			backgroundAgentDetails?.requestedBaseBranch,
+		),
+		...(config ? { config } : {}),
+	};
+}
+
+function backgroundAgentDetailsFromRecord(
+	record: BackgroundAgentTaskRecord,
+	baseDetails: JsonRecord | undefined,
+): JsonRecord {
+	return {
+		...(baseDetails ?? {}),
+		route: asTrimmedString(baseDetails?.route) ?? "background-agent",
+		path: asTrimmedString(baseDetails?.path) ?? "/background-agent",
+		id: record.id,
+		status: record.status,
+		...(record.launchMode ? { launchMode: record.launchMode } : {}),
+		agentMode: record.agentMode,
+		confirmationRequired: record.confirmationRequired,
+		autoApprovalProfile: record.autoApprovalProfile,
+		worktreePolicy: record.worktreePolicy,
+		...(record.repository ? { repository: record.repository } : {}),
+		...(record.requestedBranch
+			? { requestedBranch: record.requestedBranch }
+			: {}),
+		...(record.requestedBaseBranch
+			? { requestedBaseBranch: record.requestedBaseBranch }
+			: {}),
+		...(record.workspaceRoot ? { workspaceRoot: record.workspaceRoot } : {}),
+		...(record.worktreePath ? { worktreePath: record.worktreePath } : {}),
+		...(record.worktreeBranch
+			? { worktreeBranch: record.worktreeBranch }
+			: {}),
+		...(record.worktreeBaseRef
+			? { worktreeBaseRef: record.worktreeBaseRef }
+			: {}),
+		...(record.fallbackReason
+			? { fallbackReason: record.fallbackReason }
+			: {}),
+		...(record.warning ? { warning: record.warning } : {}),
+		...(record.taskId ? { taskId: record.taskId } : {}),
+		...(record.errorMessage ? { errorMessage: record.errorMessage } : {}),
+	};
+}
+
 export async function launchCursorUri(
 	ctx: HubContext,
 	args?: JsonRecord,
@@ -393,6 +473,133 @@ export async function launchCursorUri(
 	const backgroundAgent = metadata.backgroundAgent === true;
 	const glass = Boolean(metadata.glass);
 	const backgroundAgentDetails = getJsonRecord(metadata.backgroundAgentDetails);
+	if (backgroundAgent) {
+		let launchedContext = context;
+		let launchedMetadata = metadata;
+		const record = await launchCursorBackgroundAgent(
+			buildBackgroundAgentLaunchRequest(
+				input.uri,
+				taskPrompt,
+				backgroundAgentDetails,
+			),
+			{
+				getWorkspaceRoot: async () => launchWorkspaceRoot,
+				areWorktreesEnabled: () => false,
+				createWorktree: async () => ({
+					success: false,
+					message: "Hub background-agent worktrees are disabled",
+				}),
+				onRecordChange: (nextRecord) => {
+					upsertBackgroundAgentTaskRecordFile(
+						backgroundAgentRecordsPath(),
+						nextRecord,
+					);
+				},
+				startTask: async (safePrompt, _taskSettings, recordAtStart) => {
+					const taskWorkspaceRoot =
+						recordAtStart.workspaceRoot ?? launchWorkspaceRoot;
+					launchedContext = resolveLaunchContext(ctx, {
+						provider,
+						model,
+						workspaceRoot: taskWorkspaceRoot,
+						cwd: taskWorkspaceRoot,
+					});
+					launchedMetadata = {
+						...metadata,
+						backgroundAgent: true,
+						backgroundAgentDetails: backgroundAgentDetailsFromRecord(
+							recordAtStart,
+							backgroundAgentDetails,
+						),
+					};
+					const started = await ctx.cline!.start(
+						buildSessionStartInput(launchedContext, {
+							mode,
+							enableTools: true,
+							enableSpawn: false,
+							enableTeams: false,
+							autoApproveTools: false,
+							source: SessionSource.WEB,
+							sessionMetadata: launchedMetadata,
+							toolPolicies: getCursorQueuedAgentToolPolicies(),
+						}),
+					);
+					const sessionId = started.sessionId.trim();
+					if (!sessionId) {
+						throw new Error(
+							"cursor_uri_launch failed to start a background-agent Hub session",
+						);
+					}
+					const now = Date.now();
+					ctx.sessions.set(sessionId, {
+						sessionId,
+						status: "running",
+						title:
+							safePrompt.length > 34
+								? `${safePrompt.slice(0, 31)}...`
+								: safePrompt,
+						workspaceRoot: launchedContext.workspaceRoot,
+						cwd: launchedContext.cwd,
+						provider: launchedContext.providerId,
+						model: launchedContext.modelId,
+						source: SessionSource.WEB,
+						createdAt: now,
+						updatedAt: now,
+						prompt: safePrompt,
+						agentCount: 1,
+						participantCount: 1,
+						metadata: launchedMetadata,
+					});
+					await ctx.cline!.send({
+						sessionId,
+						prompt: safePrompt,
+						mode,
+						delivery: "queue",
+					});
+					return sessionId;
+				},
+			},
+		);
+		const finalDetails = backgroundAgentDetailsFromRecord(
+			record,
+			backgroundAgentDetails,
+		);
+		const finalMetadata = {
+			...launchedMetadata,
+			backgroundAgent: true,
+			backgroundAgentDetails: finalDetails,
+		};
+		const finalSessionId = record.taskId ?? record.id;
+		const liveSession = record.taskId ? ctx.sessions.get(record.taskId) : undefined;
+		if (liveSession) {
+			liveSession.metadata = finalMetadata;
+			liveSession.updatedAt = record.updatedAt;
+		}
+		ctx.pushEvent(
+			"Cursor URI launched",
+			`${route} queued in session ${finalSessionId}`,
+			"success",
+		);
+		broadcastHubState(ctx);
+
+		return {
+			handled: true,
+			launched: true,
+			route,
+			...(getCursorPreviewString(preview, "path")
+				? { path: getCursorPreviewString(preview, "path") }
+				: {}),
+			backgroundAgent: true,
+			sessionId: finalSessionId,
+			provider: launchedContext.providerId,
+			model: launchedContext.modelId,
+			mode,
+			queued: true,
+			backgroundAgentDetails: finalDetails,
+			metadata: finalMetadata,
+			preview,
+		};
+	}
 	const started = await ctx.cline.start(
 		buildSessionStartInput(context, {
 			mode,

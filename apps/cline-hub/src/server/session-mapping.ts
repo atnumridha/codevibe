@@ -306,8 +306,21 @@ export function backgroundAgentDetailsFor(
 	const details = nestedRecord(metadata, "backgroundAgentDetails") ?? {};
 	const configKeys = stringArray(details.configKeys);
 	return {
-		route: recordString(cursor, "route") ?? "background-agent",
-		path: recordString(cursor, "path") ?? "/background-agent",
+		route:
+			recordString(details, "route") ??
+			recordString(cursor, "route") ??
+			"background-agent",
+		path:
+			recordString(details, "path") ??
+			recordString(cursor, "path") ??
+			"/background-agent",
+		...(recordString(details, "id") ? { id: recordString(details, "id") } : {}),
+		...(recordString(details, "status")
+			? { status: recordString(details, "status") }
+			: {}),
+		...(recordString(details, "launchMode")
+			? { launchMode: recordString(details, "launchMode") }
+			: {}),
 		...(recordString(details, "repository")
 			? { repository: recordString(details, "repository") }
 			: {}),
@@ -317,11 +330,39 @@ export function backgroundAgentDetailsFor(
 		...(recordString(details, "requestedBaseBranch")
 			? { requestedBaseBranch: recordString(details, "requestedBaseBranch") }
 			: {}),
+		...(recordString(details, "workspaceRoot")
+			? { workspaceRoot: recordString(details, "workspaceRoot") }
+			: {}),
+		...(recordString(details, "worktreePath")
+			? { worktreePath: recordString(details, "worktreePath") }
+			: {}),
+		...(recordString(details, "worktreeBranch")
+			? { worktreeBranch: recordString(details, "worktreeBranch") }
+			: {}),
+		...(recordString(details, "worktreeBaseRef")
+			? { worktreeBaseRef: recordString(details, "worktreeBaseRef") }
+			: {}),
+		...(recordString(details, "fallbackReason")
+			? { fallbackReason: recordString(details, "fallbackReason") }
+			: {}),
+		...(recordString(details, "warning")
+			? { warning: recordString(details, "warning") }
+			: {}),
+		...(recordString(details, "taskId")
+			? { taskId: recordString(details, "taskId") }
+			: {}),
+		...(recordString(details, "errorMessage")
+			? { errorMessage: recordString(details, "errorMessage") }
+			: {}),
 		...(configKeys.length > 0 ? { configKeys } : {}),
-		agentMode: "plan",
-		confirmationRequired: true,
-		autoApprovalProfile: "read-only-plan-confirmation-required",
-		worktreePolicy: "confirm-before-create",
+		agentMode: recordString(details, "agentMode") ?? "plan",
+		confirmationRequired:
+			recordBoolean(details, "confirmationRequired") ?? true,
+		autoApprovalProfile:
+			recordString(details, "autoApprovalProfile") ??
+			"read-only-plan-confirmation-required",
+		worktreePolicy:
+			recordString(details, "worktreePolicy") ?? "confirm-before-create",
 	};
 }
 

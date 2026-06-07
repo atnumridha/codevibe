@@ -1,6 +1,7 @@
 import { isAbsolute, relative, resolve } from "node:path";
 import {
 	addLocalProvider,
+	type BackgroundAgentTaskRecord,
 	type ClineAccountActionRequest,
 	ClineAccountService,
 	ensureCustomProvidersLoaded,
@@ -13,6 +14,9 @@ import {
 	type ProviderClient,
 	type ProviderProtocol,
 	readGlobalSettings,
+	readBackgroundAgentTaskRecordsFile,
+	resolveBackgroundAgentRecordsPath,
+	resolveClineDataDir,
 	resolveLocalClineAuthToken,
 	saveLocalProviderOAuthCredentials,
 	saveLocalProviderSettings,
@@ -26,6 +30,7 @@ import {
 	type CursorUriPreviewRequest,
 	type HubMentionFileSearchRequest,
 } from "@cline/shared";
+import type { WebviewSessionSummary } from "../webview-protocol";
 import {
 	getHubBrowserAutomationStatus,
 	runHubBrowserActionCommand,
@@ -137,6 +142,87 @@ function readWorkspaceFileSearchRequest(
 			? { cursorRetrievalIndexingPrivacyGate }
 			: {}),
 	};
+}
+
+function backgroundAgentRecordsPath(): string {
+	return resolveBackgroundAgentRecordsPath(resolveClineDataDir());
+}
+
+function backgroundAgentRecordDetails(
+	record: BackgroundAgentTaskRecord,
+): Record<string, unknown> {
+	return {
+		route: "background-agent",
+		path: "/background-agent",
+		id: record.id,
+		status: record.status,
+		...(record.launchMode ? { launchMode: record.launchMode } : {}),
+		agentMode: record.agentMode,
+		confirmationRequired: record.confirmationRequired,
+		autoApprovalProfile: record.autoApprovalProfile,
+		worktreePolicy: record.worktreePolicy,
+		...(record.repository ? { repository: record.repository } : {}),
+		...(record.requestedBranch
+			? { requestedBranch: record.requestedBranch }
+			: {}),
+		...(record.requestedBaseBranch
+			? { requestedBaseBranch: record.requestedBaseBranch }
+			: {}),
+		...(record.workspaceRoot ? { workspaceRoot: record.workspaceRoot } : {}),
+		...(record.worktreePath ? { worktreePath: record.worktreePath } : {}),
+		...(record.worktreeBranch
+			? { worktreeBranch: record.worktreeBranch }
+			: {}),
+		...(record.worktreeBaseRef
+			? { worktreeBaseRef: record.worktreeBaseRef }
+			: {}),
+		...(record.fallbackReason
+			? { fallbackReason: record.fallbackReason }
+			: {}),
+		...(record.warning ? { warning: record.warning } : {}),
+		...(record.taskId ? { taskId: record.taskId } : {}),
+		...(record.errorMessage ? { errorMessage: record.errorMessage } : {}),
+	};
+}
+
+function backgroundAgentRecordSummary(
+	record: BackgroundAgentTaskRecord,
+): WebviewSessionSummary {
+	const sessionId = record.taskId ?? record.id;
+	const title =
+		record.prompt.length > 34
+			? `${record.prompt.slice(0, 31)}...`
+			: record.prompt;
+	return {
+		sessionId,
+		title,
+		status: record.status,
+		source: record.source,
+		workspaceRoot: record.worktreePath ?? record.workspaceRoot,
+		updatedAt: record.updatedAt,
+		backgroundAgent: true,
+		backgroundAgentDetails: backgroundAgentRecordDetails(record),
+	};
+}
+
+function listBackgroundAgentSessionSummaries(
+	ctx: HubContext,
+): WebviewSessionSummary[] {
+	const bySessionId = new Map<string, WebviewSessionSummary>();
+	for (const record of readBackgroundAgentTaskRecordsFile(
+		backgroundAgentRecordsPath(),
+	)) {
+		const summary = backgroundAgentRecordSummary(record);
+		bySessionId.set(summary.sessionId, summary);
+	}
+	for (const summary of [...ctx.sessions.values()]
+		.filter(isBackgroundAgentSession)
+		.map(toBackgroundAgentSessionSummary)) {
+		bySessionId.set(summary.sessionId, summary);
+	}
+	return [...bySessionId.values()].sort(
+		(a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0),
+	);
 }
 
 export async function handleDesktopCommand(
@@ -359,9 +445,7 @@ export async function handleDesktopCommand(
 		return [...ctx.sessions.values()].map(toWebviewSessionSummary);
 	}
 	if (command === "list_background_agent_sessions") {
-		return [...ctx.sessions.values()]
-			.filter(isBackgroundAgentSession)
-			.map(toBackgroundAgentSessionSummary);
+		return listBackgroundAgentSessionSummaries(ctx);
 	}
 	if (command === "read_session_hooks") {
 		return [];
