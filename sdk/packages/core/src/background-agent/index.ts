@@ -7,8 +7,8 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve } from "node:path";
-import { sharedSessionDataDir } from "./paths";
-import type { JsonRecord } from "./types";
+
+type JsonRecord = Record<string, unknown>;
 
 export const BACKGROUND_AGENT_LIFECYCLE_STATUSES = [
 	"queued",
@@ -109,11 +109,13 @@ const SYMBOLIC_REFS = new Set([
 	"ORIG_HEAD",
 ]);
 const STATUS_VALUES = new Set<string>(BACKGROUND_AGENT_LIFECYCLE_STATUSES);
+export const DEFAULT_BACKGROUND_AGENT_RECORDS_FILENAME =
+	"background-agent-records.json";
 
 type GitValidationResult = { ok: true; value: string } | { ok: false; error: string };
 
-function backgroundAgentRecordsPath(): string {
-	return join(sharedSessionDataDir(), "background-agent-records.json");
+export function resolveBackgroundAgentRecordsPath(dataDir: string): string {
+	return join(dataDir, DEFAULT_BACKGROUND_AGENT_RECORDS_FILENAME);
 }
 
 function fail(error: string): GitValidationResult {
@@ -267,36 +269,49 @@ export function normalizeBackgroundAgentTaskRecords(
 		.slice(-MAX_BACKGROUND_AGENT_TASK_RECORDS);
 }
 
-export function readBackgroundAgentTaskRecords(): BackgroundAgentTaskRecord[] {
-	const path = backgroundAgentRecordsPath();
-	if (!existsSync(path)) {
+export function readBackgroundAgentTaskRecordsFile(
+	filePath: string,
+): BackgroundAgentTaskRecord[] {
+	if (!existsSync(filePath)) {
 		return [];
 	}
 	try {
 		return normalizeBackgroundAgentTaskRecords(
-			JSON.parse(readFileSync(path, "utf8")),
+			JSON.parse(readFileSync(filePath, "utf8")),
 		);
 	} catch {
 		return [];
 	}
 }
 
-function writeBackgroundAgentTaskRecords(
+export function writeBackgroundAgentTaskRecordsFile(
+	filePath: string,
 	records: BackgroundAgentTaskRecord[],
 ): void {
-	const path = backgroundAgentRecordsPath();
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, `${JSON.stringify(records, null, 2)}\n`);
+	mkdirSync(dirname(filePath), { recursive: true });
+	writeFileSync(filePath, `${JSON.stringify(records, null, 2)}\n`);
 }
 
 export function upsertBackgroundAgentTaskRecord(
+	existing: Iterable<BackgroundAgentTaskRecord>,
 	record: BackgroundAgentTaskRecord,
 ): BackgroundAgentTaskRecord[] {
 	const records = normalizeBackgroundAgentTaskRecords([
-		...readBackgroundAgentTaskRecords(),
+		...existing,
 		record,
 	]);
-	writeBackgroundAgentTaskRecords(records);
+	return records;
+}
+
+export function upsertBackgroundAgentTaskRecordFile(
+	filePath: string,
+	record: BackgroundAgentTaskRecord,
+): BackgroundAgentTaskRecord[] {
+	const records = upsertBackgroundAgentTaskRecord(
+		readBackgroundAgentTaskRecordsFile(filePath),
+		record,
+	);
+	writeBackgroundAgentTaskRecordsFile(filePath, records);
 	return records;
 }
 
@@ -724,7 +739,7 @@ function copyWorktreeIncludeFiles(
 	return { copiedCount, errors };
 }
 
-export async function createSidecarWorktree(
+export async function createBackgroundAgentWorktree(
 	cwd: string,
 	worktreePath: string,
 	options: {

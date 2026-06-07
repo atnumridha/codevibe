@@ -19,10 +19,13 @@ import type {
 	CursorMcpInstallRequest,
 	CursorPluginAddRouteRequest,
 	CursorRuleRouteRequest,
+	BackgroundAgentTaskRecord,
+	CursorBackgroundAgentLaunchRequest,
 	ProviderCapability,
 	ProviderClient,
 	ProviderProtocol,
 	SaveProviderSettingsActionRequest,
+	WorktreeResult,
 } from "@cline/core";
 import {
 	addLocalProvider,
@@ -34,6 +37,7 @@ import {
 	buildCursorRuleRouteRequest,
 	ClineAccountService,
 	ClineCore,
+	createBackgroundAgentWorktree,
 	createLocalHubScheduleRuntimeHandlers,
 	createUserInstructionConfigService,
 	discoverPluginModulePaths,
@@ -44,6 +48,7 @@ import {
 	getLocalProviderModels,
 	HubScheduleCommandService,
 	HubScheduleService,
+	launchCursorBackgroundAgent,
 	loadOpenAICodexHomeCredentialsSync,
 	listMcpServerOAuthStatuses,
 	listHookConfigFiles,
@@ -55,6 +60,8 @@ import {
 	normalizeCursorMcpSettingsObject,
 	ProviderSettingsManager,
 	readGlobalSettings,
+	readBackgroundAgentTaskRecordsFile,
+	resolveBackgroundAgentRecordsPath,
 	resolveLocalClineAuthToken,
 	resolveGlobalCursorMcpSettingsPath,
 	resolvePluginConfigSearchPaths,
@@ -68,21 +75,13 @@ import {
 	setDisabledTools,
 	toggleDisabledTool,
 	DefaultToolNames,
+	upsertBackgroundAgentTaskRecordFile,
 } from "@cline/core";
 import type {
 	CursorUriPreviewRequest,
 	CursorUriPreviewResponse,
 } from "@cline/shared";
 import { getClineEnvironmentConfig } from "@cline/shared";
-import {
-	createSidecarWorktree,
-	launchCursorBackgroundAgent,
-	readBackgroundAgentTaskRecords,
-	type BackgroundAgentTaskRecord,
-	type CursorBackgroundAgentLaunchRequest,
-	upsertBackgroundAgentTaskRecord,
-	type WorktreeResult,
-} from "./background-agent";
 import {
 	getSidecarBrowserAutomationStatus,
 	runSidecarBrowserActionCommand,
@@ -1326,15 +1325,19 @@ function toBackgroundAgentLifecycleSessionRecord(
 	};
 }
 
+function sidecarBackgroundAgentRecordsPath(): string {
+	return resolveBackgroundAgentRecordsPath(sharedSessionDataDir());
+}
+
 async function listBackgroundAgentSessions(
 	ctx: SidecarContext,
 	limit: number,
 ): Promise<JsonRecord[]> {
 	const sessions = await listSessionsFromSidecarManager(ctx, limit);
 	const records = Array.isArray(sessions) ? sessions : [];
-	const lifecycleRecords = readBackgroundAgentTaskRecords().map((record) =>
-		toBackgroundAgentLifecycleSessionRecord(ctx, record),
-	);
+	const lifecycleRecords = readBackgroundAgentTaskRecordsFile(
+		sidecarBackgroundAgentRecordsPath(),
+	).map((record) => toBackgroundAgentLifecycleSessionRecord(ctx, record));
 	const legacyRecords = records
 		.filter((record): record is JsonRecord => Boolean(record) && typeof record === "object" && !Array.isArray(record))
 		.filter(isBackgroundAgentSessionRecord)
@@ -1891,9 +1894,12 @@ async function handleCursorUriLaunchCommand(
 						createNewBranch?: boolean;
 					},
 				): Promise<WorktreeResult> =>
-					createSidecarWorktree(targetCwd, worktreePath, options),
+					createBackgroundAgentWorktree(targetCwd, worktreePath, options),
 				onRecordChange: (nextRecord) => {
-					upsertBackgroundAgentTaskRecord(nextRecord);
+					upsertBackgroundAgentTaskRecordFile(
+						sidecarBackgroundAgentRecordsPath(),
+						nextRecord,
+					);
 					mergeLiveBackgroundAgentRecord(
 						ctx,
 						nextRecord,

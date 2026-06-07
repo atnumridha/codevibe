@@ -258,6 +258,27 @@ export {
 	WORKFLOWS_CONFIG_DIRECTORY_NAME,
 } from "./extensions/config";
 export {
+	BACKGROUND_AGENT_LIFECYCLE_STATUSES,
+	createBackgroundAgentTaskSettings,
+	createBackgroundAgentWorktree,
+	DEFAULT_BACKGROUND_AGENT_RECORDS_FILENAME,
+	type BackgroundAgentLaunchDependencies,
+	type BackgroundAgentLifecycleStatus,
+	type BackgroundAgentTaskRecord,
+	buildBackgroundAgentTaskPrompt,
+	type CursorBackgroundAgentLaunchRequest,
+	isBackgroundAgentTaskRecord,
+	launchCursorBackgroundAgent,
+	normalizeBackgroundAgentTaskRecords,
+	readBackgroundAgentTaskRecordsFile,
+	resolveBackgroundAgentRecordsPath,
+	upsertBackgroundAgentTaskRecord,
+	upsertBackgroundAgentTaskRecordFile,
+	type Worktree,
+	type WorktreeResult,
+	writeBackgroundAgentTaskRecordsFile,
+} from "./background-agent";
+export {
 	type AuthorizeMcpServerOAuthOptions,
 	type AuthorizeMcpServerOAuthResult,
 	authorizeMcpServerOAuth,
