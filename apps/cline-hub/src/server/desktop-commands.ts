@@ -41,6 +41,7 @@ import { providerSettingsManager, workspaceRoot } from "./deps";
 import {
 	deleteMcpServer,
 	ensureMcpSettingsFile,
+	importCursorMcpServers,
 	readMcpServersResponse,
 	setMcpServerDisabled,
 	upsertMcpServer,
@@ -279,6 +280,11 @@ export async function handleDesktopCommand(
 	}
 	if (command === "list_mcp_servers") {
 		return readMcpServersResponse();
+	}
+	if (command === "import_cursor_mcp_servers") {
+		const input =
+			args && typeof args === "object" ? (args as JsonRecord) : undefined;
+		return importCursorMcpServers(input);
 	}
 	if (command === "set_mcp_server_disabled") {
 		return setMcpServerDisabled(

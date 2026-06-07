@@ -1,6 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import {
+	normalizeCursorMcpSettingsObject,
+	resolveGlobalCursorMcpSettingsPath,
+} from "@cline/core";
 import { resolveMcpSettingsPath } from "@cline/shared/storage";
+import { workspaceRoot } from "./deps";
 import type { JsonRecord } from "./types";
 
 export function readMcpServersResponse(): JsonRecord {
@@ -82,6 +87,146 @@ function readServersMap(): { path: string; servers: JsonRecord } {
 	const path = ensureMcpSettingsFile();
 	const parsed = JSON.parse(readFileSync(path, "utf8")) as JsonRecord;
 	return { path, servers: (parsed.mcpServers as JsonRecord | undefined) ?? {} };
+}
+
+type CursorMcpImportSource = "workspace" | "global";
+
+function getRecordValue(value: unknown): JsonRecord | undefined {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as JsonRecord)
+		: undefined;
+}
+
+function resolveCursorMcpSettingsPath(root: string): string {
+	return join(resolve(root), ".cursor", "mcp.json");
+}
+
+function readCursorMcpImportSource(args?: JsonRecord): {
+	source: CursorMcpImportSource;
+	userHome?: string;
+} {
+	const rawSource = typeof args?.source === "string" ? args.source.trim() : "";
+	const source: CursorMcpImportSource =
+		rawSource === "global" || args?.global === true ? "global" : "workspace";
+	const userHome = process.env.CODEVIBE_CURSOR_HOME?.trim() || undefined;
+	return { source, ...(userHome ? { userHome } : {}) };
+}
+
+function readCursorMcpServers(input: {
+	source: CursorMcpImportSource;
+	workspaceRoot: string;
+	userHome?: string;
+}): {
+	sourcePath: string;
+	servers: JsonRecord;
+} {
+	const sourcePath =
+		input.source === "global"
+			? resolveGlobalCursorMcpSettingsPath(input.userHome)
+			: resolveCursorMcpSettingsPath(input.workspaceRoot);
+	if (!existsSync(sourcePath)) {
+		throw new Error(
+			input.source === "global"
+				? "No global ~/.cursor/mcp.json found"
+				: "No .cursor/mcp.json found in the active workspace",
+		);
+	}
+	const parsed = JSON.parse(readFileSync(sourcePath, "utf8")) as JsonRecord;
+	const normalized = normalizeCursorMcpSettingsObject(parsed, {
+		...(input.source === "global" && input.userHome
+			? { userHome: input.userHome }
+			: {}),
+		...(input.source === "workspace"
+			? { workspaceRoot: input.workspaceRoot }
+			: {}),
+	}) as JsonRecord;
+	const servers = getRecordValue(normalized.mcpServers);
+	if (!servers || Object.keys(servers).length === 0) {
+		throw new Error(".cursor/mcp.json does not contain any MCP servers");
+	}
+	return { sourcePath, servers };
+}
+
+function buildCursorMcpImportResponse(input: {
+	confirmed: boolean;
+	imported: boolean;
+	source: CursorMcpImportSource;
+	sourcePath: string;
+	serverNames: string[];
+	replacedNames?: string[];
+}): JsonRecord {
+	return {
+		handled: true,
+		route: "cursor-mcp-import",
+		confirmed: input.confirmed,
+		imported: input.imported,
+		source: input.source,
+		sourcePath: input.sourcePath,
+		serverNames: input.serverNames,
+		importedCount: input.imported ? input.serverNames.length : 0,
+		replacedNames: input.replacedNames ?? [],
+		...readMcpServersResponse(),
+	};
+}
+
+export function importCursorMcpServers(args?: JsonRecord): JsonRecord {
+	const importSource = readCursorMcpImportSource(args);
+	const { sourcePath, servers: cursorServers } = readCursorMcpServers({
+		source: importSource.source,
+		workspaceRoot,
+		userHome: importSource.userHome,
+	});
+	const serverNames = Object.keys(cursorServers).sort();
+	if (args?.confirmed !== true) {
+		return buildCursorMcpImportResponse({
+			confirmed: false,
+			imported: false,
+			source: importSource.source,
+			sourcePath,
+			serverNames,
+		});
+	}
+
+	const { servers: existingServers } = readServersMap();
+	const importedAt = new Date().toISOString();
+	const nextServers: JsonRecord = { ...existingServers };
+	const replacedNames: string[] = [];
+	for (const name of serverNames) {
+		const serverConfig = getRecordValue(cursorServers[name]);
+		if (!serverConfig) {
+			continue;
+		}
+		if (Object.hasOwn(existingServers, name)) {
+			replacedNames.push(name);
+		}
+		const metadata = getRecordValue(serverConfig.metadata) ?? {};
+		nextServers[name] = {
+			...serverConfig,
+			metadata: {
+				...metadata,
+				cursor: {
+					source:
+						importSource.source === "global"
+							? "global-cursor-mcp"
+							: "workspace-mcp",
+					path:
+						importSource.source === "global"
+							? "~/.cursor/mcp.json"
+							: ".cursor/mcp.json",
+					importedAt,
+				},
+			},
+		};
+	}
+	writeMcpServersMap(nextServers);
+	return buildCursorMcpImportResponse({
+		confirmed: true,
+		imported: true,
+		source: importSource.source,
+		sourcePath,
+		serverNames,
+		replacedNames,
+	});
 }
 
 export function setMcpServerDisabled(
