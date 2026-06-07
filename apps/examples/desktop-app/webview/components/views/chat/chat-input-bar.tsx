@@ -49,6 +49,11 @@ type ActiveMention = {
 	query: string;
 };
 
+type MentionResultsCacheEntry = {
+	files: string[];
+	fetchedAt: number;
+};
+
 type ActiveSlash = {
 	slashIndex: number;
 	query: string;
@@ -66,6 +71,8 @@ const BUILTIN_SLASH_COMMANDS: SlashCommand[] = [
 	},
 	{ name: "team", description: "Start the task with an agent team" },
 ];
+
+const MENTION_RESULTS_CACHE_TTL_MS = 15_000;
 
 const FALLBACK_PROVIDER_MODELS: Record<string, string[]> = {
 	[DEFAULT_CODEVIBE_PROVIDER_ID]: [DEFAULT_CODEVIBE_MODEL_ID],
@@ -237,7 +244,9 @@ export function ChatInputBar({
 	const [mentionFiles, setMentionFiles] = useState<string[]>([]);
 	const [mentionLoading, setMentionLoading] = useState(false);
 	const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
-	const mentionResultsCacheRef = useRef(new Map<string, string[]>());
+	const mentionResultsCacheRef = useRef(
+		new Map<string, MentionResultsCacheEntry>(),
+	);
 	const mentionLastRequestKeyRef = useRef<string | null>(null);
 
 	// ---- Slash command state ----
@@ -358,6 +367,7 @@ export function ChatInputBar({
 
 	useEffect(() => {
 		if (!mentionOpen || !activeMention) {
+			mentionLastRequestKeyRef.current = null;
 			setMentionFiles([]);
 			setMentionLoading(false);
 			setMentionSelectedIndex(0);
@@ -365,17 +375,25 @@ export function ChatInputBar({
 		}
 
 		const requestKey = `${workspaceRoot}::${activeMention.query}`;
-		if (mentionLastRequestKeyRef.current === requestKey) {
-			return;
-		}
-		mentionLastRequestKeyRef.current = requestKey;
 		const cached = mentionResultsCacheRef.current.get(requestKey);
-		if (cached) {
-			setMentionFiles(cached);
+		const now = Date.now();
+		if (cached && now - cached.fetchedAt < MENTION_RESULTS_CACHE_TTL_MS) {
+			mentionLastRequestKeyRef.current = requestKey;
+			setMentionFiles(cached.files);
 			setMentionSelectedIndex(0);
 			setMentionLoading(false);
 			return;
 		}
+		if (cached) {
+			mentionResultsCacheRef.current.delete(requestKey);
+			if (mentionLastRequestKeyRef.current === requestKey) {
+				mentionLastRequestKeyRef.current = null;
+			}
+		}
+		if (mentionLastRequestKeyRef.current === requestKey) {
+			return;
+		}
+		mentionLastRequestKeyRef.current = requestKey;
 
 		let cancelled = false;
 		const timeoutId = window.setTimeout(async () => {
@@ -395,7 +413,10 @@ export function ChatInputBar({
 					return;
 				}
 				const nextResults = Array.isArray(results) ? results : [];
-				mentionResultsCacheRef.current.set(requestKey, nextResults);
+				mentionResultsCacheRef.current.set(requestKey, {
+					files: nextResults,
+					fetchedAt: Date.now(),
+				});
 				setMentionFiles(nextResults);
 				setMentionSelectedIndex(0);
 			} catch {
