@@ -41,6 +41,7 @@ export type TrackedSession = {
 	totalCost?: number;
 	agentCount: number;
 	participantCount: number;
+	metadata?: Record<string, unknown>;
 };
 
 export type SessionContext = {

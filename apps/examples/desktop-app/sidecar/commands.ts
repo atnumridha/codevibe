@@ -906,6 +906,7 @@ async function listSessionsFromSidecarManager(
 
 	for (const [sessionId, session] of ctx.liveSessions.entries()) {
 		const existing = byId.get(sessionId);
+		const liveMetadata = getJsonRecord(session.config.sessionMetadata);
 		byId.set(sessionId, {
 			...(existing ?? {}),
 			sessionId,
@@ -929,6 +930,7 @@ async function listSessionsFromSidecarManager(
 				...((existing?.metadata && typeof existing.metadata === "object"
 					? existing.metadata
 					: {}) as JsonRecord),
+				...(liveMetadata ?? {}),
 				...(session.title ? { title: session.title } : {}),
 			},
 		});
@@ -948,6 +950,103 @@ async function listSessionsFromSidecarManager(
 			);
 		})
 		.slice(0, max);
+}
+
+function getRecordString(record: JsonRecord | undefined, key: string): string | undefined {
+	const value = record?.[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function getRecordNumber(record: JsonRecord | undefined, key: string): number | undefined {
+	const value = record?.[key];
+	return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function getRecordBoolean(record: JsonRecord | undefined, key: string): boolean | undefined {
+	const value = record?.[key];
+	return typeof value === "boolean" ? value : undefined;
+}
+
+function isBackgroundAgentSessionRecord(record: JsonRecord): boolean {
+	const metadata = getJsonRecord(record.metadata);
+	const cursor = getJsonRecord(metadata?.cursor) ?? getJsonRecord(record.cursor);
+	return (
+		getRecordBoolean(record, "backgroundAgent") === true ||
+		getRecordBoolean(metadata, "backgroundAgent") === true ||
+		getRecordBoolean(cursor, "background") === true ||
+		getRecordString(cursor, "route") === "background-agent" ||
+		getRecordString(cursor, "path") === "/background-agent"
+	);
+}
+
+function toBackgroundAgentSessionRecord(record: JsonRecord): JsonRecord {
+	const metadata = getJsonRecord(record.metadata) ?? {};
+	const cursor = getJsonRecord(metadata.cursor) ?? getJsonRecord(record.cursor) ?? {};
+	const details =
+		getJsonRecord(metadata.backgroundAgentDetails) ??
+		getJsonRecord(record.backgroundAgentDetails) ??
+		{};
+	const sessionId = getRecordString(record, "sessionId") ?? "";
+	return {
+		sessionId,
+		title:
+			getRecordString(metadata, "title") ??
+			getRecordString(record, "title") ??
+			getRecordString(record, "prompt") ??
+			sessionId,
+		status: getRecordString(record, "status") ?? "unknown",
+		provider:
+			getRecordString(record, "provider") ??
+			getRecordString(metadata, "provider") ??
+			getRecordString(metadata, "providerId"),
+		model:
+			getRecordString(record, "model") ??
+			getRecordString(metadata, "model") ??
+			getRecordString(metadata, "modelId"),
+		workspaceRoot:
+			getRecordString(record, "workspaceRoot") ??
+			getRecordString(record, "cwd") ??
+			getRecordString(metadata, "workspaceRoot"),
+		cwd: getRecordString(record, "cwd") ?? getRecordString(metadata, "cwd"),
+		startedAt: getRecordString(record, "startedAt") ?? getRecordString(metadata, "startedAt"),
+		updatedAt: getRecordString(record, "updatedAt") ?? getRecordString(metadata, "updatedAt"),
+		inputTokens: getRecordNumber(record, "inputTokens"),
+		outputTokens: getRecordNumber(record, "outputTokens"),
+		totalCost: getRecordNumber(record, "totalCost"),
+		backgroundAgent: true,
+		backgroundAgentDetails: {
+			route: getRecordString(cursor, "route") ?? "background-agent",
+			path: getRecordString(cursor, "path") ?? "/background-agent",
+			...(getRecordString(details, "repository")
+				? { repository: getRecordString(details, "repository") }
+				: {}),
+			...(getRecordString(details, "requestedBranch")
+				? { requestedBranch: getRecordString(details, "requestedBranch") }
+				: {}),
+			...(getRecordString(details, "requestedBaseBranch")
+				? { requestedBaseBranch: getRecordString(details, "requestedBaseBranch") }
+				: {}),
+			...(getJsonStringArray(details.configKeys).length > 0
+				? { configKeys: getJsonStringArray(details.configKeys) }
+				: {}),
+			agentMode: "plan",
+			confirmationRequired: true,
+			autoApprovalProfile: "read-only-plan-confirmation-required",
+			worktreePolicy: "confirm-before-create",
+		},
+	};
+}
+
+async function listBackgroundAgentSessions(
+	ctx: SidecarContext,
+	limit: number,
+): Promise<JsonRecord[]> {
+	const sessions = await listSessionsFromSidecarManager(ctx, limit);
+	const records = Array.isArray(sessions) ? sessions : [];
+	return records
+		.filter((record): record is JsonRecord => Boolean(record) && typeof record === "object" && !Array.isArray(record))
+		.filter(isBackgroundAgentSessionRecord)
+		.map(toBackgroundAgentSessionRecord);
 }
 
 // ---------------------------------------------------------------------------
@@ -2225,6 +2324,12 @@ export async function handleCommand(
 	}
 	if (command === "list_discovered_sessions") {
 		return await listSessionsFromSidecarManager(
+			ctx,
+			typeof args?.limit === "number" ? args.limit : 300,
+		);
+	}
+	if (command === "list_background_agent_sessions") {
+		return await listBackgroundAgentSessions(
 			ctx,
 			typeof args?.limit === "number" ? args.limit : 300,
 		);

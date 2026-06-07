@@ -116,6 +116,8 @@ export type WebviewSessionSummary = {
 	inputTokens?: number;
 	outputTokens?: number;
 	totalCost?: number;
+	backgroundAgent?: boolean;
+	backgroundAgentDetails?: Record<string, unknown>;
 };
 
 export type WebviewConnectedClient = {

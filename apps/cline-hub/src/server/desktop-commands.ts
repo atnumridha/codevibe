@@ -35,7 +35,11 @@ import {
 	upsertMcpServer,
 } from "./mcp";
 import { handleRoutineScheduleCommand } from "./schedules";
-import { toWebviewSessionSummary } from "./session-mapping";
+import {
+	isBackgroundAgentSession,
+	toBackgroundAgentSessionSummary,
+	toWebviewSessionSummary,
+} from "./session-mapping";
 import type { HubContext } from "./state";
 import { broadcastHubState } from "./state-payloads";
 import type { JsonRecord } from "./types";
@@ -206,6 +210,11 @@ export async function handleDesktopCommand(
 		command === "list_discovered_sessions"
 	) {
 		return [...ctx.sessions.values()].map(toWebviewSessionSummary);
+	}
+	if (command === "list_background_agent_sessions") {
+		return [...ctx.sessions.values()]
+			.filter(isBackgroundAgentSession)
+			.map(toBackgroundAgentSessionSummary);
 	}
 	if (command === "read_session_hooks") {
 		return [];

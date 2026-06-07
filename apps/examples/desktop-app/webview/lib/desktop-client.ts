@@ -117,6 +117,20 @@ export type CursorUriLaunchResponse = Record<string, unknown> & {
 	preview?: CursorUriPreviewResponse;
 };
 
+export type BackgroundAgentSessionSummary = Record<string, unknown> & {
+	sessionId: string;
+	title?: string;
+	status?: string;
+	provider?: string;
+	model?: string;
+	workspaceRoot?: string;
+	cwd?: string;
+	startedAt?: string;
+	updatedAt?: string;
+	backgroundAgent: true;
+	backgroundAgentDetails?: Record<string, unknown>;
+};
+
 export type CursorAutomationIngestInput = CursorUriPreviewInput & {
 	confirmed: true;
 };
@@ -455,6 +469,15 @@ class DesktopClient {
 			...(input.mode ? { mode: input.mode } : {}),
 			...(input.cwd ? { cwd: input.cwd } : {}),
 		});
+	}
+
+	async listBackgroundAgentSessions(
+		limit = 300,
+	): Promise<BackgroundAgentSessionSummary[]> {
+		return await this.invoke<BackgroundAgentSessionSummary[]>(
+			"list_background_agent_sessions",
+			{ limit },
+		);
 	}
 
 	async ingestCursorAutomation(

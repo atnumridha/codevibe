@@ -1,6 +1,9 @@
 "use client";
 
-import type { WebviewOutboundMessage } from "../../../webview-protocol";
+import type {
+	WebviewOutboundMessage,
+	WebviewSessionSummary,
+} from "../../../webview-protocol";
 import { postToHost } from "../vscode";
 
 type PendingRequest = {
@@ -60,6 +63,13 @@ class HubDesktopClient {
 			});
 			postToHost({ type: "desktopCommand", id, command, args });
 		});
+	}
+
+	async listBackgroundAgentSessions(limit = 300): Promise<WebviewSessionSummary[]> {
+		return await this.invoke<WebviewSessionSummary[]>(
+			"list_background_agent_sessions",
+			{ limit },
+		);
 	}
 }
 

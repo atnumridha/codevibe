@@ -1508,6 +1508,89 @@ describe("Code sidecar runtime capabilities", () => {
 		);
 	});
 
+	it("lists background-agent sessions without leaking raw Cursor config values", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-bg-list-"));
+		tempDirs.push(workspace);
+		const ctx = createSidecarContext(workspace);
+		ctx.liveSessions.set("session-bg", {
+			config: {
+				provider: "openai-codex",
+				model: "gpt-5.5",
+				workspaceRoot: workspace,
+				cwd: workspace,
+				sessionMetadata: {
+					backgroundAgent: true,
+					cursor: {
+						source: "cursor-uri",
+						route: "background-agent",
+						path: "/background-agent",
+						background: true,
+						configKeys: ["remoteName", "token"],
+					},
+					backgroundAgentDetails: {
+						repository: "owner/repo",
+						requestedBranch: "feature/safe",
+						requestedBaseBranch: "main",
+						configKeys: ["remoteName", "token"],
+					},
+				},
+			},
+			messages: [],
+			promptsInQueue: [],
+			busy: false,
+			startedAt: Date.parse("2026-06-07T12:00:00.000Z"),
+			status: "running",
+			prompt: "Investigate in the background",
+			title: "Background investigation",
+		});
+		ctx.liveSessions.set("session-normal", {
+			config: {
+				provider: "openai-codex",
+				model: "gpt-5.5",
+				workspaceRoot: workspace,
+				cwd: workspace,
+			},
+			messages: [],
+			promptsInQueue: [],
+			busy: false,
+			startedAt: Date.parse("2026-06-07T12:01:00.000Z"),
+			status: "running",
+		});
+
+		const result = await handleCommand(ctx, "list_background_agent_sessions", {
+			limit: 10,
+		});
+
+		expect(result).toMatchObject([
+			{
+				sessionId: "session-bg",
+				title: "Background investigation",
+				status: "running",
+				provider: "openai-codex",
+				model: "gpt-5.5",
+				workspaceRoot: workspace,
+				backgroundAgent: true,
+				backgroundAgentDetails: {
+					route: "background-agent",
+					path: "/background-agent",
+					repository: "owner/repo",
+					requestedBranch: "feature/safe",
+					requestedBaseBranch: "main",
+					configKeys: ["remoteName", "token"],
+					agentMode: "plan",
+					confirmationRequired: true,
+					autoApprovalProfile: "read-only-plan-confirmation-required",
+					worktreePolicy: "confirm-before-create",
+				},
+			},
+		]);
+		expect(JSON.stringify(result)).not.toContain("secret-value");
+		expect(JSON.stringify(result)).not.toContain("session-normal");
+	});
+
 	it("does not launch preview-only Cursor routes", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

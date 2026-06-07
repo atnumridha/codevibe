@@ -54,7 +54,7 @@ export async function syncHubClientsAndSessions(
 	if (!ctx.uiClient) return;
 	const [knownClients, knownSessions] = await Promise.all([
 		ctx.uiClient.listClients(),
-		ctx.uiClient.listSessions(10),
+		ctx.uiClient.listSessions(200),
 	]);
 	ctx.clients.clear();
 	for (const client of knownClients) {
