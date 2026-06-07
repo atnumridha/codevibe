@@ -116,6 +116,10 @@ const MAX_CRON_EVENT_LIST_LIMIT = 500;
 const MAX_CRON_EVENT_STRING_VALUE_LENGTH = 4_096;
 const MAX_CRON_EVENT_ARRAY_VALUES = 100;
 const MAX_CRON_EVENT_OBJECT_KEYS = 100;
+const DEFAULT_CRON_EVENT_INGEST_MAX_LINE_BYTES = 16 * 1024;
+const DEFAULT_CRON_EVENT_INGEST_MAX_EVENTS = 100;
+const MAX_CRON_EVENT_INGEST_MAX_LINE_BYTES = 64 * 1024;
+const MAX_CRON_EVENT_INGEST_MAX_EVENTS = 1_000;
 const CRON_EVENT_SECRET_KEY_PATTERN =
 	/(token|secret|password|authorization|api[-_]?key|credential|cookie|session)/i;
 
@@ -225,6 +229,21 @@ function requireOptionalHubPositiveInteger(
 	) {
 		throw new Error(
 			`${commandName} payload '${key}' must be a positive integer.`,
+		);
+	}
+	return value;
+}
+
+function requireOptionalHubPositiveIntegerAtMost(
+	payload: Record<string, unknown>,
+	key: "maxLineBytes" | "maxEvents",
+	commandName: string,
+	maximum: number,
+): number | undefined {
+	const value = requireOptionalHubPositiveInteger(payload, key, commandName);
+	if (value !== undefined && value > maximum) {
+		throw new Error(
+			`${commandName} payload '${key}' must be less than or equal to ${maximum}.`,
 		);
 	}
 	return value;
@@ -357,22 +376,24 @@ function parseCronEventIngestInput(payload: unknown): {
 		"allowedSources",
 		"cron.event.ingest",
 	);
-	const maxLineBytes = requireOptionalHubPositiveInteger(
+	const maxLineBytes = requireOptionalHubPositiveIntegerAtMost(
 		payload,
 		"maxLineBytes",
 		"cron.event.ingest",
+		MAX_CRON_EVENT_INGEST_MAX_LINE_BYTES,
 	);
-	const maxEvents = requireOptionalHubPositiveInteger(
+	const maxEvents = requireOptionalHubPositiveIntegerAtMost(
 		payload,
 		"maxEvents",
 		"cron.event.ingest",
+		MAX_CRON_EVENT_INGEST_MAX_EVENTS,
 	);
 	return {
 		input: inputValue ?? JSON.stringify(payload),
 		...(defaultSource?.trim() ? { defaultSource: defaultSource.trim() } : {}),
 		...(allowedSources ? { allowedSources } : {}),
-		...(maxLineBytes !== undefined ? { maxLineBytes } : {}),
-		...(maxEvents !== undefined ? { maxEvents } : {}),
+		maxLineBytes: maxLineBytes ?? DEFAULT_CRON_EVENT_INGEST_MAX_LINE_BYTES,
+		maxEvents: maxEvents ?? DEFAULT_CRON_EVENT_INGEST_MAX_EVENTS,
 	};
 }
 

@@ -339,6 +339,99 @@ Summarize the Cursor git event.
 		}
 	});
 
+	it("bounds cron.event.ingest payloads by default and rejects oversized requested limits", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-hub-cron-event-limits-"));
+		const transport = new HubServerTransport({
+			runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
+			scheduleOptions: { dbPath: join(root, "schedule.db") },
+			cronOptions: {
+				workspaceRoot: root,
+				specs: { cronSpecsDir: join(root, "cron") },
+				dbPath: join(root, "cron.db"),
+			},
+		});
+
+		try {
+			const defaultLimitReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-default-limit",
+				clientId: "client-one",
+				payload: {
+					defaultSource: "cursor",
+					ndjson: Array.from({ length: 101 }, (_, index) =>
+						JSON.stringify({
+							id: `evt_cursor_git_default_limit_${index}`,
+							type: "git.commit.created",
+							attrs: { branch: "main" },
+						}),
+					).join("\n"),
+				},
+			});
+
+			expect(defaultLimitReply).toMatchObject({
+				ok: true,
+				payload: {
+					eventCount: 100,
+					rejectedCount: 1,
+					rejected: [
+						{
+							lineNumber: 101,
+							reason: "too_many_events",
+						},
+					],
+				},
+			});
+
+			const oversizedMaxEventsReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-oversized-max-events",
+				clientId: "client-one",
+				payload: {
+					defaultSource: "cursor",
+					maxEvents: 1_001,
+					ndjson: "",
+				},
+			});
+
+			expect(oversizedMaxEventsReply).toMatchObject({
+				ok: false,
+				error: {
+					code: "cron_event_ingest_failed",
+				},
+			});
+			expect(oversizedMaxEventsReply.error?.message).toContain(
+				"maxEvents' must be less than or equal to 1000",
+			);
+
+			const oversizedMaxLineBytesReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-oversized-max-line-bytes",
+				clientId: "client-one",
+				payload: {
+					defaultSource: "cursor",
+					maxLineBytes: 64 * 1024 + 1,
+					ndjson: "",
+				},
+			});
+
+			expect(oversizedMaxLineBytesReply).toMatchObject({
+				ok: false,
+				error: {
+					code: "cron_event_ingest_failed",
+				},
+			});
+			expect(oversizedMaxLineBytesReply.error?.message).toContain(
+				"maxLineBytes' must be less than or equal to 65536",
+			);
+		} finally {
+			await transport.stop();
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	it("rejects cron.event.ingest when cron is not enabled", async () => {
 		const transport = new HubServerTransport({
 			runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
