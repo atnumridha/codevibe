@@ -22,6 +22,7 @@ import {
 	isOpenAICodexCliProvider,
 } from "../../../utils/codex-cli";
 import { isOAuthProvider } from "../../../utils/provider-auth";
+import { hasOpenAICodexHomeCredentials } from "../../../utils/provider-readiness";
 import { palette } from "../../palette";
 import {
 	getDefaultAwsRegion,
@@ -65,6 +66,7 @@ export function ProviderPickerContent(
 		const manager = new ProviderSettingsManager();
 		listLocalProviders(manager)
 			.then(({ providers: list }) => {
+				const codexHomeAuthAvailable = hasOpenAICodexHomeCredentials();
 				const providerItems = list.map((p) => ({
 					id: p.id,
 					name: p.name,
@@ -72,7 +74,9 @@ export function ProviderPickerContent(
 					// `enabled` is true whenever the provider has any persisted
 					// settings, so keyless local configs (e.g. Ollama saved with
 					// just a model id and base URL) still render as configured.
-					isConfigured: p.enabled === true,
+					isConfigured:
+						p.enabled === true ||
+						(p.id === "openai-codex" && codexHomeAuthAvailable),
 					isOAuth: isOAuthProvider(p.id),
 					isLocalAuth: isOpenAICodexCliProvider(p.id),
 					capabilities: p.capabilities,

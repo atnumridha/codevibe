@@ -17,6 +17,7 @@ import {
 	isOpenAICodexCliProvider,
 } from "../../../utils/codex-cli";
 import { getPersistedProviderApiKey } from "../../../utils/provider-auth";
+import { hasOpenAICodexHomeCredentials } from "../../../utils/provider-readiness";
 import { getCliTelemetryService } from "../../../utils/telemetry";
 import {
 	buildClineModelEntries,
@@ -105,7 +106,12 @@ export function useOnboardingController(props: OnboardingControllerProps) {
 	useEffect(() => {
 		listLocalProviders(providerSettingsManager)
 			.then(({ providers: list }) => {
-				setProviders(list.map(toProviderEntry));
+				const codexHomeAuthAvailable = hasOpenAICodexHomeCredentials();
+				setProviders(
+					list.map((provider) =>
+						toProviderEntry(provider, { codexHomeAuthAvailable }),
+					),
+				);
 			})
 			.catch(() => {})
 			.finally(() => setProvidersLoading(false));

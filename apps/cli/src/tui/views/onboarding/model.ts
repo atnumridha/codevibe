@@ -103,14 +103,20 @@ export interface KnownModelInfo {
 	capabilities?: string[];
 }
 
-export function toProviderEntry(provider: ProviderCatalogItem): ProviderEntry {
+export function toProviderEntry(
+	provider: ProviderCatalogItem,
+	options: { codexHomeAuthAvailable?: boolean } = {},
+): ProviderEntry {
 	return {
 		id: provider.id,
 		name: provider.name,
 		isOAuth: isOAuthProvider(provider.id),
 		isLocalAuth: isOpenAICodexCliProvider(provider.id),
 		hasAuth:
-			Boolean(provider.apiKey) || provider.oauthAccessTokenPresent === true,
+			Boolean(provider.apiKey) ||
+			provider.oauthAccessTokenPresent === true ||
+			(provider.id === "openai-codex" &&
+				options.codexHomeAuthAvailable === true),
 		...(provider.capabilities ? { capabilities: provider.capabilities } : {}),
 		models: provider.models,
 		defaultModelId: provider.defaultModelId,

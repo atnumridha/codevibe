@@ -64,6 +64,23 @@ describe("onboarding model helpers", () => {
 		});
 	});
 
+	it("marks ChatGPT as authenticated when Codex Home auth is available", () => {
+		expect(
+			toProviderEntry(
+				{
+					id: "openai-codex",
+					name: "ChatGPT",
+					models: 6,
+				},
+				{ codexHomeAuthAvailable: true },
+			),
+		).toMatchObject({
+			id: "openai-codex",
+			isOAuth: true,
+			hasAuth: true,
+		});
+	});
+
 	it("maps model names and reasoning support strictly", () => {
 		expect(
 			toModelEntry({
