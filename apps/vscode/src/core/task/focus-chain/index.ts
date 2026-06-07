@@ -272,21 +272,27 @@ export class FocusChainManager {
 	 */
 	public async updateFCListFromToolResponse(taskProgress: string | undefined) {
 		try {
+			const trimmedTaskProgress = taskProgress?.trim()
+
 			// Reset the counter if task_progress was provided
-			if (taskProgress && taskProgress.trim()) {
+			if (trimmedTaskProgress) {
 				this.taskState.apiRequestsSinceLastTodoUpdate = 0
 			}
 
 			// If model provides task_progress update, write it to the markdown file
-			if (taskProgress && taskProgress.trim()) {
+			if (trimmedTaskProgress) {
 				const previousList = this.taskState.currentFocusChainChecklist
-				this.taskState.currentFocusChainChecklist = taskProgress.trim()
+				if (previousList === trimmedTaskProgress) {
+					Logger.debug(`[Task ${this.taskId}] focus chain list: Ignoring duplicate task_progress update`)
+					return
+				}
+				this.taskState.currentFocusChainChecklist = trimmedTaskProgress
 				Logger.debug(
 					`[Task ${this.taskId}] focus chain list: LLM provided focus chain list update via task_progress parameter. Length ${previousList?.length || 0} > ${this.taskState.currentFocusChainChecklist.length}`,
 				)
 
 				// Parse focus chain list counts for telemetry
-				const { totalItems, completedItems } = parseFocusChainListCounts(taskProgress.trim())
+				const { totalItems, completedItems } = parseFocusChainListCounts(trimmedTaskProgress)
 
 				// Track first progress creation
 				if (!this.hasTrackedFirstProgress && totalItems > 0) {
@@ -300,14 +306,14 @@ export class FocusChainManager {
 
 				// Write the model's update to the markdown file
 				try {
-					await this.writeFocusChainToDisk(taskProgress.trim())
+					await this.writeFocusChainToDisk(trimmedTaskProgress)
 
 					// Send the task_progress message to the UI immediately
-					await this.say("task_progress", taskProgress.trim())
+					await this.say("task_progress", trimmedTaskProgress)
 				} catch (error) {
 					Logger.error(`[Task ${this.taskId}] focus chain list: Failed to write to markdown file:`, error)
 					// Fall back to creating a task_progress message directly if file write fails
-					await this.say("task_progress", taskProgress.trim())
+					await this.say("task_progress", trimmedTaskProgress)
 					Logger.log(`[Task ${this.taskId}] focus chain list: Sent fallback task_progress message to UI`)
 				}
 			} else {

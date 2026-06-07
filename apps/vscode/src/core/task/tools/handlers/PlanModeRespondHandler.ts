@@ -35,6 +35,7 @@ export class PlanModeRespondHandler implements IToolHandler, IPartialBlockHandle
 
 	async execute(config: TaskConfig, block: ToolUse): Promise<ToolResponse> {
 		const response: string | undefined = block.params.response
+		const taskProgress: string | undefined = block.params.task_progress
 		const optionsRaw: string | undefined = block.params.options
 		const needsMoreExploration: boolean = block.params.needs_more_exploration === "true"
 
@@ -45,6 +46,12 @@ export class PlanModeRespondHandler implements IToolHandler, IPartialBlockHandle
 		}
 
 		config.taskState.consecutiveMistakeCount = 0
+
+		// plan_mode_respond blocks on user approval; publish progress before the ask so
+		// the checklist is visible while the user reviews the plan.
+		if (config.focusChainSettings.enabled && taskProgress?.trim()) {
+			await config.callbacks.updateFCListFromToolResponse(taskProgress)
+		}
 
 		// The plan_mode_respond tool tends to run into this issue where the model realizes mid-tool call that it should have called another tool before calling plan_mode_respond. And it ends the plan_mode_respond tool call with 'Proceeding to reading files...' which doesn't do anything because we restrict to 1 tool call per message. As an escape hatch for the model, we provide it the optionality to tack on a parameter at the end of its response `needs_more_exploration`, which will allow the loop to continue.
 		if (needsMoreExploration) {
