@@ -37,6 +37,7 @@ Required inputs:
 - `parity_evidence_url`: `https://...` only for `release_stage=final`
 
 The workflow packages `apps/vscode/*.vsix`, smoke-installs it with VS Code, and uploads it to the GitHub Release. If `prerelease` is true, the VSIX is packaged with `--pre-release`.
+Each GitHub Release also attaches `cursor-parity-evidence.md`, a generated snapshot of the release prerequisite checks and local validation checklist state from the workflow runner.
 
 If `gh` is unavailable locally, dispatch the workflow from GitHub:
 
@@ -55,6 +56,7 @@ Use `.github/workflows/ext-vscode-publish-stable.yml` only when both marketplace
 - `OVSX_PAT`
 
 The workflow fails early with a pointer to the GitHub-only workflow if either secret is missing. It also creates the GitHub Release after marketplace publish succeeds.
+The GitHub Release includes both the VSIX and `cursor-parity-evidence.md`.
 
 Required release-gate inputs:
 

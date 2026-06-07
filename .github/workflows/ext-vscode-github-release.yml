@@ -212,6 +212,12 @@ jobs:
                   fi
                   node scripts/package-github-vsix.mjs "${package_args[@]}"
 
+            - name: Collect Cursor-Parity Evidence
+              if: ${{ always() }}
+              working-directory: ${{ github.workspace }}
+              run: |
+                  node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --out-file apps/vscode/cursor-parity-evidence.md || true
+
             - name: Get Previous Tag
               id: prev_tag
               working-directory: ${{ github.workspace }}
@@ -233,13 +239,17 @@ jobs:
               uses: softprops/action-gh-release@v1
               with:
                   tag_name: ${{ steps.resolve_tag.outputs.tag }}
-                  files: "apps/vscode/*.vsix"
+                  files: |
+                      apps/vscode/*.vsix
+                      apps/vscode/cursor-parity-evidence.md
                   body: |
                       ${{ steps.changelog.outputs.content }}
 
                       **Release Stage**: ${{ github.event.inputs.release_stage }}
 
                       **Cursor-Parity Evidence**: ${{ github.event.inputs.release_stage == 'final' && github.event.inputs.parity_evidence_url || 'pending final validation' }}
+
+                      **Attached Evidence Log**: `cursor-parity-evidence.md`
 
                       **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.prev_tag }}...${{ steps.resolve_tag.outputs.tag }}
                   prerelease: ${{ github.event.inputs.release_stage == 'candidate' || github.event.inputs.prerelease == 'true' }}

@@ -225,6 +225,12 @@ jobs:
                     echo "Successfully published release version ${{ steps.get_version.outputs.version }} to VS Code Marketplace and Open VSX Registry"
                   fi
 
+            - name: Collect Cursor-Parity Evidence
+              if: ${{ always() }}
+              working-directory: ${{ github.workspace }}
+              run: |
+                  node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --out-file apps/vscode/cursor-parity-evidence.md || true
+
             - name: Get Previous Tag
               id: prev_tag
               working-directory: ${{ github.workspace }}
@@ -247,11 +253,15 @@ jobs:
               uses: softprops/action-gh-release@v1
               with:
                   tag_name: ${{ steps.resolve_tag.outputs.tag }}
-                  files: "apps/vscode/*.vsix"
+                  files: |
+                      apps/vscode/*.vsix
+                      apps/vscode/cursor-parity-evidence.md
                   body: |
                       ${{ steps.changelog.outputs.content }}
 
                       **Cursor-Parity Evidence**: ${{ github.event.inputs.parity_evidence_url }}
+
+                      **Attached Evidence Log**: `cursor-parity-evidence.md`
 
                       **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.prev_tag }}...${{ steps.resolve_tag.outputs.tag }}
                   prerelease: ${{ github.event.inputs.release-type == 'pre-release' }}
