@@ -1,4 +1,9 @@
-import type { ApiConfiguration, ModelInfo } from "@shared/api"
+import {
+	DEFAULT_API_PROVIDER,
+	openAiCodexDefaultModelId,
+	type ApiConfiguration,
+	type ModelInfo,
+} from "@shared/api"
 import { describe, expect, it } from "vitest"
 import {
 	getModelsForProvider,
@@ -52,4 +57,14 @@ describe("providerUtils OpenAI Codex models", () => {
 		expect(normalized.selectedModelId).toBe("gpt-6-codex-preview")
 		expect(normalized.selectedModelInfo.name).toBe("GPT-6 Codex Preview")
 	})
+
+	it.each(["plan", "act"] as const)(
+		"defaults missing %s configuration to OpenAI Codex",
+		(mode) => {
+			const normalized = normalizeApiConfiguration(undefined, mode)
+
+			expect(normalized.selectedProvider).toBe(DEFAULT_API_PROVIDER)
+			expect(normalized.selectedModelId).toBe(openAiCodexDefaultModelId)
+		},
+	)
 })

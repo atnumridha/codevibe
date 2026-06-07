@@ -1,6 +1,7 @@
 import {
 	ApiConfiguration,
 	ApiProvider,
+	DEFAULT_API_PROVIDER,
 	anthropicDefaultModelId,
 	anthropicModels,
 	askSageDefaultModelId,
@@ -198,7 +199,8 @@ export function normalizeApiConfiguration(
 	dynamicModels: DynamicProviderModels = {},
 ): NormalizedApiConfig {
 	const provider =
-		(currentMode === "plan" ? apiConfiguration?.planModeApiProvider : apiConfiguration?.actModeApiProvider) || "anthropic"
+		(currentMode === "plan" ? apiConfiguration?.planModeApiProvider : apiConfiguration?.actModeApiProvider) ||
+		DEFAULT_API_PROVIDER
 
 	const modelId = currentMode === "plan" ? apiConfiguration?.planModeApiModelId : apiConfiguration?.actModeApiModelId
 
