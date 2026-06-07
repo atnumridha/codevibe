@@ -401,6 +401,7 @@ describe("NodeHubClient", () => {
 					uri: "vscode://cline.cline/settings?panel=codex",
 					workspaceRoot: "/workspace",
 					maxCommandFileBytes: 4096,
+					maxRuleFileBytes: 2048,
 				},
 				{ timeoutMs: 5_000 },
 			);
@@ -427,6 +428,7 @@ describe("NodeHubClient", () => {
 						uri: "vscode://cline.cline/settings?panel=codex",
 						workspaceRoot: "/workspace",
 						maxCommandFileBytes: 4096,
+						maxRuleFileBytes: 2048,
 					},
 					timeoutMs: 5_000,
 				},

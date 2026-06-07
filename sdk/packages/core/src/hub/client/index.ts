@@ -495,6 +495,9 @@ export class NodeHubClient {
 		if (input.maxCommandFileBytes !== undefined) {
 			payload.maxCommandFileBytes = input.maxCommandFileBytes;
 		}
+		if (input.maxRuleFileBytes !== undefined) {
+			payload.maxRuleFileBytes = input.maxRuleFileBytes;
+		}
 		const reply = await this.command(
 			"cursor.uri.preview",
 			payload,
