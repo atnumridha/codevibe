@@ -91,6 +91,47 @@ describe("hub Cursor URI preview command", () => {
 		});
 	});
 
+	it("previews background-agent launch intent without leaking config values", async () => {
+		const transport = createTransport();
+		const config = encodeConfig({
+			token: "secret-value",
+			browser: { enabled: true },
+		});
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.preview",
+			requestId: "req-background-agent",
+			clientId: "client-one",
+			payload: {
+				uri: `vscode://cline.cline/background-agent?task=Fix%20the%20queue&repo=owner%2Frepo&branch=feature%2Fsafe&baseBranch=main&config=${config}`,
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: true,
+			payload: {
+				handled: true,
+				route: "background-agent",
+				path: "/background-agent",
+				requiresConfirmation: true,
+				hasPrompt: true,
+				paramKeys: ["baseBranch", "branch", "config", "repo", "task"],
+				configKeys: ["browser", "token"],
+				backgroundAgent: {
+					launchMode: "deferred",
+					agentMode: "plan",
+					confirmationRequired: true,
+					worktreePolicy: "confirm-before-create",
+					repository: "owner/repo",
+					requestedBranch: "feature/safe",
+					requestedBaseBranch: "main",
+				},
+			},
+		});
+		expect(JSON.stringify(reply)).not.toContain("secret-value");
+	});
+
 	it("previews Cursor Glass routes with dedicated metadata", async () => {
 		const transport = createTransport();
 		const config = encodeConfig({ placement: "top", token: "secret-value" });

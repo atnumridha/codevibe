@@ -772,6 +772,37 @@ function getCursorConfigKeys(
 	return Object.keys(getRecordValue(params.config) ?? {}).sort();
 }
 
+function getCursorPreviewStringParam(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): string | undefined {
+	const value = params[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function summarizeCursorBackgroundAgentPreview(
+	request: ReturnType<typeof buildCursorAgentTaskRouteRequest>,
+): Record<string, unknown> {
+	const repository =
+		getCursorPreviewStringParam(request.params, "repository") ??
+		getCursorPreviewStringParam(request.params, "repo");
+	const requestedBranch = getCursorPreviewStringParam(request.params, "branch");
+	const requestedBaseBranch = getCursorPreviewStringParam(
+		request.params,
+		"baseBranch",
+	);
+
+	return {
+		launchMode: "deferred",
+		agentMode: "plan",
+		confirmationRequired: true,
+		worktreePolicy: "confirm-before-create",
+		...(repository ? { repository } : {}),
+		...(requestedBranch ? { requestedBranch } : {}),
+		...(requestedBaseBranch ? { requestedBaseBranch } : {}),
+	};
+}
+
 function safeUrlOrigin(value: string): string {
 	try {
 		return new URL(value).origin;
@@ -981,6 +1012,9 @@ function summarizeCursorUriPreview(
 			hasPrompt: Boolean(request.prompt),
 			paramKeys: Object.keys(request.params).sort(),
 			configKeys: getCursorConfigKeys(request.params),
+			...(request.kind === "background-agent"
+				? { backgroundAgent: summarizeCursorBackgroundAgentPreview(request) }
+				: {}),
 			...(glass ? { glass } : {}),
 		};
 	}
