@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { CursorSandboxRuntimePolicy } from "@cline/core";
 import { describe, expect, it, vi } from "vitest";
-import { buildUserInputMessage } from "./prompt";
+import { buildUserInputMessage, resolveSystemPrompt } from "./prompt";
 
 function cursorSandboxPolicy(
 	workspaceRoot: string,
@@ -168,5 +168,39 @@ describe("buildUserInputMessage", () => {
 		} finally {
 			warn.mockRestore();
 		}
+	});
+});
+
+describe("resolveSystemPrompt", () => {
+	it("adds Cursor-style CLI Plan mode instructions", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "cli-prompt-plan-"));
+
+		const prompt = await resolveSystemPrompt({
+			cwd: dir,
+			mode: "plan",
+			providerId: "openai-codex",
+		});
+
+		expect(prompt).toContain("# Plan Mode");
+		expect(prompt).toContain("Behave exploration-first");
+		expect(prompt).toContain("likely files, risks, validation commands");
+		expect(prompt).toContain("Do NOT edit files");
+		expect(prompt).toContain("Do not call it before the user has agreed");
+	});
+
+	it("adds Cursor-style CLI Act mode instructions", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "cli-prompt-act-"));
+
+		const prompt = await resolveSystemPrompt({
+			cwd: dir,
+			mode: "act",
+			providerId: "openai-codex",
+		});
+
+		expect(prompt).toContain("# Act Mode");
+		expect(prompt).toContain("minimal, reviewable patches");
+		expect(prompt).toContain("Re-read files before retrying a failed patch");
+		expect(prompt).toContain("Ask before destructive commands");
+		expect(prompt).toContain("Validate with targeted tests");
 	});
 });

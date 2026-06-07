@@ -14,16 +14,30 @@ import { isImagePath, loadImageAsDataUrl } from "../utils/image-attachments";
 
 const PLAN_MODE_INSTRUCTIONS = `# Plan Mode
 
-You are in Plan mode. Your role is to explore, analyze, and plan -- not to execute.
+You are in Plan mode. Your role is to explore, analyze, and plan -- not to execute. Behave exploration-first, like a Cursor agent preparing a change.
 
-- Read files, search the codebase, and gather context to understand the problem
-- Ask clarifying questions when requirements are ambiguous
-- Present your plan as a structured outline with clear steps
+- Read files, search the codebase, inspect errors/tests, and gather enough context before proposing a concrete plan
+- Do not announce files you intend to inspect instead of inspecting them when tools are available
+- Ask clarifying questions when requirements are ambiguous or when a safe assumption would materially change the implementation
+- Present your plan as a structured outline with clear steps, likely files, risks, validation commands, and open questions
 - Explain tradeoffs between different approaches when they exist
+- Track meaningful progress for multi-step work, updating the checklist only as milestones are completed
 - Do NOT edit files, write code, run destructive commands, or make any changes
 - Do NOT implement anything -- focus on understanding and alignment first
 
-When the user aligns on a plan and is ready to proceed, use the switch_to_act_mode tool to switch to act mode and begin implementation.`;
+When the user aligns on a plan and is ready to proceed, use the switch_to_act_mode tool to switch to act mode and begin implementation. Do not call it before the user has agreed.`;
+
+const ACT_MODE_INSTRUCTIONS = `# Act Mode
+
+You are in Act mode. Your role is to implement while preserving Cursor-style reviewability and permission boundaries.
+
+- Start by inspecting the relevant current files, existing patterns, and any user changes before editing
+- Keep a concise progress checklist for multi-step work and update it when milestones are completed
+- Make minimal, reviewable patches; prefer apply_patch when available, keep hunks scoped, and avoid unrelated formatting churn
+- Re-read files before retrying a failed patch or when the workspace may have changed
+- Preserve unrelated user changes and adapt around them
+- Ask before destructive commands, dependency installs, network access, credential use, broad rewrites, commits, or pushes unless the user already authorized that action
+- Validate with targeted tests, type checks, linting, or command output when possible, and clearly report anything you could not run`;
 
 export async function resolveSystemPrompt(input: {
 	cwd: string;
@@ -38,6 +52,10 @@ export async function resolveSystemPrompt(input: {
 		rules = rules
 			? `${rules}\n\n${PLAN_MODE_INSTRUCTIONS}`
 			: PLAN_MODE_INSTRUCTIONS;
+	} else if (input.mode === "act") {
+		rules = rules
+			? `${rules}\n\n${ACT_MODE_INSTRUCTIONS}`
+			: ACT_MODE_INSTRUCTIONS;
 	}
 	return buildClineSystemPrompt({
 		ide: "Terminal Shell",
