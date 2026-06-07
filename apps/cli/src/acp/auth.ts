@@ -1,4 +1,8 @@
-import type { ProviderSettings, ProviderSettingsManager } from "@cline/core";
+import {
+	loadOpenAICodexHomeCredentialsSync,
+	type ProviderSettings,
+	type ProviderSettingsManager,
+} from "@cline/core";
 import { getClineEnvironmentConfig } from "@cline/shared";
 import type { OAuthCredentials } from "../commands/auth";
 import {
@@ -101,6 +105,35 @@ export interface AcpAuthResult {
 	apiKey: string;
 }
 
+export function restoreOpenAICodexHomeAcpAuth(
+	providerSettingsManager: ProviderSettingsManager,
+): AcpAuthResult | undefined {
+	let credentials: OAuthCredentials | null;
+	try {
+		credentials = loadOpenAICodexHomeCredentialsSync();
+	} catch {
+		return undefined;
+	}
+	if (!credentials) {
+		return undefined;
+	}
+
+	const providerId = "openai-codex";
+	const existing = providerSettingsManager.getProviderSettings(providerId);
+	const settings = saveOAuthProviderSettings(
+		providerSettingsManager,
+		providerId,
+		existing,
+		credentials,
+	);
+	return {
+		providerId,
+		apiKey:
+			getPersistedProviderApiKey(providerId, settings) ??
+			toProviderApiKey(providerId, credentials),
+	};
+}
+
 /**
  * Authenticate via OAuth for the given ACP auth method.
  *
@@ -118,6 +151,15 @@ export async function authenticateAcpProvider(
 	if (existingKey) {
 		writeDiagnostic(`[acp/auth] Using existing credentials for ${methodId}`);
 		return { providerId: methodId, apiKey: existingKey };
+	}
+
+	if (methodId === "openai-codex") {
+		const codexHomeAuth =
+			restoreOpenAICodexHomeAcpAuth(providerSettingsManager);
+		if (codexHomeAuth) {
+			writeDiagnostic(`[acp/auth] Using Codex Home credentials for ${methodId}`);
+			return codexHomeAuth;
+		}
 	}
 
 	// Perform a fresh OAuth login.

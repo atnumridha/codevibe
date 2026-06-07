@@ -46,6 +46,7 @@ import {
 	type AcpAuthResult,
 	authenticateAcpProvider,
 	isAcpAuthMethodId,
+	restoreOpenAICodexHomeAcpAuth,
 } from "./auth";
 import { requestAcpToolApproval } from "./permissions";
 import {
@@ -435,7 +436,7 @@ export class AcpAgent implements Agent {
 				return { providerId: method.id as AcpAuthMethodId, apiKey };
 			}
 		}
-		return undefined;
+		return restoreOpenAICodexHomeAcpAuth(this.providerSettingsManager);
 	}
 
 	/**

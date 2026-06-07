@@ -19,6 +19,7 @@ import type { CliLoggerAdapter } from "../logging/adapter";
 import { resolveSystemPrompt } from "../runtime/prompt";
 import { resolveCliSessionMetadata } from "../utils/enterprise";
 import { resolveWorkspaceRoot } from "../utils/helpers";
+import { hasOpenAICodexHomeCredentials } from "../utils/provider-readiness";
 import {
 	parseLocalRowMetadata,
 	parseRowMetadata,
@@ -77,8 +78,10 @@ export async function buildConnectorStartRequest(input: {
 		persistedApiKey ||
 		(await resolveProviderApiKeyFromEnv(provider)) ||
 		"";
+	const shouldUseCodexHomeAuth =
+		provider === "openai-codex" && hasOpenAICodexHomeCredentials();
 
-	if (!apiKey && isOAuthProvider(provider)) {
+	if (!apiKey && isOAuthProvider(provider) && !shouldUseCodexHomeAuth) {
 		const oauthResult = await ensureOAuthProviderApiKey({
 			providerId: provider,
 			currentApiKey: apiKey,
