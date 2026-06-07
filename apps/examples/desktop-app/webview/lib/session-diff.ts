@@ -160,7 +160,7 @@ function parseApplyPatchInput(input: string): SessionFileDiff[] {
 			fileDiffs.push({
 				path,
 				additions: 0,
-				deletions: 0,
+				deletions: 1,
 				hunks: [],
 			});
 			index += 1;
