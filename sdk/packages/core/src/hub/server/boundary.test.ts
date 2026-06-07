@@ -856,6 +856,229 @@ describe("HubServerTransport boundaries", () => {
 		expect(startSession).not.toHaveBeenCalled();
 	});
 
+	it("registers peers and tracks attached sessions", async () => {
+		const sessionRecord = {
+			sessionId: "session-peer",
+			source: "vscode",
+			status: "running",
+			startedAt: new Date(0).toISOString(),
+			updatedAt: new Date(0).toISOString(),
+			interactive: true,
+			provider: "openai-codex",
+			model: "gpt-5-codex",
+			cwd: "/tmp/project",
+			workspaceRoot: "/tmp/project",
+			enableTools: true,
+			enableSpawn: true,
+			enableTeams: false,
+			isSubagent: false,
+			metadata: {},
+		};
+		const transport = createTransport({
+			sessionHost: {
+				subscribe: vi.fn(),
+				startSession: vi.fn(),
+				stopSession: vi.fn(),
+				runTurn: vi.fn(),
+				abort: vi.fn(),
+				dispose: vi.fn(),
+				getSession: vi.fn().mockImplementation(async (sessionId: string) =>
+					sessionId === "session-peer" ? sessionRecord : undefined,
+				),
+				listSessions: vi.fn().mockResolvedValue([sessionRecord]),
+				deleteSession: vi.fn(),
+				updateSession: vi.fn(),
+				dispatchHookEvent: vi.fn(),
+				readSessionMessages: vi.fn(),
+			} as never,
+		});
+		const events: HubEventEnvelope[] = [];
+		transport.subscribe("client-1", (event) => events.push(event));
+
+		const registerReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-register",
+			command: "peer.register",
+			clientId: "client-1",
+			payload: {
+				peerHubId: "peer-1",
+				transport: "remote",
+				metadata: { label: "standalone-ui" },
+			},
+		});
+		const attachReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-attach",
+			command: "peer.attach_session",
+			clientId: "client-1",
+			sessionId: "session-peer",
+			payload: {
+				peerHubId: "peer-1",
+				sessionId: "session-peer",
+			},
+		});
+		const listReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-list",
+			command: "peer.list_sessions",
+			clientId: "client-1",
+			payload: {
+				peerHubId: "peer-1",
+			},
+		});
+		const detachReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-detach",
+			command: "peer.detach_session",
+			clientId: "client-1",
+			sessionId: "session-peer",
+			payload: {
+				peerHubId: "peer-1",
+				sessionId: "session-peer",
+			},
+		});
+
+		expect(registerReply.payload).toMatchObject({
+			peer: {
+				peerHubId: "peer-1",
+				status: "ready",
+				transport: "remote",
+				metadata: { label: "standalone-ui" },
+			},
+		});
+		expect(attachReply.payload).toMatchObject({
+			peer: { peerHubId: "peer-1" },
+			session: { sessionId: "session-peer" },
+		});
+		expect(listReply.payload).toMatchObject({
+			peer: { peerHubId: "peer-1" },
+			sessionIds: ["session-peer"],
+			sessions: [expect.objectContaining({ sessionId: "session-peer" })],
+		});
+		expect(detachReply.payload).toMatchObject({
+			peer: { peerHubId: "peer-1" },
+			sessionId: "session-peer",
+			removed: true,
+		});
+		expect(events.map((event) => event.event)).toEqual(
+			expect.arrayContaining([
+				"peer.registered",
+				"peer.session_attached",
+				"peer.session_detached",
+			]),
+		);
+	});
+
+	it("proxies commands only for peer-attached sessions", async () => {
+		const sessionRecord = {
+			sessionId: "session-proxy",
+			source: "vscode",
+			status: "running",
+			startedAt: new Date(0).toISOString(),
+			updatedAt: new Date(0).toISOString(),
+			interactive: true,
+			provider: "openai-codex",
+			model: "gpt-5-codex",
+			cwd: "/tmp/project",
+			workspaceRoot: "/tmp/project",
+			enableTools: true,
+			enableSpawn: true,
+			enableTeams: false,
+			isSubagent: false,
+			metadata: {},
+		};
+		const transport = createTransport({
+			sessionHost: {
+				subscribe: vi.fn(),
+				startSession: vi.fn(),
+				stopSession: vi.fn(),
+				runTurn: vi.fn(),
+				abort: vi.fn(),
+				dispose: vi.fn(),
+				getSession: vi.fn().mockImplementation(async (sessionId: string) =>
+					sessionId === "session-proxy" ? sessionRecord : undefined,
+				),
+				listSessions: vi.fn().mockResolvedValue([sessionRecord]),
+				deleteSession: vi.fn(),
+				updateSession: vi.fn(),
+				dispatchHookEvent: vi.fn(),
+				readSessionMessages: vi.fn(),
+			} as never,
+		});
+
+		await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-register",
+			command: "peer.register",
+			clientId: "client-1",
+			payload: {
+				peerHubId: "peer-proxy",
+			},
+		});
+		const unattachedReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-proxy-unattached",
+			command: "peer.proxy_command",
+			clientId: "client-1",
+			payload: {
+				peerHubId: "peer-proxy",
+				command: "session.get",
+				sessionId: "session-proxy",
+			},
+		});
+		await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-attach",
+			command: "peer.attach_session",
+			clientId: "client-1",
+			sessionId: "session-proxy",
+			payload: {
+				peerHubId: "peer-proxy",
+				sessionId: "session-proxy",
+			},
+		});
+		const proxiedReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-proxy",
+			command: "peer.proxy_command",
+			clientId: "client-1",
+			payload: {
+				peerHubId: "peer-proxy",
+				command: "session.get",
+				sessionId: "session-proxy",
+			},
+		});
+		const forbiddenReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-peer-proxy-forbidden",
+			command: "peer.proxy_command",
+			clientId: "client-1",
+			payload: {
+				peerHubId: "peer-proxy",
+				command: "peer.register",
+			},
+		});
+
+		expect(unattachedReply).toMatchObject({
+			ok: false,
+			error: { code: "peer_session_not_attached" },
+		});
+		expect(proxiedReply).toMatchObject({
+			ok: true,
+			payload: {
+				session: { sessionId: "session-proxy" },
+			},
+		});
+		expect(forbiddenReply).toMatchObject({
+			ok: false,
+			error: {
+				code: "peer_proxy_command_failed",
+				message:
+					"peer.proxy_command cannot proxy peer, client, or ui commands.",
+			},
+		});
+	});
+
 	it("does not transfer capability ownership to attached clients", async () => {
 		let createdSessionId = "";
 		const startSession = vi.fn(async (input: StartSessionInput) => {

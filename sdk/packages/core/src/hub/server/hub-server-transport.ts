@@ -5,7 +5,11 @@ import type {
 	HubClientRecord,
 	HubCommandEnvelope,
 	HubEventEnvelope,
+	HubPeerAttachSessionInput,
+	HubPeerRegisterInput,
 	HubReplyEnvelope,
+	JsonValue,
+	PeerHubRecord,
 	ToolApprovalRequest,
 } from "@cline/shared";
 import { captureSdkError, createSessionId } from "@cline/shared";
@@ -72,6 +76,7 @@ import {
 	okReply,
 	type PendingApproval,
 	type PendingCapabilityRequest,
+	readHubSessionRecord,
 } from "./handlers/context";
 import {
 	handleRunAbort,
@@ -135,6 +140,117 @@ const CRON_EVENT_SECRET_KEY_PATTERN =
 
 function isPayloadObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function cloneJsonRecord(
+	value: unknown,
+): Record<string, JsonValue | undefined> | undefined {
+	return isPayloadObject(value)
+		? (JSON.parse(JSON.stringify(value)) as Record<
+				string,
+				JsonValue | undefined
+			>)
+		: undefined;
+}
+
+function optionalTrimmedString(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function isPeerTransport(
+	value: unknown,
+): value is PeerHubRecord["transport"] {
+	return value === "peer-grpc" || value === "remote" || value === "native";
+}
+
+function parsePeerRegisterInput(payload: unknown): HubPeerRegisterInput {
+	if (payload === undefined) {
+		return {};
+	}
+	if (!isPayloadObject(payload)) {
+		throw new Error("peer.register payload must be an object.");
+	}
+	const transport = payload.transport;
+	if (transport !== undefined && !isPeerTransport(transport)) {
+		throw new Error(
+			"peer.register payload 'transport' must be peer-grpc, remote, or native.",
+		);
+	}
+	const peerHubId = optionalTrimmedString(payload.peerHubId);
+	const metadata = cloneJsonRecord(payload.metadata);
+	return {
+		...(peerHubId ? { peerHubId } : {}),
+		...(transport ? { transport } : {}),
+		...(metadata ? { metadata } : {}),
+	};
+}
+
+function parsePeerAttachSessionInput(
+	payload: unknown,
+	commandName: "peer.attach_session" | "peer.detach_session",
+): HubPeerAttachSessionInput {
+	if (!isPayloadObject(payload)) {
+		throw new Error(`${commandName} payload must be an object.`);
+	}
+	const peerHubId = optionalTrimmedString(payload.peerHubId);
+	const sessionId = optionalTrimmedString(payload.sessionId);
+	if (!peerHubId) {
+		throw new Error(`${commandName} payload 'peerHubId' is required.`);
+	}
+	if (!sessionId) {
+		throw new Error(`${commandName} payload 'sessionId' is required.`);
+	}
+	return { peerHubId, sessionId };
+}
+
+function parsePeerListLimit(payload: unknown): number {
+	if (!isPayloadObject(payload)) {
+		return 200;
+	}
+	const limit = payload.limit;
+	if (limit === undefined) {
+		return 200;
+	}
+	if (typeof limit !== "number" || !Number.isFinite(limit)) {
+		throw new Error("peer.list_sessions payload 'limit' must be a finite number.");
+	}
+	return Math.min(500, Math.max(1, Math.floor(limit)));
+}
+
+function parsePeerProxyPayload(payload: unknown): {
+	peerHubId: string;
+	command: HubCommandEnvelope["command"];
+	sessionId?: string;
+	payload?: Record<string, unknown>;
+} {
+	if (!isPayloadObject(payload)) {
+		throw new Error("peer.proxy_command payload must be an object.");
+	}
+	const peerHubId = optionalTrimmedString(payload.peerHubId);
+	const command = optionalTrimmedString(payload.command);
+	if (!peerHubId) {
+		throw new Error("peer.proxy_command payload 'peerHubId' is required.");
+	}
+	if (!command) {
+		throw new Error("peer.proxy_command payload 'command' is required.");
+	}
+	if (
+		command.startsWith("peer.") ||
+		command.startsWith("client.") ||
+		command.startsWith("ui.")
+	) {
+		throw new Error(
+			"peer.proxy_command cannot proxy peer, client, or ui commands.",
+		);
+	}
+	const sessionId = optionalTrimmedString(payload.sessionId);
+	const proxyPayload = cloneJsonRecord(payload.payload);
+	return {
+		peerHubId,
+		command: command as HubCommandEnvelope["command"],
+		...(sessionId ? { sessionId } : {}),
+		...(proxyPayload ? { payload: proxyPayload } : {}),
+	};
 }
 
 function requireOptionalString(
@@ -884,6 +1000,8 @@ export class HubServerTransport implements NativeHubTransport {
 		string,
 		PendingCapabilityRequest
 	>();
+	private readonly peers = new Map<string, PeerHubRecord>();
+	private readonly peerSessionIds = new Map<string, Set<string>>();
 	private readonly suppressNextTerminalEventBySession = new Map<
 		string,
 		string
@@ -1122,6 +1240,16 @@ export class HubServerTransport implements NativeHubTransport {
 				return handleCapabilityRespond(this.ctx, envelope);
 			case "capability.progress":
 				return handleCapabilityProgress(this.ctx, envelope);
+			case "peer.register":
+				return this.handlePeerRegister(envelope);
+			case "peer.list_sessions":
+				return await this.handlePeerListSessions(envelope);
+			case "peer.attach_session":
+				return await this.handlePeerAttachSession(envelope);
+			case "peer.detach_session":
+				return await this.handlePeerDetachSession(envelope);
+			case "peer.proxy_command":
+				return await this.handlePeerProxyCommand(envelope);
 			case "ui.notify":
 				this.publish(buildHubEvent("ui.notify", envelope.payload ?? {}));
 				return okReply(envelope);
@@ -1218,6 +1346,279 @@ export class HubServerTransport implements NativeHubTransport {
 					? envelope.payload.sessionId
 					: envelope.sessionId,
 		};
+	}
+
+	private clonePeerRecord(peer: PeerHubRecord): PeerHubRecord {
+		const metadata = peer.metadata
+			? (JSON.parse(JSON.stringify(peer.metadata)) as PeerHubRecord["metadata"])
+			: undefined;
+		return {
+			...peer,
+			...(metadata ? { metadata } : {}),
+		};
+	}
+
+	private getPeerSessionIds(peerHubId: string): Set<string> {
+		let sessionIds = this.peerSessionIds.get(peerHubId);
+		if (!sessionIds) {
+			sessionIds = new Set<string>();
+			this.peerSessionIds.set(peerHubId, sessionIds);
+		}
+		return sessionIds;
+	}
+
+	private handlePeerRegister(envelope: HubCommandEnvelope): HubReplyEnvelope {
+		try {
+			const input = parsePeerRegisterInput(envelope.payload);
+			const now = Date.now();
+			const peerHubId =
+				input.peerHubId ?? envelope.clientId?.trim() ?? createSessionId("peer_");
+			const existing = this.peers.get(peerHubId);
+			const peer: PeerHubRecord = {
+				peerHubId,
+				status: "ready",
+				connectedAt: existing?.connectedAt ?? now,
+				lastSeenAt: now,
+				transport: input.transport ?? existing?.transport ?? "remote",
+				...(input.metadata ?? existing?.metadata
+					? { metadata: input.metadata ?? existing?.metadata }
+					: {}),
+			};
+			this.peers.set(peerHubId, peer);
+			this.getPeerSessionIds(peerHubId);
+			this.publish(
+				buildHubEvent("peer.registered", {
+					peer: this.clonePeerRecord(peer),
+				}),
+			);
+			return okReply(envelope, {
+				peer: this.clonePeerRecord(peer),
+				peers: [...this.peers.values()].map((entry) =>
+					this.clonePeerRecord(entry),
+				),
+			});
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "peer_register_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private async handlePeerListSessions(
+		envelope: HubCommandEnvelope,
+	): Promise<HubReplyEnvelope> {
+		try {
+			const payload = isPayloadObject(envelope.payload) ? envelope.payload : {};
+			const peerHubId = optionalTrimmedString(payload.peerHubId);
+			const limit = parsePeerListLimit(envelope.payload);
+			const peer = peerHubId ? this.peers.get(peerHubId) : undefined;
+			if (peerHubId && !peer) {
+				return {
+					version: envelope.version,
+					requestId: envelope.requestId,
+					ok: false,
+					error: {
+						code: "peer_not_found",
+						message: `Unknown peer hub: ${peerHubId}`,
+					},
+				};
+			}
+			const attachedSessionIds = peerHubId
+				? this.getPeerSessionIds(peerHubId)
+				: undefined;
+			const records = await this.sessionHost.listSessions(limit);
+			const sessions = records
+				.filter(
+					(record) =>
+						!attachedSessionIds || attachedSessionIds.has(record.sessionId),
+				)
+				.map((record) =>
+					readHubSessionRecord(this.ctx, record.sessionId).catch(() => undefined),
+				);
+			const resolvedSessions = (await Promise.all(sessions)).filter(
+				(
+					session,
+				): session is NonNullable<
+					Awaited<ReturnType<typeof readHubSessionRecord>>
+				> => Boolean(session),
+			);
+			return okReply(envelope, {
+				...(peer ? { peer: this.clonePeerRecord(peer) } : {}),
+				sessionIds: resolvedSessions.map((session) => session.sessionId),
+				sessions: resolvedSessions,
+			});
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "peer_list_sessions_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private async handlePeerAttachSession(
+		envelope: HubCommandEnvelope,
+	): Promise<HubReplyEnvelope> {
+		try {
+			const input = parsePeerAttachSessionInput(
+				envelope.payload,
+				"peer.attach_session",
+			);
+			const peer = this.peers.get(input.peerHubId);
+			if (!peer) {
+				return {
+					version: envelope.version,
+					requestId: envelope.requestId,
+					ok: false,
+					error: {
+						code: "peer_not_found",
+						message: `Unknown peer hub: ${input.peerHubId}`,
+					},
+				};
+			}
+			const session = await readHubSessionRecord(this.ctx, input.sessionId);
+			if (!session) {
+				return {
+					version: envelope.version,
+					requestId: envelope.requestId,
+					ok: false,
+					error: {
+						code: "session_not_found",
+						message: `Unknown session: ${input.sessionId}`,
+					},
+				};
+			}
+			peer.lastSeenAt = Date.now();
+			this.getPeerSessionIds(input.peerHubId).add(input.sessionId);
+			const payload = { peer: this.clonePeerRecord(peer), session };
+			this.publish(
+				buildHubEvent("peer.session_attached", payload, input.sessionId),
+			);
+			return okReply(envelope, payload);
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "peer_attach_session_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private async handlePeerDetachSession(
+		envelope: HubCommandEnvelope,
+	): Promise<HubReplyEnvelope> {
+		try {
+			const input = parsePeerAttachSessionInput(
+				envelope.payload,
+				"peer.detach_session",
+			);
+			const peer = this.peers.get(input.peerHubId);
+			if (!peer) {
+				return {
+					version: envelope.version,
+					requestId: envelope.requestId,
+					ok: false,
+					error: {
+						code: "peer_not_found",
+						message: `Unknown peer hub: ${input.peerHubId}`,
+					},
+				};
+			}
+			peer.lastSeenAt = Date.now();
+			const removed =
+				this.peerSessionIds.get(input.peerHubId)?.delete(input.sessionId) ??
+				false;
+			const session = await readHubSessionRecord(this.ctx, input.sessionId);
+			const payload = {
+				peer: this.clonePeerRecord(peer),
+				sessionId: input.sessionId,
+				removed,
+				...(session ? { session } : {}),
+			};
+			this.publish(
+				buildHubEvent("peer.session_detached", payload, input.sessionId),
+			);
+			return okReply(envelope, payload);
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "peer_detach_session_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
+	}
+
+	private async handlePeerProxyCommand(
+		envelope: HubCommandEnvelope,
+	): Promise<HubReplyEnvelope> {
+		try {
+			const input = parsePeerProxyPayload(envelope.payload);
+			const peer = this.peers.get(input.peerHubId);
+			if (!peer) {
+				return {
+					version: envelope.version,
+					requestId: envelope.requestId,
+					ok: false,
+					error: {
+						code: "peer_not_found",
+						message: `Unknown peer hub: ${input.peerHubId}`,
+					},
+				};
+			}
+			const sessionId = input.sessionId ?? envelope.sessionId;
+			if (
+				sessionId &&
+				!this.getPeerSessionIds(input.peerHubId).has(sessionId)
+			) {
+				return {
+					version: envelope.version,
+					requestId: envelope.requestId,
+					ok: false,
+					error: {
+						code: "peer_session_not_attached",
+						message: `Peer ${input.peerHubId} is not attached to session ${sessionId}`,
+					},
+				};
+			}
+			peer.lastSeenAt = Date.now();
+			return await this.dispatchCommand({
+				version: envelope.version,
+				requestId: envelope.requestId,
+				command: input.command,
+				clientId: input.peerHubId,
+				sessionId,
+				payload: input.payload,
+				timeoutMs: envelope.timeoutMs,
+			});
+		} catch (error) {
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code: "peer_proxy_command_failed",
+					message: error instanceof Error ? error.message : String(error),
+				},
+			};
+		}
 	}
 
 	private async handleSettingsList(

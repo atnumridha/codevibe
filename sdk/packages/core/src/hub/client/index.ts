@@ -13,6 +13,8 @@ import {
 	type HubMentionFileSearchRequest,
 	type HubMentionFileSearchResponse,
 	type HubModelCatalog,
+	type HubPeerAttachSessionInput,
+	type HubPeerRegisterInput,
 	type HubPromptCommandExecuteRequest,
 	type HubPromptCommandExecuteResponse,
 	type HubPromptCommandListRequest,
@@ -623,6 +625,76 @@ export class NodeHubClient {
 			sourceSessionId: input.sourceSessionId ?? "",
 			messageCount: 0,
 		}) as HubSessionForkResponse;
+	}
+
+	async registerPeerHub(
+		input: HubPeerRegisterInput = {},
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<Record<string, unknown>> {
+		const reply = await this.command(
+			"peer.register",
+			{ ...input },
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
+	}
+
+	async listPeerSessions(
+		input: { peerHubId?: string; limit?: number } = {},
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<Record<string, unknown>> {
+		const reply = await this.command(
+			"peer.list_sessions",
+			{ ...input },
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
+	}
+
+	async attachPeerSession(
+		input: HubPeerAttachSessionInput,
+		options?: { timeoutMs?: number | null },
+	): Promise<Record<string, unknown>> {
+		const reply = await this.command(
+			"peer.attach_session",
+			{ ...input },
+			input.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
+	}
+
+	async detachPeerSession(
+		input: HubPeerAttachSessionInput,
+		options?: { timeoutMs?: number | null },
+	): Promise<Record<string, unknown>> {
+		const reply = await this.command(
+			"peer.detach_session",
+			{ ...input },
+			input.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
+	}
+
+	async proxyPeerCommand(
+		input: {
+			peerHubId: string;
+			command: HubCommandEnvelope["command"];
+			sessionId?: string;
+			payload?: Record<string, unknown>;
+		},
+		options?: { timeoutMs?: number | null },
+	): Promise<HubReplyEnvelope["payload"]> {
+		const reply = await this.command(
+			"peer.proxy_command",
+			{ ...input },
+			input.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
 	}
 
 	async ingestCursorNdjson(
