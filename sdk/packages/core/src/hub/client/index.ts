@@ -24,6 +24,7 @@ import {
 	type HubSessionForkResponse,
 	type HubTransportFrame,
 	resolveHubCommandTimeoutMs,
+	type ToolApprovalRequest,
 } from "@cline/shared";
 import {
 	SESSION_NOT_FOUND_ERROR_CODE,
@@ -690,6 +691,19 @@ export class NodeHubClient {
 	): Promise<HubReplyEnvelope["payload"]> {
 		const reply = await this.command(
 			"peer.proxy_command",
+			{ ...input },
+			input.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
+	}
+
+	async requestApproval(
+		input: ToolApprovalRequest,
+		options?: { timeoutMs?: number | null },
+	): Promise<Record<string, unknown>> {
+		const reply = await this.command(
+			"approval.request",
 			{ ...input },
 			input.sessionId,
 			{ timeoutMs: options?.timeoutMs },

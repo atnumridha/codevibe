@@ -445,6 +445,86 @@ describe("HubServerTransport boundaries", () => {
 		}
 	});
 
+	it("handles non-blocking approval.request commands", async () => {
+		const transport = createTransport();
+		const events: HubEventEnvelope[] = [];
+		transport.subscribe("test", (event) => events.push(event));
+		const ctx = getContext(transport);
+		ensureSessionState(ctx, "session-1", "client-1", "creator", {
+			interactive: true,
+		});
+
+		const requestReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-approval-request",
+			command: "approval.request",
+			clientId: "client-1",
+			sessionId: "session-1",
+			payload: {
+				agentId: "agent-1",
+				conversationId: "conversation-1",
+				iteration: 2,
+				toolCallId: "call-2",
+				toolName: "apply_patch",
+				input: { patch: "*** Begin Patch" },
+				policy: { autoApprove: false },
+			},
+		});
+		const approvalId =
+			typeof requestReply.payload?.approvalId === "string"
+				? requestReply.payload.approvalId
+				: "";
+		const respondReply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-approval-respond",
+			command: "approval.respond",
+			clientId: "client-1",
+			sessionId: "session-1",
+			payload: {
+				approvalId,
+				approved: true,
+			},
+		});
+
+		expect(requestReply).toMatchObject({
+			ok: true,
+			payload: {
+				status: "pending",
+				sessionId: "session-1",
+			},
+		});
+		expect(approvalId).toMatch(/^approval_/);
+		expect(respondReply).toMatchObject({
+			ok: true,
+			payload: {
+				approvalId,
+				approved: true,
+			},
+		});
+		expect(events).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					event: "approval.requested",
+					sessionId: "session-1",
+					payload: expect.objectContaining({
+						approvalId,
+						toolName: "apply_patch",
+						inputJson: JSON.stringify({ patch: "*** Begin Patch" }),
+					}),
+				}),
+				expect.objectContaining({
+					event: "approval.resolved",
+					sessionId: "session-1",
+					payload: expect.objectContaining({
+						approvalId,
+						approved: true,
+					}),
+				}),
+			]),
+		);
+		expect(ctx.pendingApprovals.has(approvalId)).toBe(false);
+	});
+
 	it("rejects pending tool approvals when a run is aborted", async () => {
 		const abort = vi.fn().mockResolvedValue(undefined);
 		const transport = createTransport({
