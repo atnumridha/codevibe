@@ -123,6 +123,31 @@ export type CursorRuleOpenResponse = Record<string, unknown> & {
 	path?: string;
 };
 
+export type CursorPluginAddInput = CursorUriPreviewInput & {
+	confirmed: true;
+	force?: boolean;
+};
+
+export type CursorPluginAddResponse = Record<string, unknown> & {
+	handled: true;
+	route: "plugin-add";
+	confirmed: boolean;
+	installed: boolean;
+	actionable: boolean;
+	requiresReview: boolean;
+	workspaceRoot: string;
+	sourceParam?: "id" | "name" | "url" | "config";
+	sourceConfigKey?: "source" | "id" | "name" | "url";
+	sourceLabel?: string;
+	reason?: string;
+	detail?: string;
+	paramKeys: string[];
+	configKeys: string[];
+	installPath?: string;
+	entryCount?: number;
+	entryPaths?: string[];
+};
+
 export type WorkspaceFileSearchInput = {
 	workspaceRoot?: string;
 	cwd?: string;
@@ -244,6 +269,24 @@ class HubDesktopClient {
 			uri: input.uri,
 			confirmed: input.confirmed,
 			...(input.open !== undefined ? { open: input.open } : {}),
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+			...(input.maxCommandFileBytes !== undefined
+				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
+				: {}),
+		});
+	}
+
+	async addCursorPlugin(
+		input: CursorPluginAddInput,
+	): Promise<CursorPluginAddResponse> {
+		return await this.invoke<CursorPluginAddResponse>("cursor_plugin_add", {
+			uri: input.uri,
+			confirmed: input.confirmed,
+			...(input.force !== undefined ? { force: input.force } : {}),
 			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
 			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
 			...(input.maxCommandFileBytes !== undefined

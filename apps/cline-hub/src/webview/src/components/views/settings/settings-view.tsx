@@ -29,6 +29,7 @@ import {
 	type BrowserAutomationStatus,
 	type BrowserToolResult,
 	type CursorMcpInstallResponse,
+	type CursorPluginAddResponse,
 	type CursorRuleOpenResponse,
 	type CursorUriPreviewResponse,
 } from "@/lib/desktop-client";
@@ -612,6 +613,11 @@ function CursorLinksContent() {
 	>();
 	const [ruleError, setRuleError] = useState<string | null>(null);
 	const [ruleLoading, setRuleLoading] = useState(false);
+	const [pluginResult, setPluginResult] = useState<
+		CursorPluginAddResponse | undefined
+	>();
+	const [pluginError, setPluginError] = useState<string | null>(null);
+	const [pluginLoading, setPluginLoading] = useState(false);
 
 	const previewRecord = asRecord(preview);
 	const route = recordString(previewRecord, "route");
@@ -626,6 +632,10 @@ function CursorLinksContent() {
 	const canInstallMcp = route === "mcp-install";
 	const canOpenRule =
 		route === "rule" && recordString(previewRecord, "kind") === "file";
+	const canAddPlugin =
+		route === "plugin-add" &&
+		recordBoolean(previewRecord, "requiresReview") !== true &&
+		Boolean(recordString(previewRecord, "source"));
 
 	const runPreview = async () => {
 		const uri = cursorUri.trim();
@@ -636,6 +646,8 @@ function CursorLinksContent() {
 			setInstallError(null);
 			setRuleResult(undefined);
 			setRuleError(null);
+			setPluginResult(undefined);
+			setPluginError(null);
 			return;
 		}
 		setPreviewLoading(true);
@@ -645,6 +657,8 @@ function CursorLinksContent() {
 		setInstallError(null);
 		setRuleResult(undefined);
 		setRuleError(null);
+		setPluginResult(undefined);
+		setPluginError(null);
 		try {
 			const result = await desktopClient.previewCursorUri({
 				uri,
@@ -667,6 +681,8 @@ function CursorLinksContent() {
 		setInstallError(null);
 		setRuleResult(undefined);
 		setRuleError(null);
+		setPluginResult(undefined);
+		setPluginError(null);
 	};
 
 	const runMcpInstall = async () => {
@@ -713,6 +729,29 @@ function CursorLinksContent() {
 			setRuleError(error instanceof Error ? error.message : String(error));
 		} finally {
 			setRuleLoading(false);
+		}
+	};
+
+	const runPluginAdd = async () => {
+		const uri = cursorUri.trim();
+		if (!uri || !canAddPlugin) {
+			return;
+		}
+		setPluginLoading(true);
+		setPluginError(null);
+		setPluginResult(undefined);
+		try {
+			const result = await desktopClient.addCursorPlugin({
+				uri,
+				confirmed: true,
+				maxCommandFileBytes: 64 * 1024,
+				maxRuleFileBytes: 64 * 1024,
+			});
+			setPluginResult(result);
+		} catch (error) {
+			setPluginError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setPluginLoading(false);
 		}
 	};
 
@@ -794,6 +833,21 @@ function CursorLinksContent() {
 									Open Rule
 								</Button>
 							) : null}
+							{canAddPlugin ? (
+								<Button
+									disabled={pluginLoading}
+									onClick={() => void runPluginAdd()}
+									type="button"
+									variant="outline"
+								>
+									{pluginLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<CheckCircle2 className="size-4" />
+									)}
+									Add Plugin
+								</Button>
+							) : null}
 						</div>
 					</div>
 				</section>
@@ -864,6 +918,47 @@ function CursorLinksContent() {
 							]
 								.filter(Boolean)
 								.join(" | ")}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
+				{pluginError ? (
+					<Alert className="mt-4" variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>Plugin install failed</AlertTitle>
+						<AlertDescription>{pluginError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{pluginResult ? (
+					<Alert
+						className="mt-4"
+						variant={pluginResult.installed ? "default" : "destructive"}
+					>
+						{pluginResult.installed ? (
+							<CheckCircle2 className="size-4" />
+						) : (
+							<AlertTriangle className="size-4" />
+						)}
+						<AlertTitle>
+							{pluginResult.installed
+								? "Cursor plugin installed"
+								: "Cursor plugin blocked"}
+						</AlertTitle>
+						<AlertDescription>
+							{pluginResult.installed
+								? [
+										pluginResult.sourceLabel,
+										pluginResult.entryCount !== undefined
+											? `${pluginResult.entryCount} entry file(s)`
+											: "",
+										pluginResult.installPath,
+									]
+											.filter(Boolean)
+											.join(" | ")
+								: (pluginResult.reason ??
+									pluginResult.detail ??
+									"Review required.")}
 						</AlertDescription>
 					</Alert>
 				) : null}

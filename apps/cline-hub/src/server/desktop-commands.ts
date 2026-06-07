@@ -37,6 +37,7 @@ import {
 	startConnectorChannel,
 	stopConnectorChannel,
 } from "./connectors";
+import { addCursorPlugin } from "./cursor-plugins";
 import { openCursorRule } from "./cursor-rules";
 import { providerSettingsManager, workspaceRoot } from "./deps";
 import {
@@ -297,6 +298,11 @@ export async function handleDesktopCommand(
 		const input =
 			args && typeof args === "object" ? (args as JsonRecord) : undefined;
 		return openCursorRule(input);
+	}
+	if (command === "cursor_plugin_add") {
+		const input =
+			args && typeof args === "object" ? (args as JsonRecord) : undefined;
+		return await addCursorPlugin(input);
 	}
 	if (command === "set_mcp_server_disabled") {
 		return setMcpServerDisabled(
