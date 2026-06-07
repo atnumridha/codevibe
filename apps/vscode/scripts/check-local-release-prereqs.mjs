@@ -11,15 +11,19 @@ const projectRoot = path.join(__dirname, "..")
 const repoRoot = path.join(projectRoot, "..", "..")
 
 function usage() {
-	console.error(`Usage: check-local-release-prereqs.mjs [--release] [--github-release] [--json]
+	console.error(`Usage: check-local-release-prereqs.mjs [--release] [--candidate|--final] [--github-release] [--json]
 
 Checks local prerequisites for CodeVibe VSIX packaging, installed VS Code smoke validation,
-and optional local GitHub Release creation.`)
+and optional local GitHub Release creation.
+
+Use --candidate for draft/prerelease validation VSIX releases. Final releases remain
+the default and require CODEVIBE_ALL_PARITY_VALIDATED=true plus an https:// evidence URL.`)
 }
 
 function parseArgs(argv) {
 	const options = {
 		release: false,
+		releaseStage: "final",
 		githubRelease: false,
 		json: false,
 	}
@@ -27,6 +31,10 @@ function parseArgs(argv) {
 	for (const arg of argv) {
 		if (arg === "--release") {
 			options.release = true
+		} else if (arg === "--candidate") {
+			options.releaseStage = "candidate"
+		} else if (arg === "--final") {
+			options.releaseStage = "final"
 		} else if (arg === "--github-release") {
 			options.githubRelease = true
 		} else if (arg === "--json") {
@@ -267,12 +275,22 @@ function checkVsCodeCli(checks) {
 	)
 }
 
-function checkReleaseGate(checks, requireGate) {
+function checkReleaseGate(checks, requireGate, releaseStage) {
 	const allParityValidated = process.env.CODEVIBE_ALL_PARITY_VALIDATED
 	const evidenceUrl = (process.env.CODEVIBE_PARITY_EVIDENCE_URL ?? "").trim()
 
 	if (allParityValidated === "true" && isHttpsUrl(evidenceUrl)) {
 		add(checks, "pass", "Cursor-parity release gate", `evidence: ${evidenceUrl}`)
+		return
+	}
+
+	if (releaseStage === "candidate") {
+		add(
+			checks,
+			"pass",
+			"Cursor-parity release gate",
+			"candidate release; final parity evidence is intentionally pending",
+		)
 		return
 	}
 
@@ -366,7 +384,7 @@ function main() {
 	checkVsCodeCli(checks)
 	checkPackageVersion(checks)
 	checkGitState(checks, options.release)
-	checkReleaseGate(checks, options.release)
+	checkReleaseGate(checks, options.release, options.releaseStage)
 
 	if (options.githubRelease) {
 		checkCommand(

@@ -67,6 +67,7 @@ From a dependency-equipped checkout:
 
 ```sh
 node apps/vscode/scripts/package-github-vsix.mjs --preflight
+node apps/vscode/scripts/check-local-release-prereqs.mjs --release --candidate
 npm --prefix apps/vscode ci --include=optional
 npm --prefix apps/vscode/webview-ui ci --include=optional
 cd apps/vscode
@@ -83,6 +84,7 @@ npm run package:github-vsix -- --verify-install --code "/Applications/Visual Stu
 For release-gated local packaging, `CODEVIBE_PARITY_EVIDENCE_URL` must point at an `https://` validation log or release checklist:
 
 ```sh
+node apps/vscode/scripts/check-local-release-prereqs.mjs --release --final --github-release
 export CODEVIBE_ALL_PARITY_VALIDATED=true
 export CODEVIBE_PARITY_EVIDENCE_URL="https://github.com/<owner>/<repo>/issues/<id>"
 npm run package:github-vsix:release -- --verify-install
