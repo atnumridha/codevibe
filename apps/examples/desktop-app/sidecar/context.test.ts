@@ -564,6 +564,49 @@ describe("Code sidecar runtime capabilities", () => {
 		await expect(readFile(settingsPath, "utf8")).rejects.toThrow();
 	});
 
+	it("previews Cursor MCP server replacements before import confirmation", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const tempDir = await mkdtemp(join(tmpdir(), "codevibe-cursor-mcp-"));
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-mcp-ws-"));
+		tempDirs.push(tempDir, workspace);
+		const settingsPath = join(tempDir, "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		await writeFile(
+			settingsPath,
+			JSON.stringify({
+				mcpServers: {
+					docs: { type: "stdio", command: "old-docs" },
+				},
+			}),
+		);
+		await mkdir(join(workspace, ".cursor"), { recursive: true });
+		await writeFile(
+			join(workspace, ".cursor", "mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					docs: { type: "stdio", command: "new-docs" },
+					search: { type: "stdio", command: "search-server" },
+				},
+			}),
+		);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "import_cursor_mcp_servers");
+		const stored = JSON.parse(await readFile(settingsPath, "utf8"));
+
+		expect(result).toMatchObject({
+			handled: true,
+			confirmed: false,
+			imported: false,
+			serverNames: ["docs", "search"],
+			replacedNames: ["docs"],
+		});
+		expect(stored.mcpServers.docs.command).toBe("old-docs");
+		expect(stored.mcpServers.search).toBeUndefined();
+	});
+
 	it("imports workspace Cursor MCP settings with normalized transports", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

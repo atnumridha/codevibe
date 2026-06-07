@@ -509,6 +509,10 @@ function importCursorMcpServers(
 		userHome: importSource.userHome,
 	});
 	const serverNames = Object.keys(cursorServers).sort();
+	const existingServers = readMcpServersMap(resolveMcpSettingsPath());
+	const replacedNames = serverNames.filter((name) =>
+		Object.hasOwn(existingServers, name),
+	);
 	if (args?.confirmed !== true) {
 		return buildCursorMcpImportResponse({
 			confirmed: false,
@@ -516,21 +520,17 @@ function importCursorMcpServers(
 			source: importSource.source,
 			sourcePath,
 			serverNames,
+			replacedNames,
 		});
 	}
 
 	const settingsPath = ensureMcpSettingsFile();
-	const existingServers = readMcpServersMap(settingsPath);
 	const importedAt = new Date().toISOString();
 	const nextServers: JsonRecord = { ...existingServers };
-	const replacedNames: string[] = [];
 	for (const name of serverNames) {
 		const serverConfig = getRecordValue(cursorServers[name]);
 		if (!serverConfig) {
 			continue;
-		}
-		if (Object.hasOwn(existingServers, name)) {
-			replacedNames.push(name);
 		}
 		const metadata = getRecordValue(serverConfig.metadata) ?? {};
 		nextServers[name] = {

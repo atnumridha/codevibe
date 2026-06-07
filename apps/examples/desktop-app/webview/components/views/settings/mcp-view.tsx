@@ -199,6 +199,8 @@ export function McpServersContent() {
 	);
 	const [formErrorMessage, setFormErrorMessage] = useState<string | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<McpServer | null>(null);
+	const [cursorMcpImportPreview, setCursorMcpImportPreview] =
+		useState<CursorMcpImportResponse | null>(null);
 
 	const applyResponse = useCallback((response: McpServersResponse) => {
 		setServers(response.servers);
@@ -293,11 +295,34 @@ export function McpServersContent() {
 			const response = await desktopClient.invoke<CursorMcpImportResponse>(
 				"import_cursor_mcp_servers",
 				{
-					confirmed: true,
 					source,
 				},
 			);
+			setCursorMcpImportPreview(response);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			setErrorMessage(message);
+		} finally {
+			setIsImportingCursorMcp(false);
+		}
+	};
+
+	const confirmCursorMcpImport = async () => {
+		if (!cursorMcpImportPreview) {
+			return;
+		}
+		setIsImportingCursorMcp(true);
+		setErrorMessage(null);
+		try {
+			const response = await desktopClient.invoke<CursorMcpImportResponse>(
+				"import_cursor_mcp_servers",
+				{
+					confirmed: true,
+					source: cursorMcpImportPreview.source,
+				},
+			);
 			applyResponse(response);
+			setCursorMcpImportPreview(null);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			setErrorMessage(message);
@@ -885,6 +910,65 @@ export function McpServersContent() {
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<AlertDialog
+				open={cursorMcpImportPreview !== null}
+				onOpenChange={(open) => {
+					if (!open && !isImportingCursorMcp) {
+						setCursorMcpImportPreview(null);
+					}
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Import Cursor MCP Servers?</AlertDialogTitle>
+						<AlertDialogDescription asChild>
+							<div className="space-y-2">
+								<p>
+									Review servers from{" "}
+									<code className="font-mono">
+										{cursorMcpImportPreview?.sourcePath ?? ".cursor/mcp.json"}
+									</code>{" "}
+									before importing them into CodeVibe MCP settings.
+								</p>
+								<p>
+									{cursorMcpImportPreview?.serverNames.length ?? 0} server
+									{cursorMcpImportPreview?.serverNames.length === 1 ? "" : "s"}{" "}
+									will be imported from{" "}
+									{cursorMcpImportPreview?.source ?? "workspace"} Cursor MCP
+									settings.
+								</p>
+								{cursorMcpImportPreview?.serverNames.length ? (
+									<p>
+										Servers:{" "}
+										{cursorMcpImportPreview.serverNames.join(", ")}
+									</p>
+								) : null}
+								{cursorMcpImportPreview?.replacedNames.length ? (
+									<p className="text-destructive">
+										Existing CodeVibe servers will be replaced:{" "}
+										{cursorMcpImportPreview.replacedNames.join(", ")}
+									</p>
+								) : null}
+							</div>
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={isImportingCursorMcp}>
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={isImportingCursorMcp}
+							onClick={(event) => {
+								event.preventDefault();
+								void confirmCursorMcpImport();
+							}}
+						>
+							{isImportingCursorMcp ? "Importing..." : "Import"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<AlertDialog
 				open={deleteTarget !== null}
