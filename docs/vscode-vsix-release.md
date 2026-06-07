@@ -54,13 +54,17 @@ Required release-gate inputs:
 From a dependency-equipped checkout:
 
 ```sh
+node apps/vscode/scripts/package-github-vsix.mjs --preflight
 npm --prefix apps/vscode ci --include=optional
 npm --prefix apps/vscode/webview-ui ci --include=optional
 cd apps/vscode
-CODEVIBE_ALL_PARITY_VALIDATED=true npm run package:github-vsix:release -- --verify-install
+export CODEVIBE_ALL_PARITY_VALIDATED=true
+export CODEVIBE_PARITY_EVIDENCE_URL="https://github.com/<owner>/<repo>/issues/<id>"
+node scripts/check-local-release-prereqs.mjs --release --github-release
+npm run package:github-vsix:release -- --verify-install
 ```
 
-With the release gate enabled, also set:
+For release-gated local packaging, `CODEVIBE_PARITY_EVIDENCE_URL` must point at an `https://` validation log or release checklist:
 
 ```sh
 CODEVIBE_PARITY_EVIDENCE_URL="https://github.com/<owner>/<repo>/issues/<id>"

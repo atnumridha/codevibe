@@ -77,7 +77,7 @@ const visibleManifestStringKeys = new Set(["category", "description", "title"])
 
 function usage() {
 	console.error(
-		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--code <path>] [--print-metadata] [--require-release-gate]",
+		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--code <path>] [--print-metadata] [--preflight] [--require-release-gate]",
 	)
 }
 
@@ -90,6 +90,7 @@ function parseArgs(argv) {
 		code: undefined,
 		preRelease: false,
 		printMetadata: false,
+		preflight: false,
 		requireReleaseGate: false,
 	}
 
@@ -121,6 +122,8 @@ function parseArgs(argv) {
 			options.code = code
 		} else if (arg === "--print-metadata") {
 			options.printMetadata = true
+		} else if (arg === "--preflight") {
+			options.preflight = true
 		} else if (arg === "--require-release-gate") {
 			options.requireReleaseGate = true
 		} else if (arg === "-h" || arg === "--help") {
@@ -690,6 +693,16 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 
 async function main() {
 	const options = parseArgs(process.argv.slice(2))
+	if (options.preflight) {
+		runCommand(
+			[process.execPath],
+			[
+				"scripts/check-local-release-prereqs.mjs",
+				...(options.requireReleaseGate ? ["--release"] : []),
+			],
+		)
+		return
+	}
 	if (options.requireReleaseGate) {
 		assertCursorParityReleaseGate("CodeVibe GitHub VSIX package")
 	}
