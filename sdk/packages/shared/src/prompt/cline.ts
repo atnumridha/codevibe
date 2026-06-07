@@ -106,6 +106,7 @@ export function buildClineSystemPrompt(
 		.replace("{{CWD}}", workspaceRoot)
 		.replace("{{CURRENT_DATE}}", new Date().toLocaleDateString())
 		.replace("{{IDE_NAME}}", ide)
+		.replace("{{MODE}}", mode ?? "act")
 		.replace(
 			"{{CLINE_METADATA}}",
 			isCline
