@@ -8,6 +8,7 @@ import {
 } from "./gateway";
 
 const streamTextSpy = vi.fn();
+const openaiFactorySpy = vi.fn();
 const openaiCompatibleFactorySpy = vi.fn();
 const openaiCompatibleSpy = vi.fn((modelId: string) => ({
 	modelId,
@@ -45,9 +46,12 @@ vi.mock("ai", () => ({
 }));
 
 vi.mock("@ai-sdk/openai", () => ({
-	createOpenAI: () => ({
-		responses: (modelId: string) => openaiResponsesSpy(modelId),
-	}),
+	createOpenAI: (config: unknown) => {
+		openaiFactorySpy(config);
+		return {
+			responses: (modelId: string) => openaiResponsesSpy(modelId),
+		};
+	},
 }));
 
 vi.mock("@ai-sdk/openai-compatible", () => ({
@@ -108,6 +112,7 @@ const originalOpenRouterApiKey = process.env.OPENROUTER_API_KEY;
 describe("sdk-gateway", () => {
 	beforeEach(() => {
 		streamTextSpy.mockReset();
+		openaiFactorySpy.mockReset();
 		openaiCompatibleFactorySpy.mockReset();
 		openaiCompatibleSpy.mockReset();
 		openaiResponsesSpy.mockReset();
@@ -1734,18 +1739,26 @@ describe("sdk-gateway", () => {
 		expect(call).not.toHaveProperty("maxOutputTokens");
 	});
 
-	it("passes Codex clientVersion through to the provider factory", async () => {
+	it("passes Codex auth metadata through the OpenAI provider path", async () => {
 		streamTextSpy.mockReturnValue({
 			fullStream: makeStreamParts([
 				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
 			]),
 		});
+		const codexFetch = vi.fn(async () => new Response("{}", { status: 200 }));
 
 		const gateway = createGateway({
 			providerConfigs: [
 				{
 					providerId: "openai-codex",
-					codex: { clientVersion: "0.136.0-test" },
+					fetch: codexFetch,
+					options: {
+						clientVersion: "0.136.0-test",
+						accountId: "acct_123",
+						installationId: "install_123",
+						tokenSource: "codex-home",
+						authMode: "chatgpt",
+					},
 				},
 			],
 		});
@@ -1758,10 +1771,27 @@ describe("sdk-gateway", () => {
 			}),
 		);
 
-		expect(codexExecFactorySpy).toHaveBeenCalledWith(
+		expect(codexExecFactorySpy).not.toHaveBeenCalled();
+		expect(openaiFactorySpy).toHaveBeenCalledWith(
 			expect.objectContaining({
-				clientVersion: "0.136.0-test",
+				headers: expect.objectContaining({
+					"ChatGPT-Account-Id": "acct_123",
+					"x-codex-installation-id": "install_123",
+				}),
+				fetch: expect.any(Function),
 			}),
+		);
+		const openaiConfig = openaiFactorySpy.mock.calls.at(-1)?.[0] as
+			| { fetch?: typeof fetch; headers?: Record<string, string> }
+			| undefined;
+		expect(openaiConfig?.headers).not.toHaveProperty("tokenSource");
+		expect(openaiConfig?.headers).not.toHaveProperty("authMode");
+		await openaiConfig?.fetch?.(
+			"https://chatgpt.com/backend-api/codex/responses",
+		);
+		const fetchInput = codexFetch.mock.calls.at(-1)?.[0];
+		expect(String(fetchInput)).toBe(
+			"https://chatgpt.com/backend-api/codex/responses?client_version=0.136.0-test",
 		);
 	});
 
