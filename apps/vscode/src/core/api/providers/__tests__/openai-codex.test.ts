@@ -2,6 +2,7 @@ import { expect } from "chai"
 import sinon from "sinon"
 import { openAiCodexOAuthManager } from "@/integrations/openai-codex/oauth"
 import { mockFetchForTesting } from "@/shared/net"
+import { Logger } from "@/shared/services/Logger"
 import { OpenAiCodexHandler } from "../openai-codex"
 
 describe("OpenAiCodexHandler", () => {
@@ -87,5 +88,35 @@ describe("OpenAiCodexHandler", () => {
 			expect(thrown?.message).not.to.contain(accessToken)
 			expect(thrown?.message).not.to.contain(refreshToken)
 		})
+	})
+
+	it("redacts Codex websocket errors before logging HTTP fallback", async () => {
+		const accessToken = "codex-websocket-access-secret"
+		const refreshToken = "codex-websocket-refresh-secret"
+		const handler = new OpenAiCodexHandler({})
+		sinon.stub(handler as any, "buildCodexHeaders").resolves({})
+		sinon.stub(openAiCodexOAuthManager, "getClientVersion").resolves("0.136.0-test")
+		sinon.stub(handler as any, "createResponseStreamWebsocket").callsFake(async function* () {
+			const error = new Error(
+				`websocket echoed Bearer ${accessToken} and {"refresh_token":"${refreshToken}","authorization":"Bearer ${accessToken}"}`,
+			) as Error & { code?: string }
+			error.code = "websocket_error"
+			throw error
+		})
+		sinon.stub(handler as any, "makeCodexRequest").callsFake(async function* () {
+			// HTTP fallback succeeds without yielding chunks.
+		})
+		const logStub = sinon.stub(Logger, "error")
+
+		for await (const _ of (handler as any).executeRequest({}, {}, handler.getModel(), accessToken, true)) {
+			// The mocked fallback completes without stream chunks.
+		}
+
+		const logged = logStub.firstCall.args
+			.map((arg) => (arg instanceof Error ? `${arg.message}\n${arg.stack ?? ""}` : String(arg)))
+			.join("\n")
+		expect(logged).to.contain("[REDACTED]")
+		expect(logged).not.to.contain(accessToken)
+		expect(logged).not.to.contain(refreshToken)
 	})
 })

@@ -45,6 +45,23 @@ function redactCodexErrorMessage(message: string, secrets: Array<string | undefi
 		)
 }
 
+function redactCodexError(error: unknown, secrets: Array<string | undefined>): unknown {
+	if (!(error instanceof Error)) {
+		return redactCodexErrorMessage(String(error), secrets)
+	}
+
+	const redacted = new Error(redactCodexErrorMessage(error.message, secrets)) as Error & { code?: string }
+	redacted.name = error.name
+	const code = (error as Error & { code?: unknown }).code
+	if (typeof code === "string") {
+		redacted.code = code
+	}
+	if (error.stack) {
+		redacted.stack = redactCodexErrorMessage(error.stack, secrets)
+	}
+	return redacted
+}
+
 interface OpenAiCodexHandlerOptions extends CommonApiHandlerOptions {
 	reasoningEffort?: string
 	apiModelId?: string
@@ -243,7 +260,10 @@ export class OpenAiCodexHandler implements ApiHandler {
 					)
 					return
 				} catch (error) {
-					Logger.error("OpenAI Codex websocket mode failed, falling back to HTTP Responses API:", error)
+					Logger.error(
+						"OpenAI Codex websocket mode failed, falling back to HTTP Responses API:",
+						redactCodexError(error, [accessToken, `Bearer ${accessToken}`]),
+					)
 					this.closeResponsesWebsocket()
 				}
 			}
