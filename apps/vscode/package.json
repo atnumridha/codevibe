@@ -510,6 +510,8 @@
 		"package:github-vsix:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight:release": "node scripts/check-local-release-prereqs.mjs --release --github-release",
+		"release:cursor-parity:evidence": "node scripts/collect-cursor-parity-evidence.mjs",
+		"release:cursor-parity:evidence:full": "node scripts/collect-cursor-parity-evidence.mjs --run-required",
 		"package:github-vsix": "node scripts/package-github-vsix.mjs",
 		"package:github-vsix:release": "node scripts/package-github-vsix.mjs --require-release-gate",
 		"test:e2e:build": "node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix",

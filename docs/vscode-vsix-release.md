@@ -63,6 +63,12 @@ Required release-gate inputs:
 
 ## Local Packaging
 
+To capture a baseline evidence log before local dependencies are installed, run the safe collector. It exits nonzero while any release gate is still missing or skipped.
+
+```sh
+node apps/vscode/scripts/collect-cursor-parity-evidence.mjs || true
+```
+
 From a dependency-equipped checkout:
 
 ```sh
@@ -71,6 +77,7 @@ node apps/vscode/scripts/check-local-release-prereqs.mjs --release --candidate
 npm --prefix apps/vscode ci --include=optional
 npm --prefix apps/vscode/webview-ui ci --include=optional
 cd apps/vscode
+npm run release:cursor-parity:evidence:full
 npm run package:github-vsix -- --verify-install
 ```
 

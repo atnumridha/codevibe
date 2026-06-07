@@ -29,6 +29,18 @@ npm --prefix apps/vscode run test:e2e:optimal
 npm --prefix apps/vscode run package:github-vsix -- --verify-install
 ```
 
+To capture a baseline evidence log before the full local toolchain is available, run the safe collector. It exits nonzero while any required gate is missing or skipped.
+
+```sh
+node apps/vscode/scripts/collect-cursor-parity-evidence.mjs || true
+```
+
+In a dependency-equipped checkout, use the full collector to run the required local dependency, build, test, e2e, package, and VSIX install commands and write a Markdown evidence log:
+
+```sh
+npm --prefix apps/vscode run release:cursor-parity:evidence:full
+```
+
 If `code` is not on `PATH`, record the explicit VS Code CLI path used:
 
 ```sh
