@@ -214,7 +214,14 @@ type CursorGitActionResponse = {
 	commitHash?: string;
 	currentBranch?: string;
 	dirty: boolean;
+	statusEntryCount: number;
 	reason?: string;
+};
+
+type GitStatusEntry = {
+	status: string;
+	path: string;
+	originalPath?: string;
 };
 
 function readProviderSettingsUpdate(
@@ -685,13 +692,42 @@ function assertSafeGitPathspecs(files: string[]): void {
 	}
 }
 
-function readGitStatusPorcelain(cwd: string): string {
+function parseGitStatusPorcelainZ(output: string): GitStatusEntry[] {
+	const fields = output.split("\0").filter(Boolean);
+	const entries: GitStatusEntry[] = [];
+
+	for (let index = 0; index < fields.length; index++) {
+		const field = fields[index];
+		const status = field.slice(0, 2);
+		const path = field.startsWith(`${status} `)
+			? field.slice(3)
+			: field.slice(2).trimStart();
+		const entry: GitStatusEntry = { status, path };
+
+		if (
+			(status[0] === "R" ||
+				status[0] === "C" ||
+				status[1] === "R" ||
+				status[1] === "C") &&
+			index + 1 < fields.length
+		) {
+			entry.originalPath = fields[++index];
+		}
+
+		entries.push(entry);
+	}
+
+	return entries;
+}
+
+function readGitStatusPorcelain(cwd: string): GitStatusEntry[] {
 	try {
-		return execFileSync("git", ["status", "--porcelain"], {
+		const output = execFileSync("git", ["status", "--porcelain", "-z"], {
 			cwd,
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "pipe"],
 		});
+		return parseGitStatusPorcelainZ(output);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
 		throw new Error(`failed to read git status: ${message}`);
@@ -1544,7 +1580,7 @@ async function handleCursorGitActionCommand(
 	}
 
 	const status = readGitStatusPorcelain(workspaceRoot);
-	const dirty = status.trim().length > 0;
+	const dirty = status.length > 0;
 	const baseResponse = {
 		handled: true as const,
 		route: "git" as const,
@@ -1554,6 +1590,7 @@ async function handleCursorGitActionCommand(
 		paramKeys: Object.keys(request.params).sort(),
 		currentBranch: readGitCurrentBranch(workspaceRoot),
 		dirty,
+		statusEntryCount: status.length,
 	};
 
 	if (request.kind === "git-checkout") {

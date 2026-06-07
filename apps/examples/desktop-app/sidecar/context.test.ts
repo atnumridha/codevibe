@@ -1068,6 +1068,31 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(runGit(workspace, ["branch", "--show-current"])).toBe("master");
 	});
 
+	it("uses NUL-delimited status for dirty Cursor git checkout snapshots", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		runGit(workspace, ["branch", "feature"]);
+		await writeFile(join(workspace, "line\nbreak.txt"), "dirty\n");
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_git_action", {
+			uri: "vscode://cline.cline/git/checkout?branch=feature",
+			confirmed: true,
+		});
+
+		expect(result).toMatchObject({
+			kind: "git-checkout",
+			actionable: false,
+			executed: false,
+			currentBranch: "master",
+			dirty: true,
+			statusEntryCount: 1,
+		});
+		expect(runGit(workspace, ["branch", "--show-current"])).toBe("master");
+	});
+
 	it("runs confirmed Cursor git branch actions", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
