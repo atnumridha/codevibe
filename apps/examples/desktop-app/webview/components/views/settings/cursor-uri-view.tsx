@@ -10,6 +10,7 @@ import {
 	FileText,
 	GitBranch,
 	Globe2,
+	KeyRound,
 	Keyboard,
 	Loader2,
 	MousePointerClick,
@@ -243,6 +244,7 @@ export function CursorUriView({
 	const [launching, setLaunching] = useState(false);
 	const [ingesting, setIngesting] = useState(false);
 	const [mcpInstalling, setMcpInstalling] = useState(false);
+	const [mcpAuthenticating, setMcpAuthenticating] = useState(false);
 	const [ruleOpening, setRuleOpening] = useState(false);
 	const [pluginAdding, setPluginAdding] = useState(false);
 	const [pluginForce, setPluginForce] = useState(false);
@@ -313,6 +315,7 @@ export function CursorUriView({
 		launching ||
 		ingesting ||
 		mcpInstalling ||
+		mcpAuthenticating ||
 		ruleOpening ||
 		pluginAdding ||
 		gitRunning;
@@ -323,6 +326,9 @@ export function CursorUriView({
 	const browserSummary = browserResultSummary(browserResult);
 	const browserEvaluateEnabled =
 		browserStatus?.safeBrowserEvaluateEnabled === true;
+	const canAuthenticateMcpInstall =
+		mcpInstall?.installed === true &&
+		mcpInstall.oauthNextAction === "authenticate";
 
 	const loadBrowserStatus = useCallback(async () => {
 		setBrowserStatusLoading(true);
@@ -486,6 +492,33 @@ export function CursorUriView({
 			);
 		} finally {
 			setMcpInstalling(false);
+		}
+	};
+
+	const runMcpAuthentication = async () => {
+		const serverName = mcpInstall?.serverName?.trim();
+		if (!serverName || !canAuthenticateMcpInstall) {
+			return;
+		}
+		setMcpAuthenticating(true);
+		setError(null);
+		try {
+			const result = await desktopClient.authenticateMcpServer(serverName);
+			setMcpInstall((current) =>
+				current && current.serverName === result.serverName
+					? {
+							...current,
+							oauthRequired: result.oauthRequired,
+							oauthAuthStatus: result.oauthAuthStatus,
+							oauthNextAction: result.oauthNextAction,
+							oauthDetail: result.message,
+						}
+					: current,
+			);
+		} catch (authError) {
+			setError(authError instanceof Error ? authError.message : String(authError));
+		} finally {
+			setMcpAuthenticating(false);
 		}
 	};
 
@@ -1176,6 +1209,22 @@ export function CursorUriView({
 								: ""}
 							{mcpInstall.oauthDetail ? (
 								<span className="block pt-1">{mcpInstall.oauthDetail}</span>
+							) : null}
+							{canAuthenticateMcpInstall ? (
+								<Button
+									className="mt-3"
+									disabled={isBusy}
+									onClick={() => void runMcpAuthentication()}
+									size="sm"
+									variant="outline"
+								>
+									{mcpAuthenticating ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<KeyRound className="size-4" />
+									)}
+									Authenticate
+								</Button>
 							) : null}
 						</AlertDescription>
 					</Alert>

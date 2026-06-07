@@ -3,6 +3,8 @@
 import {
 	Circle,
 	Download,
+	KeyRound,
+	Loader2,
 	Minus,
 	Pencil,
 	Plus,
@@ -58,6 +60,13 @@ interface McpServer {
 	url?: string;
 	headers?: Record<string, string>;
 	metadata?: unknown;
+	oauthSupported?: boolean;
+	oauthConfigured?: boolean;
+	oauthRequired?: boolean;
+	oauthAuthStatus?: "authenticated" | "unauthenticated" | "pending";
+	oauthNextAction?: "none" | "authenticate";
+	oauthDetail?: string;
+	lastAuthenticatedAt?: number;
 }
 
 interface McpServersResponse {
@@ -304,6 +313,26 @@ export function McpServersContent() {
 			setErrorMessage(message);
 		} finally {
 			setIsImportingCursorMcp(false);
+		}
+	};
+
+	const authenticateServer = async (server: McpServer) => {
+		setBusyServerName(server.name);
+		setErrorMessage(null);
+		try {
+			const response = await desktopClient.authenticateMcpServer(server.name);
+			const mcp = response.mcp;
+			if (mcp && typeof mcp === "object") {
+				applyResponse(mcp as unknown as McpServersResponse);
+			} else {
+				await refreshServers();
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			setErrorMessage(message);
+			await refreshServers();
+		} finally {
+			setBusyServerName(null);
 		}
 	};
 
@@ -581,8 +610,29 @@ export function McpServersContent() {
 										<span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
 											{server.transportType}
 										</span>
+										{server.oauthSupported ? (
+											<span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
+												{server.oauthAuthStatus ?? "auth unknown"}
+											</span>
+										) : null}
 										<div className="flex-1" />
 										<div className="flex items-center gap-1">
+											{server.oauthNextAction === "authenticate" &&
+											!server.disabled ? (
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													aria-label={`Authenticate ${server.name}`}
+													onClick={() => void authenticateServer(server)}
+													disabled={isBusy}
+												>
+													{isBusy ? (
+														<Loader2 className="h-3.5 w-3.5 animate-spin" />
+													) : (
+														<KeyRound className="h-3.5 w-3.5" />
+													)}
+												</Button>
+											) : null}
 											<Button
 												variant="ghost"
 												size="icon-sm"
@@ -654,6 +704,12 @@ export function McpServersContent() {
 													{stringifyRedactedKeyValuePairs(server.headers)}
 												</p>
 											)}
+										{server.oauthDetail ? (
+											<p>
+												<span className="text-muted-foreground/70">Auth:</span>{" "}
+												{server.oauthDetail}
+											</p>
+										) : null}
 									</div>
 								</div>
 							);

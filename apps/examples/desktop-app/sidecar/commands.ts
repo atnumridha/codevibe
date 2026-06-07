@@ -26,6 +26,7 @@ import type {
 } from "@cline/core";
 import {
 	addLocalProvider,
+	authorizeMcpServerOAuth,
 	buildCursorAgentTaskRouteRequest,
 	buildCursorAutomationIngestRouteRequest,
 	buildCursorMcpInstallRequest,
@@ -44,6 +45,7 @@ import {
 	HubScheduleCommandService,
 	HubScheduleService,
 	loadOpenAICodexHomeCredentialsSync,
+	listMcpServerOAuthStatuses,
 	listHookConfigFiles,
 	listLocalProviders,
 	listPluginTools,
@@ -348,8 +350,28 @@ function readOpenAICodexAuthStatus(): JsonRecord {
 // MCP settings helpers
 // ---------------------------------------------------------------------------
 
+function toMcpOAuthAuthStatus(input: {
+	oauthSupported: boolean;
+	oauthConfigured: boolean;
+	lastError?: string;
+}): "authenticated" | "unauthenticated" | "pending" | undefined {
+	if (!input.oauthSupported) {
+		return undefined;
+	}
+	if (input.oauthConfigured) {
+		return "authenticated";
+	}
+	return input.lastError ? "unauthenticated" : "pending";
+}
+
 function readMcpServersResponse(): JsonRecord {
 	const settingsPath = resolveMcpSettingsPath();
+	const oauthStatuses = new Map(
+		listMcpServerOAuthStatuses({ filePath: settingsPath }).map((status) => [
+			status.serverName,
+			status,
+		]),
+	);
 	if (!existsSync(settingsPath)) {
 		return { settingsPath, hasSettingsFile: false, servers: [] };
 	}
@@ -364,6 +386,10 @@ function readMcpServersResponse(): JsonRecord {
 		const transportType = String(
 			transport?.type ?? record.transportType ?? record.type ?? "stdio",
 		).trim();
+		const oauthStatus = oauthStatuses.get(name);
+		const oauthAuthStatus = oauthStatus
+			? toMcpOAuthAuthStatus(oauthStatus)
+			: undefined;
 		return {
 			name,
 			transportType,
@@ -404,6 +430,25 @@ function readMcpServersResponse(): JsonRecord {
 						? record.headers
 						: undefined,
 			metadata: record.metadata,
+			...(oauthStatus
+				? {
+						oauthSupported: oauthStatus.oauthSupported,
+						oauthConfigured: oauthStatus.oauthConfigured,
+						oauthAuthStatus,
+						oauthNextAction:
+							oauthStatus.oauthSupported && oauthAuthStatus !== "authenticated"
+								? "authenticate"
+								: "none",
+						oauthRequired:
+							oauthStatus.oauthSupported && oauthAuthStatus !== "authenticated",
+						oauthDetail:
+							oauthStatus.oauthSupported && oauthAuthStatus !== "authenticated"
+								? oauthStatus.lastError ??
+									"This MCP server may require authentication to get started."
+								: undefined,
+						lastAuthenticatedAt: oauthStatus.lastAuthenticatedAt,
+					}
+				: {}),
 		};
 	});
 	return { settingsPath, hasSettingsFile: true, servers: entries };
@@ -421,6 +466,35 @@ function ensureMcpSettingsFile(): string {
 		writeMcpServersMap({});
 	}
 	return path;
+}
+
+function shouldPreserveMcpOAuthState(
+	existing: JsonRecord | undefined,
+	next: JsonRecord,
+): boolean {
+	const oauth = getRecordValue(existing?.oauth);
+	if (!oauth) {
+		return false;
+	}
+	const existingTransport = getRecordValue(existing?.transport) ?? existing;
+	const nextTransport = getRecordValue(next.transport) ?? next;
+	const existingTransportType = String(
+		existingTransport?.type ?? existing?.transportType ?? existing?.type ?? "stdio",
+	).trim();
+	const nextTransportType = String(
+		nextTransport?.type ?? next.transportType ?? next.type ?? "stdio",
+	).trim();
+	if (
+		!existingTransportType ||
+		existingTransportType === "stdio" ||
+		existingTransportType !== nextTransportType
+	) {
+		return false;
+	}
+	return (
+		getTrimmedStringValue(existingTransport?.url) ===
+		getTrimmedStringValue(nextTransport?.url)
+	);
 }
 
 function resolveCursorMcpSettingsPath(workspaceRoot: string): string {
@@ -601,7 +675,12 @@ function summarizeCursorMcpInstallOAuth(
 
 	const oauth = getRecordValue(serverConfig.oauth);
 	if (!oauth) {
-		return {};
+		return {
+			oauthRequired: true,
+			oauthAuthStatus: "pending",
+			oauthNextAction: "authenticate",
+			oauthDetail: "This MCP server may require authentication to get started.",
+		};
 	}
 
 	const tokens = getRecordValue(oauth.tokens);
@@ -2430,6 +2509,15 @@ function openFileInEditor(filePath: string): void {
 	child.unref();
 }
 
+function openUrlInBrowser(url: string): void {
+	const platform = process.platform;
+	const cmd =
+		platform === "darwin" ? "open" : platform === "win32" ? "cmd" : "xdg-open";
+	const cmdArgs = platform === "win32" ? ["/c", "start", "", url] : [url];
+	const child = spawn(cmd, cmdArgs, { stdio: "ignore", detached: true });
+	child.unref();
+}
+
 // ---------------------------------------------------------------------------
 // Main command router
 // ---------------------------------------------------------------------------
@@ -2785,22 +2873,7 @@ export async function handleCommand(
 		const credentials = await loginLocalProvider(
 			providerId,
 			existing,
-			(url) => {
-				const platform = process.platform;
-				const spawned =
-					platform === "darwin"
-						? spawn("open", [url], { stdio: "ignore", detached: true })
-						: platform === "win32"
-							? spawn("cmd", ["/c", "start", "", url], {
-									stdio: "ignore",
-									detached: true,
-								})
-							: spawn("xdg-open", [url], {
-									stdio: "ignore",
-									detached: true,
-								});
-				spawned.unref();
-			},
+			openUrlInBrowser,
 		);
 		const saved = saveLocalProviderOAuthCredentials(
 			manager,
@@ -2817,6 +2890,58 @@ export async function handleCommand(
 	// ── MCP server management ─────────────────────────────────────────
 	if (command === "list_mcp_servers") {
 		return readMcpServersResponse();
+	}
+	if (command === "authenticate_mcp_server") {
+		const serverName = String(args?.serverName ?? args?.name ?? "").trim();
+		if (!serverName) {
+			throw new Error("serverName is required");
+		}
+		const timeoutMs = toPositiveInt(args?.timeoutMs);
+		const callbackPorts = Array.isArray(args?.callbackPorts)
+			? args.callbackPorts
+					.map((port) => toPositiveInt(port))
+					.filter((port): port is number => typeof port === "number")
+			: undefined;
+		const settingsPath = resolveMcpSettingsPath();
+		const result = await authorizeMcpServerOAuth({
+			serverName,
+			filePath: settingsPath,
+			...(timeoutMs ? { timeoutMs } : {}),
+			...(callbackPorts?.length ? { callbackPorts } : {}),
+			openUrl: openUrlInBrowser,
+			onServerListening: (info) => {
+				broadcastEvent(ctx, "mcp_oauth_server_listening", {
+					serverName,
+					host: info.host,
+					port: info.port,
+				});
+			},
+			onServerClose: (info) => {
+				broadcastEvent(ctx, "mcp_oauth_server_closed", {
+					serverName,
+					host: info.host,
+					port: info.port,
+				});
+			},
+		});
+		const mcp = readMcpServersResponse();
+		const server = Array.isArray(mcp.servers)
+			? (mcp.servers.find(
+					(candidate) =>
+						getRecordValue(candidate)?.name === result.serverName,
+				) as JsonRecord | undefined)
+			: undefined;
+		return {
+			initiated: true,
+			authorized: result.authorized,
+			serverName: result.serverName,
+			message: result.message,
+			settingsPath,
+			oauthAuthStatus: server?.oauthAuthStatus,
+			oauthNextAction: server?.oauthNextAction,
+			oauthRequired: server?.oauthRequired,
+			mcp,
+		};
 	}
 	if (command === "import_cursor_mcp_servers") {
 		return importCursorMcpServers(ctx, args);
@@ -2875,6 +3000,10 @@ export async function handleCommand(
 		const path = ensureMcpSettingsFile();
 		const parsed = JSON.parse(readFileSync(path, "utf8")) as JsonRecord;
 		const servers = (parsed.mcpServers as JsonRecord | undefined) ?? {};
+		const previousEntry = getRecordValue(servers[previousName || name]);
+		if (shouldPreserveMcpOAuthState(previousEntry, next)) {
+			next.oauth = previousEntry?.oauth;
+		}
 		if (previousName && previousName !== name) {
 			delete servers[previousName];
 		}

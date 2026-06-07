@@ -226,6 +226,18 @@ export type CursorMcpInstallResponse = Record<string, unknown> & {
 	oauthDetail?: string;
 };
 
+export type AuthenticateMcpServerResponse = Record<string, unknown> & {
+	initiated: true;
+	authorized: true;
+	serverName: string;
+	message: string;
+	settingsPath: string;
+	oauthRequired?: boolean;
+	oauthAuthStatus?: "authenticated" | "unauthenticated" | "pending";
+	oauthNextAction?: "none" | "authenticate";
+	mcp?: Record<string, unknown>;
+};
+
 export type CursorRuleOpenInput = CursorUriPreviewInput & {
 	confirmed: true;
 	open?: boolean;
@@ -460,7 +472,11 @@ class DesktopClient {
 		return this.connectPromise;
 	}
 
-	async invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+	async invoke<T>(
+		command: string,
+		args?: Record<string, unknown>,
+		options?: { timeoutMs?: number },
+	): Promise<T> {
 		// Route native OS commands (directory picker, file opener) through Tauri
 		// only when running inside the full Tauri app shell. In sidecar/web mode
 		// these are handled by the sidecar over WebSocket.
@@ -492,7 +508,7 @@ class DesktopClient {
 				pending.reject(
 					new Error(`Desktop command timed out waiting for ${command}`),
 				);
-			}, REQUEST_TIMEOUT_MS);
+			}, options?.timeoutMs ?? REQUEST_TIMEOUT_MS);
 			this.pending.set(id, {
 				resolve: (value) => resolve(value as T),
 				reject,
@@ -611,6 +627,16 @@ class DesktopClient {
 				? { maxRuleFileBytes: input.maxRuleFileBytes }
 				: {}),
 		});
+	}
+
+	async authenticateMcpServer(
+		serverName: string,
+	): Promise<AuthenticateMcpServerResponse> {
+		return await this.invoke<AuthenticateMcpServerResponse>(
+			"authenticate_mcp_server",
+			{ serverName },
+			{ timeoutMs: 360_000 },
+		);
 	}
 
 	async openCursorRule(

@@ -592,6 +592,116 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(storedText).toContain("secret-verifier");
 	});
 
+	it("lists MCP OAuth status without leaking OAuth secrets", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const tempDir = await mkdtemp(join(tmpdir(), "codevibe-mcp-oauth-"));
+		tempDirs.push(tempDir);
+		const settingsPath = join(tempDir, "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		await writeFile(
+			settingsPath,
+			JSON.stringify({
+				mcpServers: {
+					docs: {
+						transport: {
+							type: "streamableHttp",
+							url: "https://mcp.example.com/context",
+						},
+						oauth: {
+							tokens: {
+								access_token: "secret-access-token",
+								refresh_token: "secret-refresh-token",
+							},
+							codeVerifier: "secret-verifier",
+							lastAuthenticatedAt: 1_734_000_000_000,
+						},
+					},
+				},
+			}),
+		);
+		const ctx = createSidecarContext("/workspace/project");
+
+		const result = await handleCommand(ctx, "list_mcp_servers");
+		const resultText = JSON.stringify(result);
+
+		expect(result).toMatchObject({
+			settingsPath,
+			hasSettingsFile: true,
+			servers: [
+				{
+					name: "docs",
+					transportType: "streamableHttp",
+					oauthSupported: true,
+					oauthConfigured: true,
+					oauthAuthStatus: "authenticated",
+					oauthNextAction: "none",
+					oauthRequired: false,
+					lastAuthenticatedAt: 1_734_000_000_000,
+				},
+			],
+		});
+		expect(resultText).not.toContain("secret-access-token");
+		expect(resultText).not.toContain("secret-refresh-token");
+		expect(resultText).not.toContain("secret-verifier");
+	});
+
+	it("preserves MCP OAuth state when editing the same URL transport", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const tempDir = await mkdtemp(join(tmpdir(), "codevibe-mcp-oauth-"));
+		tempDirs.push(tempDir);
+		const settingsPath = join(tempDir, "mcp.json");
+		process.env.CLINE_MCP_SETTINGS_PATH = settingsPath;
+		await writeFile(
+			settingsPath,
+			JSON.stringify({
+				mcpServers: {
+					docs: {
+						transport: {
+							type: "streamableHttp",
+							url: "https://mcp.example.com/context",
+						},
+						oauth: {
+							tokens: { access_token: "secret-access-token" },
+							lastAuthenticatedAt: 1_734_000_000_000,
+						},
+					},
+				},
+			}),
+		);
+		const ctx = createSidecarContext("/workspace/project");
+
+		const result = await handleCommand(ctx, "upsert_mcp_server", {
+			input: {
+				name: "docs-renamed",
+				previousName: "docs",
+				transportType: "streamableHttp",
+				url: "https://mcp.example.com/context",
+				headers: { "X-Client": "codevibe" },
+			},
+		});
+		const stored = JSON.parse(await readFile(settingsPath, "utf8"));
+
+		expect(stored.mcpServers.docs).toBeUndefined();
+		expect(stored.mcpServers["docs-renamed"].oauth).toMatchObject({
+			tokens: { access_token: "secret-access-token" },
+			lastAuthenticatedAt: 1_734_000_000_000,
+		});
+		expect(result).toMatchObject({
+			servers: [
+				{
+					name: "docs-renamed",
+					oauthConfigured: true,
+					oauthAuthStatus: "authenticated",
+				},
+			],
+		});
+		expect(JSON.stringify(result)).not.toContain("secret-access-token");
+	});
+
 	it("previews workspace Cursor MCP imports without mutating settings", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
