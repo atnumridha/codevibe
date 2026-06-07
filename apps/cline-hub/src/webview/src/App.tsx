@@ -4,6 +4,7 @@ import {
 	BoxIcon,
 	ClockIcon,
 	FunnelIcon,
+	GitBranchIcon,
 	HomeIcon,
 	LinkIcon,
 	MessageSquareIcon,
@@ -200,6 +201,33 @@ function statusTone(status?: string): string {
 	return "bg-muted-foreground";
 }
 
+function sessionMetadataRecord(
+	value?: Record<string, unknown>,
+): Record<string, unknown> {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? value
+		: {};
+}
+
+function recordString(
+	record: Record<string, unknown>,
+	key: string,
+): string | undefined {
+	const value = record[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function recordStringArray(
+	record: Record<string, unknown>,
+	key: string,
+): string[] {
+	const value = record[key];
+	if (!Array.isArray(value)) return [];
+	return value
+		.map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+		.filter(Boolean);
+}
+
 function clientLabel(client: WebviewConnectedClient): string {
 	return (
 		client.displayName?.trim() || client.clientType || shortId(client.clientId)
@@ -223,12 +251,30 @@ function sessionRunDetails(session: WebviewSessionSummary): string[] {
 	const inputTokens = formatCompactNumber(session.inputTokens);
 	const outputTokens = formatCompactNumber(session.outputTokens);
 	const cost = formatCost(session.totalCost);
+	const backgroundDetails = sessionBackgroundDetails(session);
 	return [
 		workspaceName(session.workspaceRoot),
 		`${session.providerId}:${session.model}`,
+		...backgroundDetails,
 		inputTokens ? `${inputTokens}/${outputTokens}` : undefined,
 		cost,
 		session.source,
+	].filter((detail): detail is string => Boolean(detail));
+}
+
+function sessionBackgroundDetails(session: WebviewSessionSummary): string[] {
+	if (!session.backgroundAgent) return [];
+	const details = sessionMetadataRecord(session.backgroundAgentDetails);
+	const repository = recordString(details, "repository");
+	const branch = recordString(details, "requestedBranch");
+	const baseBranch = recordString(details, "requestedBaseBranch");
+	const configKeys = recordStringArray(details, "configKeys");
+	return [
+		"background",
+		repository ? `repo:${repository}` : undefined,
+		branch ? `branch:${branch}` : undefined,
+		baseBranch ? `base:${baseBranch}` : undefined,
+		configKeys.length > 0 ? `config:${configKeys.join(",")}` : undefined,
 	].filter((detail): detail is string => Boolean(detail));
 }
 
@@ -240,6 +286,9 @@ function sessionFilterDetails(session: WebviewSessionSummary): string[] {
 		session.providerId ? `provider:${session.providerId}` : undefined,
 		session.model ? `model:${session.model}` : undefined,
 		session.source ? `source:${session.source}` : undefined,
+		...sessionBackgroundDetails(session).map((detail) =>
+			detail === "background" ? "agent:background" : detail,
+		),
 	].filter((detail): detail is string => Boolean(detail));
 }
 
@@ -327,6 +376,9 @@ function HomeView({
 	const connectedClients = hubState.clients ?? [];
 	const connectedConnectors = hubState.connectors ?? [];
 	const latestEvents = hubState.events.slice(0, 6);
+	const activeBackgroundSessions = activeSessions.filter(
+		(session) => session.backgroundAgent,
+	).length;
 	const [restartDialogOpen, setRestartDialogOpen] = useState(false);
 	const [sessionFilters, setSessionFilters] = useState<string[]>([]);
 	const runDetailFilterOptions = useMemo(
@@ -465,7 +517,7 @@ function HomeView({
 				</AlertDialogContent>
 			</AlertDialog>
 
-			<section className="my-4 grid grid-cols-2 gap-2.5 max-[720px]:grid-cols-1">
+			<section className="my-4 grid grid-cols-3 gap-2.5 max-[880px]:grid-cols-1">
 				<div className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] items-center gap-x-2.5 gap-y-0.5 rounded-lg border bg-[color-mix(in_oklch,var(--card)_88%,transparent)] p-3.5">
 					<BotIcon className="size-4 text-muted-foreground" />
 					<span className="text-[26px] font-bold leading-none">
@@ -482,6 +534,15 @@ function HomeView({
 					</span>
 					<span className="col-start-2 text-xs text-muted-foreground">
 						Active Sessions
+					</span>
+				</div>
+				<div className="grid grid-cols-[auto_1fr] grid-rows-[auto_auto] items-center gap-x-2.5 gap-y-0.5 rounded-lg border bg-[color-mix(in_oklch,var(--card)_88%,transparent)] p-3.5">
+					<GitBranchIcon className="size-4 text-muted-foreground" />
+					<span className="text-[26px] font-bold leading-none">
+						{activeBackgroundSessions}
+					</span>
+					<span className="col-start-2 text-xs text-muted-foreground">
+						Background Agents
 					</span>
 				</div>
 			</section>
@@ -670,6 +731,7 @@ function RecentSessionRow({
 	const runDetails = sessionRunDetails(session);
 	const currentSessionId = session.sessionId;
 	const currentTitle = session.title || shortId(session.sessionId);
+	const backgroundDetails = sessionBackgroundDetails(session);
 	const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [editingTitle, setEditingTitle] = useState(false);
@@ -749,8 +811,19 @@ function RecentSessionRow({
 							onClick={onOpen}
 							type="button"
 						>
-							<span className="block truncate text-[13px] font-semibold leading-tight">
-								{currentTitle}
+							<span className="flex min-w-0 items-center gap-1.5">
+								<span className="block min-w-0 truncate text-[13px] font-semibold leading-tight">
+									{currentTitle}
+								</span>
+								{session.backgroundAgent ? (
+									<span
+										className="inline-flex shrink-0 items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-primary"
+										title="Background agent session"
+									>
+										<GitBranchIcon className="size-3" />
+										Bg
+									</span>
+								) : null}
 							</span>
 						</button>
 						<Button
@@ -798,6 +871,14 @@ function RecentSessionRow({
 							{detail}
 						</span>
 					))}
+					{backgroundDetails.length > 0 ? (
+						<span
+							className="max-w-full break-all rounded-md border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-primary"
+							title={backgroundDetails.join(" | ")}
+						>
+							confirm before worktree
+						</span>
+					) : null}
 				</div>
 			) : null}
 			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
