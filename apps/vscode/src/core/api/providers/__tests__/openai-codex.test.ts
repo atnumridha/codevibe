@@ -90,6 +90,47 @@ describe("OpenAiCodexHandler", () => {
 		})
 	})
 
+	it("redacts Codex backend account, installation, and session identifiers before throwing", async () => {
+		const accessToken = "codex-access-secret"
+		const accountId = "acct_secret_identifier"
+		const installationId = "install_secret_identifier"
+		const sessionId = "session_secret_identifier"
+		const handler = new OpenAiCodexHandler({})
+		sinon.stub(handler as any, "buildCodexHeaders").resolves({
+			"ChatGPT-Account-Id": accountId,
+			"x-codex-installation-id": installationId,
+			session_id: sessionId,
+		})
+
+		const mockFetch = sinon.stub().resolves(
+			new Response(
+				JSON.stringify({
+					error: {
+						message: `backend echoed ${accountId}, ${installationId}, ${sessionId}, and Bearer ${accessToken}`,
+					},
+				}),
+				{ status: 500, statusText: "Internal Server Error" },
+			),
+		)
+
+		await mockFetchForTesting(mockFetch as any, async () => {
+			let thrown: Error | undefined
+			try {
+				for await (const _ of (handler as any).makeCodexRequest({}, handler.getModel(), accessToken, "0.136.0-test")) {
+					// The mocked response fails before yielding stream chunks.
+				}
+			} catch (error) {
+				thrown = error as Error
+			}
+
+			expect(thrown?.message).to.contain("[REDACTED]")
+			expect(thrown?.message).not.to.contain(accessToken)
+			expect(thrown?.message).not.to.contain(accountId)
+			expect(thrown?.message).not.to.contain(installationId)
+			expect(thrown?.message).not.to.contain(sessionId)
+		})
+	})
+
 	it("redacts Codex websocket errors before logging HTTP fallback", async () => {
 		const accessToken = "codex-websocket-access-secret"
 		const refreshToken = "codex-websocket-refresh-secret"

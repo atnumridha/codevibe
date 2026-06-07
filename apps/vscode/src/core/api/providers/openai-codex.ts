@@ -62,6 +62,30 @@ function redactCodexError(error: unknown, secrets: Array<string | undefined>): u
 	return redacted
 }
 
+function codexHeaderRedactionSecrets(
+	headers: Record<string, string>,
+	extraSecrets: Array<string | undefined> = [],
+): string[] {
+	const secrets = new Set<string>()
+	const addSecret = (value: string | undefined) => {
+		const trimmed = value?.trim()
+		if (trimmed) {
+			secrets.add(trimmed)
+			const bearer = /^Bearer\s+(.+)$/i.exec(trimmed)
+			if (bearer?.[1]?.trim()) {
+				secrets.add(bearer[1].trim())
+			}
+		}
+	}
+	for (const secret of extraSecrets) {
+		addSecret(secret)
+	}
+	for (const value of Object.values(headers)) {
+		addSecret(value)
+	}
+	return [...secrets]
+}
+
 interface OpenAiCodexHandlerOptions extends CommonApiHandlerOptions {
 	reasoningEffort?: string
 	apiModelId?: string
@@ -262,7 +286,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 				} catch (error) {
 					Logger.error(
 						"OpenAI Codex websocket mode failed, falling back to HTTP Responses API:",
-						redactCodexError(error, [accessToken, `Bearer ${accessToken}`]),
+						redactCodexError(error, codexHeaderRedactionSecrets(codexHeaders, [accessToken])),
 					)
 					this.closeResponsesWebsocket()
 				}
@@ -572,7 +596,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 			Authorization: `Bearer ${accessToken}`,
 			...(await this.buildCodexHeaders()),
 		}
-		const redactionSecrets = [accessToken, headers.Authorization]
+		const redactionSecrets = codexHeaderRedactionSecrets(headers, [accessToken])
 
 		try {
 			const response = await fetch(url, {

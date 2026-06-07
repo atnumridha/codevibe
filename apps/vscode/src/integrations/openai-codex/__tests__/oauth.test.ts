@@ -3,7 +3,6 @@ import { mkdir, mkdtemp, writeFile } from "fs/promises"
 import { tmpdir } from "os"
 import { join } from "path"
 import sinon from "sinon"
-import * as vscode from "vscode"
 import { StateManager } from "@/core/storage/StateManager"
 import { mockFetchForTesting } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
@@ -17,6 +16,8 @@ import {
 	parseJwtClaims,
 	type OpenAiCodexCredentials,
 } from "../oauth"
+
+const vscode = require("vscode") as typeof import("vscode")
 
 function jwt(payload: Record<string, unknown>): string {
 	const encode = (value: Record<string, unknown>) => Buffer.from(JSON.stringify(value)).toString("base64url")
@@ -445,7 +446,7 @@ describe("OpenAI Codex OAuth local profile support", () => {
 			type: "openai-codex",
 			access_token: "access-secret",
 			refresh_token: "refresh-secret",
-			expires: Date.now() + 60_000,
+			expires: Date.now() + 10 * 60_000,
 			accountId: "acct_abc",
 			installationId: "install_abc",
 			clientVersion: "0.136.0-test",
@@ -505,5 +506,80 @@ describe("OpenAI Codex OAuth local profile support", () => {
 				description: "Backend-authoritative Codex model",
 			},
 		])
+	})
+
+	it("refreshes once and retries backend model discovery after an auth failure", async () => {
+		const setSecret = sinon.stub()
+		sinon.stub(StateManager, "get").returns({
+			getSecretKey: sinon.stub(),
+			setSecret,
+			flushPendingState: sinon.stub().resolves(),
+		} as unknown as StateManager)
+		const manager = new OpenAiCodexOAuthManager()
+		const credentials: OpenAiCodexCredentials = {
+			type: "openai-codex",
+			access_token: "stale-access-secret",
+			refresh_token: "refresh-secret",
+			expires: Date.now() + 10 * 60_000,
+			accountId: "acct_retry",
+			installationId: "install_retry",
+			clientVersion: "0.136.0-test",
+		}
+		;(manager as any).credentials = credentials
+
+		const modelSessionIds: string[] = []
+		const modelAuthorizationHeaders: string[] = []
+		const models = await mockFetchForTesting(
+			(async (input: string | URL | Request, init?: RequestInit) => {
+				const url = String(input)
+				if (url.startsWith("https://chatgpt.com/backend-api/codex/models")) {
+					const headers = init?.headers as Record<string, string>
+					modelSessionIds.push(headers.session_id)
+					modelAuthorizationHeaders.push(headers.Authorization)
+					if (modelSessionIds.length === 1) {
+						return new Response(
+							JSON.stringify({
+								error: "invalid_token",
+								error_description: "expired access token",
+							}),
+							{ status: 401, statusText: "Unauthorized" },
+						)
+					}
+					return new Response(
+						JSON.stringify({
+							models: [
+								{
+									display_name: "GPT-6 Codex Preview",
+									slug: "gpt-6-codex-preview",
+									supported_in_api: true,
+								},
+							],
+						}),
+						{ status: 200 },
+					)
+				}
+
+				expect(url).to.equal("https://auth.openai.com/oauth/token")
+				return new Response(
+					JSON.stringify({
+						access_token: "refreshed-access-secret",
+						refresh_token: "refreshed-refresh-secret",
+						expires_in: 3600,
+					}),
+					{ status: 200 },
+				)
+			}) as typeof globalThis.fetch,
+			() => manager.listBackendModels(),
+		)
+
+		expect(modelSessionIds).to.have.length(2)
+		expect(modelSessionIds[0]).to.equal(modelSessionIds[1])
+		expect(modelAuthorizationHeaders).to.deep.equal([
+			"Bearer stale-access-secret",
+			"Bearer refreshed-access-secret",
+		])
+		expect(setSecret.calledOnce).to.equal(true)
+		expect(JSON.parse(setSecret.firstCall.args[1]).access_token).to.equal("refreshed-access-secret")
+		expect(models.map((model) => model.id)).to.deep.equal(["gpt-6-codex-preview"])
 	})
 })

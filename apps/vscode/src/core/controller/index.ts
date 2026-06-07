@@ -13,14 +13,11 @@ import {
 	DEFAULT_API_PROVIDER,
 	type ApiProvider,
 	type ModelInfo,
-	openAiCodexDefaultModelId,
-	openAiCodexModels,
 } from "@shared/api"
 import type { ChatContent } from "@shared/ChatContent"
 import type { ExtensionState, Platform } from "@shared/ExtensionMessage"
 import type { HistoryItem } from "@shared/HistoryItem"
 import type { McpMarketplaceCatalog, McpMarketplaceItem } from "@shared/mcp"
-import { ApiFormat } from "@shared/proto/cline/models"
 import { type Settings } from "@shared/storage/state-keys"
 import type { Mode } from "@shared/storage/types"
 import type { TelemetrySetting } from "@shared/TelemetrySetting"
@@ -35,7 +32,7 @@ import * as vscode from "vscode"
 import { ClineEnv } from "@/config"
 import type { FolderLockWithRetryResult } from "@/core/locks/types"
 import { HostProvider } from "@/hosts/host-provider"
-import type { OpenAiCodexBackendModel } from "@/integrations/openai-codex/oauth"
+import { mergeOpenAiCodexBackendModels } from "@/integrations/openai-codex/models"
 import { ExtensionRegistryInfo } from "@/registry"
 import { AuthService } from "@/services/auth/AuthService"
 import { OcaAuthService } from "@/services/auth/oca/OcaAuthService"
@@ -96,6 +93,7 @@ https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/c
 */
 
 const OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS = 5 * 60 * 1000
+const OPENAI_CODEX_BACKEND_MODELS_AUTH_FAILURE_RETRY_MS = 15 * 1000
 
 export class Controller {
 	task?: Task
@@ -992,37 +990,6 @@ export class Controller {
 		await sendStateUpdate(state)
 	}
 
-	private toOpenAiCodexApiFormat(value: string | undefined): ApiFormat | undefined {
-		if (!value) {
-			return undefined
-		}
-		const normalized = value.trim().toLowerCase().replace(/[-_\s]/g, "")
-		if (normalized === "openairesponses" || normalized === "responses") {
-			return ApiFormat.OPENAI_RESPONSES
-		}
-		if (normalized === "openairesponseswebsocket" || normalized === "responseswebsocket") {
-			return ApiFormat.OPENAI_RESPONSES_WEBSOCKET_MODE
-		}
-		return undefined
-	}
-
-	private toOpenAiCodexBackendModelInfo(model: OpenAiCodexBackendModel): ModelInfo {
-		const defaultInfo = openAiCodexModels[openAiCodexDefaultModelId]
-		return {
-			...defaultInfo,
-			name: model.name?.trim() || model.id,
-			...(typeof model.maxTokens === "number" ? { maxTokens: model.maxTokens } : {}),
-			...(typeof model.contextWindow === "number" ? { contextWindow: model.contextWindow } : {}),
-			...(typeof model.supportsImages === "boolean" ? { supportsImages: model.supportsImages } : {}),
-			...(typeof model.supportsPromptCache === "boolean" ? { supportsPromptCache: model.supportsPromptCache } : {}),
-			...(typeof model.supportsReasoning === "boolean" ? { supportsReasoning: model.supportsReasoning } : {}),
-			...(model.description ? { description: model.description } : {}),
-			apiFormat: this.toOpenAiCodexApiFormat(model.apiFormat) ?? defaultInfo.apiFormat,
-			inputPrice: 0,
-			outputPrice: 0,
-		}
-	}
-
 	private async getOpenAiCodexBackendModelsForState(
 		isAuthenticated: boolean,
 	): Promise<Record<string, ModelInfo> | undefined> {
@@ -1048,23 +1015,25 @@ export class Controller {
 					"@/integrations/openai-codex/oauth"
 				)
 				const backendModels = await openAiCodexOAuthManager.listBackendModels()
-				const models = Object.fromEntries(
-					backendModels.map((model) => [
-						model.id,
-						this.toOpenAiCodexBackendModelInfo(model),
-					]),
-				)
+				const models = mergeOpenAiCodexBackendModels(backendModels)
 				this.openAiCodexBackendModelsCache = {
 					expiresAt: Date.now() + OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS,
 					models,
 				}
 				return models
 			})()
-				.catch((error) => {
-					Logger.error("[OpenAI Codex] Failed to list backend models:", error)
-					const models = this.openAiCodexBackendModelsCache?.models ?? {}
+				.catch(async (error) => {
+					const { isOpenAiCodexAuthFailure, safeOpenAiCodexErrorSummary } = await import(
+						"@/integrations/openai-codex/oauth"
+					)
+					Logger.error(`[OpenAI Codex] Failed to list backend models: ${safeOpenAiCodexErrorSummary(error)}`)
+					const models = this.openAiCodexBackendModelsCache?.models ?? mergeOpenAiCodexBackendModels([])
 					this.openAiCodexBackendModelsCache = {
-						expiresAt: Date.now() + OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS,
+						expiresAt:
+							Date.now() +
+							(isOpenAiCodexAuthFailure(error)
+								? OPENAI_CODEX_BACKEND_MODELS_AUTH_FAILURE_RETRY_MS
+								: OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS),
 						models,
 					}
 					return models
