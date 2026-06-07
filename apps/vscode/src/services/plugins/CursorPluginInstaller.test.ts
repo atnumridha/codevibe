@@ -36,4 +36,27 @@ describe("CursorPluginInstaller", () => {
 		expect(result.entryPaths).to.have.length(1)
 		expect(await readFile(result.entryPaths[0], "utf8")).to.contain("cursor-plugin")
 	})
+
+	it("replaces an existing local plugin only when force is enabled", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-vscode-plugin-"))
+		tempDirs.push(workspaceRoot)
+		const pluginPath = join(workspaceRoot, "cursor-plugin.ts")
+		await writeFile(pluginPath, "export default { name: 'cursor-plugin-v1' }", "utf8")
+
+		const first = await installPlugin({ source: pluginPath, cwd: workspaceRoot })
+		await writeFile(pluginPath, "export default { name: 'cursor-plugin-v2' }", "utf8")
+
+		let blockedError: unknown
+		try {
+			await installPlugin({ source: pluginPath, cwd: workspaceRoot })
+		} catch (error) {
+			blockedError = error
+		}
+		expect(blockedError).to.be.instanceOf(Error)
+		expect(String((blockedError as Error).message)).to.contain("Use --force to replace it")
+
+		const replaced = await installPlugin({ source: pluginPath, cwd: workspaceRoot, force: true })
+		expect(replaced.installPath).to.equal(first.installPath)
+		expect(await readFile(replaced.entryPaths[0], "utf8")).to.contain("cursor-plugin-v2")
+	})
 })

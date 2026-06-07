@@ -254,6 +254,8 @@ const pluginAddSchema = z
 		id: optionalBoundedString,
 		name: optionalBoundedString,
 		url: optionalBoundedString,
+		force: optionalBooleanString,
+		replace: optionalBooleanString,
 		config: configSchema,
 	})
 	.strict()

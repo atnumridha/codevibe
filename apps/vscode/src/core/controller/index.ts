@@ -711,6 +711,7 @@ export class Controller {
 		source: string
 		sourceParam: "id" | "name" | "url" | "config"
 		sourceConfigKey?: "source" | "id" | "name" | "url"
+		force?: boolean
 		detail: string
 	}): Promise<PluginInstallResult> {
 		try {
@@ -719,6 +720,7 @@ export class Controller {
 			const result = await installPlugin({
 				source: request.source,
 				cwd,
+				...(request.force ? { force: true } : {}),
 				io: {
 					writeln: (message = "") => Logger.info(`Cursor plugin install: ${message}`),
 					writeErr: (message) => Logger.warn(`Cursor plugin install: ${message}`),

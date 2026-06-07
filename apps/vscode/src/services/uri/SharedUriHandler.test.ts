@@ -657,6 +657,25 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should pass Cursor plugin replacement requests to the installer", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Install Plugin" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/plugin/add?id=docs-helper&replace=true",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Replace existing: requested")
+				sinon.assert.calledOnce(handleCursorPluginAddStub)
+				expect(handleCursorPluginAddStub.firstCall.args[0]).to.deep.include({
+					source: "docs-helper",
+					sourceParam: "id",
+					force: true,
+				})
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should not install Cursor plugin routes when confirmation is cancelled", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })

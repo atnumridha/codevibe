@@ -36,6 +36,7 @@ interface CursorPluginAddInstallRequest {
 	source: string
 	sourceParam: "id" | "name" | "url" | "config"
 	sourceConfigKey?: "source" | "id" | "name" | "url"
+	force?: boolean
 	detail: string
 }
 
@@ -304,6 +305,7 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 	sourceParam?: "id" | "name" | "url" | "config"
 	sourceConfigKey?: "source" | "id" | "name" | "url"
 	displaySource?: string
+	force?: boolean
 	detail: string
 } {
 	const sourceParam = (["id", "name", "url"] as const).find((key) => getRouteStringParam(route, key))
@@ -315,10 +317,12 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 	const displaySource = formatCursorPluginSource(source, resolvedSourceParam)
 	const configKeys =
 		configRecord ? Object.keys(configRecord).sort() : []
+	const force = getCursorPluginForce(route)
 	const lines = source
 		? [
 				`Plugin source: ${displaySource}`,
 				`Source parameter: ${sourceParam ?? `config.${configSource?.sourceConfigKey ?? "source"}`}`,
+				...(force ? ["Replace existing: requested"] : []),
 				...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
 				"Install action: requires confirmation before downloading or writing plugin files.",
 			]
@@ -332,8 +336,18 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 		sourceParam: resolvedSourceParam,
 		...(configSource && !sourceParam ? { sourceConfigKey: configSource.sourceConfigKey } : {}),
 		displaySource,
+		...(force ? { force: true } : {}),
 		detail: lines.join("\n"),
 	}
+}
+
+function getCursorPluginForce(route: CursorCompatibleUriRoute): boolean {
+	return getRouteBooleanFlag(route, "force") || getRouteBooleanFlag(route, "replace")
+}
+
+function getRouteBooleanFlag(route: CursorCompatibleUriRoute, key: string): boolean {
+	const value = route.params[key]
+	return typeof value === "string" && ["true", "1", "yes"].includes(value.trim().toLowerCase())
 }
 
 function getCursorPluginConfigSource(
@@ -960,6 +974,7 @@ export class SharedUriHandler {
 				source: request.source,
 				sourceParam: request.sourceParam,
 				...(request.sourceConfigKey ? { sourceConfigKey: request.sourceConfigKey } : {}),
+				...(request.force ? { force: true } : {}),
 				detail: request.detail,
 			})
 			return

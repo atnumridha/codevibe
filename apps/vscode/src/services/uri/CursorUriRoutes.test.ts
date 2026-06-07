@@ -106,6 +106,20 @@ describe("CursorUriRoutes", () => {
 		expect(buildCursorCompatibleTaskPrompt(result.route)).to.contain("ask for confirmation")
 	})
 
+	it("parses Cursor plugin replacement flags", () => {
+		const result = parseCursorCompatibleUri("/plugin/add", new URLSearchParams("id=docs-helper&replace=true"))
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected plugin add route to parse")
+		}
+		expect(result.route.kind).to.equal("plugin-add")
+		expect(result.route.params).to.deep.include({
+			id: "docs-helper",
+			replace: "true",
+		})
+	})
+
 	it("rejects duplicate query parameters", () => {
 		const result = parseCursorCompatibleUri("/command", new URLSearchParams("command=ls&command=pwd"))
 
