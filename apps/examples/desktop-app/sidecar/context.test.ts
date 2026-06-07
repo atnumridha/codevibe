@@ -8,7 +8,7 @@ import {
 	writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { RuntimeCapabilities } from "@cline/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SidecarContext } from "./types";
@@ -90,6 +90,10 @@ describe("Code sidecar runtime capabilities", () => {
 	let previousCodexHome: string | undefined;
 	let previousCodeVibeCursorHome: string | undefined;
 	let previousBrowserExecutable: string | undefined;
+	let previousWorktreesEnabled: string | undefined;
+	let previousClineWorktreesEnabled: string | undefined;
+	let previousClineDataDir: string | undefined;
+	let previousSessionDataDir: string | undefined;
 
 	beforeEach(() => {
 		previousMcpSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
@@ -97,9 +101,17 @@ describe("Code sidecar runtime capabilities", () => {
 		previousCodexHome = process.env.CODEX_HOME;
 		previousCodeVibeCursorHome = process.env.CODEVIBE_CURSOR_HOME;
 		previousBrowserExecutable = process.env.CODEVIBE_BROWSER_EXECUTABLE;
+		previousWorktreesEnabled = process.env.CODEVIBE_WORKTREES_ENABLED;
+		previousClineWorktreesEnabled = process.env.CLINE_WORKTREES_ENABLED;
+		previousClineDataDir = process.env.CLINE_DATA_DIR;
+		previousSessionDataDir = process.env.CLINE_SESSION_DATA_DIR;
 		delete process.env.CLINE_MCP_SETTINGS_PATH;
 		delete process.env.CODEVIBE_CURSOR_HOME;
 		delete process.env.CODEVIBE_BROWSER_EXECUTABLE;
+		delete process.env.CODEVIBE_WORKTREES_ENABLED;
+		delete process.env.CLINE_WORKTREES_ENABLED;
+		delete process.env.CLINE_DATA_DIR;
+		delete process.env.CLINE_SESSION_DATA_DIR;
 		createCoreMock.mockReset();
 		connectMock.mockReset();
 		subscribeMock.mockReset();
@@ -139,6 +151,26 @@ describe("Code sidecar runtime capabilities", () => {
 			delete process.env.CODEVIBE_BROWSER_EXECUTABLE;
 		} else {
 			process.env.CODEVIBE_BROWSER_EXECUTABLE = previousBrowserExecutable;
+		}
+		if (previousWorktreesEnabled === undefined) {
+			delete process.env.CODEVIBE_WORKTREES_ENABLED;
+		} else {
+			process.env.CODEVIBE_WORKTREES_ENABLED = previousWorktreesEnabled;
+		}
+		if (previousClineWorktreesEnabled === undefined) {
+			delete process.env.CLINE_WORKTREES_ENABLED;
+		} else {
+			process.env.CLINE_WORKTREES_ENABLED = previousClineWorktreesEnabled;
+		}
+		if (previousClineDataDir === undefined) {
+			delete process.env.CLINE_DATA_DIR;
+		} else {
+			process.env.CLINE_DATA_DIR = previousClineDataDir;
+		}
+		if (previousSessionDataDir === undefined) {
+			delete process.env.CLINE_SESSION_DATA_DIR;
+		} else {
+			process.env.CLINE_SESSION_DATA_DIR = previousSessionDataDir;
 		}
 		await Promise.all(
 			tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
@@ -1825,7 +1857,11 @@ describe("Code sidecar runtime capabilities", () => {
 		const { handleCommand } = await import("./commands");
 
 		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-bg-"));
-		tempDirs.push(workspace);
+		const sessionDataDir = await mkdtemp(join(tmpdir(), "codevibe-bg-data-"));
+		tempDirs.push(workspace, sessionDataDir);
+		process.env.CLINE_DATA_DIR = sessionDataDir;
+		process.env.CLINE_SESSION_DATA_DIR = sessionDataDir;
+		process.env.CODEVIBE_WORKTREES_ENABLED = "0";
 		const config = encodeCursorConfig({
 			remoteName: "prod",
 			token: "secret-value",
@@ -1887,10 +1923,21 @@ describe("Code sidecar runtime capabilities", () => {
 		);
 		expect(sendMock).toHaveBeenCalledWith({
 			sessionId: "session-bg",
-			prompt: "Run the background investigation.",
+			prompt: expect.stringContaining(
+				"Cursor-compatible background-agent launch prepared.",
+			),
 			delivery: "queue",
 			userImages: undefined,
 		});
+		expect(sendMock.mock.calls[0]?.[0]?.prompt).toContain(
+			"Original route prompt:",
+		);
+		expect(sendMock.mock.calls[0]?.[0]?.prompt).toContain(
+			"Run the background investigation.",
+		);
+		expect(sendMock.mock.calls[0]?.[0]?.prompt).toContain(
+			"Worktrees are disabled",
+		);
 		expect(result).toMatchObject({
 			handled: true,
 			launched: true,
@@ -1902,6 +1949,9 @@ describe("Code sidecar runtime capabilities", () => {
 				repository: "owner/repo",
 				requestedBranch: "feature/safe",
 				requestedBaseBranch: "main",
+				status: "running",
+				launchMode: "controller-record",
+				fallbackReason: "Worktrees are disabled",
 			}),
 			metadata: expect.objectContaining({
 				backgroundAgent: true,
@@ -1925,12 +1975,103 @@ describe("Code sidecar runtime capabilities", () => {
 		);
 	});
 
+	it("creates a background-agent worktree lifecycle record when the repo hint matches", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		const sessionDataDir = await mkdtemp(join(tmpdir(), "codevibe-bg-data-"));
+		tempDirs.push(sessionDataDir);
+		process.env.CLINE_DATA_DIR = sessionDataDir;
+		process.env.CLINE_SESSION_DATA_DIR = sessionDataDir;
+		process.env.CODEVIBE_WORKTREES_ENABLED = "true";
+		previewCursorUriMock.mockResolvedValueOnce({
+			handled: true,
+			route: "background-agent",
+			path: "/background-agent",
+			requiresConfirmation: true,
+			taskPrompt: "Run isolated analysis.",
+		});
+		const startMock = vi.fn(async () => ({ sessionId: "session-bg-worktree" }));
+		const sendMock = vi.fn(async () => ({}));
+		const pendingListMock = vi.fn(async () => []);
+		const listMock = vi.fn(async () => []);
+		const ctx = createSidecarContext(workspace);
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+			send: sendMock,
+			list: listMock,
+			pendingPrompts: { list: pendingListMock },
+		} as never;
+
+		const repoName = basename(workspace);
+		const result = (await handleCommand(ctx, "cursor_uri_launch", {
+			uri: `vscode://cline.cline/background-agent?prompt=Run%20isolated%20analysis&repo=owner%2F${encodeURIComponent(repoName)}&baseBranch=master`,
+			confirmed: true,
+		})) as { backgroundAgentDetails?: Record<string, unknown> };
+		const details = result.backgroundAgentDetails ?? {};
+		const worktreePath =
+			typeof details.worktreePath === "string" ? details.worktreePath : "";
+		if (worktreePath) {
+			tempDirs.push(worktreePath);
+		}
+
+		expect(details).toMatchObject({
+			status: "running",
+			launchMode: "worktree",
+			worktreeBranch: expect.stringContaining("background-agent/"),
+			worktreeBaseRef: "master",
+			taskId: "session-bg-worktree",
+		});
+		expect(worktreePath).toContain(`${repoName}-background-agent-`);
+		expect(startMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				workspaceRoot: worktreePath,
+				cwd: worktreePath,
+				sessionMetadata: expect.objectContaining({
+					backgroundAgent: true,
+					backgroundAgentDetails: expect.objectContaining({
+						launchMode: "worktree",
+						worktreePath,
+						taskId: "session-bg-worktree",
+					}),
+				}),
+			}),
+		);
+		expect(sendMock.mock.calls[0]?.[0]?.prompt).toContain(
+			"Prepared isolated worktree:",
+		);
+
+		const listed = await handleCommand(ctx, "list_background_agent_sessions", {
+			limit: 10,
+		});
+		expect(listed).toEqual([
+			expect.objectContaining({
+				id: details.id,
+				sessionId: "session-bg-worktree",
+				status: "running",
+				launchMode: "worktree",
+				worktreePath,
+				backgroundAgentDetails: expect.objectContaining({
+					worktreePath,
+					taskId: "session-bg-worktree",
+				}),
+			}),
+		]);
+	});
+
 	it("lists background-agent sessions without leaking raw Cursor config values", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
 
 		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-bg-list-"));
-		tempDirs.push(workspace);
+		const sessionDataDir = await mkdtemp(join(tmpdir(), "codevibe-bg-data-"));
+		tempDirs.push(workspace, sessionDataDir);
+		process.env.CLINE_DATA_DIR = sessionDataDir;
+		process.env.CLINE_SESSION_DATA_DIR = sessionDataDir;
 		const ctx = createSidecarContext(workspace);
 		ctx.liveSessions.set("session-bg", {
 			config: {

@@ -75,6 +75,15 @@ import type {
 } from "@cline/shared";
 import { getClineEnvironmentConfig } from "@cline/shared";
 import {
+	createSidecarWorktree,
+	launchCursorBackgroundAgent,
+	readBackgroundAgentTaskRecords,
+	type BackgroundAgentTaskRecord,
+	type CursorBackgroundAgentLaunchRequest,
+	upsertBackgroundAgentTaskRecord,
+	type WorktreeResult,
+} from "./background-agent";
+import {
 	getSidecarBrowserAutomationStatus,
 	runSidecarBrowserActionCommand,
 	runSidecarBrowserScreenshotCommand,
@@ -1185,16 +1194,169 @@ function toBackgroundAgentSessionRecord(record: JsonRecord): JsonRecord {
 	};
 }
 
+function toIsoString(value: number | undefined): string | undefined {
+	return typeof value === "number" && Number.isFinite(value)
+		? new Date(value).toISOString()
+		: undefined;
+}
+
+function buildBackgroundAgentRecordDetails(
+	record: BackgroundAgentTaskRecord,
+	existing?: JsonRecord,
+): JsonRecord {
+	return {
+		...(existing ?? {}),
+		route: getRecordString(existing, "route") ?? "background-agent",
+		path: getRecordString(existing, "path") ?? "/background-agent",
+		id: record.id,
+		source: record.source,
+		status: record.status,
+		agentMode: record.agentMode,
+		confirmationRequired: record.confirmationRequired,
+		autoApprovalProfile: record.autoApprovalProfile,
+		worktreePolicy: record.worktreePolicy,
+		launchMode: record.launchMode,
+		...(record.repository ? { repository: record.repository } : {}),
+		...(record.requestedBranch
+			? { requestedBranch: record.requestedBranch }
+			: {}),
+		...(record.requestedBaseBranch
+			? { requestedBaseBranch: record.requestedBaseBranch }
+			: {}),
+		...(record.workspaceRoot ? { workspaceRoot: record.workspaceRoot } : {}),
+		...(record.worktreePath ? { worktreePath: record.worktreePath } : {}),
+		...(record.worktreeBranch ? { worktreeBranch: record.worktreeBranch } : {}),
+		...(record.worktreeBaseRef
+			? { worktreeBaseRef: record.worktreeBaseRef }
+			: {}),
+		...(record.fallbackReason ? { fallbackReason: record.fallbackReason } : {}),
+		...(record.warning ? { warning: record.warning } : {}),
+		...(record.taskId ? { taskId: record.taskId } : {}),
+		...(record.errorMessage ? { errorMessage: record.errorMessage } : {}),
+	};
+}
+
+function mergeLiveBackgroundAgentRecord(
+	ctx: SidecarContext,
+	record: BackgroundAgentTaskRecord,
+	existingDetails?: JsonRecord,
+): void {
+	if (!record.taskId) {
+		return;
+	}
+	const session = ctx.liveSessions.get(record.taskId);
+	if (!session) {
+		return;
+	}
+	const metadata =
+		getJsonRecord(session.config.sessionMetadata) ??
+		getJsonRecord(session.config.metadata) ??
+		{};
+	const details = buildBackgroundAgentRecordDetails(
+		record,
+		getJsonRecord(metadata.backgroundAgentDetails) ?? existingDetails,
+	);
+	session.config = {
+		...session.config,
+		workspaceRoot:
+			record.worktreePath ?? record.workspaceRoot ?? session.config.workspaceRoot,
+		cwd: record.worktreePath ?? record.workspaceRoot ?? session.config.cwd,
+		sessionMetadata: {
+			...metadata,
+			backgroundAgent: true,
+			backgroundAgentDetails: details,
+		},
+	};
+}
+
+function toBackgroundAgentLifecycleSessionRecord(
+	ctx: SidecarContext,
+	record: BackgroundAgentTaskRecord,
+): JsonRecord {
+	const session = record.taskId ? ctx.liveSessions.get(record.taskId) : undefined;
+	const details = buildBackgroundAgentRecordDetails(record);
+	const sessionId = record.taskId ?? record.id;
+	const title =
+		session?.title ??
+		record.prompt.trim().split("\n")[0]?.trim().slice(0, 80) ??
+		sessionId;
+	return {
+		id: record.id,
+		sessionId,
+		title,
+		status: session?.status ?? record.status,
+		provider:
+			getRecordString(session?.config, "provider") ??
+			getRecordString(session?.config, "providerId"),
+		model:
+			getRecordString(session?.config, "model") ??
+			getRecordString(session?.config, "modelId"),
+		workspaceRoot:
+			record.worktreePath ??
+			record.workspaceRoot ??
+			getRecordString(session?.config, "workspaceRoot"),
+		cwd:
+			record.worktreePath ??
+			record.workspaceRoot ??
+			getRecordString(session?.config, "cwd"),
+		startedAt: toIsoString(record.createdAt),
+		updatedAt: toIsoString(record.updatedAt),
+		source: record.source,
+		launchMode: record.launchMode,
+		agentMode: record.agentMode,
+		autoApprovalProfile: record.autoApprovalProfile,
+		worktreePolicy: record.worktreePolicy,
+		createdAt: record.createdAt,
+		updatedAt: record.updatedAt,
+		prompt: record.prompt,
+		routePrompt: record.routePrompt,
+		repository: record.repository,
+		requestedBranch: record.requestedBranch,
+		requestedBaseBranch: record.requestedBaseBranch,
+		worktreePath: record.worktreePath,
+		worktreeBranch: record.worktreeBranch,
+		worktreeBaseRef: record.worktreeBaseRef,
+		confirmationRequired: record.confirmationRequired,
+		fallbackReason: record.fallbackReason,
+		warning: record.warning,
+		taskId: record.taskId,
+		errorMessage: record.errorMessage,
+		backgroundAgent: true,
+		backgroundAgentDetails: details,
+	};
+}
+
 async function listBackgroundAgentSessions(
 	ctx: SidecarContext,
 	limit: number,
 ): Promise<JsonRecord[]> {
 	const sessions = await listSessionsFromSidecarManager(ctx, limit);
 	const records = Array.isArray(sessions) ? sessions : [];
-	return records
+	const lifecycleRecords = readBackgroundAgentTaskRecords().map((record) =>
+		toBackgroundAgentLifecycleSessionRecord(ctx, record),
+	);
+	const legacyRecords = records
 		.filter((record): record is JsonRecord => Boolean(record) && typeof record === "object" && !Array.isArray(record))
 		.filter(isBackgroundAgentSessionRecord)
 		.map(toBackgroundAgentSessionRecord);
+	const bySessionId = new Map<string, JsonRecord>();
+	for (const record of [...lifecycleRecords, ...legacyRecords]) {
+		const sessionId = getRecordString(record, "sessionId") ?? getRecordString(record, "id");
+		if (!sessionId || bySessionId.has(sessionId)) {
+			continue;
+		}
+		bySessionId.set(sessionId, record);
+	}
+	return Array.from(bySessionId.values())
+		.sort((left, right) => {
+			const leftTime = Date.parse(String(left.updatedAt ?? left.startedAt ?? ""));
+			const rightTime = Date.parse(String(right.updatedAt ?? right.startedAt ?? ""));
+			return (
+				(Number.isNaN(rightTime) ? 0 : rightTime) -
+				(Number.isNaN(leftTime) ? 0 : leftTime)
+			);
+		})
+		.slice(0, limit);
 }
 
 // ---------------------------------------------------------------------------
@@ -1655,6 +1817,27 @@ function buildCursorLaunchMetadata(
 	};
 }
 
+function areSidecarBackgroundAgentWorktreesEnabled(): boolean {
+	const raw =
+		process.env.CODEVIBE_WORKTREES_ENABLED ??
+		process.env.CLINE_WORKTREES_ENABLED ??
+		"true";
+	return !["0", "false", "off", "no"].includes(raw.trim().toLowerCase());
+}
+
+function buildBackgroundAgentLaunchRequest(
+	taskPrompt: string,
+	details?: JsonRecord,
+): CursorBackgroundAgentLaunchRequest {
+	return {
+		prompt: taskPrompt,
+		routePrompt: taskPrompt,
+		repository: getRecordString(details, "repository"),
+		requestedBranch: getRecordString(details, "requestedBranch"),
+		requestedBaseBranch: getRecordString(details, "requestedBaseBranch"),
+	};
+}
+
 async function handleCursorUriLaunchCommand(
 	ctx: SidecarContext,
 	args?: Record<string, unknown>,
@@ -1693,6 +1876,109 @@ async function handleCursorUriLaunchCommand(
 			? (metadata.backgroundAgentDetails as JsonRecord)
 			: undefined;
 	const { handleChatSessionCommand } = await import("./chat-session");
+	if (backgroundAgent) {
+		const record = await launchCursorBackgroundAgent(
+			buildBackgroundAgentLaunchRequest(taskPrompt, backgroundAgentDetails),
+			{
+				getWorkspaceRoot: async () => workspaceRoot || ctx.workspaceRoot,
+				areWorktreesEnabled: areSidecarBackgroundAgentWorktreesEnabled,
+				createWorktree: (
+					targetCwd: string,
+					worktreePath: string,
+					options: {
+						branch?: string;
+						baseBranch?: string;
+						createNewBranch?: boolean;
+					},
+				): Promise<WorktreeResult> =>
+					createSidecarWorktree(targetCwd, worktreePath, options),
+				onRecordChange: (nextRecord) => {
+					upsertBackgroundAgentTaskRecord(nextRecord);
+					mergeLiveBackgroundAgentRecord(
+						ctx,
+						nextRecord,
+						backgroundAgentDetails,
+					);
+					broadcastEvent(ctx, "background_agent_record_changed", {
+						record: toBackgroundAgentLifecycleSessionRecord(ctx, nextRecord),
+					});
+				},
+				startTask: async (safePrompt, _taskSettings, recordAtStart) => {
+					const taskWorkspaceRoot =
+						recordAtStart?.worktreePath ??
+						recordAtStart?.workspaceRoot ??
+						workspaceRoot;
+					const taskMetadata = {
+						...metadata,
+						backgroundAgent: true,
+						backgroundAgentDetails: recordAtStart
+							? buildBackgroundAgentRecordDetails(
+									recordAtStart,
+									backgroundAgentDetails,
+								)
+							: backgroundAgentDetails,
+					};
+					const started = (await handleChatSessionCommand(ctx, {
+						action: "start",
+						config: {
+							provider,
+							model,
+							mode,
+							workspaceRoot: taskWorkspaceRoot,
+							cwd: taskWorkspaceRoot,
+							enableTools: true,
+							enableSpawn: false,
+							enableTeams: false,
+							autoApproveTools: false,
+							toolPolicies: getCursorQueuedAgentToolPolicies(),
+							sessionMetadata: taskMetadata,
+						},
+					})) as { sessionId?: unknown };
+					const startedSessionId =
+						typeof started.sessionId === "string"
+							? started.sessionId.trim()
+							: "";
+					if (!startedSessionId) {
+						throw new Error(
+							"cursor_uri_launch failed to start a background-agent session",
+						);
+					}
+					await handleChatSessionCommand(ctx, {
+						action: "send",
+						sessionId: startedSessionId,
+						prompt: safePrompt,
+						delivery: "queue",
+					});
+					return startedSessionId;
+				},
+			},
+		);
+		const sessionId = record.taskId ?? record.id;
+		const finalDetails = buildBackgroundAgentRecordDetails(
+			record,
+			backgroundAgentDetails,
+		);
+		return {
+			handled: true,
+			launched: true,
+			route,
+			...(getCursorPreviewString(preview, "path")
+				? { path: getCursorPreviewString(preview, "path") }
+				: {}),
+			backgroundAgent: true,
+			backgroundAgentDetails: finalDetails,
+			sessionId,
+			provider,
+			model,
+			mode,
+			queued: true,
+			metadata: {
+				...metadata,
+				backgroundAgentDetails: finalDetails,
+			},
+			preview,
+		};
+	}
 	const started = (await handleChatSessionCommand(ctx, {
 		action: "start",
 		config: {
