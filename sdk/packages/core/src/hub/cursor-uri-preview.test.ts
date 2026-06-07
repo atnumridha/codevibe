@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createLocalHubScheduleRuntimeHandlers } from "./daemon/runtime-handlers";
 import { HubServerTransport } from "./server";
 
@@ -17,6 +17,64 @@ function createTransport(): HubServerTransport {
 	return new HubServerTransport({
 		runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
 	});
+}
+
+function createLaunchTransport(): {
+	transport: HubServerTransport;
+	startSession: ReturnType<typeof vi.fn>;
+	runTurn: ReturnType<typeof vi.fn>;
+} {
+	let sessionRecord: Record<string, unknown> | undefined;
+	const startSession = vi.fn(async (input: Record<string, unknown>) => {
+		const config = input.config as Record<string, unknown>;
+		const sessionId = String(config.sessionId ?? "session-launch");
+		const metadata =
+			input.sessionMetadata && typeof input.sessionMetadata === "object"
+				? (input.sessionMetadata as Record<string, unknown>)
+				: {};
+		sessionRecord = {
+			sessionId,
+			status: "running",
+			startedAt: new Date(0).toISOString(),
+			updatedAt: new Date(0).toISOString(),
+			workspaceRoot: String(config.workspaceRoot ?? "/workspace/repo"),
+			cwd: String(config.cwd ?? config.workspaceRoot ?? "/workspace/repo"),
+			source: input.source,
+			provider: config.providerId,
+			model: config.modelId,
+			prompt: metadata.prompt,
+			metadata,
+			enableTools: config.enableTools,
+			enableSpawn: config.enableSpawnAgent,
+			enableTeams: config.enableAgentTeams,
+		};
+		return {
+			sessionId,
+			manifestPath: "",
+			messagesPath: "",
+		};
+	});
+	const runTurn = vi.fn(async () => undefined);
+	const transport = new HubServerTransport({
+		runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
+		scheduleOptions: { dbPath: ":memory:" },
+		sessionHost: {
+			subscribe: vi.fn(),
+			startSession,
+			runTurn,
+			stopSession: vi.fn(),
+			abort: vi.fn(),
+			dispose: vi.fn(),
+			getSession: vi.fn(async () => sessionRecord),
+			getAccumulatedUsage: vi.fn(async () => undefined),
+			listSessions: vi.fn(async () => []),
+			deleteSession: vi.fn(),
+			updateSession: vi.fn(),
+			dispatchHookEvent: vi.fn(),
+			readSessionMessages: vi.fn(async () => []),
+		} as never,
+	});
+	return { transport, startSession, runTurn };
 }
 
 describe("hub Cursor URI preview command", () => {
@@ -580,5 +638,122 @@ describe("hub Cursor URI preview command", () => {
 		} finally {
 			rmSync(root, { recursive: true, force: true });
 		}
+	});
+});
+
+describe("hub Cursor URI launch command", () => {
+	it("launches confirmed background-agent deeplinks as safe queued sessions", async () => {
+		const { transport, startSession, runTurn } = createLaunchTransport();
+		const config = encodeConfig({
+			token: "secret-value",
+			browser: { enabled: true },
+		});
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.launch",
+			requestId: "req-launch-background-agent",
+			clientId: "client-one",
+			payload: {
+				uri: `vscode://cline.cline/background-agent?task=Fix%20the%20queue&repo=owner%2Frepo&branch=feature%2Fsafe&baseBranch=main&config=${config}`,
+				workspaceRoot: "/workspace/repo",
+				confirmed: true,
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: true,
+			payload: {
+				handled: true,
+				launched: true,
+				route: "background-agent",
+				path: "/background-agent",
+				provider: "openai-codex",
+				model: "gpt-5.5",
+				mode: "plan",
+				queued: true,
+				backgroundAgent: true,
+				backgroundAgentDetails: {
+					launchMode: "deferred",
+					agentMode: "plan",
+					confirmationRequired: true,
+					worktreePolicy: "confirm-before-create",
+					repository: "owner/repo",
+					requestedBranch: "feature/safe",
+					requestedBaseBranch: "main",
+					configKeys: ["browser", "token"],
+					taskId: expect.any(String),
+				},
+			},
+		});
+		expect(JSON.stringify(reply)).not.toContain("secret-value");
+		expect(startSession).toHaveBeenCalledTimes(1);
+		expect(runTurn).toHaveBeenCalledTimes(1);
+
+		const startInput = startSession.mock.calls[0]?.[0] as Record<string, unknown>;
+		const startConfig = startInput.config as Record<string, unknown>;
+		const startMetadata = startInput.sessionMetadata as Record<string, unknown>;
+		const toolPolicies = startInput.toolPolicies as Record<string, unknown>;
+		expect(startInput.source).toBe("cursor-uri");
+		expect(startConfig).toMatchObject({
+			providerId: "openai-codex",
+			modelId: "gpt-5.5",
+			mode: "plan",
+			enableTools: true,
+			enableSpawnAgent: false,
+			enableAgentTeams: false,
+			workspaceRoot: "/workspace/repo",
+			cwd: "/workspace/repo",
+		});
+		expect(startMetadata).toMatchObject({
+			backgroundAgent: true,
+			source: "cursor-uri",
+			provider: "openai-codex",
+			model: "gpt-5.5",
+			prompt: expect.stringContaining("Fix the queue"),
+		});
+		expect(startMetadata.backgroundAgentDetails).toMatchObject({
+			taskId: startConfig.sessionId,
+			repository: "owner/repo",
+			requestedBranch: "feature/safe",
+		});
+		expect(toolPolicies).toMatchObject({
+			"*": { enabled: false, autoApprove: false },
+			read_files: { enabled: true, autoApprove: true },
+			search_codebase: { enabled: true, autoApprove: true },
+		});
+
+		expect(runTurn).toHaveBeenCalledWith(
+			expect.objectContaining({
+				sessionId: startConfig.sessionId,
+				prompt: expect.stringContaining("Fix the queue"),
+				mode: "plan",
+				delivery: "queue",
+			}),
+		);
+	});
+
+	it("requires explicit confirmation before launching Cursor deeplinks", async () => {
+		const { transport, startSession, runTurn } = createLaunchTransport();
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.launch",
+			requestId: "req-launch-unconfirmed",
+			clientId: "client-one",
+			payload: {
+				uri: "vscode://cline.cline/createchat?prompt=Review%20the%20diff",
+				workspaceRoot: "/workspace/repo",
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: false,
+			error: {
+				message: "cursor.uri.launch requires confirmed=true.",
+			},
+		});
+		expect(startSession).not.toHaveBeenCalled();
+		expect(runTurn).not.toHaveBeenCalled();
 	});
 });
