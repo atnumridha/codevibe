@@ -1422,6 +1422,8 @@ function GeneralSettingsContent({
 	const [browserUrl, setBrowserUrl] = useState("http://127.0.0.1:3000");
 	const [browserCoordinate, setBrowserCoordinate] = useState("200,200");
 	const [browserText, setBrowserText] = useState("");
+	const [browserEvaluateText, setBrowserEvaluateText] =
+		useState("document.title");
 	const [browserRunning, setBrowserRunning] = useState(false);
 	const [browserResult, setBrowserResult] = useState<
 		BrowserToolResult | undefined
@@ -1430,6 +1432,8 @@ function GeneralSettingsContent({
 	const browserResultPayload = asRecord(browserResult?.result);
 	const browserScreenshot = recordString(browserResultPayload, "screenshot");
 	const browserSummary = browserResultSummary(browserResult);
+	const browserEvaluateEnabled =
+		browserStatus?.safeBrowserEvaluateEnabled === true;
 
 	const loadGlobalSettings = useCallback(async () => {
 		setTelemetryLoading(true);
@@ -1615,6 +1619,45 @@ function GeneralSettingsContent({
 		} catch (error) {
 			setBrowserResult({
 				query: "browser_action:type",
+				result: "",
+				error: error instanceof Error ? error.message : String(error),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserEvaluate = async () => {
+		const text = browserEvaluateText.trim();
+		if (!browserEvaluateEnabled) {
+			setBrowserResult({
+				query: "browser_action:evaluate",
+				result: "",
+				error: "Safe browser evaluate is disabled.",
+				success: false,
+			});
+			return;
+		}
+		if (!text) {
+			setBrowserResult({
+				query: "browser_action:evaluate",
+				result: "",
+				error: "JavaScript text is required.",
+				success: false,
+			});
+			return;
+		}
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({
+				action: "evaluate",
+				text,
+			});
+			setBrowserResult(result);
+		} catch (error) {
+			setBrowserResult({
+				query: "browser_action:evaluate",
 				result: "",
 				error: error instanceof Error ? error.message : String(error),
 				success: false,
@@ -1858,6 +1901,26 @@ function GeneralSettingsContent({
 							>
 								<Keyboard className="size-4" />
 								Type
+							</Button>
+						</div>
+						<div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+							<Input
+								aria-label="Browser evaluate JavaScript"
+								disabled={!browserEvaluateEnabled}
+								onChange={(event) => setBrowserEvaluateText(event.target.value)}
+								placeholder="document.title"
+								value={browserEvaluateText}
+							/>
+							<Button
+								disabled={
+									!browserAvailable || browserRunning || !browserEvaluateEnabled
+								}
+								onClick={() => void runBrowserEvaluate()}
+								type="button"
+								variant="outline"
+							>
+								<Keyboard className="size-4" />
+								Evaluate
 							</Button>
 						</div>
 						{browserResult ? (
