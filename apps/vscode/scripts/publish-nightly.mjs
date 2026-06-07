@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 
+const legacyNightlyHelpRequested = process.argv.includes("--help") || process.argv.includes("-h")
+
+if (process.env.CODEVIBE_ALLOW_LEGACY_CLINE_NIGHTLY !== "true") {
+	console.error(
+		"publish-nightly: the legacy Cline nightly publisher is disabled for CodeVibe. Use publish-marketplace.mjs after CODEVIBE_ALL_PARITY_VALIDATED=true once the Cursor-parity release gate has passed.",
+	)
+	process.exit(legacyNightlyHelpRequested ? 0 : 1)
+}
+
 /**
  * Nightly publish script for VS Code extension
  * Converts package.json to testing version, packages, publishes, and restores

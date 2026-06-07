@@ -176,6 +176,7 @@ jobs:
                   OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.OTEL_EXPORTER_OTLP_ENDPOINT }}
                   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
                   RELEASE_TYPE: ${{ github.event.inputs.release-type }}
+                  CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated }}
               run: |
                   # Swap README.marketplace.md into README.md so both the GitHub
                   # release artifact (vsce package below) and the marketplace

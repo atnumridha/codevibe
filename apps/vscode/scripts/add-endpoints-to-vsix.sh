@@ -58,6 +58,30 @@ done
 
 echo "✓ Validated endpoints.json"
 
+validate_codevibe_manifest() {
+    local package_json="$1"
+
+    if ! jq -e '.name == "codevibe" and .publisher == "atnumridha" and .displayName == "CodeVibe"' "$package_json" > /dev/null 2>&1; then
+        echo "Error: VSIX package manifest is not the CodeVibe Cursor-parity manifest"
+        exit 1
+    fi
+
+    local required_config_keys=(
+        "cline.openAiCodex.authSource"
+        "cline.cursorCompatibility.enabled"
+        "cline.cursorCompatibility.deepLinks.enabled"
+        "cline.cursorCompatibility.retrievalIndexing.privacyGate"
+        "cline.cursorCompatibility.sandboxPolicy"
+        "cline.cursorCompatibility.safeBrowserEvaluate.enabled"
+    )
+    for key in "${required_config_keys[@]}"; do
+        if ! jq -e --arg key "$key" '.contributes.configuration.properties[$key]' "$package_json" > /dev/null 2>&1; then
+            echo "Error: VSIX package manifest is missing Cursor-parity config key: $key"
+            exit 1
+        fi
+    done
+}
+
 # Resolve absolute path for output file before changing directories
 OUTPUT_VSIX_ABS=$(cd "$(dirname "$OUTPUT_VSIX")" && pwd)/$(basename "$OUTPUT_VSIX")
 
@@ -74,31 +98,17 @@ if [ ! -f "$PACKAGE_JSON" ]; then
     exit 1
 fi
 
-if ! jq -e '.name == "codevibe" and .publisher == "atnumridha" and .displayName == "CodeVibe"' "$PACKAGE_JSON" > /dev/null 2>&1; then
-    echo "Error: VSIX package manifest is not the CodeVibe Cursor-parity manifest"
-    exit 1
-fi
-
-REQUIRED_CONFIG_KEYS=(
-    "cline.openAiCodex.authSource"
-    "cline.cursorCompatibility.enabled"
-    "cline.cursorCompatibility.deepLinks.enabled"
-    "cline.cursorCompatibility.retrievalIndexing.privacyGate"
-    "cline.cursorCompatibility.sandboxPolicy"
-    "cline.cursorCompatibility.safeBrowserEvaluate.enabled"
-)
-for key in "${REQUIRED_CONFIG_KEYS[@]}"; do
-    if ! jq -e --arg key "$key" '.contributes.configuration.properties[$key]' "$PACKAGE_JSON" > /dev/null 2>&1; then
-        echo "Error: VSIX package manifest is missing Cursor-parity config key: $key"
-        exit 1
-    fi
-done
-
+validate_codevibe_manifest "$PACKAGE_JSON"
 echo "✓ Validated CodeVibe Cursor-parity VSIX manifest"
 
 # Copy endpoints.json to extension directory
 echo "Adding endpoints.json to extension/..."
 cp "$ENDPOINTS_JSON" "$TEMP_DIR/extension/endpoints.json"
+validate_codevibe_manifest "$PACKAGE_JSON"
+if ! jq empty "$TEMP_DIR/extension/endpoints.json" > /dev/null 2>&1; then
+    echo "Error: bundled extension/endpoints.json is not valid JSON after copy"
+    exit 1
+fi
 
 # Repackage VSIX
 echo "Repackaging VSIX..."

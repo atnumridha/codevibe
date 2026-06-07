@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { assertCursorParityReleaseGate } from "./assert-cursor-parity-release-gate.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -47,11 +48,11 @@ function readVersion() {
 	return packageJson.version.trim()
 }
 
-const version = readVersion()
-const channel = isPrerelease ? "pre-release" : "release"
-const vsixPath = path.join(projectRoot, "dist", `codevibe-marketplace-${channel}-${version}.vsix`)
-
 try {
+	assertCursorParityReleaseGate("CodeVibe marketplace publish")
+	const version = readVersion()
+	const channel = isPrerelease ? "pre-release" : "release"
+	const vsixPath = path.join(projectRoot, "dist", `codevibe-marketplace-${channel}-${version}.vsix`)
 	run(process.execPath, [
 		"scripts/package-github-vsix.mjs",
 		"--out-file",
