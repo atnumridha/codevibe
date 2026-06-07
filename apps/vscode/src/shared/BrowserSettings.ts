@@ -35,7 +35,7 @@ export const DEFAULT_BROWSER_SETTINGS: BrowserSettings = {
 export function getEffectiveBrowserSettings(
 	browserSettings: BrowserSettings,
 	options: EffectiveBrowserSettingsOptions = {},
-): BrowserSettings {
+): BrowserSettings & { allowBrowserEvaluate: boolean } {
 	return {
 		...browserSettings,
 		allowBrowserEvaluate:

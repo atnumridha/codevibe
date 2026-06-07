@@ -315,7 +315,7 @@ describe("File Search", () => {
 				const result = await fileSearch.searchWorkspaceFiles("", workspace, 20)
 
 				should(result.source).equal("host_index")
-				searchWorkspaceItemsStub.firstCall.args[0].includeIgnored.should.equal(false)
+				should(searchWorkspaceItemsStub.firstCall!.args[0]!.includeIgnored).equal(false)
 				result.items.map((item) => item.path).should.containEql("src/main.ts")
 				result.items.map((item) => item.path).should.not.containEql("private/secret.ts")
 			} finally {
@@ -351,7 +351,7 @@ describe("File Search", () => {
 				})
 
 				should(result.source).equal("host_index")
-				searchWorkspaceItemsStub.firstCall.args[0].includeIgnored.should.equal(true)
+				should(searchWorkspaceItemsStub.firstCall!.args[0]!.includeIgnored).equal(true)
 				result.items.map((item) => item.path).should.containEql("src/main.ts")
 				result.items.map((item) => item.path).should.containEql("private/secret.ts")
 			} finally {

@@ -684,6 +684,7 @@ export class SharedUriHandler {
 									: `Installed MCP server "${installRequest.serverName}".`,
 							options: oauthSummary.oauthDetail
 								? {
+										items: [],
 										detail: oauthSummary.oauthDetail,
 									}
 								: undefined,

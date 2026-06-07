@@ -276,12 +276,12 @@ function safeErrorSummary(error: unknown): string {
 				? ` code=${(error as NodeJS.ErrnoException).code}`
 				: ""
 		const status =
-			typeof (error as { status?: unknown }).status === "number"
-				? ` status=${(error as { status: number }).status}`
+			typeof (error as unknown as { status?: unknown }).status === "number"
+				? ` status=${(error as unknown as { status: number }).status}`
 				: ""
 		const errorCode =
-			typeof (error as { errorCode?: unknown }).errorCode === "string"
-				? ` code=${(error as { errorCode: string }).errorCode}`
+			typeof (error as unknown as { errorCode?: unknown }).errorCode === "string"
+				? ` code=${(error as unknown as { errorCode: string }).errorCode}`
 				: ""
 		return `${error.name}${code}${status}${errorCode}`
 	}

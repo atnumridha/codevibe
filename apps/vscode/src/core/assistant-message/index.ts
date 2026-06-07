@@ -59,6 +59,7 @@ export const toolParamNames = [
 	"tab_id",
 	"include_screenshot",
 	"include_logs",
+	"full_page",
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]

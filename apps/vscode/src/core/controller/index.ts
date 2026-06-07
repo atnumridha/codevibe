@@ -736,6 +736,7 @@ export class Controller {
 				type: ShowMessageType.INFORMATION,
 				message: `Installed Cursor plugin from ${result.source}.`,
 				options: {
+					items: [],
 					detail: [`Path: ${result.installPath}`, `Entries: ${result.entryPaths.length}`].join("\n"),
 				},
 			})

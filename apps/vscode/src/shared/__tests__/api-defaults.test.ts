@@ -5,7 +5,7 @@ import {
 	convertProtoToApiConfiguration,
 	convertProtoToApiProvider,
 } from "../proto-conversions/models/api-configuration-conversion"
-import { ApiProvider as ProtoApiProvider } from "../proto/cline/models"
+import { ApiProvider as ProtoApiProvider, ModelsApiConfiguration } from "../proto/cline/models"
 
 describe("API defaults", () => {
 	it("defaults new installs to OpenAI Codex with the latest bundled Codex model", () => {
@@ -43,7 +43,7 @@ describe("API defaults", () => {
 		expect(proto.planModeApiProvider).to.equal(ProtoApiProvider.OPENAI_CODEX)
 		expect(proto.actModeApiProvider).to.equal(ProtoApiProvider.OPENAI_CODEX)
 
-		const config = convertProtoToApiConfiguration({})
+		const config = convertProtoToApiConfiguration(ModelsApiConfiguration.create({}))
 
 		expect(config.planModeApiProvider).to.equal(DEFAULT_API_PROVIDER)
 		expect(config.actModeApiProvider).to.equal(DEFAULT_API_PROVIDER)

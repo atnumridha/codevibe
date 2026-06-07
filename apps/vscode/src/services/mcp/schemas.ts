@@ -46,7 +46,7 @@ function normalizeTransportAliasFields<T extends Record<string, unknown>>(value:
 	return {
 		...serverFields,
 		type: normalizedType,
-	} as T
+	} as unknown as T
 }
 
 function normalizeServerConfigInput(value: unknown): unknown {

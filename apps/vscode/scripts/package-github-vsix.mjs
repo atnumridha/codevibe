@@ -495,7 +495,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 }
 
 function stripAllowedMarkdownClineReferences(value) {
-	return value.replace(upstreamLicenseNotice, "")
+	return value.replace(/\[Apache 2\.0 \u00a9 2026 Cline Bot Inc\.\]\([^)]+\)/g, "")
 }
 
 function assertPackagedMarkdownTextBranded(value, label) {
@@ -550,14 +550,27 @@ function listZipEntries(zipPath) {
 	return { buffer, entries }
 }
 
+function resolveZipEntryName(zip, entryName) {
+	if (zip.entries.has(entryName)) {
+		return entryName
+	}
+	const lowerEntryName = entryName.toLowerCase()
+	return [...zip.entries.keys()].find((name) => name.toLowerCase() === lowerEntryName)
+}
+
+function zipHasEntry(zip, entryName) {
+	return Boolean(resolveZipEntryName(zip, entryName))
+}
+
 function readZipEntry(zip, entryName) {
-	const entry = zip.entries.get(entryName)
+	const resolvedEntryName = resolveZipEntryName(zip, entryName)
+	const entry = resolvedEntryName ? zip.entries.get(resolvedEntryName) : undefined
 	if (!entry) {
 		throw new Error(`VSIX artifact is missing ${entryName}`)
 	}
 	const { buffer } = zip
 	if (buffer.readUInt32LE(entry.localHeaderOffset) !== 0x04034b50) {
-		throw new Error(`VSIX local file header is corrupt for ${entryName}`)
+		throw new Error(`VSIX local file header is corrupt for ${resolvedEntryName}`)
 	}
 	const fileNameLength = buffer.readUInt16LE(entry.localHeaderOffset + 26)
 	const extraFieldLength = buffer.readUInt16LE(entry.localHeaderOffset + 28)
@@ -569,7 +582,7 @@ function readZipEntry(zip, entryName) {
 	if (entry.compressionMethod === 8) {
 		return zlib.inflateRawSync(compressed)
 	}
-	throw new Error(`VSIX entry ${entryName} uses unsupported compression method ${entry.compressionMethod}`)
+	throw new Error(`VSIX entry ${resolvedEntryName} uses unsupported compression method ${entry.compressionMethod}`)
 }
 
 function addManifestAsset(assetPaths, value) {
@@ -666,7 +679,7 @@ function assertPackagedVsix(outPath) {
 	assertCursorParityManifest(packagedPackageJson, "packaged VSIX manifest")
 	for (const assetPath of collectManifestAssetPaths(packagedPackageJson)) {
 		const entryName = `extension/${assetPath.replace(/\\/g, "/")}`
-		if (!zip.entries.has(entryName)) {
+		if (!zipHasEntry(zip, entryName)) {
 			throw new Error(`VSIX artifact is missing manifest asset ${entryName}`)
 		}
 	}
@@ -762,7 +775,7 @@ async function main() {
 		writePackageJson(githubVsixPackageJson)
 		assertPackageInputs(githubVsixPackageJson)
 		fs.mkdirSync(path.dirname(outPath), { recursive: true })
-		const packageArgs = ["package", "--allow-package-secrets", "sendgrid", "--out", outPath]
+		const packageArgs = ["package", "--allow-package-secrets", "sendgrid", "--no-dependencies", "--out", outPath]
 		if (options.preRelease) {
 			packageArgs.push("--pre-release")
 		}

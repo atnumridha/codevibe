@@ -150,11 +150,12 @@ describe("plan_mode_respond native schema", () => {
 })
 
 describe("browser_action tool docs", () => {
-	it("documents evaluate as discoverable and gated for every browser action variant", () => {
-		for (const spec of browser_action_variants) {
-			const action = spec.parameters.find((parameter) => parameter.name === "action")
-			const text = spec.parameters.find((parameter) => parameter.name === "text")
-			const docs = `${spec.description}\n${action?.instruction ?? ""}\n${action?.usage ?? ""}\n${text?.instruction ?? ""}\n${text?.usage ?? ""}`
+		it("documents evaluate as discoverable and gated for every browser action variant", () => {
+			for (const spec of browser_action_variants) {
+				const parameters = spec.parameters ?? []
+				const action = parameters.find((parameter) => parameter.name === "action")
+				const text = parameters.find((parameter) => parameter.name === "text")
+				const docs = `${spec.description}\n${action?.instruction ?? ""}\n${action?.usage ?? ""}\n${text?.instruction ?? ""}\n${text?.usage ?? ""}`
 
 			expect(docs).to.include("evaluate")
 			expect(docs).to.include("browser JavaScript evaluation")
@@ -164,7 +165,7 @@ describe("browser_action tool docs", () => {
 
 	it("documents browser_snapshot as read-only active-page inspection", () => {
 		for (const spec of browser_snapshot_variants) {
-			const docs = `${spec.description}\n${spec.parameters?.map((parameter) => parameter.instruction).join("\n") ?? ""}`
+			const docs = `${spec.description}\n${spec.parameters?.map((parameter) => `${parameter.name}\n${parameter.instruction}`).join("\n") ?? ""}`
 
 			expect(docs).to.include("read-only")
 			expect(docs).to.include("browser_action")
@@ -179,14 +180,14 @@ describe("browser_action tool docs", () => {
 
 	it("documents browser_screenshot as read-only active-page capture", () => {
 		for (const spec of browser_screenshot_variants) {
-			const docs = `${spec.description}\n${spec.parameters?.map((parameter) => parameter.instruction).join("\n") ?? ""}`
+			const docs = `${spec.description}\n${spec.parameters?.map((parameter) => `${parameter.name}\n${parameter.instruction}`).join("\n") ?? ""}`
 
 			expect(docs).to.include("read-only")
 			expect(docs).to.include("browser_action")
 			expect(docs).to.include("browser_snapshot")
 			expect(docs).to.include("browser_screenshot")
 			expect(docs).to.include("Do not use this to click")
-			expect(docs).to.include("running user-provided JavaScript")
+			expect(docs).to.include("run user-provided JavaScript")
 			expect(docs).to.include("tab_id")
 			expect(docs).to.include("full_page")
 		}

@@ -1,5 +1,8 @@
 #!/bin/bash
-set -u
+set -euo pipefail
+
+export BUF_CACHE_DIR="${BUF_CACHE_DIR:-${TMPDIR:-/tmp}/codevibe-buf-cache}"
+mkdir -p "$BUF_CACHE_DIR"
 
 buf lint
 
@@ -12,4 +15,3 @@ if grep -rn "rpc .*[A-Z][A-Z].*[(]" --include="*.proto"; then
   echo Error: Proto RPC names cannot contain repeated capital letters
   exit 1
 fi
-

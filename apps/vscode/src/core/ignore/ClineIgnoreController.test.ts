@@ -115,7 +115,7 @@ describe("ClineIgnoreController", () => {
 			controller = new ClineIgnoreController(tempDir)
 			await controller.initialize()
 
-			controller.validateCommand("cat secrets/token.txt").should.equal("secrets/token.txt")
+			controller.validateCommand("cat secrets/token.txt")!.should.equal("secrets/token.txt")
 			;(controller.validateCommand("cat public/readme.md") === undefined).should.be.true()
 		})
 

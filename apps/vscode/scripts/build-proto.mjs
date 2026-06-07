@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import chalk from "chalk"
-import { execFileSync, execSync } from "child_process"
+import { execFileSync } from "child_process"
 import fsSync from "fs"
 import * as fs from "fs/promises"
 import { globby } from "globby"
@@ -176,23 +176,38 @@ function checkAppleSiliconCompatibility() {
 	// Check if running on Apple Silicon
 	const cpuArchitecture = os.arch()
 	if (cpuArchitecture === "arm64") {
-		try {
-			// Check if Rosetta is installed
-			const rosettaCheck = execSync('/usr/bin/pgrep oahd || echo "NOT_INSTALLED"').toString().trim()
-
-			if (rosettaCheck === "NOT_INSTALLED") {
-				console.log(chalk.yellow("Detected Apple Silicon (ARM64) architecture."))
-				console.log(
-					chalk.red("Rosetta 2 is NOT installed. The npm version of protoc is not compatible with Apple Silicon."),
-				)
-				console.log(chalk.cyan("Please install Rosetta 2 using the following command:"))
-				console.log(chalk.cyan("  softwareupdate --install-rosetta --agree-to-license"))
-				console.log(chalk.red("Aborting build process."))
-				process.exit(1)
-			}
-		} catch (_error) {
-			console.log(chalk.yellow("Could not determine Rosetta installation status. Proceeding anyway."))
+		if (isRosettaInstalled()) {
+			return
 		}
+		console.log(chalk.yellow("Detected Apple Silicon (ARM64) architecture."))
+		console.log(chalk.red("Rosetta 2 is NOT installed. The npm version of protoc is not compatible with Apple Silicon."))
+		console.log(chalk.cyan("Please install Rosetta 2 using the following command:"))
+		console.log(chalk.cyan("  softwareupdate --install-rosetta --agree-to-license"))
+		console.log(chalk.red("Aborting build process."))
+		process.exit(1)
+	}
+}
+
+function isRosettaInstalled() {
+	try {
+		execFileSync("/usr/sbin/pkgutil", ["--pkg-info", "com.apple.pkg.RosettaUpdateAuto"], { stdio: "ignore" })
+		return true
+	} catch {
+		// Fall through to filesystem and daemon checks.
+	}
+	if (fsSync.existsSync("/Library/Apple/usr/libexec/oah")) {
+		return true
+	}
+	try {
+		execFileSync("/usr/bin/pgrep", ["oahd"], { stdio: "ignore" })
+		return true
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		if (/operation not permitted|cannot get process list/i.test(message)) {
+			console.log(chalk.yellow("Could not inspect Rosetta daemon status. Proceeding with protoc."))
+			return true
+		}
+		return false
 	}
 }
 
