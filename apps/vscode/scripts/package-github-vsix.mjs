@@ -6,6 +6,7 @@ import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import zlib from "node:zlib"
+import { assertCursorParityReleaseGate } from "./assert-cursor-parity-release-gate.mjs"
 import { restore as restoreMarketplaceReadme, swapIn as swapInMarketplaceReadme } from "./marketplace-readme.mjs"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -76,7 +77,7 @@ const visibleManifestStringKeys = new Set(["category", "description", "title"])
 
 function usage() {
 	console.error(
-		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--code <path>] [--print-metadata]",
+		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--code <path>] [--print-metadata] [--require-release-gate]",
 	)
 }
 
@@ -89,6 +90,7 @@ function parseArgs(argv) {
 		code: undefined,
 		preRelease: false,
 		printMetadata: false,
+		requireReleaseGate: false,
 	}
 
 	for (let index = 0; index < argv.length; index++) {
@@ -119,6 +121,8 @@ function parseArgs(argv) {
 			options.code = code
 		} else if (arg === "--print-metadata") {
 			options.printMetadata = true
+		} else if (arg === "--require-release-gate") {
+			options.requireReleaseGate = true
 		} else if (arg === "-h" || arg === "--help") {
 			usage()
 			process.exit(0)
@@ -686,6 +690,9 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 
 async function main() {
 	const options = parseArgs(process.argv.slice(2))
+	if (options.requireReleaseGate) {
+		assertCursorParityReleaseGate("CodeVibe GitHub VSIX package")
+	}
 	const originalPackageJsonText = fs.readFileSync(packageJsonPath, "utf8")
 	const originalPackageJson = JSON.parse(originalPackageJsonText)
 	const githubVsixPackageJson = createGithubVsixPackageJson(originalPackageJson)
@@ -699,6 +706,10 @@ async function main() {
 					...metadata,
 					displayName: githubVsixPackageJson.displayName,
 					outPath,
+					releaseGateRequired: options.requireReleaseGate,
+					releaseGateSatisfied: options.requireReleaseGate
+						? process.env.CODEVIBE_ALL_PARITY_VALIDATED === "true"
+						: undefined,
 				},
 				null,
 				2,

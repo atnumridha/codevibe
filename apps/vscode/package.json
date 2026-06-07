@@ -508,6 +508,7 @@
 		"test:tp-orchestrator": "npx tsx scripts/testing-platform-orchestrator.ts",
 		"e2e": "playwright test -c playwright.config.ts",
 		"package:github-vsix": "node scripts/package-github-vsix.mjs",
+		"package:github-vsix:release": "node scripts/package-github-vsix.mjs --require-release-gate",
 		"test:e2e:build": "node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix",
 		"smoke:vsix:install": "node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix --install",
 		"smoke:github-vsix:install": "node scripts/package-github-vsix.mjs --verify-install",

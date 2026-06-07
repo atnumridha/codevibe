@@ -74,11 +74,10 @@ jobs:
 
             - name: Validate CodeVibe Release Gate
               working-directory: ${{ github.workspace }}
+              env:
+                  CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated }}
               run: |
-                  if [[ "${{ github.event.inputs.all_parity_validated }}" != "true" ]]; then
-                    echo "Error: all_parity_validated must be true before publishing a CodeVibe VSIX release."
-                    exit 1
-                  fi
+                  node apps/vscode/scripts/assert-cursor-parity-release-gate.mjs --context "CodeVibe GitHub VSIX release"
                   if [[ "${{ github.event.inputs.run_tests }}" != "true" || "${{ github.event.inputs.run_e2e }}" != "true" ]]; then
                     echo "Error: CodeVibe VSIX releases must run both test and e2e workflows."
                     exit 1
@@ -127,11 +126,11 @@ jobs:
 
             - name: Install extension dependencies
               working-directory: ${{ github.workspace }}
-              run: npm --prefix apps/vscode install --include=optional
+              run: npm --prefix apps/vscode ci --include=optional
 
             - name: Install webview-ui dependencies
               working-directory: ${{ github.workspace }}
-              run: npm --prefix apps/vscode/webview-ui install --include=optional
+              run: npm --prefix apps/vscode/webview-ui ci --include=optional
 
             - name: Install VSIX packaging tool
               run: npm install -g @vscode/vsce
@@ -157,7 +156,14 @@ jobs:
                   CLINE_ENVIRONMENT: production
                   TELEMETRY_SERVICE_API_KEY: ${{ secrets.TELEMETRY_SERVICE_API_KEY }}
                   ERROR_SERVICE_API_KEY: ${{ secrets.ERROR_SERVICE_API_KEY }}
-              run: node scripts/package-github-vsix.mjs --out-dir . --verify-install
+                  CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated }}
+                  PRERELEASE: ${{ github.event.inputs.prerelease }}
+              run: |
+                  package_args=(--out-dir . --verify-install --require-release-gate)
+                  if [[ "$PRERELEASE" == "true" ]]; then
+                    package_args+=(--pre-release)
+                  fi
+                  node scripts/package-github-vsix.mjs "${package_args[@]}"
 
             - name: Get Previous Tag
               id: prev_tag

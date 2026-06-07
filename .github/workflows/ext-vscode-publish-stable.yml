@@ -62,9 +62,26 @@ jobs:
 
             - name: Validate CodeVibe Release Gate
               working-directory: ${{ github.workspace }}
+              env:
+                  CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated }}
               run: |
-                  if [[ "${{ github.event.inputs.all_parity_validated }}" != "true" ]]; then
-                    echo "Error: all_parity_validated must be true before publishing a CodeVibe release."
+                  node apps/vscode/scripts/assert-cursor-parity-release-gate.mjs --context "CodeVibe stable publish"
+
+            - name: Validate Marketplace Secrets
+              env:
+                  VSCE_PAT: ${{ secrets.VSCE_PAT }}
+                  OVSX_PAT: ${{ secrets.OVSX_PAT }}
+              run: |
+                  missing=()
+                  if [[ -z "${VSCE_PAT:-}" ]]; then
+                    missing+=("VSCE_PAT")
+                  fi
+                  if [[ -z "${OVSX_PAT:-}" ]]; then
+                    missing+=("OVSX_PAT")
+                  fi
+                  if (( ${#missing[@]} > 0 )); then
+                    echo "Error: missing marketplace secret(s): ${missing[*]}"
+                    echo "Use the ext-vscode-github-release workflow for GitHub-only VSIX releases when marketplace secrets are not available."
                     exit 1
                   fi
 
@@ -136,11 +153,11 @@ jobs:
 
             - name: Install extension dependencies
               working-directory: ${{ github.workspace }}
-              run: npm --prefix apps/vscode install --include=optional
+              run: npm --prefix apps/vscode ci --include=optional
 
             - name: Install webview-ui dependencies
               working-directory: ${{ github.workspace }}
-              run: npm --prefix apps/vscode/webview-ui install --include=optional
+              run: npm --prefix apps/vscode/webview-ui ci --include=optional
 
             - name: Install Publishing Tools
               run: npm install -g @vscode/vsce ovsx
@@ -183,7 +200,11 @@ jobs:
                   # publish (npm run publish:marketplace below, which swaps
                   # internally as an idempotent no-op) ship the same README.
                   # Required to generate the GitHub Release .vsix
-                  node scripts/package-github-vsix.mjs --out-dir . --verify-install
+                  package_args=(--out-dir . --verify-install --require-release-gate)
+                  if [ "$RELEASE_TYPE" = "pre-release" ]; then
+                    package_args+=(--pre-release)
+                  fi
+                  node scripts/package-github-vsix.mjs "${package_args[@]}"
 
                   if [ "$RELEASE_TYPE" = "pre-release" ]; then
                     npm run publish:marketplace:prerelease

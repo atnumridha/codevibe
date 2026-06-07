@@ -57,6 +57,7 @@ try {
 		"scripts/package-github-vsix.mjs",
 		"--out-file",
 		vsixPath,
+		"--require-release-gate",
 		...(isPrerelease ? ["--pre-release"] : []),
 	])
 
