@@ -42,6 +42,7 @@ import {
 	deleteMcpServer,
 	ensureMcpSettingsFile,
 	importCursorMcpServers,
+	installCursorMcpServer,
 	readMcpServersResponse,
 	setMcpServerDisabled,
 	upsertMcpServer,
@@ -285,6 +286,11 @@ export async function handleDesktopCommand(
 		const input =
 			args && typeof args === "object" ? (args as JsonRecord) : undefined;
 		return importCursorMcpServers(input);
+	}
+	if (command === "cursor_mcp_install") {
+		const input =
+			args && typeof args === "object" ? (args as JsonRecord) : undefined;
+		return installCursorMcpServer(input);
 	}
 	if (command === "set_mcp_server_disabled") {
 		return setMcpServerDisabled(

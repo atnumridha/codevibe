@@ -28,6 +28,7 @@ import {
 	desktopClient,
 	type BrowserAutomationStatus,
 	type BrowserToolResult,
+	type CursorMcpInstallResponse,
 	type CursorUriPreviewResponse,
 } from "@/lib/desktop-client";
 import type {
@@ -600,6 +601,11 @@ function CursorLinksContent() {
 	>();
 	const [previewError, setPreviewError] = useState<string | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
+	const [installResult, setInstallResult] = useState<
+		CursorMcpInstallResponse | undefined
+	>();
+	const [installError, setInstallError] = useState<string | null>(null);
+	const [installLoading, setInstallLoading] = useState(false);
 
 	const previewRecord = asRecord(preview);
 	const route = recordString(previewRecord, "route");
@@ -611,17 +617,22 @@ function CursorLinksContent() {
 	);
 	const paramKeys = recordStringArray(previewRecord, "paramKeys");
 	const configKeys = recordStringArray(previewRecord, "configKeys");
+	const canInstallMcp = route === "mcp-install";
 
 	const runPreview = async () => {
 		const uri = cursorUri.trim();
 		if (!uri) {
 			setPreview(undefined);
 			setPreviewError("URI is required.");
+			setInstallResult(undefined);
+			setInstallError(null);
 			return;
 		}
 		setPreviewLoading(true);
 		setPreviewError(null);
 		setPreview(undefined);
+		setInstallResult(undefined);
+		setInstallError(null);
 		try {
 			const result = await desktopClient.previewCursorUri({
 				uri,
@@ -633,6 +644,37 @@ function CursorLinksContent() {
 			setPreviewError(error instanceof Error ? error.message : String(error));
 		} finally {
 			setPreviewLoading(false);
+		}
+	};
+
+	const updateCursorUri = (value: string) => {
+		setCursorUri(value);
+		setPreview(undefined);
+		setPreviewError(null);
+		setInstallResult(undefined);
+		setInstallError(null);
+	};
+
+	const runMcpInstall = async () => {
+		const uri = cursorUri.trim();
+		if (!uri || !canInstallMcp) {
+			return;
+		}
+		setInstallLoading(true);
+		setInstallError(null);
+		setInstallResult(undefined);
+		try {
+			const result = await desktopClient.installCursorMcp({
+				uri,
+				confirmed: true,
+				maxCommandFileBytes: 64 * 1024,
+				maxRuleFileBytes: 64 * 1024,
+			});
+			setInstallResult(result);
+		} catch (error) {
+			setInstallError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setInstallLoading(false);
 		}
 	};
 
@@ -667,7 +709,7 @@ function CursorLinksContent() {
 						<Textarea
 							aria-label="Cursor-compatible URI"
 							className="min-h-28 resize-y font-mono text-xs"
-							onChange={(event) => setCursorUri(event.target.value)}
+							onChange={(event) => updateCursorUri(event.target.value)}
 							placeholder="vscode://cline.cline/createchat?prompt=..."
 							value={cursorUri}
 						/>
@@ -684,6 +726,21 @@ function CursorLinksContent() {
 								)}
 								Preview
 							</Button>
+							{canInstallMcp ? (
+								<Button
+									disabled={installLoading}
+									onClick={() => void runMcpInstall()}
+									type="button"
+									variant="outline"
+								>
+									{installLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<CheckCircle2 className="size-4" />
+									)}
+									Install MCP
+								</Button>
+							) : null}
 						</div>
 					</div>
 				</section>
@@ -693,6 +750,42 @@ function CursorLinksContent() {
 						<AlertTriangle className="size-4" />
 						<AlertTitle>Preview failed</AlertTitle>
 						<AlertDescription>{previewError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{installError ? (
+					<Alert className="mt-4" variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>MCP install failed</AlertTitle>
+						<AlertDescription>{installError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{installResult ? (
+					<Alert className="mt-4">
+						<CheckCircle2 className="size-4" />
+						<AlertTitle>
+							{installResult.replaced
+								? "MCP server replaced"
+								: "MCP server installed"}
+						</AlertTitle>
+						<AlertDescription>
+							{[
+								installResult.serverName,
+								installResult.transportType,
+								installResult.urlOrigin,
+								installResult.command,
+								installResult.envKeys?.length
+									? `env: ${installResult.envKeys.join(", ")}`
+									: "",
+								installResult.headerKeys?.length
+									? `headers: ${installResult.headerKeys.join(", ")}`
+									: "",
+								installResult.settingsPath,
+							]
+								.filter(Boolean)
+								.join(" | ")}
+						</AlertDescription>
 					</Alert>
 				) : null}
 

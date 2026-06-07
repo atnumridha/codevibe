@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
+	buildCursorMcpInstallRequest,
+	type CursorMcpInstallRequest,
 	normalizeCursorMcpSettingsObject,
 	resolveGlobalCursorMcpSettingsPath,
 } from "@cline/core";
@@ -226,6 +228,78 @@ export function importCursorMcpServers(args?: JsonRecord): JsonRecord {
 		sourcePath,
 		serverNames,
 		replacedNames,
+	});
+}
+
+function safeUrlOrigin(value: string): string | undefined {
+	try {
+		return new URL(value).origin;
+	} catch {
+		return undefined;
+	}
+}
+
+function buildCursorMcpInstallResponse(
+	request: CursorMcpInstallRequest,
+	input: {
+		confirmed: boolean;
+		installed: boolean;
+		settingsPath: string;
+		replaced: boolean;
+	},
+): JsonRecord {
+	const transport =
+		getRecordValue(request.serverConfig.transport) ?? request.serverConfig;
+	const url = typeof transport.url === "string" ? transport.url : undefined;
+	const command =
+		typeof transport.command === "string" ? transport.command : undefined;
+	const commandLabel = command && !/\s/.test(command) ? command : undefined;
+	const env = getRecordValue(transport.env);
+	const headers = getRecordValue(transport.headers);
+	return {
+		handled: true,
+		route: "mcp-install",
+		confirmed: input.confirmed,
+		installed: input.installed,
+		serverName: request.serverName,
+		source: request.source,
+		transportType: String(transport.type ?? "stdio"),
+		settingsPath: input.settingsPath,
+		replaced: input.replaced,
+		...(url ? { urlOrigin: safeUrlOrigin(url) ?? "[provided]" } : {}),
+		...(commandLabel ? { command: commandLabel } : {}),
+		...(Array.isArray(transport.args) ? { argCount: transport.args.length } : {}),
+		...(env ? { envKeys: Object.keys(env).sort() } : {}),
+		...(headers ? { headerKeys: Object.keys(headers).sort() } : {}),
+		...readMcpServersResponse(),
+	};
+}
+
+export function installCursorMcpServer(args?: JsonRecord): JsonRecord {
+	const uri = typeof args?.uri === "string" ? args.uri.trim() : "";
+	if (!uri) {
+		throw new Error("cursor_mcp_install requires a non-empty uri");
+	}
+	const request = buildCursorMcpInstallRequest(uri);
+	const { path, servers } = readServersMap();
+	const replaced = Object.hasOwn(servers, request.serverName);
+	const confirmed = args?.confirmed === true;
+	if (!confirmed) {
+		return buildCursorMcpInstallResponse(request, {
+			confirmed: false,
+			installed: false,
+			settingsPath: path,
+			replaced,
+		});
+	}
+
+	servers[request.serverName] = request.serverConfig;
+	writeMcpServersMap(servers);
+	return buildCursorMcpInstallResponse(request, {
+		confirmed: true,
+		installed: true,
+		settingsPath: path,
+		replaced,
 	});
 }
 

@@ -80,6 +80,27 @@ export type CursorUriPreviewResponse = Record<string, unknown> & {
 	configKeys?: string[];
 };
 
+export type CursorMcpInstallInput = CursorUriPreviewInput & {
+	confirmed: true;
+};
+
+export type CursorMcpInstallResponse = Record<string, unknown> & {
+	handled: true;
+	route: "mcp-install";
+	confirmed: boolean;
+	installed: boolean;
+	serverName: string;
+	source: "config" | "direct";
+	transportType: string;
+	settingsPath: string;
+	replaced: boolean;
+	urlOrigin?: string;
+	command?: string;
+	argCount?: number;
+	envKeys?: string[];
+	headerKeys?: string[];
+};
+
 export type WorkspaceFileSearchInput = {
 	workspaceRoot?: string;
 	cwd?: string;
@@ -175,6 +196,23 @@ class HubDesktopClient {
 			"cursor_uri_preview",
 			input,
 		);
+	}
+
+	async installCursorMcp(
+		input: CursorMcpInstallInput,
+	): Promise<CursorMcpInstallResponse> {
+		return await this.invoke<CursorMcpInstallResponse>("cursor_mcp_install", {
+			uri: input.uri,
+			confirmed: input.confirmed,
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+			...(input.maxCommandFileBytes !== undefined
+				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
+				: {}),
+		});
 	}
 
 	async searchWorkspaceFiles(
