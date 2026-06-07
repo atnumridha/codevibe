@@ -8,7 +8,15 @@ import {
 	SignalLow,
 	SignalMedium,
 } from "lucide-react";
-import { useState } from "react";
+import {
+	type ChangeEvent,
+	type KeyboardEvent,
+	type SyntheticEvent,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { toast } from "sonner";
 import {
 	Attachment,
@@ -46,6 +54,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { desktopClient } from "@/lib/desktop-client";
 import {
 	Select,
 	SelectContent,
@@ -65,6 +74,33 @@ type ProviderOption = Extract<
 	WebviewOutboundMessage,
 	{ type: "providers" }
 >["providers"][number];
+
+type ActiveMention = {
+	start: number;
+	end: number;
+	query: string;
+};
+
+function getActiveMention(input: string, cursor: number): ActiveMention | null {
+	const left = input.slice(0, cursor);
+	const atIndex = left.lastIndexOf("@");
+	if (atIndex < 0) {
+		return null;
+	}
+	const before = atIndex > 0 ? left[atIndex - 1] : "";
+	if (before && !/\s/.test(before)) {
+		return null;
+	}
+	const query = left.slice(atIndex + 1);
+	if (!/^[^\s@]*$/.test(query)) {
+		return null;
+	}
+	return {
+		start: atIndex,
+		end: cursor,
+		query,
+	};
+}
 
 function PromptAttachmentsDisplay() {
 	const attachments = usePromptInputAttachments();
@@ -364,6 +400,15 @@ export function Composer({
 	workspaceRoot: string;
 }) {
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [activeMention, setActiveMention] = useState<ActiveMention | null>(
+		null,
+	);
+	const [mentionOpen, setMentionOpen] = useState(false);
+	const [mentionFiles, setMentionFiles] = useState<string[]>([]);
+	const [mentionLoading, setMentionLoading] = useState(false);
+	const [mentionSelectedIndex, setMentionSelectedIndex] = useState(0);
+	const mentionResultsCacheRef = useRef(new Map<string, string[]>());
+	const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 	const controller = usePromptInputController();
 	const attachments = usePromptInputAttachments();
 	const selectedModel = models.find((item) => item.id === model);
@@ -375,8 +420,152 @@ export function Composer({
 	);
 	const ReasonIcon = reasonLevels[reasonLevelOption].icon;
 
+	const updateActiveMention = useCallback((input: string, cursor: number) => {
+		const nextMention = getActiveMention(input, cursor);
+		setActiveMention((current) => {
+			if (
+				current?.start === nextMention?.start &&
+				current?.end === nextMention?.end &&
+				current?.query === nextMention?.query
+			) {
+				return current;
+			}
+			return nextMention;
+		});
+		setMentionOpen(nextMention !== null);
+	}, []);
+
+	useEffect(() => {
+		if (!mentionOpen || !activeMention) {
+			setMentionFiles([]);
+			setMentionLoading(false);
+			setMentionSelectedIndex(0);
+			return;
+		}
+
+		const requestKey = `${workspaceRoot}::${activeMention.query}`;
+		const cached = mentionResultsCacheRef.current.get(requestKey);
+		if (cached) {
+			setMentionFiles(cached);
+			setMentionSelectedIndex(0);
+			setMentionLoading(false);
+			return;
+		}
+
+		let cancelled = false;
+		const timeoutId = window.setTimeout(async () => {
+			if (mentionFiles.length === 0) {
+				setMentionLoading(true);
+			}
+			try {
+				const results = await desktopClient.searchWorkspaceFiles({
+					workspaceRoot,
+					query: activeMention.query,
+					limit: 10,
+				});
+				if (cancelled) {
+					return;
+				}
+				const nextResults = Array.isArray(results) ? results : [];
+				mentionResultsCacheRef.current.set(requestKey, nextResults);
+				setMentionFiles(nextResults);
+				setMentionSelectedIndex(0);
+			} catch {
+				if (!cancelled && mentionFiles.length === 0) {
+					setMentionFiles([]);
+				}
+			} finally {
+				if (!cancelled) {
+					setMentionLoading(false);
+				}
+			}
+		}, 120);
+
+		return () => {
+			cancelled = true;
+			window.clearTimeout(timeoutId);
+		};
+	}, [activeMention, mentionOpen, workspaceRoot, mentionFiles.length]);
+
+	const insertMentionFile = useCallback(
+		(filePath: string) => {
+			if (!activeMention) {
+				return;
+			}
+			const currentInput = controller.textInput.value;
+			const nextInput =
+				`${currentInput.slice(0, activeMention.start)}@${filePath} ` +
+				currentInput.slice(activeMention.end);
+			controller.textInput.setInput(nextInput);
+			setMentionOpen(false);
+			setActiveMention(null);
+			const nextCursor = activeMention.start + filePath.length + 2;
+			window.requestAnimationFrame(() => {
+				textareaRef.current?.focus();
+				textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
+			});
+		},
+		[activeMention, controller.textInput],
+	);
+
+	const handleTextareaChange = useCallback(
+		(event: ChangeEvent<HTMLTextAreaElement>) => {
+			updateActiveMention(
+				event.target.value,
+				event.target.selectionStart ?? event.target.value.length,
+			);
+		},
+		[updateActiveMention],
+	);
+
+	const handleTextareaCursorChange = useCallback(
+		(event: SyntheticEvent<HTMLTextAreaElement>) => {
+			updateActiveMention(
+				event.currentTarget.value,
+				event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+			);
+		},
+		[updateActiveMention],
+	);
+
+	const handleTextareaKeyDown = useCallback(
+		(event: KeyboardEvent<HTMLTextAreaElement>) => {
+			if (!mentionOpen) {
+				return;
+			}
+			if (event.key === "Escape") {
+				event.preventDefault();
+				setMentionOpen(false);
+				return;
+			}
+			if (mentionFiles.length === 0) {
+				return;
+			}
+			if (event.key === "ArrowDown") {
+				event.preventDefault();
+				setMentionSelectedIndex((prev) => (prev + 1) % mentionFiles.length);
+				return;
+			}
+			if (event.key === "ArrowUp") {
+				event.preventDefault();
+				setMentionSelectedIndex(
+					(prev) => (prev - 1 + mentionFiles.length) % mentionFiles.length,
+				);
+				return;
+			}
+			if (event.key === "Enter" || event.key === "Tab") {
+				event.preventDefault();
+				const selectedFile = mentionFiles[mentionSelectedIndex];
+				if (selectedFile) {
+					insertMentionFile(selectedFile);
+				}
+			}
+		},
+		[insertMentionFile, mentionFiles, mentionOpen, mentionSelectedIndex],
+	);
+
 	return (
-		<div className="border-t bg-background">
+		<div className="relative border-t bg-background">
 			<PromptInput
 				accept="image/*,.txt,.md,.json,.ts,.tsx,.js,.jsx"
 				globalDrop
@@ -422,12 +611,49 @@ export function Composer({
 					<PromptAttachmentsDisplay />
 				</PromptInputHeader>
 				<PromptInputBody>
+					{mentionOpen ? (
+						<div className="absolute bottom-full left-3 right-3 z-20 mb-2 overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md">
+							{mentionFiles.length === 0 ? (
+								<div className="px-3 py-2 text-sm text-muted-foreground">
+									{mentionLoading ? "Searching files..." : "No matching files"}
+								</div>
+							) : (
+								<div className="max-h-56 overflow-y-auto py-1">
+									{mentionFiles.map((filePath, index) => (
+										<button
+											className={[
+												"block w-full truncate px-3 py-2 text-left font-mono text-xs",
+												index === mentionSelectedIndex
+													? "bg-accent text-accent-foreground"
+													: "hover:bg-accent/60",
+											].join(" ")}
+											key={filePath}
+											onClick={() => insertMentionFile(filePath)}
+											onMouseDown={(event) => event.preventDefault()}
+											onMouseEnter={() => setMentionSelectedIndex(index)}
+											type="button"
+										>
+											@{filePath}
+										</button>
+									))}
+									{mentionLoading ? (
+										<div className="px-3 py-1 text-xs text-muted-foreground">
+											Refreshing...
+										</div>
+									) : null}
+								</div>
+							)}
+						</div>
+					) : null}
 					<PromptInputTextarea
 						disabled={disabled || status.includes("Failed")}
-						onChange={(event) =>
-							controller.textInput.setInput(event.target.value)
-						}
+						onChange={handleTextareaChange}
+						onClick={handleTextareaCursorChange}
+						onKeyDown={handleTextareaKeyDown}
+						onKeyUp={handleTextareaCursorChange}
+						onSelect={handleTextareaCursorChange}
 						placeholder="Type @ for context and / for skills"
+						ref={textareaRef}
 						value={controller.textInput.value}
 						className="text-sm outline-none ring-0"
 					/>
