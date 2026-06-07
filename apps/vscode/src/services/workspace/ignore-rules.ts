@@ -72,7 +72,7 @@ function globPathToRegExp(pattern: string, anchored: boolean): RegExp {
 	for (let i = 0; i < segments.length; i++) {
 		const segment = segments[i] ?? ""
 		if (segment === "**") {
-			source += "(?:[^/]+/)*"
+			source += i === segments.length - 1 ? ".*" : "(?:[^/]+/)*"
 		} else {
 			source += globSegmentToRegExp(segment).source.slice(1, -1)
 			if (i < segments.length - 1) {
@@ -84,7 +84,7 @@ function globPathToRegExp(pattern: string, anchored: boolean): RegExp {
 	return new RegExp(`${prefix}${source}$`)
 }
 
-function parseIgnoreContent(content: string, basePath: string): IgnoreRule[] {
+export function parseIgnoreContent(content: string, basePath: string): IgnoreRule[] {
 	const rules: IgnoreRule[] = []
 	for (const line of content.split(/\r?\n/)) {
 		const trimmed = line.trim()

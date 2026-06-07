@@ -25,7 +25,7 @@ export const formatResponse = {
 	toolError: (error?: string) => `The tool execution failed with the following error:\n<error>\n${error}\n</error>`,
 
 	clineIgnoreError: (path: string) =>
-		`Access to ${path} is blocked by direct-access ignore settings (.clineignore, .cursorignore, or .cursorindexingignore). You must try to continue in the task without using this file, or ask the user to update the ignore file.`,
+		`Access to ${path} is blocked by direct-access ignore settings (.clineignore or .cursorignore). You must try to continue in the task without using this file, or ask the user to update the ignore file.`,
 
 	permissionDeniedError: (reason: string) =>
 		`Command execution blocked by configured command permissions: ${reason}. You must try a different approach or ask the user to update the permission settings.`,
@@ -202,7 +202,11 @@ Otherwise, if you have not completed the task and do not need additional informa
 					// validateAccess expects either path relative to cwd or absolute path
 					// otherwise, for validating against ignore patterns like "assets/icons", we would end up with just "icons", which would result in the path not being ignored.
 					const absoluteFilePath = path.resolve(absolutePath, filePath)
-					const isIgnored = !clineIgnoreController.validateAccess(absoluteFilePath)
+					const isAllowed =
+						typeof clineIgnoreController.validateRetrievalAccess === "function"
+							? clineIgnoreController.validateRetrievalAccess(absoluteFilePath)
+							: clineIgnoreController.validateAccess(absoluteFilePath)
+					const isIgnored = !isAllowed
 					if (isIgnored) {
 						return ignoredFilesBehavior === "omit" ? [] : [LOCK_TEXT_SYMBOL + " " + filePath]
 					}

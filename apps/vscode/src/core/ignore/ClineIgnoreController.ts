@@ -3,27 +3,33 @@ import chokidar, { FSWatcher } from "chokidar"
 import fs from "fs/promises"
 import ignore, { Ignore } from "ignore"
 import path from "path"
+import { type IgnoreRule, isPathIgnored, parseIgnoreContent } from "@/services/workspace/ignore-rules"
 import { Logger } from "@/shared/services/Logger"
 
 export const LOCK_TEXT_SYMBOL = "\u{1F512}"
-const DIRECT_ACCESS_IGNORE_FILES = [".clineignore", ".cursorignore", ".cursorindexingignore"] as const
+const DIRECT_ACCESS_IGNORE_FILES = [".clineignore", ".cursorignore"] as const
+const RETRIEVAL_IGNORE_FILES = [".clineignore", ".cursorignore", ".cursorindexingignore"] as const
 
 /**
- * Controls LLM access to files by enforcing ignore patterns.
+ * Controls LLM access to files and retrieval context by enforcing ignore patterns.
  * Designed to be instantiated once in Cline.ts and passed to file manipulation services.
  * Uses the 'ignore' library to support standard .gitignore syntax in direct-access ignore files.
  */
 export class ClineIgnoreController {
 	private cwd: string
-	private ignoreInstance: Ignore
+	private directIgnoreInstance: Ignore
+	private retrievalRules: IgnoreRule[]
 	private fileWatcher?: FSWatcher
-	private hasIgnoreRules: boolean
+	private hasDirectIgnoreRules: boolean
+	private hasRetrievalIgnoreRules: boolean
 	clineIgnoreContent: string | undefined
 
 	constructor(cwd: string) {
 		this.cwd = cwd
-		this.ignoreInstance = ignore()
-		this.hasIgnoreRules = false
+		this.directIgnoreInstance = ignore()
+		this.retrievalRules = []
+		this.hasDirectIgnoreRules = false
+		this.hasRetrievalIgnoreRules = false
 		this.clineIgnoreContent = undefined
 	}
 
@@ -32,16 +38,16 @@ export class ClineIgnoreController {
 	 * Must be called after construction and before using the controller
 	 */
 	async initialize(): Promise<void> {
-		// Set up file watcher for direct-access ignore files
+		// Set up file watcher for direct-access and retrieval ignore files.
 		this.setupFileWatcher()
 		await this.loadClineIgnore()
 	}
 
 	/**
-	 * Set up the file watcher for direct-access ignore file changes
+	 * Set up the file watcher for direct-access and retrieval ignore file changes.
 	 */
 	private setupFileWatcher(): void {
-		const ignorePaths = DIRECT_ACCESS_IGNORE_FILES.map((fileName) => path.join(this.cwd, fileName))
+		const ignorePaths = RETRIEVAL_IGNORE_FILES.map((fileName) => path.join(this.cwd, fileName))
 
 		this.fileWatcher = chokidar.watch(ignorePaths, {
 			persistent: true, // Keep the process running as long as files are being watched
@@ -73,51 +79,67 @@ export class ClineIgnoreController {
 	}
 
 	/**
-	 * Load custom patterns from .clineignore, .cursorignore, and .cursorindexingignore if they exist.
+	 * Load custom patterns from .clineignore and Cursor ignore files if they exist.
+	 * .cursorindexingignore applies to retrieval/indexing contexts, not explicit file reads or file-reading commands.
 	 * Supports "!include <filename>" in .clineignore to load additional ignore patterns from other files.
 	 */
 	private async loadClineIgnore(): Promise<void> {
 		try {
 			// Reset ignore instance to prevent duplicate patterns
-			this.ignoreInstance = ignore()
-			this.hasIgnoreRules = false
+			this.directIgnoreInstance = ignore()
+			this.retrievalRules = []
+			this.hasDirectIgnoreRules = false
+			this.hasRetrievalIgnoreRules = false
 			this.clineIgnoreContent = undefined
 
-			for (const ignoreFileName of DIRECT_ACCESS_IGNORE_FILES) {
+			for (const ignoreFileName of RETRIEVAL_IGNORE_FILES) {
 				const ignorePath = path.join(this.cwd, ignoreFileName)
 				if (!(await fileExistsAtPath(ignorePath))) {
 					continue
 				}
 
 				const content = await fs.readFile(ignorePath, "utf8")
-				this.hasIgnoreRules = true
 				if (ignoreFileName === ".clineignore") {
+					const processedContent = await this.resolveIgnoreContent(content, { allowIncludes: true })
+					this.hasDirectIgnoreRules = true
+					this.hasRetrievalIgnoreRules = true
 					this.clineIgnoreContent = content
-					await this.processIgnoreContent(content, { allowIncludes: true })
+					this.directIgnoreInstance.add(processedContent)
+					this.addRetrievalRules(processedContent)
+					this.directIgnoreInstance.add(ignoreFileName)
+					this.addRetrievalRules(ignoreFileName)
+				} else if (ignoreFileName === ".cursorignore") {
+					this.hasDirectIgnoreRules = true
+					this.hasRetrievalIgnoreRules = true
+					this.directIgnoreInstance.add(content)
+					this.addRetrievalRules(content)
+					this.directIgnoreInstance.add(ignoreFileName)
+					this.addRetrievalRules(ignoreFileName)
 				} else {
-					this.ignoreInstance.add(content)
+					this.hasRetrievalIgnoreRules = true
+					this.addRetrievalRules(content)
+					this.addRetrievalRules(ignoreFileName)
 				}
-				this.ignoreInstance.add(ignoreFileName)
 			}
 		} catch (error) {
 			// Should never happen: reading file failed even though it exists
-			Logger.error("Unexpected error loading direct-access ignore files:", error)
+			Logger.error("Unexpected error loading direct-access or retrieval ignore files:", error)
 		}
 	}
 
 	/**
 	 * Process ignore content and apply all ignore patterns
 	 */
-	private async processIgnoreContent(content: string, opts?: { allowIncludes?: boolean }): Promise<void> {
-		// Optimization: first check if there are any !include directives
+	private async resolveIgnoreContent(content: string, opts?: { allowIncludes?: boolean }): Promise<string> {
 		if (!opts?.allowIncludes || !content.includes("!include ")) {
-			this.ignoreInstance.add(content)
-			return
+			return content
 		}
 
-		// Process !include directives
-		const combinedContent = await this.processClineIgnoreIncludes(content)
-		this.ignoreInstance.add(combinedContent)
+		return this.processClineIgnoreIncludes(content)
+	}
+
+	private addRetrievalRules(content: string): void {
+		this.retrievalRules.push(...parseIgnoreContent(content, ""))
 	}
 
 	/**
@@ -217,7 +239,7 @@ export class ClineIgnoreController {
 	 */
 	validateAccess(filePath: string): boolean {
 		// Always allow access if no direct-access ignore files exist
-		if (!this.hasIgnoreRules) {
+		if (!this.hasDirectIgnoreRules) {
 			return true
 		}
 		try {
@@ -226,10 +248,28 @@ export class ClineIgnoreController {
 			const relativePath = path.relative(this.cwd, absolutePath).toPosix()
 
 			// Ignore expects paths to be path.relative()'d
-			return !this.ignoreInstance.ignores(relativePath)
+			return !this.directIgnoreInstance.ignores(relativePath)
 		} catch (_error) {
 			// Logger.error(`Error validating access for ${filePath}:`, error)
 			// Ignore is designed to work with relative file paths, so will throw error for paths outside cwd. We are allowing access to all files outside cwd.
+			return true
+		}
+	}
+
+	/**
+	 * Check if a file should be visible to retrieval, indexing, search, and context-building paths.
+	 * This includes .cursorindexingignore in addition to direct-access ignore files.
+	 */
+	validateRetrievalAccess(filePath: string): boolean {
+		if (!this.hasRetrievalIgnoreRules) {
+			return true
+		}
+		try {
+			const absolutePath = path.resolve(this.cwd, filePath)
+			const relativePath = path.relative(this.cwd, absolutePath).toPosix()
+			const isDirectory = filePath.endsWith("/") || filePath.endsWith(path.sep)
+			return !isPathIgnored(relativePath, isDirectory, this.retrievalRules)
+		} catch (_error) {
 			return true
 		}
 	}
@@ -241,7 +281,7 @@ export class ClineIgnoreController {
 	 */
 	validateCommand(command: string): string | undefined {
 		// Always allow if no direct-access ignore files exist
-		if (!this.hasIgnoreRules) {
+		if (!this.hasDirectIgnoreRules) {
 			return undefined
 		}
 
@@ -300,7 +340,7 @@ export class ClineIgnoreController {
 			return paths
 				.map((p) => ({
 					path: p,
-					allowed: this.validateAccess(p),
+					allowed: this.validateRetrievalAccess(p),
 				}))
 				.filter((x) => x.allowed)
 				.map((x) => x.path)

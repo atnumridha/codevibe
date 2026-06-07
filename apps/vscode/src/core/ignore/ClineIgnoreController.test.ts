@@ -1,5 +1,5 @@
 import fs from "fs/promises"
-import { after, beforeEach, describe, it } from "mocha"
+import { afterEach, beforeEach, describe, it } from "mocha"
 import os from "os"
 import path from "path"
 import { ClineIgnoreController } from "./ClineIgnoreController"
@@ -26,10 +26,17 @@ describe("ClineIgnoreController", () => {
 		await controller.initialize()
 	})
 
-	after(async () => {
+	afterEach(async () => {
+		await controller.dispose()
 		// Clean up temp directory
 		await fs.rm(tempDir, { recursive: true, force: true })
 	})
+
+	async function resetController(): Promise<void> {
+		await controller.dispose()
+		controller = new ClineIgnoreController(tempDir)
+		await controller.initialize()
+	}
 
 	describe("Default Patterns", () => {
 		// it("should block access to common ignored files", async () => {
@@ -82,9 +89,7 @@ describe("ClineIgnoreController", () => {
 		it("should block direct access using root .cursorignore patterns", async () => {
 			await fs.rm(path.join(tempDir, ".clineignore"), { force: true })
 			await fs.writeFile(path.join(tempDir, ".cursorignore"), ["cursor-private/", "*.cursor-secret"].join("\n"))
-
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
+			await resetController()
 
 			controller.validateAccess("cursor-private/data.txt").should.be.false()
 			controller.validateAccess("nested/value.cursor-secret").should.be.false()
@@ -92,28 +97,33 @@ describe("ClineIgnoreController", () => {
 			controller.validateAccess("src/index.ts").should.be.true()
 		})
 
-		it("should block direct access using root .cursorindexingignore patterns", async () => {
+		it("should use root .cursorindexingignore patterns only for retrieval and indexing filters", async () => {
 			await fs.rm(path.join(tempDir, ".clineignore"), { force: true })
 			await fs.writeFile(
 				path.join(tempDir, ".cursorindexingignore"),
 				["generated/*.tmp", "*.snapshot", "!generated/keep.tmp"].join("\n"),
 			)
+			await resetController()
 
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
-
-			controller.validateAccess("generated/build.tmp").should.be.false()
-			controller.validateAccess("ui/home.snapshot").should.be.false()
+			controller.validateAccess("generated/build.tmp").should.be.true()
+			controller.validateAccess("ui/home.snapshot").should.be.true()
 			controller.validateAccess("generated/keep.tmp").should.be.true()
-			controller.validateAccess(".cursorindexingignore").should.be.false()
+			controller.validateAccess(".cursorindexingignore").should.be.true()
+			;(controller.validateCommand("cat generated/build.tmp") === undefined).should.be.true()
+			controller.validateRetrievalAccess("generated/build.tmp").should.be.false()
+			controller.validateRetrievalAccess("ui/home.snapshot").should.be.false()
+			controller.validateRetrievalAccess("generated/keep.tmp").should.be.true()
+			controller.validateRetrievalAccess(".cursorindexingignore").should.be.false()
+			controller.filterPaths(["generated/build.tmp", "generated/keep.tmp", "src/index.ts"]).should.deepEqual([
+				"generated/keep.tmp",
+				"src/index.ts",
+			])
 		})
 
 		it("should validate file-reading commands against Cursor ignore files", async () => {
 			await fs.rm(path.join(tempDir, ".clineignore"), { force: true })
 			await fs.writeFile(path.join(tempDir, ".cursorignore"), "secrets/\n")
-
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
+			await resetController()
 
 			controller.validateCommand("cat secrets/token.txt")!.should.equal("secrets/token.txt")
 			;(controller.validateCommand("cat public/readme.md") === undefined).should.be.true()
@@ -124,9 +134,7 @@ describe("ClineIgnoreController", () => {
 				path.join(tempDir, ".clineignore"),
 				["*.secret", "private/", "*.tmp", "data-*.json", "temp/*"].join("\n"),
 			)
-
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
+			await resetController()
 
 			const results = [
 				controller.validateAccess("data-123.json"), // Should be false (wildcard)
@@ -194,9 +202,7 @@ describe("ClineIgnoreController", () => {
 				path.join(tempDir, ".clineignore"),
 				["# Comment line", "*.secret", "private/", "temp.*"].join("\n"),
 			)
-
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
+			await resetController()
 
 			const result = controller.validateAccess("test.secret")
 			result.should.be.false()
@@ -261,22 +267,21 @@ describe("ClineIgnoreController", () => {
 			// Create a new controller in a directory without .clineignore
 			const emptyDir = path.join(os.tmpdir(), `llm-test-empty-${Date.now()}`)
 			await fs.mkdir(emptyDir)
+			const emptyController = new ClineIgnoreController(emptyDir)
 
 			try {
-				const controller = new ClineIgnoreController(emptyDir)
-				await controller.initialize()
-				const result = controller.validateAccess("file.txt")
+				await emptyController.initialize()
+				const result = emptyController.validateAccess("file.txt")
 				result.should.be.true()
 			} finally {
+				await emptyController.dispose()
 				await fs.rm(emptyDir, { recursive: true, force: true })
 			}
 		})
 
 		it("should handle empty .clineignore", async () => {
 			await fs.writeFile(path.join(tempDir, ".clineignore"), "")
-
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
+			await resetController()
 
 			const result = controller.validateAccess("regular-file.txt")
 			result.should.be.true()
@@ -292,8 +297,7 @@ describe("ClineIgnoreController", () => {
 			await fs.writeFile(path.join(tempDir, ".clineignore"), ["!include .gitignore", "secret.txt"].join("\n"))
 
 			// Initialize the controller to load the updated .clineignore
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
+			await resetController()
 
 			// "server.log" should be ignored due to the "*.log" pattern from .gitignore
 			controller.validateAccess("server.log").should.be.false()
@@ -310,8 +314,7 @@ describe("ClineIgnoreController", () => {
 			await fs.writeFile(path.join(tempDir, ".clineignore"), ["!include missing-file.txt"].join("\n"))
 
 			// Initialize the controller
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
+			await resetController()
 
 			// Validate access to a regular file; it should be allowed because the missing include should not break everything
 			controller.validateAccess("regular-file.txt").should.be.true()
@@ -320,9 +323,7 @@ describe("ClineIgnoreController", () => {
 		it("should handle non-existent included file gracefully alongside a valid pattern", async () => {
 			// Test with an include directive for a non-existent file alongside a valid pattern ("*.tmp")
 			await fs.writeFile(path.join(tempDir, ".clineignore"), ["!include non-existent.txt", "*.tmp"].join("\n"))
-
-			controller = new ClineIgnoreController(tempDir)
-			await controller.initialize()
+			await resetController()
 
 			// "file.tmp" should be ignored because of the "*.tmp" pattern
 			controller.validateAccess("file.tmp").should.be.false()
@@ -340,9 +341,7 @@ describe("ClineIgnoreController", () => {
 					path.join(tempDir, ".clineignore"),
 					[`!include ../${outsideIgnoreName}`, "workspace-only.secret"].join("\n"),
 				)
-
-				controller = new ClineIgnoreController(tempDir)
-				await controller.initialize()
+			await resetController()
 
 				controller.validateAccess("outside-only.secret").should.be.true()
 				controller.validateAccess("workspace-only.secret").should.be.false()
@@ -363,9 +362,7 @@ describe("ClineIgnoreController", () => {
 					path.join(tempDir, ".clineignore"),
 					[`!include ${outsideIgnorePath}`, "workspace-only.secret"].join("\n"),
 				)
-
-				controller = new ClineIgnoreController(tempDir)
-				await controller.initialize()
+			await resetController()
 
 				controller.validateAccess("absolute-only.secret").should.be.true()
 				controller.validateAccess("workspace-only.secret").should.be.false()
@@ -388,9 +385,7 @@ describe("ClineIgnoreController", () => {
 					path.join(tempDir, ".clineignore"),
 					["!include linked-ignore", "workspace-only.secret"].join("\n"),
 				)
-
-				controller = new ClineIgnoreController(tempDir)
-				await controller.initialize()
+			await resetController()
 
 				controller.validateAccess("symlink-only.secret").should.be.true()
 				controller.validateAccess("workspace-only.secret").should.be.false()

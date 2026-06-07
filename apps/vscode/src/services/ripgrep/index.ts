@@ -152,7 +152,7 @@ export async function regexSearchFiles(
 
 	// Filter results using ClineIgnoreController if provided
 	const filteredResults = clineIgnoreController
-		? results.filter((result) => clineIgnoreController.validateAccess(result.filePath))
+		? results.filter((result) => clineIgnoreController.validateRetrievalAccess(result.filePath))
 		: results
 
 	return formatResults(filteredResults, cwd)

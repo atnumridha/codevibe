@@ -117,7 +117,7 @@ async function parseFile(
 	languageParsers: LanguageParser,
 	clineIgnoreController?: ClineIgnoreController,
 ): Promise<string | null> {
-	if (clineIgnoreController && !clineIgnoreController.validateAccess(filePath)) {
+	if (clineIgnoreController && !clineIgnoreController.validateRetrievalAccess(filePath)) {
 		return null
 	}
 	const fileContent = await fs.readFile(filePath, "utf8")
