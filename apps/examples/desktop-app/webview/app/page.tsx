@@ -153,6 +153,11 @@ type WorkspaceSessionItem = {
 	workspaceRoot?: string;
 };
 
+type WorkspaceRouteContext = {
+	workspaceRoot?: string;
+	workspaceRoots?: string[];
+};
+
 function normalizeWorkspacePath(path: string): string {
 	const normalized = path.trim().replace(/[\\/]+$/, "");
 	if (!normalized) {
@@ -162,6 +167,39 @@ function normalizeWorkspacePath(path: string): string {
 		return normalized.toLowerCase();
 	}
 	return normalized;
+}
+
+function uniqueWorkspaceRoots(values: Array<string | undefined>): string[] {
+	const seen = new Set<string>();
+	const roots: string[] = [];
+	for (const value of values) {
+		const root = value?.trim();
+		if (!root) {
+			continue;
+		}
+		const key = normalizeWorkspacePath(root);
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		roots.push(root);
+	}
+	return roots;
+}
+
+function workspaceRouteContextsEqual(
+	a: WorkspaceRouteContext,
+	b: WorkspaceRouteContext,
+): boolean {
+	if ((a.workspaceRoot ?? "") !== (b.workspaceRoot ?? "")) {
+		return false;
+	}
+	const aRoots = a.workspaceRoots ?? [];
+	const bRoots = b.workspaceRoots ?? [];
+	return (
+		aRoots.length === bRoots.length &&
+		aRoots.every((root, index) => root === bRoots[index])
+	);
 }
 
 function toThreadTitle(options: { title?: string; prompt?: string }): string {
@@ -184,6 +222,8 @@ export default function Home() {
 	const [activeThreadId, setActiveThreadId] = useState<string>(
 		() => threads[0]?.id,
 	);
+	const [activeWorkspaceRouteContext, setActiveWorkspaceRouteContext] =
+		useState<WorkspaceRouteContext>({});
 	const nativeUriSequenceRef = useRef(0);
 	const handleNewThread = useCallback(() => {
 		const id = makeThreadId();
@@ -340,6 +380,14 @@ export default function Home() {
 			?.sessionId ?? null;
 	const activeThread =
 		threads.find((thread) => thread.id === activeThreadId) ?? threads[0];
+	const handleWorkspaceRouteContextChange = useCallback(
+		(nextContext: WorkspaceRouteContext) => {
+			setActiveWorkspaceRouteContext((prev) =>
+				workspaceRouteContextsEqual(prev, nextContext) ? prev : nextContext,
+			);
+		},
+		[],
+	);
 
 	return (
 		<>
@@ -368,6 +416,9 @@ export default function Home() {
 									onDeleteSession={handleDeleteSession}
 									onNewThread={handleNewThread}
 									onOpenSession={handleOpenSession}
+									onWorkspaceRouteContextChange={
+										handleWorkspaceRouteContextChange
+									}
 								/>
 							</div>
 						) : null}
@@ -377,6 +428,12 @@ export default function Home() {
 			{view === "settings" ? (
 				<div className="fixed inset-0 z-50 bg-background text-foreground">
 					<SettingsView
+						activeWorkspaceRoot={
+							activeWorkspaceRouteContext.workspaceRoot ||
+							activeThread?.historySession?.workspaceRoot ||
+							activeThread?.historySession?.cwd
+						}
+						activeWorkspaceRoots={activeWorkspaceRouteContext.workspaceRoots}
 						incomingCursorUri={incomingCursorUri}
 						onClose={() => {
 							setIncomingCursorUri(null);
@@ -396,6 +453,7 @@ function ChatThreadPane({
 	onDeleteSession,
 	onNewThread,
 	onOpenSession,
+	onWorkspaceRouteContextChange,
 }: {
 	threadId: string;
 	historySession?: SessionHistoryItem;
@@ -406,6 +464,7 @@ function ChatThreadPane({
 	onDeleteSession?: (sessionId: string, threadId?: string) => void;
 	onNewThread?: () => void;
 	onOpenSession?: (session: SessionHistoryItem) => void;
+	onWorkspaceRouteContextChange?: (context: WorkspaceRouteContext) => void;
 }) {
 	const {
 		sessionId,
@@ -992,6 +1051,21 @@ function ChatThreadPane({
 	}, [hasDiffChanges]);
 
 	const resolvedWorkspaceRoot = config.workspaceRoot || config.cwd || "";
+	useEffect(() => {
+		onWorkspaceRouteContextChange?.({
+			workspaceRoot: resolvedWorkspaceRoot || undefined,
+			workspaceRoots: uniqueWorkspaceRoots([
+				resolvedWorkspaceRoot,
+				config.cwd,
+				...workspaces,
+			]),
+		});
+	}, [
+		config.cwd,
+		onWorkspaceRouteContextChange,
+		resolvedWorkspaceRoot,
+		workspaces,
+	]);
 	const workspaceContextValue = useMemo(
 		() => ({
 			workspaceRoot: resolvedWorkspaceRoot,

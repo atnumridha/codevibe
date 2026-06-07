@@ -214,9 +214,13 @@ function JsonBlock({ value }: { value: unknown }) {
 export function CursorUriView({
 	incomingUri,
 	onOpenSettings,
+	activeWorkspaceRoot,
+	activeWorkspaceRoots,
 }: {
 	incomingUri?: CursorUriIntent | null;
 	onOpenSettings?: (request: CursorSettingsOpenRequest) => void;
+	activeWorkspaceRoot?: string;
+	activeWorkspaceRoots?: string[];
 }) {
 	const [uri, setUri] = useState("");
 	const [preview, setPreview] = useState<CursorUriPreviewResponse | undefined>();
@@ -259,6 +263,22 @@ export function CursorUriView({
 	const [browserResult, setBrowserResult] = useState<
 		BrowserToolResult | undefined
 	>();
+	const cursorWorkspaceRequest = useMemo(() => {
+		const roots: string[] = [];
+		const seen = new Set<string>();
+		for (const value of [activeWorkspaceRoot, ...(activeWorkspaceRoots ?? [])]) {
+			const root = value?.trim();
+			if (!root || seen.has(root)) {
+				continue;
+			}
+			seen.add(root);
+			roots.push(root);
+		}
+		return {
+			...(roots[0] ? { workspaceRoot: roots[0] } : {}),
+			...(roots.length > 0 ? { workspaceRoots: roots } : {}),
+		};
+	}, [activeWorkspaceRoot, activeWorkspaceRoots]);
 
 	const taskPrompt = previewString(preview, "taskPrompt");
 	const route = previewString(preview, "route");
@@ -349,7 +369,10 @@ export function CursorUriView({
 		setPluginAdd(undefined);
 		setGitAction(undefined);
 		try {
-			const result = await desktopClient.previewCursorUri({ uri: trimmed });
+			const result = await desktopClient.previewCursorUri({
+				uri: trimmed,
+				...cursorWorkspaceRequest,
+			});
 			setPreview(result);
 		} catch (previewError) {
 			setPreview(undefined);
@@ -361,7 +384,7 @@ export function CursorUriView({
 		} finally {
 			setPreviewing(false);
 		}
-	}, []);
+	}, [cursorWorkspaceRequest]);
 
 	useEffect(() => {
 		if (!incomingUri?.uri) {
@@ -389,6 +412,7 @@ export function CursorUriView({
 		try {
 			const result = await desktopClient.launchCursorUri({
 				uri: trimmed,
+				...cursorWorkspaceRequest,
 				confirmed: true,
 				provider: DEFAULT_CODEVIBE_PROVIDER_ID,
 				model: DEFAULT_CODEVIBE_MODEL_ID,
@@ -422,6 +446,7 @@ export function CursorUriView({
 		try {
 			const result = await desktopClient.ingestCursorAutomation({
 				uri: trimmed,
+				...cursorWorkspaceRequest,
 				confirmed: true,
 			});
 			setIngest(result);
@@ -449,6 +474,7 @@ export function CursorUriView({
 		try {
 			const result = await desktopClient.installCursorMcp({
 				uri: trimmed,
+				...cursorWorkspaceRequest,
 				confirmed: true,
 			});
 			setMcpInstall(result);
@@ -478,6 +504,7 @@ export function CursorUriView({
 		try {
 			const result = await desktopClient.openCursorRule({
 				uri: trimmed,
+				...cursorWorkspaceRequest,
 				confirmed: true,
 			});
 			setRuleOpen(result);
@@ -503,6 +530,7 @@ export function CursorUriView({
 		try {
 			const result = await desktopClient.addCursorPlugin({
 				uri: trimmed,
+				...cursorWorkspaceRequest,
 				confirmed: true,
 				force: pluginForce,
 			});
@@ -529,6 +557,7 @@ export function CursorUriView({
 		try {
 			const result = await desktopClient.runCursorGitAction({
 				uri: trimmed,
+				...cursorWorkspaceRequest,
 				confirmed: true,
 			});
 			setGitAction(result);

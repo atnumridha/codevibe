@@ -168,9 +168,13 @@ function resolveCursorSettingsTarget(
 export function SettingsView({
 	onClose,
 	incomingCursorUri,
+	activeWorkspaceRoot,
+	activeWorkspaceRoots,
 }: {
 	onClose: () => void;
 	incomingCursorUri?: CursorUriIntent | null;
+	activeWorkspaceRoot?: string;
+	activeWorkspaceRoots?: string[];
 }) {
 	const [activeNav, setActiveNav] = useState<NavCategory>("Providers");
 	const [providersExpanded, setProvidersExpanded] = useState(true);
@@ -625,6 +629,8 @@ export function SettingsView({
 						<RulesView activeTabIntent={extensionTabIntent} />
 					) : activeNav === "Features" ? (
 						<CursorUriView
+							activeWorkspaceRoot={activeWorkspaceRoot}
+							activeWorkspaceRoots={activeWorkspaceRoots}
 							incomingUri={incomingCursorUri}
 							onOpenSettings={openCursorSettingsTarget}
 						/>
