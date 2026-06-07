@@ -402,7 +402,7 @@ export class BrowserSession {
 		const logs: string[] = []
 		let lastLogTs = Date.now()
 
-		const LoggerListener = (msg: LoggerMessage) => {
+		const consoleListener = (msg: LoggerMessage) => {
 			if (msg.type() === "log") {
 				logs.push(msg.text())
 			} else {
@@ -417,7 +417,7 @@ export class BrowserSession {
 		}
 
 		if (includeLogs) {
-			this.page.on("Logger", LoggerListener)
+			this.page.on("console", consoleListener)
 			this.page.on("pageerror", errorListener)
 		}
 
@@ -493,7 +493,7 @@ export class BrowserSession {
 
 		if (includeLogs) {
 			// this.page.removeAllListeners() <- causes the page to crash!
-			this.page.off("Logger", LoggerListener)
+			this.page.off("console", consoleListener)
 			this.page.off("pageerror", errorListener)
 		}
 
