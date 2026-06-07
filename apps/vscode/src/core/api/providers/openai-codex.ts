@@ -25,6 +25,25 @@ import { ApiStream, ApiStreamUsageChunk } from "../transform/stream"
  */
 const CODEX_API_BASE_URL = OPENAI_CODEX_BACKEND_CONFIG.baseUrl
 const CODEX_RESPONSES_WEBSOCKET_URL = "wss://chatgpt.com/backend-api/codex/responses"
+const CODEX_REDACTED_SECRET = "[REDACTED]"
+
+function redactCodexErrorMessage(message: string, secrets: Array<string | undefined>): string {
+	let redacted = message
+	for (const secret of secrets) {
+		const trimmed = secret?.trim()
+		if (!trimmed) {
+			continue
+		}
+		redacted = redacted.split(trimmed).join(CODEX_REDACTED_SECRET)
+	}
+
+	return redacted
+		.replace(/(Bearer\s+)[A-Za-z0-9._~+/=-]+/gi, `$1${CODEX_REDACTED_SECRET}`)
+		.replace(
+			/("(?:access[_-]?token|refresh[_-]?token|id[_-]?token|api[_-]?key|authorization|credential|secret|password)"\s*:\s*")([^"]+)(")/gi,
+			`$1${CODEX_REDACTED_SECRET}$3`,
+		)
+}
 
 interface OpenAiCodexHandlerOptions extends CommonApiHandlerOptions {
 	reasoningEffort?: string
@@ -533,6 +552,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 			Authorization: `Bearer ${accessToken}`,
 			...(await this.buildCodexHeaders()),
 		}
+		const redactionSecrets = [accessToken, headers.Authorization]
 
 		try {
 			const response = await fetch(url, {
@@ -559,7 +579,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 					}
 				}
 
-				throw new Error(errorMessage)
+				throw new Error(redactCodexErrorMessage(errorMessage, redactionSecrets))
 			}
 
 			if (!response.body) {
@@ -569,7 +589,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 			yield* this.handleStreamResponse(response.body, model)
 		} catch (error) {
 			if (error instanceof Error) {
-				throw new Error(`Codex API error: ${error.message}`)
+				throw new Error(`Codex API error: ${redactCodexErrorMessage(error.message, redactionSecrets)}`)
 			}
 			throw new Error("Unexpected error connecting to Codex API")
 		}

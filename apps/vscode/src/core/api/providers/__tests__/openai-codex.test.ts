@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import sinon from "sinon"
 import { openAiCodexOAuthManager } from "@/integrations/openai-codex/oauth"
+import { mockFetchForTesting } from "@/shared/net"
 import { OpenAiCodexHandler } from "../openai-codex"
 
 describe("OpenAiCodexHandler", () => {
@@ -52,5 +53,39 @@ describe("OpenAiCodexHandler", () => {
 
 		expect(model.id).to.equal("gpt-5.5")
 		expect(model.info.supportsPromptCache).to.equal(true)
+	})
+
+	it("redacts Codex backend error messages before throwing", async () => {
+		const accessToken = "codex-access-secret"
+		const refreshToken = "codex-refresh-secret"
+		const handler = new OpenAiCodexHandler({})
+		sinon.stub(handler as any, "buildCodexHeaders").resolves({})
+
+		const mockFetch = sinon.stub().resolves(
+			new Response(
+				JSON.stringify({
+					error: {
+						message: `backend echoed ${accessToken} and {"refresh_token":"${refreshToken}","authorization":"Bearer ${accessToken}"}`,
+					},
+				}),
+				{ status: 500, statusText: "Internal Server Error" },
+			),
+		)
+
+		await mockFetchForTesting(mockFetch as any, async () => {
+			let thrown: Error | undefined
+			try {
+				for await (const _ of (handler as any).makeCodexRequest({}, handler.getModel(), accessToken, "0.136.0-test")) {
+					// The mocked response fails before yielding stream chunks.
+				}
+			} catch (error) {
+				thrown = error as Error
+			}
+
+			expect(thrown?.message).to.contain("Codex API error:")
+			expect(thrown?.message).to.contain("[REDACTED]")
+			expect(thrown?.message).not.to.contain(accessToken)
+			expect(thrown?.message).not.to.contain(refreshToken)
+		})
 	})
 })
