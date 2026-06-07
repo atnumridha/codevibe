@@ -100,7 +100,13 @@ type SidecarChatEvent = {
 	stream?: string;
 };
 
-const filterOptions = ["All", "Running", "Recent", "Pinned"] as const;
+const filterOptions = [
+	"All",
+	"Running",
+	"Background",
+	"Recent",
+	"Pinned",
+] as const;
 type FilterOption = (typeof filterOptions)[number];
 const INITIAL_HISTORY_FETCH_LIMIT = 300;
 const INITIAL_VISIBLE_THREAD_COUNT = 10;
@@ -980,6 +986,8 @@ export function AgentSidebar({
 		switch (filter) {
 			case "Running":
 				return filtered.filter((t) => t.status === "running");
+			case "Background":
+				return filtered.filter((t) => t.backgroundAgent);
 			case "Recent":
 				return filtered.slice(0, 8);
 			case "Pinned":
