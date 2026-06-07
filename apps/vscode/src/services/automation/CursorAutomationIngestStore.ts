@@ -87,7 +87,7 @@ function summarizeRejectedLine(line: AutomationEventNdjsonRejectedLine): CursorA
 		lineNumber: line.lineNumber,
 		reason: line.reason,
 		message: line.message,
-		lineLength: line.line.length,
+		lineLength: line.lineLength,
 	}
 }
 
@@ -176,7 +176,7 @@ export async function ingestCursorAutomationEvents(
 			continue
 		}
 		existingIds.add(event.eventId)
-		lines.push(JSON.stringify({ ingestedAt, event }))
+		lines.push(JSON.stringify({ ingestedAt, event: summarizeEvent(event) }))
 	}
 
 	if (lines.length > 0) {

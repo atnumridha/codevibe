@@ -59,6 +59,14 @@ export function getInstalledServerOAuthSummary(server: McpServer | undefined): C
 }
 
 export function buildCursorMcpInstallRequest(route: CursorCompatibleUriRoute): CursorMcpInstallRequest {
+	const candidates = buildCursorMcpInstallCandidates(route)
+	if (candidates.length !== 1) {
+		throw new CursorMcpInstallError("MCP config contains multiple servers; include name, server, or id to choose one")
+	}
+	return candidates[0]
+}
+
+export function buildCursorMcpInstallCandidates(route: CursorCompatibleUriRoute): CursorMcpInstallRequest[] {
 	if (route.kind !== "mcp-install") {
 		throw new CursorMcpInstallError(`Unsupported Cursor MCP install route: ${route.kind}`)
 	}
@@ -76,21 +84,22 @@ export function buildCursorMcpInstallRequest(route: CursorCompatibleUriRoute): C
 			throw new CursorMcpInstallError("MCP config must include at least one server")
 		}
 
-		const [serverName, rawServerConfig] = selectConfiguredServer(entries, requestedName)
-		return {
+		return selectConfiguredServers(entries, requestedName).map(([serverName, rawServerConfig]) => ({
 			serverName,
 			serverConfig: parseServerConfig(rawServerConfig),
 			source: "config",
-		}
+		}))
 	}
 
 	const rawServerConfig = buildDirectServerConfig(params, config)
 	const serverName = requestedName ?? deriveDirectServerName(params)
-	return {
-		serverName,
-		serverConfig: parseServerConfig(rawServerConfig),
-		source: "direct",
-	}
+	return [
+		{
+			serverName,
+			serverConfig: parseServerConfig(rawServerConfig),
+			source: "direct",
+		},
+	]
 }
 
 export function formatCursorMcpInstallDetail(request: CursorMcpInstallRequest): string {
@@ -123,23 +132,19 @@ function formatUrlForDisplay(value: string): string | undefined {
 	}
 }
 
-function selectConfiguredServer(
+function selectConfiguredServers(
 	entries: Array<[string, unknown]>,
 	requestedName: string | undefined,
-): [string, unknown] {
+): Array<[string, unknown]> {
 	if (requestedName) {
 		const entry = entries.find(([name]) => name === requestedName)
 		if (!entry) {
 			throw new CursorMcpInstallError(`MCP config does not contain server "${requestedName}"`)
 		}
-		return [normalizeMcpServerName(entry[0], { required: true }), entry[1]]
+		return [[normalizeMcpServerName(entry[0], { required: true }), entry[1]]]
 	}
 
-	if (entries.length !== 1) {
-		throw new CursorMcpInstallError("MCP config contains multiple servers; include name, server, or id to choose one")
-	}
-
-	return [normalizeMcpServerName(entries[0][0], { required: true }), entries[0][1]]
+	return entries.map(([name, config]) => [normalizeMcpServerName(name, { required: true }), config])
 }
 
 function buildDirectServerConfig(

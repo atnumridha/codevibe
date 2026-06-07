@@ -19,7 +19,7 @@ describe("ingestCursorAutomationEvents", () => {
 		await fs.rm(storageDir, { recursive: true, force: true })
 	})
 
-	it("stores accepted Cursor automation events and skips duplicate event ids", async () => {
+	it("stores accepted Cursor automation event summaries and skips duplicate event ids", async () => {
 		const request = {
 			strict: false,
 			paramKeys: ["ndjson"],
@@ -33,6 +33,7 @@ describe("ingestCursorAutomationEvents", () => {
 						source: "cursor",
 						occurredAt: "2026-06-06T00:00:00.000Z",
 						payload: { token: "secret-value", branch: "main" },
+						attributes: { authorization: "Bearer secret-value" },
 					},
 				],
 				rejected: [],
@@ -55,6 +56,7 @@ describe("ingestCursorAutomationEvents", () => {
 			source: "cursor",
 		})
 		expect(first.events[0].payloadKeys).to.deep.equal(["branch", "token"])
+		expect(first.events[0].attributeKeys).to.deep.equal(["authorization"])
 		expect(second.stored).to.equal(0)
 		expect(second.duplicates).to.equal(1)
 
@@ -64,7 +66,18 @@ describe("ingestCursorAutomationEvents", () => {
 		expect(JSON.parse(storedLines[0])).to.deep.include({
 			ingestedAt: "2026-06-06T00:00:00.000Z",
 		})
-		expect(JSON.parse(storedLines[0]).event.payload.token).to.equal("secret-value")
+		const stored = JSON.parse(storedLines[0])
+		expect(stored.event).to.deep.include({
+			eventId: "evt-1",
+			eventType: "git.commit.created",
+			source: "cursor",
+			occurredAt: "2026-06-06T00:00:00.000Z",
+		})
+		expect(stored.event.payload).to.equal(undefined)
+		expect(stored.event.attributes).to.equal(undefined)
+		expect(stored.event.payloadKeys).to.deep.equal(["branch", "token"])
+		expect(stored.event.attributeKeys).to.deep.equal(["authorization"])
+		expect(JSON.stringify(stored)).not.to.contain("secret-value")
 	})
 
 	it("blocks storage when strict mode has rejected lines", async () => {
@@ -84,7 +97,7 @@ describe("ingestCursorAutomationEvents", () => {
 				rejected: [
 					{
 						lineNumber: 2,
-						line: "{ bad json",
+						lineLength: "{ bad json".length,
 						reason: "invalid_json" as const,
 						message: "Unexpected token",
 					},

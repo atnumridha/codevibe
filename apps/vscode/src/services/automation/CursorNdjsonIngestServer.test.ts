@@ -70,7 +70,8 @@ describe("CursorNdjsonIngestServer", () => {
 		const ndjson = JSON.stringify({
 			id: "evt-raw-1",
 			type: "git.commit.created",
-			payload: { branch: "main" },
+			payload: { branch: "main", token: "secret-value" },
+			attributes: { authorization: "Bearer secret-value" },
 		})
 
 		const response = await request(`${status.url}/ingest`, {
@@ -90,9 +91,14 @@ describe("CursorNdjsonIngestServer", () => {
 			eventType: "git.commit.created",
 			source: "cursor",
 		})
+		expect(result.events[0].payloadKeys).to.deep.equal(["branch", "token"])
+		expect(result.events[0].attributeKeys).to.deep.equal(["authorization"])
+		expect(JSON.stringify(result)).not.to.contain("secret-value")
 
 		const stored = await fs.readFile(resolveCursorAutomationIngestStorePath(storageDir), "utf8")
 		expect(stored).to.contain("evt-raw-1")
+		expect(stored).to.contain("payloadKeys")
+		expect(stored).not.to.contain("secret-value")
 	})
 
 	it("ingests JSON config bodies posted to the root endpoint", async () => {

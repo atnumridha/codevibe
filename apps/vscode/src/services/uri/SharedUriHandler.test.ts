@@ -270,7 +270,11 @@ describe("SharedUriHandler", () => {
 				expect(modal.options.detail).to.contain("Glass mode: overlay")
 				expect(modal.options.detail).to.contain("Config keys: placement, token")
 				expect(modal.options.detail).not.to.contain("secret-value")
-				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Continue here")
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Continue here")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Cursor route context")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("config keys: placement, token")
+				expect(handleTaskCreationStub.firstCall.args[0]).not.to.contain("secret-value")
 			})
 
 			it("should confirm and install a Cursor MCP install route", async () => {
@@ -395,6 +399,49 @@ describe("SharedUriHandler", () => {
 						Authorization: "Bearer secret-header-token",
 						"X-Workspace": "docs",
 					},
+				})
+			})
+
+			it("should let the user choose a server from multi-server Cursor MCP configs", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.onFirstCall().resolves({ selectedOption: "beta" })
+				showMessageStub.onSecondCall().resolves({ selectedOption: "Install" })
+				const config = encodeConfig({
+					mcpServers: {
+						alpha: {
+							command: "node",
+							args: ["alpha.js"],
+							env: { TOKEN: "secret-alpha" },
+						},
+						beta: {
+							type: "streamableHttp",
+							url: "https://mcp.example.com/beta?token=secret-beta",
+							headers: { Authorization: "Bearer secret-header" },
+						},
+					},
+				})
+
+				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/mcp/install?config=${config}`)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Choose Cursor MCP server to install")
+				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["alpha", "beta"])
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config includes multiple MCP servers")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Server: alpha")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Server: beta")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
+					"URL: https://mcp.example.com/beta?[redacted]",
+				)
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Header keys: Authorization")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-alpha")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-beta")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-header")
+				expect(showMessageStub.secondCall.args[0].message).to.equal('Install MCP server "beta"?')
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				expect(addServerFromConfigStub.firstCall.args[0]).to.equal("beta")
+				expect(addServerFromConfigStub.firstCall.args[1]).to.deep.include({
+					type: "streamableHttp",
+					url: "https://mcp.example.com/beta?token=secret-beta",
 				})
 			})
 

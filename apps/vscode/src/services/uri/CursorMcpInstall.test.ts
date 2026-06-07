@@ -1,6 +1,7 @@
 import { expect } from "chai"
 import { describe, it } from "mocha"
 import {
+	buildCursorMcpInstallCandidates,
 	buildCursorMcpInstallRequest,
 	CursorMcpInstallError,
 	formatCursorMcpInstallDetail,
@@ -158,6 +159,41 @@ describe("CursorMcpInstall", () => {
 				}),
 			),
 		).to.throw(CursorMcpInstallError, "multiple servers")
+	})
+
+	it("returns install candidates when config contains multiple servers", () => {
+		const candidates = buildCursorMcpInstallCandidates(
+			route({
+				config: {
+					mcpServers: {
+						alpha: {
+							command: "node",
+							args: ["alpha.js"],
+						},
+						beta: {
+							type: "streamableHttp",
+							url: "https://mcp.example.com/beta?token=secret-value",
+							headers: { Authorization: "Bearer secret-header" },
+						},
+					},
+				},
+			}),
+		)
+
+		expect(candidates.map((candidate) => candidate.serverName)).to.deep.equal(["alpha", "beta"])
+		expect(candidates[0].serverConfig).to.deep.include({
+			type: "stdio",
+			command: "node",
+		})
+		expect(candidates[1].serverConfig).to.deep.include({
+			type: "streamableHttp",
+			url: "https://mcp.example.com/beta?token=secret-value",
+		})
+		const details = candidates.map(formatCursorMcpInstallDetail).join("\n\n")
+		expect(details).to.contain("URL: https://mcp.example.com/beta?[redacted]")
+		expect(details).to.contain("Header keys: Authorization")
+		expect(details).not.to.contain("secret-value")
+		expect(details).not.to.contain("secret-header")
 	})
 
 	it("requires a selector when Cursor bare config maps contain multiple servers", () => {

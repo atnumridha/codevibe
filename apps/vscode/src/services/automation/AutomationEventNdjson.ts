@@ -20,7 +20,7 @@ export interface AutomationEventEnvelope {
 
 export interface AutomationEventNdjsonRejectedLine {
 	lineNumber: number
-	line: string
+	lineLength: number
 	reason: AutomationEventNdjsonRejectReason
 	message: string
 }
@@ -159,7 +159,7 @@ export function parseAutomationEventNdjson(
 		if (maxLineBytes && Buffer.byteLength(line, "utf8") > maxLineBytes) {
 			rejected.push({
 				lineNumber: index + 1,
-				line,
+				lineLength: line.length,
 				reason: "line_too_large",
 				message: `NDJSON automation event line exceeds ${maxLineBytes} byte limit`,
 			})
@@ -172,7 +172,7 @@ export function parseAutomationEventNdjson(
 		} catch (error) {
 			rejected.push({
 				lineNumber: index + 1,
-				line,
+				lineLength: line.length,
 				reason: "invalid_json",
 				message: error instanceof Error ? error.message : String(error),
 			})
@@ -182,7 +182,7 @@ export function parseAutomationEventNdjson(
 		if (!isRecord(parsed)) {
 			rejected.push({
 				lineNumber: index + 1,
-				line,
+				lineLength: line.length,
 				reason: "not_object",
 				message: "NDJSON automation event line must be a JSON object",
 			})
@@ -193,7 +193,7 @@ export function parseAutomationEventNdjson(
 		if (!candidate) {
 			rejected.push({
 				lineNumber: index + 1,
-				line,
+				lineLength: line.length,
 				reason: "missing_field",
 				message: "automation event requires eventId and eventType",
 			})
@@ -204,7 +204,7 @@ export function parseAutomationEventNdjson(
 		if ("error" in event) {
 			rejected.push({
 				lineNumber: index + 1,
-				line,
+				lineLength: line.length,
 				reason: "missing_field",
 				message: event.error,
 			})
@@ -213,7 +213,7 @@ export function parseAutomationEventNdjson(
 		if (allowedSources && !allowedSources.has(event.source.toLowerCase())) {
 			rejected.push({
 				lineNumber: index + 1,
-				line,
+				lineLength: line.length,
 				reason: "source_not_allowed",
 				message: `automation event source "${event.source}" is not allowed`,
 			})
@@ -222,7 +222,7 @@ export function parseAutomationEventNdjson(
 		if (maxEvents && events.length >= maxEvents) {
 			rejected.push({
 				lineNumber: index + 1,
-				line,
+				lineLength: line.length,
 				reason: "too_many_events",
 				message: `NDJSON automation event input exceeds ${maxEvents} event limit`,
 			})

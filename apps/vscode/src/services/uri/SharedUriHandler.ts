@@ -21,6 +21,7 @@ import {
 	type CursorCompatibleUriRoute,
 } from "./CursorUriRoutes"
 import {
+	buildCursorMcpInstallCandidates,
 	buildCursorMcpInstallRequest,
 	formatCursorMcpInstallDetail,
 	getInstalledServerOAuthSummary,
@@ -653,7 +654,14 @@ export class SharedUriHandler {
 						return false
 					}
 					if (cursorRoute.route.kind === "mcp-install") {
-						const installRequest = buildCursorMcpInstallRequest(cursorRoute.route)
+						const installRequests = buildCursorMcpInstallCandidates(cursorRoute.route)
+						const installRequest =
+							installRequests.length === 1
+								? installRequests[0]
+								: await this.chooseCursorMcpInstallRequest(installRequests)
+						if (!installRequest) {
+							return true
+						}
 						const choice = await HostProvider.window.showMessage({
 							type: ShowMessageType.WARNING,
 							message: `Install MCP server "${installRequest.serverName}"?`,
@@ -902,6 +910,31 @@ export class SharedUriHandler {
 			Logger.error("SharedUriHandler: Error processing URI:", error)
 			return false
 		}
+	}
+
+	private static async chooseCursorMcpInstallRequest(
+		installRequests: ReturnType<typeof buildCursorMcpInstallCandidates>,
+	): Promise<ReturnType<typeof buildCursorMcpInstallRequest> | undefined> {
+		const detail = [
+			"Config includes multiple MCP servers. Choose exactly one server to install.",
+			"Selecting a server does not install the others.",
+			"",
+			...installRequests.flatMap((request, index) => [
+				`[${index + 1}]`,
+				formatCursorMcpInstallDetail(request),
+				"",
+			]),
+		].join("\n")
+		const choice = await HostProvider.window.showMessage({
+			type: ShowMessageType.WARNING,
+			message: "Choose Cursor MCP server to install",
+			options: {
+				modal: true,
+				items: installRequests.map((request) => request.serverName),
+				detail,
+			},
+		})
+		return installRequests.find((request) => request.serverName === choice.selectedOption)
 	}
 
 	private static async handleCursorRuleRoute(

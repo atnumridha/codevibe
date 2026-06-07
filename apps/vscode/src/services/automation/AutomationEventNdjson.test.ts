@@ -43,4 +43,19 @@ describe("parseAutomationEventNdjson", () => {
 		expect(result.events.map((event) => event.eventId)).to.deep.equal(["evt-1", "evt-3"])
 		expect(result.rejected.map((line) => line.reason)).to.deep.equal(["source_not_allowed", "too_many_events"])
 	})
+
+	it("summarizes rejected lines without retaining raw secret-bearing input", () => {
+		const secretLine = `{"token":"secret-value",`
+		const result = parseAutomationEventNdjson(secretLine)
+
+		expect(result.events).to.deep.equal([])
+		expect(result.rejected).to.have.length(1)
+		expect(result.rejected[0]).to.deep.include({
+			lineNumber: 1,
+			lineLength: secretLine.length,
+			reason: "invalid_json",
+		})
+		expect(result.rejected[0]).not.to.have.property("line")
+		expect(JSON.stringify(result.rejected)).not.to.contain("secret-value")
+	})
 })
