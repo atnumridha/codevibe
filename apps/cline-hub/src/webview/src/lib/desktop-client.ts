@@ -84,6 +84,26 @@ export type CursorMcpInstallInput = CursorUriPreviewInput & {
 	confirmed: true;
 };
 
+export type CursorAutomationIngestInput = CursorUriPreviewInput & {
+	confirmed: true;
+};
+
+export type CursorAutomationIngestResponse = Record<string, unknown> & {
+	handled: true;
+	route: "automation-ingest";
+	confirmed: boolean;
+	ingested: boolean;
+	valid: boolean;
+	strict: boolean;
+	strictFailed: boolean;
+	eventCount: number;
+	rejectedCount: number;
+	queuedRunCount: number;
+	duplicateCount: number;
+	matchedSpecIds: string[];
+	workspaceRoot: string;
+};
+
 export type CursorMcpInstallResponse = Record<string, unknown> & {
 	handled: true;
 	route: "mcp-install";
@@ -268,6 +288,26 @@ class HubDesktopClient {
 		return await this.invoke<CursorUriPreviewResponse>(
 			"cursor_uri_preview",
 			input,
+		);
+	}
+
+	async ingestCursorAutomation(
+		input: CursorAutomationIngestInput,
+	): Promise<CursorAutomationIngestResponse> {
+		return await this.invoke<CursorAutomationIngestResponse>(
+			"cursor_automation_ingest",
+			{
+				uri: input.uri,
+				confirmed: input.confirmed,
+				...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+				...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+				...(input.maxCommandFileBytes !== undefined
+					? { maxCommandFileBytes: input.maxCommandFileBytes }
+					: {}),
+				...(input.maxRuleFileBytes !== undefined
+					? { maxRuleFileBytes: input.maxRuleFileBytes }
+					: {}),
+			},
 		);
 	}
 

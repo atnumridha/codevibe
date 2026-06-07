@@ -28,6 +28,7 @@ import {
 	desktopClient,
 	type BrowserAutomationStatus,
 	type BrowserToolResult,
+	type CursorAutomationIngestResponse,
 	type CursorGitActionResponse,
 	type CursorMcpInstallResponse,
 	type CursorPluginAddResponse,
@@ -609,6 +610,11 @@ function CursorLinksContent() {
 	>();
 	const [installError, setInstallError] = useState<string | null>(null);
 	const [installLoading, setInstallLoading] = useState(false);
+	const [ingestResult, setIngestResult] = useState<
+		CursorAutomationIngestResponse | undefined
+	>();
+	const [ingestError, setIngestError] = useState<string | null>(null);
+	const [ingestLoading, setIngestLoading] = useState(false);
 	const [ruleResult, setRuleResult] = useState<
 		CursorRuleOpenResponse | undefined
 	>();
@@ -635,6 +641,10 @@ function CursorLinksContent() {
 	);
 	const paramKeys = recordStringArray(previewRecord, "paramKeys");
 	const configKeys = recordStringArray(previewRecord, "configKeys");
+	const canIngestAutomation =
+		route === "automation-ingest" &&
+		recordBoolean(previewRecord, "requiresConfirmation") === true &&
+		recordBoolean(previewRecord, "valid") !== false;
 	const canInstallMcp = route === "mcp-install";
 	const canOpenRule =
 		route === "rule" && recordString(previewRecord, "kind") === "file";
@@ -654,6 +664,8 @@ function CursorLinksContent() {
 			setPreviewError("URI is required.");
 			setInstallResult(undefined);
 			setInstallError(null);
+			setIngestResult(undefined);
+			setIngestError(null);
 			setRuleResult(undefined);
 			setRuleError(null);
 			setPluginResult(undefined);
@@ -667,6 +679,8 @@ function CursorLinksContent() {
 		setPreview(undefined);
 		setInstallResult(undefined);
 		setInstallError(null);
+		setIngestResult(undefined);
+		setIngestError(null);
 		setRuleResult(undefined);
 		setRuleError(null);
 		setPluginResult(undefined);
@@ -693,6 +707,8 @@ function CursorLinksContent() {
 		setPreviewError(null);
 		setInstallResult(undefined);
 		setInstallError(null);
+		setIngestResult(undefined);
+		setIngestError(null);
 		setRuleResult(undefined);
 		setRuleError(null);
 		setPluginResult(undefined);
@@ -721,6 +737,29 @@ function CursorLinksContent() {
 			setInstallError(error instanceof Error ? error.message : String(error));
 		} finally {
 			setInstallLoading(false);
+		}
+	};
+
+	const runAutomationIngest = async () => {
+		const uri = cursorUri.trim();
+		if (!uri || !canIngestAutomation) {
+			return;
+		}
+		setIngestLoading(true);
+		setIngestError(null);
+		setIngestResult(undefined);
+		try {
+			const result = await desktopClient.ingestCursorAutomation({
+				uri,
+				confirmed: true,
+				maxCommandFileBytes: 64 * 1024,
+				maxRuleFileBytes: 64 * 1024,
+			});
+			setIngestResult(result);
+		} catch (error) {
+			setIngestError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setIngestLoading(false);
 		}
 	};
 
@@ -857,6 +896,21 @@ function CursorLinksContent() {
 									Install MCP
 								</Button>
 							) : null}
+							{canIngestAutomation ? (
+								<Button
+									disabled={ingestLoading}
+									onClick={() => void runAutomationIngest()}
+									type="button"
+									variant="outline"
+								>
+									{ingestLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<CheckCircle2 className="size-4" />
+									)}
+									Ingest
+								</Button>
+							) : null}
 							{canOpenRule ? (
 								<Button
 									disabled={ruleLoading}
@@ -946,6 +1000,45 @@ function CursorLinksContent() {
 							]
 								.filter(Boolean)
 								.join(" | ")}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
+				{ingestError ? (
+					<Alert className="mt-4" variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>Automation ingest failed</AlertTitle>
+						<AlertDescription>{ingestError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{ingestResult ? (
+					<Alert
+						className="mt-4"
+						variant={ingestResult.ingested ? "default" : "destructive"}
+					>
+						{ingestResult.ingested ? (
+							<CheckCircle2 className="size-4" />
+						) : (
+							<AlertTriangle className="size-4" />
+						)}
+						<AlertTitle>
+							{ingestResult.ingested
+								? "Automation events ingested"
+								: "Automation ingest blocked"}
+						</AlertTitle>
+						<AlertDescription>
+							{ingestResult.ingested
+								? [
+										`${ingestResult.queuedRunCount} queued run(s)`,
+										`${ingestResult.duplicateCount} duplicate(s)`,
+										ingestResult.matchedSpecIds.length
+											? `specs: ${ingestResult.matchedSpecIds.join(", ")}`
+											: "",
+									]
+											.filter(Boolean)
+											.join(" | ")
+								: `${ingestResult.eventCount} event(s), ${ingestResult.rejectedCount} rejected`}
 						</AlertDescription>
 					</Alert>
 				) : null}

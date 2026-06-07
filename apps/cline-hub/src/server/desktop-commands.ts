@@ -37,6 +37,7 @@ import {
 	startConnectorChannel,
 	stopConnectorChannel,
 } from "./connectors";
+import { ingestCursorAutomation } from "./cursor-automation";
 import { runCursorGitAction } from "./cursor-git";
 import { addCursorPlugin } from "./cursor-plugins";
 import { openCursorRule } from "./cursor-rules";
@@ -249,6 +250,11 @@ export async function handleDesktopCommand(
 		return await ctx.uiClient.previewCursorUri(
 			readCursorUriPreviewRequest(args),
 		);
+	}
+	if (command === "cursor_automation_ingest") {
+		const input =
+			args && typeof args === "object" ? (args as JsonRecord) : undefined;
+		return await ingestCursorAutomation(input);
 	}
 	if (command === "search_workspace_files") {
 		if (!ctx.uiClient) {
