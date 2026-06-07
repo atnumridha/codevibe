@@ -351,6 +351,8 @@ describe("Cursor MCP install URI parser", () => {
 			strict: true,
 			options: {
 				defaultSource: "cursor",
+				maxLineBytes: 16 * 1024,
+				maxEvents: 100,
 			},
 			validation: {
 				eventCount: 1,
@@ -437,6 +439,16 @@ describe("Cursor MCP install URI parser", () => {
 				automationRoute({ ndjson: "{}", maxEvents: "0" }),
 			),
 		).toThrow("maxEvents must be a positive integer");
+		expect(() =>
+			buildCursorAutomationIngestRouteRequest(
+				automationRoute({ ndjson: "{}", maxEvents: "1001" }),
+			),
+		).toThrow("maxEvents must be less than or equal to 1000");
+		expect(() =>
+			buildCursorAutomationIngestRouteRequest(
+				automationRoute({ ndjson: "{}", maxLineBytes: String(64 * 1024 + 1) }),
+			),
+		).toThrow("maxLineBytes must be less than or equal to 65536");
 	});
 
 	it("builds standalone task prompts for prompt-like Cursor routes", () => {

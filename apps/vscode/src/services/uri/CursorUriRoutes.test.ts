@@ -153,11 +153,16 @@ describe("CursorUriRoutes", () => {
 			throw new Error("expected automation ingest route to parse")
 		}
 		const prompt = buildCursorCompatibleTaskPrompt(result.route)
+		const request = buildCursorCompatibleAutomationIngestRequest(result.route)
 		expect(prompt).to.contain("accepted events: 1")
 		expect(prompt).to.contain("rejected lines: 1")
 		expect(prompt).to.contain("payload keys: branch, token")
 		expect(prompt).to.contain("source_not_allowed")
 		expect(prompt).not.to.contain("secret-value")
+		expect(request.options).to.deep.include({
+			maxLineBytes: 16 * 1024,
+			maxEvents: 100,
+		})
 	})
 
 	it("accepts typed automation ingest options from config payloads", () => {
@@ -209,6 +214,32 @@ describe("CursorUriRoutes", () => {
 		}
 		expect(() => buildCursorCompatibleAutomationIngestRequest(result.route)).to.throw(
 			"maxEvents must be a positive integer",
+		)
+	})
+
+	it("rejects automation ingest limits above route caps", () => {
+		const maxEventsResult = parseCursorCompatibleUri(
+			"/automation/ingest",
+			new URLSearchParams("ndjson=%7B%7D&maxEvents=1001"),
+		)
+		expect(maxEventsResult.recognized).to.equal(true)
+		if (!maxEventsResult.recognized || "error" in maxEventsResult) {
+			throw new Error("expected automation ingest maxEvents route to parse")
+		}
+		expect(() => buildCursorCompatibleAutomationIngestRequest(maxEventsResult.route)).to.throw(
+			"maxEvents must be less than or equal to 1000",
+		)
+
+		const maxLineBytesResult = parseCursorCompatibleUri(
+			"/automation/ingest",
+			new URLSearchParams(`ndjson=%7B%7D&maxLineBytes=${64 * 1024 + 1}`),
+		)
+		expect(maxLineBytesResult.recognized).to.equal(true)
+		if (!maxLineBytesResult.recognized || "error" in maxLineBytesResult) {
+			throw new Error("expected automation ingest maxLineBytes route to parse")
+		}
+		expect(() => buildCursorCompatibleAutomationIngestRequest(maxLineBytesResult.route)).to.throw(
+			"maxLineBytes must be less than or equal to 65536",
 		)
 	})
 })

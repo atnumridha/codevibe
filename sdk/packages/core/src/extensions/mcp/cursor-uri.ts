@@ -12,6 +12,10 @@ const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024;
 const MAX_MCP_SERVER_NAME_LENGTH = 128;
 const MAX_GIT_REF_LENGTH = 255;
 const MAX_COMMIT_MESSAGE_LENGTH = 16_384;
+const DEFAULT_CURSOR_AUTOMATION_MAX_LINE_BYTES = 16 * 1024;
+const DEFAULT_CURSOR_AUTOMATION_MAX_EVENTS = 100;
+const MAX_CURSOR_AUTOMATION_MAX_LINE_BYTES = 64 * 1024;
+const MAX_CURSOR_AUTOMATION_MAX_EVENTS = 1_000;
 const MAX_CURSOR_COMMAND_FILE_BYTES = 256 * 1024;
 const MAX_CURSOR_RULE_FILE_BYTES = 256 * 1024;
 const CURSOR_COMMANDS_DIR = ".cursor/commands";
@@ -545,6 +549,7 @@ function getAutomationPositiveInteger(
 	params: Record<string, string | Record<string, unknown>>,
 	config: Record<string, unknown> | undefined,
 	key: "maxLineBytes" | "maxEvents",
+	maximum?: number,
 ): number | undefined {
 	const paramValue = getRouteStringParam(params, key);
 	const value = paramValue ?? config?.[key];
@@ -554,6 +559,9 @@ function getAutomationPositiveInteger(
 	const parsed = typeof value === "number" ? value : Number(value);
 	if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
 		throw new CursorUriError(`${key} must be a positive integer`);
+	}
+	if (maximum !== undefined && parsed > maximum) {
+		throw new CursorUriError(`${key} must be less than or equal to ${maximum}`);
 	}
 	return parsed;
 }
@@ -1445,12 +1453,20 @@ export function buildCursorAutomationIngestRouteRequest(
 	const defaultSource =
 		getAutomationStringParam(params, config, "defaultSource") ?? "cursor";
 	const allowedSources = getAutomationAllowedSources(params, config);
-	const maxLineBytes = getAutomationPositiveInteger(
-		params,
-		config,
-		"maxLineBytes",
-	);
-	const maxEvents = getAutomationPositiveInteger(params, config, "maxEvents");
+	const maxLineBytes =
+		getAutomationPositiveInteger(
+			params,
+			config,
+			"maxLineBytes",
+			MAX_CURSOR_AUTOMATION_MAX_LINE_BYTES,
+		) ?? DEFAULT_CURSOR_AUTOMATION_MAX_LINE_BYTES;
+	const maxEvents =
+		getAutomationPositiveInteger(
+			params,
+			config,
+			"maxEvents",
+			MAX_CURSOR_AUTOMATION_MAX_EVENTS,
+		) ?? DEFAULT_CURSOR_AUTOMATION_MAX_EVENTS;
 	const options: ParseAutomationEventNdjsonOptions = {
 		defaultSource,
 		...(allowedSources ? { allowedSources } : {}),

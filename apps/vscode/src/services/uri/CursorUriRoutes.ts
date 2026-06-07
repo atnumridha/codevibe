@@ -45,6 +45,10 @@ const CURSOR_COMPATIBLE_URI_HOST_PATH_ALIASES = new Map<string, Map<string, Curs
 
 const MAX_CURSOR_URI_PARAM_LENGTH = 16_384
 const MAX_CURSOR_URI_CONFIG_JSON_LENGTH = 64 * 1024
+const DEFAULT_CURSOR_AUTOMATION_MAX_LINE_BYTES = 16 * 1024
+const DEFAULT_CURSOR_AUTOMATION_MAX_EVENTS = 100
+const MAX_CURSOR_AUTOMATION_MAX_LINE_BYTES = 64 * 1024
+const MAX_CURSOR_AUTOMATION_MAX_EVENTS = 1_000
 const SECRET_PARAM_PATTERN = /(token|secret|password|authorization|api[-_]?key|credential)/i
 const CURSOR_BOOLEAN_STRING_VALUES = new Set(["true", "false", "1", "0", "yes", "no"])
 
@@ -630,7 +634,11 @@ function getAutomationNdjson(route: CursorCompatibleUriRoute): string {
 	return value
 }
 
-function getPositiveIntegerParam(route: CursorCompatibleUriRoute, key: "maxLineBytes" | "maxEvents"): number | undefined {
+function getPositiveIntegerParam(
+	route: CursorCompatibleUriRoute,
+	key: "maxLineBytes" | "maxEvents",
+	maximum?: number,
+): number | undefined {
 	const value = getStringParam(route, key) ?? getConfigRecord(route)?.[key]
 	if (value === undefined) {
 		return undefined
@@ -638,6 +646,9 @@ function getPositiveIntegerParam(route: CursorCompatibleUriRoute, key: "maxLineB
 	const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN
 	if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
 		throw new Error(`${key} must be a positive integer`)
+	}
+	if (maximum !== undefined && parsed > maximum) {
+		throw new Error(`${key} must be less than or equal to ${maximum}`)
 	}
 	return parsed
 }
@@ -684,8 +695,12 @@ function buildCursorAutomationIngestPrompt(route: CursorCompatibleUriRoute): str
 	const result = parseAutomationEventNdjson(getAutomationNdjson(route), {
 		defaultSource: getStringParam(route, "defaultSource") || getConfigString(route, "defaultSource") || "cursor",
 		allowedSources: getAllowedSources(route),
-		maxLineBytes: getPositiveIntegerParam(route, "maxLineBytes"),
-		maxEvents: getPositiveIntegerParam(route, "maxEvents"),
+		maxLineBytes:
+			getPositiveIntegerParam(route, "maxLineBytes", MAX_CURSOR_AUTOMATION_MAX_LINE_BYTES) ??
+			DEFAULT_CURSOR_AUTOMATION_MAX_LINE_BYTES,
+		maxEvents:
+			getPositiveIntegerParam(route, "maxEvents", MAX_CURSOR_AUTOMATION_MAX_EVENTS) ??
+			DEFAULT_CURSOR_AUTOMATION_MAX_EVENTS,
 	})
 	const strict = getBooleanParam(route, "strict")
 	const acceptedLines = result.events.slice(0, 20).map((event) =>
@@ -761,8 +776,12 @@ export function buildCursorCompatibleAutomationIngestRequest(
 	const options: ParseAutomationEventNdjsonOptions = {
 		defaultSource: getStringParam(route, "defaultSource") || getConfigString(route, "defaultSource") || "cursor",
 		allowedSources: getAllowedSources(route),
-		maxLineBytes: getPositiveIntegerParam(route, "maxLineBytes"),
-		maxEvents: getPositiveIntegerParam(route, "maxEvents"),
+		maxLineBytes:
+			getPositiveIntegerParam(route, "maxLineBytes", MAX_CURSOR_AUTOMATION_MAX_LINE_BYTES) ??
+			DEFAULT_CURSOR_AUTOMATION_MAX_LINE_BYTES,
+		maxEvents:
+			getPositiveIntegerParam(route, "maxEvents", MAX_CURSOR_AUTOMATION_MAX_EVENTS) ??
+			DEFAULT_CURSOR_AUTOMATION_MAX_EVENTS,
 	}
 	const ndjson = getAutomationNdjson(route)
 	return {
