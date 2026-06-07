@@ -1,8 +1,32 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { CursorSandboxRuntimePolicy } from "@cline/core";
 import { describe, expect, it, vi } from "vitest";
 import { buildUserInputMessage } from "./prompt";
+
+function cursorSandboxPolicy(
+	workspaceRoot: string,
+	readablePaths: string[],
+): CursorSandboxRuntimePolicy {
+	return {
+		source: "cursor-sandbox",
+		status: "loaded",
+		configPath: join(workspaceRoot, ".cursor", "sandbox.json"),
+		workspaceRoot,
+		effectiveAccess: "prompt",
+		readablePaths,
+		writablePaths: [],
+		networkPolicy: { default: "deny", allow: [] },
+		disableTmpWrite: false,
+		enableSharedBuildCache: false,
+		blockGitWrites: false,
+		allowReadAutoApprove: true,
+		allowWriteAutoApprove: false,
+		allowTerminalAutoApprove: false,
+		allowNetworkAutoApprove: false,
+	};
+}
 
 describe("buildUserInputMessage", () => {
 	it("extracts image mentions into userImages", async () => {
@@ -114,5 +138,35 @@ describe("buildUserInputMessage", () => {
 		expect(result.prompt).toBe("summarize [file: keep.ts]");
 		expect(result.userImages).toEqual([]);
 		expect(result.userFiles).toEqual([filePath]);
+	});
+
+	it("does not attach files outside Cursor sandbox readable paths", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "cli-prompt-"));
+		const outside = mkdtempSync(join(tmpdir(), "cli-prompt-outside-"));
+		const filePath = join(outside, "notes.md");
+		writeFileSync(filePath, "# Notes\n");
+		const warn = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		try {
+			const result = await buildUserInputMessage(
+				`summarize @${filePath}`,
+				undefined,
+				{
+					cwd: dir,
+					cursorSandboxPolicy: cursorSandboxPolicy(dir, [dir]),
+				},
+			);
+
+			expect(result.prompt).toBe(`summarize @${filePath}`);
+			expect(result.userImages).toEqual([]);
+			expect(result.userFiles).toEqual([]);
+			expect(warn).toHaveBeenCalledWith(
+				expect.stringContaining(
+					"outside Cursor sandbox read paths from .cursor/sandbox.json",
+				),
+			);
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });

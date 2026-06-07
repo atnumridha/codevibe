@@ -80,6 +80,7 @@ export async function runZen(
 			userFiles,
 		} = await buildUserInputMessage(prompt, userInstructionService, {
 			cwd: config.cwd,
+			cursorSandboxPolicy: config.cursorSandboxPolicy,
 		});
 
 		const startRequest: ChatStartSessionRequest = {

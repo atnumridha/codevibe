@@ -4,7 +4,9 @@ import { basename, resolve } from "node:path";
 import {
 	assertPathAllowedByDirectAccessIgnores,
 	buildWorkspaceMetadata,
+	isPathAllowedByCursorSandbox,
 	mergeRulesForSystemPrompt,
+	type CursorSandboxRuntimePolicy,
 	type UserInstructionConfigService,
 } from "@cline/core";
 import { type AgentMode, buildClineSystemPrompt } from "@cline/shared";
@@ -98,7 +100,7 @@ function resolveMentionPath(filePath: string, cwd: string): string {
 export async function buildUserInputMessage(
 	rawPrompt: string,
 	userInstructionService?: UserInstructionConfigService,
-	options: { cwd?: string } = {},
+	options: { cwd?: string; cursorSandboxPolicy?: CursorSandboxRuntimePolicy } = {},
 ): Promise<{
 	prompt: string;
 	userImages: string[];
@@ -149,6 +151,17 @@ export async function buildUserInputMessage(
 		try {
 			const resolvedPath = resolveMentionPath(mention.path, cwd);
 			await assertPathAllowedByDirectAccessIgnores(cwd, resolvedPath);
+			if (
+				options.cursorSandboxPolicy &&
+				!isPathAllowedByCursorSandbox(
+					resolvedPath,
+					options.cursorSandboxPolicy.readablePaths,
+				)
+			) {
+				throw new Error(
+					`Access to ${resolvedPath} is outside Cursor sandbox read paths from .cursor/sandbox.json.`,
+				);
+			}
 			const stats = statSync(resolvedPath);
 			if (!stats.isFile()) {
 				throw new Error(`Path is not a file: ${resolvedPath}`);

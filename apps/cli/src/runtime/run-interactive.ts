@@ -477,6 +477,7 @@ export async function runInteractive(
 					userFiles,
 				} = await buildUserInputMessage(input, userInstructionService, {
 					cwd: config.cwd,
+					cursorSandboxPolicy: config.cursorSandboxPolicy,
 				});
 				const mergedUserImages = [
 					...(attachments?.userImages ?? []),

@@ -270,6 +270,7 @@ export async function runAgent(
 			userFiles,
 		} = await buildUserInputMessage(prompt, userInstructionService, {
 			cwd: config.cwd,
+			cursorSandboxPolicy: config.cursorSandboxPolicy,
 		});
 		const started = await sessionManager.start({
 			source: SessionSource.CLI,
