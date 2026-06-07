@@ -83,12 +83,19 @@ jobs:
                     exit 1
                   fi
 
+            - name: Get Version
+              id: get_version
+              run: |
+                  VERSION=$(node -p "require('./package.json').version")
+                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
             - name: Resolve Release Tag
               id: resolve_tag
               working-directory: ${{ github.workspace }}
               env:
                   TAG: ${{ github.event.inputs.tag }}
                   CREATE_TAG: ${{ github.event.inputs.create_tag_from_ref }}
+                  EXPECTED_TAG: v${{ steps.get_version.outputs.version }}
               run: |
                   if [[ -z "$TAG" ]]; then
                     echo "Error: tag input is required"
@@ -97,6 +104,11 @@ jobs:
 
                   if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)?$ ]]; then
                     echo "Error: tag must match vX.Y.Z, optionally with a suffix"
+                    exit 1
+                  fi
+
+                  if [[ "$TAG" != "$EXPECTED_TAG" ]]; then
+                    echo "Error: tag '$TAG' does not match package version '$EXPECTED_TAG'"
                     exit 1
                   fi
 
@@ -113,6 +125,12 @@ jobs:
                     git checkout --detach "$TAG_REF^{commit}"
                   else
                     echo "Error: tag '$TAG' does not exist and create_tag_from_ref is false"
+                    exit 1
+                  fi
+
+                  CHECKED_OUT_TAG="v$(node -p "require('./apps/vscode/package.json').version")"
+                  if [[ "$TAG" != "$CHECKED_OUT_TAG" ]]; then
+                    echo "Error: tag '$TAG' points at a package version '$CHECKED_OUT_TAG'"
                     exit 1
                   fi
 
@@ -134,22 +152,6 @@ jobs:
 
             - name: Install VSIX packaging tool
               run: npm install -g @vscode/vsce
-
-            - name: Get Version
-              id: get_version
-              run: |
-                  VERSION=$(node -p "require('./package.json').version")
-                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-            - name: Verify Tag Matches Package Version
-              run: |
-                  TAG="${{ steps.resolve_tag.outputs.tag }}"
-                  VERSION="v${{ steps.get_version.outputs.version }}"
-                  if [[ "$TAG" != "$VERSION" ]]; then
-                    echo "Error: tag '$TAG' does not match package version '$VERSION'"
-                    exit 1
-                  fi
-                  echo "Tag and package version match: $TAG"
 
             - name: Package VSIX
               env:
