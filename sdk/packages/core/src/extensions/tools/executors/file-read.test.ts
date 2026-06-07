@@ -102,6 +102,90 @@ describe("createFileReadExecutor", () => {
 		}
 	});
 
+	it("ignores absolute .clineignore include directives for direct SDK reads", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
+		const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-outside-"));
+		await fs.mkdir(path.join(dir, "secrets"), { recursive: true });
+		const filePath = path.join(dir, "secrets", "token.txt");
+		const outsideIgnore = path.join(outside, "external.ignore");
+		await fs.writeFile(outsideIgnore, "secrets/\n", "utf-8");
+		await fs.writeFile(path.join(dir, ".clineignore"), `!include ${outsideIgnore}\n`, "utf-8");
+		await fs.writeFile(filePath, "visible", "utf-8");
+
+		try {
+			const readFile = createFileReadExecutor();
+			const result = await readFile(
+				{ path: "secrets/token.txt" },
+				{
+					agentId: "agent-1",
+					conversationId: "conv-1",
+					iteration: 1,
+					metadata: { cwd: dir },
+				},
+			);
+			expect(result).toBe("1 | visible");
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+			await fs.rm(outside, { recursive: true, force: true });
+		}
+	});
+
+	it("ignores parent-directory .clineignore include directives for direct SDK reads", async () => {
+		const root = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
+		const dir = path.join(root, "workspace");
+		await fs.mkdir(path.join(dir, "secrets"), { recursive: true });
+		const filePath = path.join(dir, "secrets", "token.txt");
+		await fs.writeFile(path.join(root, "external.ignore"), "secrets/\n", "utf-8");
+		await fs.writeFile(path.join(dir, ".clineignore"), "!include ../external.ignore\n", "utf-8");
+		await fs.writeFile(filePath, "visible", "utf-8");
+
+		try {
+			const readFile = createFileReadExecutor();
+			const result = await readFile(
+				{ path: "secrets/token.txt" },
+				{
+					agentId: "agent-1",
+					conversationId: "conv-1",
+					iteration: 1,
+					metadata: { cwd: dir },
+				},
+			);
+			expect(result).toBe("1 | visible");
+		} finally {
+			await fs.rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it("ignores symlinked .clineignore include directives outside the workspace", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
+		const outside = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-outside-"));
+		await fs.mkdir(path.join(dir, "secrets"), { recursive: true });
+		const filePath = path.join(dir, "secrets", "token.txt");
+		const outsideIgnore = path.join(outside, "external.ignore");
+		const includeLink = path.join(dir, "external.ignore");
+		await fs.writeFile(outsideIgnore, "secrets/\n", "utf-8");
+		await fs.symlink(outsideIgnore, includeLink);
+		await fs.writeFile(path.join(dir, ".clineignore"), "!include external.ignore\n", "utf-8");
+		await fs.writeFile(filePath, "visible", "utf-8");
+
+		try {
+			const readFile = createFileReadExecutor();
+			const result = await readFile(
+				{ path: "secrets/token.txt" },
+				{
+					agentId: "agent-1",
+					conversationId: "conv-1",
+					iteration: 1,
+					metadata: { cwd: dir },
+				},
+			);
+			expect(result).toBe("1 | visible");
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+			await fs.rm(outside, { recursive: true, force: true });
+		}
+	});
+
 	it("blocks reads outside Cursor sandbox readable paths", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
 		await fs.mkdir(path.join(dir, "private"), { recursive: true });

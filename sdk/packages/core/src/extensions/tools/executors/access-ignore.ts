@@ -207,7 +207,11 @@ async function expandClineIgnoreIncludes(cwd: string, content: string): Promise<
 		}
 
 		try {
-			lines.push(await fs.readFile(path.join(cwd, includePath), "utf8"));
+			const resolvedIncludePath = await resolveClineIgnoreIncludePath(cwd, includePath);
+			if (!resolvedIncludePath) {
+				continue;
+			}
+			lines.push(await fs.readFile(resolvedIncludePath, "utf8"));
 		} catch {
 			continue;
 		}
@@ -316,6 +320,40 @@ function isSamePathOrDescendant(parentPath: string, filePath: string): boolean {
 		relativePath === "" ||
 		(!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
 	);
+}
+
+async function resolveClineIgnoreIncludePath(
+	cwd: string,
+	includePath: string,
+): Promise<string | undefined> {
+	if (
+		!includePath ||
+		path.isAbsolute(includePath) ||
+		path.win32.isAbsolute(includePath) ||
+		/^[a-zA-Z]:/.test(includePath)
+	) {
+		return undefined;
+	}
+
+	const resolvedPath = path.resolve(cwd, includePath);
+	if (!isSamePathOrDescendant(cwd, resolvedPath)) {
+		return undefined;
+	}
+
+	try {
+		const [workspaceRoot, realIncludePath] = await Promise.all([
+			fs.realpath(cwd),
+			fs.realpath(resolvedPath),
+		]);
+		if (!isSamePathOrDescendant(workspaceRoot, realIncludePath)) {
+			return undefined;
+		}
+
+		const stat = await fs.stat(realIncludePath);
+		return stat.isFile() ? realIncludePath : undefined;
+	} catch {
+		return resolvedPath;
+	}
 }
 
 function isPathAllowedByCursorSandboxPaths(
