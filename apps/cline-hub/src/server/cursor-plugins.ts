@@ -34,6 +34,7 @@ function buildCursorPluginAddResponse(
 	request: CursorPluginAddRouteRequest,
 	input: {
 		confirmed: boolean;
+		force?: boolean;
 		installed: boolean;
 		workspaceRoot: string;
 		result?: { installPath: string; entryPaths: string[] };
@@ -48,6 +49,7 @@ function buildCursorPluginAddResponse(
 		handled: true,
 		route: "plugin-add",
 		confirmed: input.confirmed,
+		...(input.force ? { force: true } : {}),
 		installed: input.installed,
 		actionable: !request.requiresReview && Boolean(request.source),
 		requiresReview: request.requiresReview,
@@ -80,8 +82,10 @@ export async function addCursorPlugin(args?: JsonRecord): Promise<JsonRecord> {
 		asTrimmedString(args?.workspaceRoot) ?? workspaceRoot;
 	const request = buildCursorPluginAddRouteRequest(uri);
 	const confirmed = args?.confirmed === true;
+	const force = args?.force === true;
 	const preview = buildCursorPluginAddResponse(request, {
 		confirmed,
+		force,
 		installed: false,
 		workspaceRoot: requestedWorkspaceRoot,
 	});
@@ -92,7 +96,7 @@ export async function addCursorPlugin(args?: JsonRecord): Promise<JsonRecord> {
 	const result = await installPlugin({
 		source: request.source,
 		cwd: requestedWorkspaceRoot,
-		force: args?.force === true,
+		force,
 		io: {
 			writeln: () => undefined,
 			writeErr: () => undefined,
@@ -100,6 +104,7 @@ export async function addCursorPlugin(args?: JsonRecord): Promise<JsonRecord> {
 	});
 	return buildCursorPluginAddResponse(request, {
 		confirmed: true,
+		force,
 		installed: true,
 		workspaceRoot: requestedWorkspaceRoot,
 		result,

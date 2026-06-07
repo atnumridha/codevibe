@@ -175,6 +175,7 @@ export type CursorPluginAddResponse = Record<string, unknown> & {
 	handled: true;
 	route: "plugin-add";
 	confirmed: boolean;
+	force?: boolean;
 	installed: boolean;
 	actionable: boolean;
 	requiresReview: boolean;

@@ -693,6 +693,7 @@ function CursorLinksContent({
 	>();
 	const [pluginError, setPluginError] = useState<string | null>(null);
 	const [pluginLoading, setPluginLoading] = useState(false);
+	const [pluginForce, setPluginForce] = useState(false);
 	const [gitResult, setGitResult] = useState<
 		CursorGitActionResponse | undefined
 	>();
@@ -723,10 +724,13 @@ function CursorLinksContent({
 	const canInstallMcp = route === "mcp-install";
 	const canOpenRule =
 		route === "rule" && recordString(previewRecord, "kind") === "file";
+	const pluginSource = recordString(previewRecord, "source");
+	const pluginRequiresReview =
+		recordBoolean(previewRecord, "requiresReview") === true;
 	const canAddPlugin =
 		route === "plugin-add" &&
-		recordBoolean(previewRecord, "requiresReview") !== true &&
-		Boolean(recordString(previewRecord, "source"));
+		!pluginRequiresReview &&
+		Boolean(pluginSource);
 	const canRunGit =
 		route === "git-checkout" ||
 		route === "git-branch" ||
@@ -922,6 +926,7 @@ function CursorLinksContent({
 			const result = await desktopClient.addCursorPlugin({
 				uri,
 				confirmed: true,
+				force: pluginForce,
 				maxCommandFileBytes: 64 * 1024,
 				maxRuleFileBytes: 64 * 1024,
 			});
@@ -1073,6 +1078,19 @@ function CursorLinksContent({
 									)}
 									Open Rule
 								</Button>
+							) : null}
+							{canAddPlugin ? (
+								<div className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5">
+									<Switch
+										aria-label="Replace existing Cursor plugin"
+										checked={pluginForce}
+										disabled={pluginLoading}
+										onCheckedChange={setPluginForce}
+									/>
+									<span className="text-xs text-muted-foreground">
+										Replace existing
+									</span>
+								</div>
 							) : null}
 							{canAddPlugin ? (
 								<Button
@@ -1289,6 +1307,7 @@ function CursorLinksContent({
 							{pluginResult.installed
 								? [
 										pluginResult.sourceLabel,
+										pluginResult.force ? "replace requested" : "",
 										pluginResult.entryCount !== undefined
 											? `${pluginResult.entryCount} entry file(s)`
 											: "",
