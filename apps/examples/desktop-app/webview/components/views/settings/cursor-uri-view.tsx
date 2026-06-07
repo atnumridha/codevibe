@@ -2,13 +2,17 @@
 
 import {
 	AlertTriangle,
+	ArrowDown,
+	ArrowUp,
 	Camera,
 	CheckCircle2,
 	Database,
 	FileText,
 	GitBranch,
 	Globe2,
+	Keyboard,
 	Loader2,
+	MousePointerClick,
 	Play,
 	Plug,
 	Puzzle,
@@ -242,6 +246,10 @@ export function CursorUriView({
 	);
 	const [browserStatusLoading, setBrowserStatusLoading] = useState(false);
 	const [browserUrl, setBrowserUrl] = useState("http://127.0.0.1:3000");
+	const [browserCoordinate, setBrowserCoordinate] = useState("200,200");
+	const [browserText, setBrowserText] = useState("");
+	const [browserEvaluateText, setBrowserEvaluateText] =
+		useState("document.title");
 	const [browserRunning, setBrowserRunning] = useState(false);
 	const [browserResult, setBrowserResult] = useState<
 		BrowserToolResult | undefined
@@ -288,6 +296,8 @@ export function CursorUriView({
 	const browserResultPayload = asRecord(browserResult?.result);
 	const browserScreenshot = recordString(browserResultPayload, "screenshot");
 	const browserSummary = browserResultSummary(browserResult);
+	const browserEvaluateEnabled =
+		browserStatus?.safeBrowserEvaluateEnabled === true;
 
 	const loadBrowserStatus = useCallback(async () => {
 		setBrowserStatusLoading(true);
@@ -564,6 +574,26 @@ export function CursorUriView({
 		}
 	};
 
+	const runBrowserSnapshot = async () => {
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserSnapshot({
+				include_logs: true,
+				include_screenshot: true,
+			});
+			setBrowserResult(result);
+		} catch (runError) {
+			setBrowserResult({
+				query: "browser_snapshot",
+				result: "",
+				error: runError instanceof Error ? runError.message : String(runError),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
 	const runBrowserScreenshot = async () => {
 		setBrowserRunning(true);
 		try {
@@ -572,6 +602,121 @@ export function CursorUriView({
 		} catch (runError) {
 			setBrowserResult({
 				query: "browser_screenshot",
+				result: "",
+				error: runError instanceof Error ? runError.message : String(runError),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserClick = async () => {
+		const coordinate = browserCoordinate.trim();
+		if (!coordinate) {
+			setBrowserResult({
+				query: "browser_action:click",
+				result: "",
+				error: "Coordinate is required.",
+				success: false,
+			});
+			return;
+		}
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({
+				action: "click",
+				coordinate,
+			});
+			setBrowserResult(result);
+		} catch (runError) {
+			setBrowserResult({
+				query: "browser_action:click",
+				result: "",
+				error: runError instanceof Error ? runError.message : String(runError),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserType = async () => {
+		if (!browserText) {
+			setBrowserResult({
+				query: "browser_action:type",
+				result: "",
+				error: "Text is required.",
+				success: false,
+			});
+			return;
+		}
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({
+				action: "type",
+				text: browserText,
+			});
+			setBrowserResult(result);
+		} catch (runError) {
+			setBrowserResult({
+				query: "browser_action:type",
+				result: "",
+				error: runError instanceof Error ? runError.message : String(runError),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserEvaluate = async () => {
+		const text = browserEvaluateText.trim();
+		if (!browserEvaluateEnabled) {
+			setBrowserResult({
+				query: "browser_action:evaluate",
+				result: "",
+				error: "Safe browser evaluate is disabled.",
+				success: false,
+			});
+			return;
+		}
+		if (!text) {
+			setBrowserResult({
+				query: "browser_action:evaluate",
+				result: "",
+				error: "JavaScript text is required.",
+				success: false,
+			});
+			return;
+		}
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({
+				action: "evaluate",
+				text,
+			});
+			setBrowserResult(result);
+		} catch (runError) {
+			setBrowserResult({
+				query: "browser_action:evaluate",
+				result: "",
+				error: runError instanceof Error ? runError.message : String(runError),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserScroll = async (action: "scroll_down" | "scroll_up") => {
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({ action });
+			setBrowserResult(result);
+		} catch (runError) {
+			setBrowserResult({
+				query: `browser_action:${action}`,
 				result: "",
 				error: runError instanceof Error ? runError.message : String(runError),
 				success: false,
@@ -657,8 +802,20 @@ export function CursorUriView({
 					{browserStatusError || browserStatus?.reason ? (
 						<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
 							{browserStatusError ?? browserStatus?.reason}
+							{browserStatus?.nextStep ? ` ${browserStatus.nextStep}` : ""}
 						</div>
 					) : null}
+					<div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+						<span className="rounded-md border bg-background px-1.5 py-0.5">
+							Host: {browserStatus?.host ?? "desktop"}
+						</span>
+						<span className="rounded-md border bg-background px-1.5 py-0.5">
+							Evaluate: {browserEvaluateEnabled ? "on" : "off"}
+						</span>
+						<span className="rounded-md border bg-background px-1.5 py-0.5">
+							Tools: {browserStatus?.toolNames?.length ?? 0}
+						</span>
+					</div>
 					<div className="flex flex-col gap-2 md:flex-row">
 						<Input
 							aria-label="Browser URL"
@@ -681,11 +838,35 @@ export function CursorUriView({
 							</Button>
 							<Button
 								disabled={!browserAvailable || browserRunning}
+								onClick={() => void runBrowserSnapshot()}
+								variant="outline"
+							>
+								<Globe2 className="size-4" />
+								Snapshot
+							</Button>
+							<Button
+								disabled={!browserAvailable || browserRunning}
 								onClick={() => void runBrowserScreenshot()}
 								variant="outline"
 							>
 								<Camera className="size-4" />
 								Screenshot
+							</Button>
+							<Button
+								disabled={!browserAvailable || browserRunning}
+								onClick={() => void runBrowserScroll("scroll_up")}
+								variant="outline"
+							>
+								<ArrowUp className="size-4" />
+								Scroll Up
+							</Button>
+							<Button
+								disabled={!browserAvailable || browserRunning}
+								onClick={() => void runBrowserScroll("scroll_down")}
+								variant="outline"
+							>
+								<ArrowDown className="size-4" />
+								Scroll Down
 							</Button>
 							<Button
 								disabled={browserRunning}
@@ -696,6 +877,55 @@ export function CursorUriView({
 								Close
 							</Button>
 						</div>
+					</div>
+					<div className="grid gap-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto_auto]">
+						<Input
+							aria-label="Browser click coordinate"
+							onChange={(event) => setBrowserCoordinate(event.target.value)}
+							placeholder="x,y"
+							value={browserCoordinate}
+						/>
+						<Input
+							aria-label="Browser text input"
+							onChange={(event) => setBrowserText(event.target.value)}
+							placeholder="Text to type"
+							value={browserText}
+						/>
+						<Button
+							disabled={!browserAvailable || browserRunning}
+							onClick={() => void runBrowserClick()}
+							variant="outline"
+						>
+							<MousePointerClick className="size-4" />
+							Click
+						</Button>
+						<Button
+							disabled={!browserAvailable || browserRunning}
+							onClick={() => void runBrowserType()}
+							variant="outline"
+						>
+							<Keyboard className="size-4" />
+							Type
+						</Button>
+					</div>
+					<div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
+						<Input
+							aria-label="Browser evaluate JavaScript"
+							disabled={!browserEvaluateEnabled}
+							onChange={(event) => setBrowserEvaluateText(event.target.value)}
+							placeholder="document.title"
+							value={browserEvaluateText}
+						/>
+						<Button
+							disabled={
+								!browserAvailable || browserRunning || !browserEvaluateEnabled
+							}
+							onClick={() => void runBrowserEvaluate()}
+							variant="outline"
+						>
+							<Keyboard className="size-4" />
+							Evaluate
+						</Button>
 					</div>
 					{browserResult ? (
 						<Alert variant={browserResult.success ? "default" : "destructive"}>
