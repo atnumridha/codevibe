@@ -42,6 +42,12 @@
 	"activationEvents": [
 		"onLanguage",
 		"onUri",
+		"onCommand:cursor.ndjsonIngest.start",
+		"onCommand:cursor.ndjsonIngest.stop",
+		"onCommand:cursor.ndjsonIngest.copyCurl",
+		"onCommand:cursor.ndjsonIngest.reassignPort",
+		"onCommand:cursor.ndjsonIngest.showStatus",
+		"onCommand:cursor-deeplink.debug.triggerDeeplink",
 		"onStartupFinished",
 		"workspaceContains:evals.env"
 	],
@@ -241,6 +247,31 @@
 				"title": "Add to Cline Chat",
 				"category": "Cline",
 				"icon": "$(link-external)"
+			},
+			{
+				"command": "cursor.ndjsonIngest.start",
+				"title": "Cursor NDJSON Ingest: Start Server"
+			},
+			{
+				"command": "cursor.ndjsonIngest.stop",
+				"title": "Cursor NDJSON Ingest: Stop Server"
+			},
+			{
+				"command": "cursor.ndjsonIngest.copyCurl",
+				"title": "Cursor NDJSON Ingest: Copy curl command"
+			},
+			{
+				"command": "cursor.ndjsonIngest.reassignPort",
+				"title": "Cursor NDJSON Ingest: Reassign port and restart server"
+			},
+			{
+				"command": "cursor.ndjsonIngest.showStatus",
+				"title": "Cursor NDJSON Ingest: Show server info"
+			},
+			{
+				"command": "cursor-deeplink.debug.triggerDeeplink",
+				"title": "Debug: Trigger Arbitrary Deeplink",
+				"category": "Cursor Deeplink"
 			}
 		],
 		"keybindings": [
@@ -425,6 +456,18 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Enables the same gated browser_action evaluate permission as Browser Settings > Allow browser JavaScript evaluation for Cursor-compatible browser automation flows. Keep disabled unless you trust the active task."
+				},
+				"ndjson.port": {
+					"type": "number",
+					"default": 0,
+					"minimum": 0,
+					"maximum": 65535,
+					"description": "Port for the Cursor-compatible NDJSON ingest server. Set to 0 for auto-allocation in range 7242-7942."
+				},
+				"ndjson.bindAddress": {
+					"type": "string",
+					"default": "127.0.0.1",
+					"description": "Address to bind the Cursor-compatible NDJSON ingest server to. Non-localhost addresses require confirmation because they can expose the ingest endpoint to the network."
 				}
 			}
 		}

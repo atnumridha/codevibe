@@ -52,6 +52,10 @@ import { exportVSCodeStorageToSharedFiles } from "./hosts/vscode/vscode-to-file-
 import { ExtensionRegistryInfo } from "./registry"
 import { AuthService } from "./services/auth/AuthService"
 import { LogoutReason } from "./services/auth/types"
+import {
+	CursorNdjsonIngestServer,
+	type CursorNdjsonIngestServerStatus,
+} from "./services/automation/CursorNdjsonIngestServer"
 import { telemetryService } from "./services/telemetry"
 import {
 	getCursorCompatibleUriPath,
@@ -128,6 +132,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	// NOTE: Commands must be added to the internal registry before registering them with VSCode
 	const { commands } = ExtensionRegistryInfo
+	const cursorNdjsonIngestServer = new CursorNdjsonIngestServer(context.globalStorageUri.fsPath)
+	context.subscriptions.push(cursorNdjsonIngestServer)
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.PlusButton, async () => {
@@ -195,6 +201,67 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	}
 	context.subscriptions.push(vscode.window.registerUriHandler({ handleUri }))
+
+	const startCursorNdjsonIngestServer = async (forceAutoPort = false) => {
+		const settings = getCursorNdjsonIngestSettings(forceAutoPort)
+		if (!(await confirmCursorNdjsonBindAddress(settings.bindAddress))) {
+			return undefined
+		}
+		const status = forceAutoPort
+			? await cursorNdjsonIngestServer.reassignPort(settings)
+			: await cursorNdjsonIngestServer.start(settings)
+		await showCursorNdjsonStatus(
+			status,
+			forceAutoPort ? "Cursor NDJSON ingest server reassigned" : "Cursor NDJSON ingest server started",
+		)
+		return status
+	}
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand("cursor.ndjsonIngest.start", async () => {
+			await startCursorNdjsonIngestServer(false)
+		}),
+		vscode.commands.registerCommand("cursor.ndjsonIngest.stop", async () => {
+			const status = await cursorNdjsonIngestServer.stop()
+			await showCursorNdjsonStatus(status, "Cursor NDJSON ingest server stopped")
+		}),
+		vscode.commands.registerCommand("cursor.ndjsonIngest.reassignPort", async () => {
+			await startCursorNdjsonIngestServer(true)
+		}),
+		vscode.commands.registerCommand("cursor.ndjsonIngest.showStatus", async () => {
+			await showCursorNdjsonStatus(cursorNdjsonIngestServer.getStatus(), "Cursor NDJSON ingest server status")
+		}),
+		vscode.commands.registerCommand("cursor.ndjsonIngest.copyCurl", async () => {
+			let status = cursorNdjsonIngestServer.getStatus()
+			if (!status.running) {
+				status = (await startCursorNdjsonIngestServer(false)) ?? status
+			}
+			if (!status.running) {
+				return
+			}
+			const command = cursorNdjsonIngestServer.buildCurlCommand()
+			await vscode.env.clipboard.writeText(command)
+			await vscode.window.showInformationMessage("Copied Cursor NDJSON ingest curl command.")
+		}),
+		vscode.commands.registerCommand("cursor-deeplink.debug.triggerDeeplink", async () => {
+			const uri = await vscode.window.showInputBox({
+				placeHolder: "cursor://createchat?prompt=Review%20this",
+				prompt: "Enter a Cursor-compatible deeplink to route through CodeVibe.",
+				ignoreFocusOut: true,
+			})
+			if (!uri?.trim()) {
+				return
+			}
+			const success = await SharedUriHandler.handleUri(uri.trim(), {
+				cursorCompatibleDeepLinksEnabled: vscode.workspace
+					.getConfiguration("cline")
+					.get<boolean>("cursorCompatibility.deepLinks.enabled", true),
+			})
+			if (!success) {
+				await vscode.window.showWarningMessage("CodeVibe could not process that deeplink.")
+			}
+		}),
+	)
 
 	// Register size testing commands in development mode
 	if (IS_DEV) {
@@ -653,6 +720,37 @@ function getUriPath(url: string): string | undefined {
 	} catch {
 		return undefined
 	}
+}
+
+function getCursorNdjsonIngestSettings(forceAutoPort: boolean): { port: number; bindAddress: string } {
+	const config = vscode.workspace.getConfiguration("ndjson")
+	const configuredPort = config.get<number>("port", 0)
+	return {
+		port: forceAutoPort ? 0 : configuredPort,
+		bindAddress: config.get<string>("bindAddress", "127.0.0.1"),
+	}
+}
+
+function isLoopbackBindAddress(bindAddress: string): boolean {
+	const normalized = bindAddress.trim().toLowerCase()
+	return normalized === "localhost" || normalized === "::1" || normalized === "[::1]" || normalized.startsWith("127.")
+}
+
+async function confirmCursorNdjsonBindAddress(bindAddress: string): Promise<boolean> {
+	if (isLoopbackBindAddress(bindAddress)) {
+		return true
+	}
+	const choice = await vscode.window.showWarningMessage(
+		`Cursor NDJSON ingest is configured to bind to ${bindAddress}. This can expose the ingest endpoint beyond this machine.`,
+		{ modal: true },
+		"Start Server",
+	)
+	return choice === "Start Server"
+}
+
+async function showCursorNdjsonStatus(status: CursorNdjsonIngestServerStatus, title: string): Promise<void> {
+	const detail = status.running && status.url ? `${status.url}/ingest` : "Not running"
+	await vscode.window.showInformationMessage(`${title}: ${detail}`)
 }
 
 async function openClineSidebarForTaskUri(): Promise<void> {

@@ -20,6 +20,17 @@ const requiredCursorParityConfigKeys = [
 	"cline.cursorCompatibility.retrievalIndexing.privacyGate",
 	"cline.cursorCompatibility.sandboxPolicy",
 	"cline.cursorCompatibility.safeBrowserEvaluate.enabled",
+	"ndjson.port",
+	"ndjson.bindAddress",
+]
+
+const requiredCursorParityCommands = [
+	"cursor.ndjsonIngest.start",
+	"cursor.ndjsonIngest.stop",
+	"cursor.ndjsonIngest.copyCurl",
+	"cursor.ndjsonIngest.reassignPort",
+	"cursor.ndjsonIngest.showStatus",
+	"cursor-deeplink.debug.triggerDeeplink",
 ]
 
 const expectedManifestAssetPaths = [
@@ -416,10 +427,19 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 		throw new Error(`${label} must point main at ./dist/extension.js`)
 	}
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
+	for (const command of requiredCursorParityCommands) {
+		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
+	}
 
 	const properties = packageJson.contributes?.configuration?.properties
 	for (const key of requiredCursorParityConfigKeys) {
 		assertObjectHasKey(properties, key, `${label} configuration.properties`)
+	}
+	const commands = Array.isArray(packageJson.contributes?.commands)
+		? packageJson.contributes.commands.map((command) => command?.command).filter(Boolean)
+		: []
+	for (const command of requiredCursorParityCommands) {
+		assertArrayIncludes(commands, command, `${label} contributes.commands`)
 	}
 
 	const codexAuth = properties["cline.openAiCodex.authSource"]

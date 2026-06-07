@@ -73,6 +73,8 @@ validate_codevibe_manifest() {
         "cline.cursorCompatibility.retrievalIndexing.privacyGate"
         "cline.cursorCompatibility.sandboxPolicy"
         "cline.cursorCompatibility.safeBrowserEvaluate.enabled"
+        "ndjson.port"
+        "ndjson.bindAddress"
     )
     for key in "${required_config_keys[@]}"; do
         if ! jq -e --arg key "$key" '.contributes.configuration.properties[$key]' "$package_json" > /dev/null 2>&1; then
