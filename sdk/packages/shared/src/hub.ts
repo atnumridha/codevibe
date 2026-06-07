@@ -393,6 +393,29 @@ export interface HubCurrentAccountResponse extends Record<string, unknown> {
 	};
 }
 
+export interface HubMentionFileSearchRequest extends Record<string, unknown> {
+	query?: string;
+	workspaceRoot?: string;
+	cwd?: string;
+	limit?: number;
+	ttlMs?: number;
+}
+
+export interface HubMentionFileSearchResult extends Record<string, unknown> {
+	path: string;
+	basename: string;
+	directory: string;
+	score: number;
+}
+
+export interface HubMentionFileSearchResponse extends Record<string, unknown> {
+	query: string;
+	workspaceRoot: string;
+	count: number;
+	truncated: boolean;
+	results: HubMentionFileSearchResult[];
+}
+
 export interface CursorNdjsonIngestRequest extends Record<string, unknown> {
 	ndjson?: string;
 	input?: string;

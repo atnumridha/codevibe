@@ -10,6 +10,8 @@ import {
 	type HubClientRegistration,
 	type HubCommandEnvelope,
 	type HubEventEnvelope,
+	type HubMentionFileSearchRequest,
+	type HubMentionFileSearchResponse,
 	type HubModelCatalog,
 	type HubReplyEnvelope,
 	type HubTransportFrame,
@@ -545,6 +547,25 @@ export class NodeHubClient {
 		);
 		const payload = reply.payload as { catalog?: HubModelCatalog } | undefined;
 		return payload?.catalog ?? { providers: [], modelsByProvider: {} };
+	}
+
+	async searchMentionFiles(
+		input: HubMentionFileSearchRequest = {},
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<HubMentionFileSearchResponse> {
+		const reply = await this.command(
+			"mention_files.search",
+			{ ...input },
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return (reply.payload ?? {
+			query: "",
+			workspaceRoot: "",
+			count: 0,
+			truncated: false,
+			results: [],
+		}) as HubMentionFileSearchResponse;
 	}
 
 	async ingestCursorNdjson(

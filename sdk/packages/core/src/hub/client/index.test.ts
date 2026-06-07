@@ -643,6 +643,108 @@ describe("NodeHubClient", () => {
 		});
 	});
 
+	describe("mention file search", () => {
+		const originalWebSocket = globalThis.WebSocket;
+
+		beforeEach(() => {
+			FakeWebSocket.instances = [];
+			(
+				globalThis as unknown as { WebSocket?: typeof FakeWebSocket }
+			).WebSocket = FakeWebSocket;
+		});
+
+		afterEach(() => {
+			if (originalWebSocket) {
+				globalThis.WebSocket = originalWebSocket;
+			} else {
+				delete (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
+			}
+		});
+
+		it("sends typed mention file search commands", async () => {
+			const client = new NodeHubClient({ url: "ws://127.0.0.1:25463/hub" });
+			const connectPromise = client.connect();
+			const socket = FakeWebSocket.instances[0];
+			if (!socket) {
+				throw new Error("expected fake websocket instance");
+			}
+			socket.open();
+			await connectPromise;
+
+			const searchPromise = client.searchMentionFiles(
+				{
+					workspaceRoot: "/workspace",
+					query: "app",
+					limit: 5,
+					ttlMs: 0,
+				},
+				{ timeoutMs: 5_000 },
+			);
+			const searchFrame = [...socket.sentFrames].reverse().find((frame) => {
+				const envelope = (frame as { envelope?: { command?: string } })
+					.envelope;
+				return envelope?.command === "mention_files.search";
+			}) as
+				| {
+						kind?: string;
+						envelope?: {
+							requestId?: string;
+							command?: string;
+							payload?: Record<string, unknown>;
+							timeoutMs?: number | null;
+						};
+				  }
+				| undefined;
+			expect(searchFrame).toMatchObject({
+				kind: "command",
+				envelope: {
+					command: "mention_files.search",
+					payload: {
+						workspaceRoot: "/workspace",
+						query: "app",
+						limit: 5,
+						ttlMs: 0,
+					},
+					timeoutMs: 5_000,
+				},
+			});
+
+			(
+				socket as unknown as { emit: (type: string, payload: unknown) => void }
+			).emit("message", {
+				data: JSON.stringify({
+					kind: "reply",
+					envelope: {
+						version: "v1",
+						requestId: searchFrame?.envelope?.requestId,
+						ok: true,
+						payload: {
+							query: "app",
+							workspaceRoot: "/workspace",
+							count: 1,
+							truncated: false,
+							results: [
+								{
+									path: "src/app.ts",
+									basename: "app.ts",
+									directory: "src",
+									score: 900,
+								},
+							],
+						},
+					},
+				}),
+			});
+
+			await expect(searchPromise).resolves.toMatchObject({
+				query: "app",
+				count: 1,
+				results: [{ path: "src/app.ts" }],
+			});
+			await client.dispose();
+		});
+	});
+
 	describe("cursor NDJSON ingest", () => {
 		const originalWebSocket = globalThis.WebSocket;
 
