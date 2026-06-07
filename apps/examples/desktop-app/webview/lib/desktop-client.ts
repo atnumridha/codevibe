@@ -220,6 +220,10 @@ export type CursorMcpInstallResponse = Record<string, unknown> & {
 	argCount?: number;
 	envKeys?: string[];
 	headerKeys?: string[];
+	oauthRequired?: boolean;
+	oauthAuthStatus?: "authenticated" | "unauthenticated" | "pending";
+	oauthNextAction?: "none" | "authenticate";
+	oauthDetail?: string;
 };
 
 export type CursorRuleOpenInput = CursorUriPreviewInput & {

@@ -163,6 +163,10 @@ type CursorMcpInstallResponse = {
 	argCount?: number;
 	envKeys?: string[];
 	headerKeys?: string[];
+	oauthRequired?: boolean;
+	oauthAuthStatus?: "authenticated" | "unauthenticated" | "pending";
+	oauthNextAction?: "none" | "authenticate";
+	oauthDetail?: string;
 };
 
 type CursorRuleActionResponse = {
@@ -570,6 +574,53 @@ function safeUrlOrigin(value: string): string | undefined {
 	}
 }
 
+function getTrimmedStringValue(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function summarizeCursorMcpInstallOAuth(
+	serverConfig: JsonRecord,
+): Pick<
+	CursorMcpInstallResponse,
+	"oauthRequired" | "oauthAuthStatus" | "oauthNextAction" | "oauthDetail"
+> {
+	const transport = getRecordValue(serverConfig.transport) ?? serverConfig;
+	const transportType = String(transport.type ?? "stdio");
+	if (transportType === "stdio") {
+		return {};
+	}
+
+	const oauth = getRecordValue(serverConfig.oauth);
+	if (!oauth) {
+		return {};
+	}
+
+	const tokens = getRecordValue(oauth.tokens);
+	const accessToken = getTrimmedStringValue(tokens?.access_token);
+	const lastAuthenticatedAt = typeof oauth.lastAuthenticatedAt === "number"
+		? oauth.lastAuthenticatedAt
+		: undefined;
+	const oauthAuthStatus: NonNullable<CursorMcpInstallResponse["oauthAuthStatus"]> =
+		accessToken || lastAuthenticatedAt
+			? "authenticated"
+			: getTrimmedStringValue(oauth.codeVerifier)
+				? "pending"
+				: "unauthenticated";
+	const oauthRequired = oauthAuthStatus !== "authenticated";
+	return {
+		oauthRequired,
+		oauthAuthStatus,
+		oauthNextAction: oauthRequired ? "authenticate" : "none",
+		...(oauthRequired
+			? {
+					oauthDetail:
+						getTrimmedStringValue(oauth.lastError) ??
+						"This MCP server requires authentication to get started.",
+				}
+			: {}),
+	};
+}
+
 function buildCursorMcpInstallResponse(
 	request: CursorMcpInstallRequest,
 	input: {
@@ -602,6 +653,7 @@ function buildCursorMcpInstallResponse(
 		...(Array.isArray(transport.args) ? { argCount: transport.args.length } : {}),
 		...(env ? { envKeys: Object.keys(env).sort() } : {}),
 		...(headers ? { headerKeys: Object.keys(headers).sort() } : {}),
+		...summarizeCursorMcpInstallOAuth(request.serverConfig),
 	};
 }
 

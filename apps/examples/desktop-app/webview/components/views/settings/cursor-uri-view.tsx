@@ -1171,6 +1171,12 @@ export function CursorUriView({
 							{mcpInstall.transportType} |{" "}
 							{mcpInstall.replaced ? "replaced" : "added"}
 							{mcpInstall.urlOrigin ? ` | ${mcpInstall.urlOrigin}` : ""}
+							{mcpInstall.oauthAuthStatus
+								? ` | auth: ${mcpInstall.oauthAuthStatus}`
+								: ""}
+							{mcpInstall.oauthDetail ? (
+								<span className="block pt-1">{mcpInstall.oauthDetail}</span>
+							) : null}
 						</AlertDescription>
 					</Alert>
 				) : null}

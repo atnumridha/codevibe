@@ -491,6 +491,10 @@ describe("Code sidecar runtime capabilities", () => {
 							Authorization: "Bearer secret-value",
 						},
 					},
+					oauth: {
+						codeVerifier: "secret-verifier",
+						lastError: "Authorization required",
+					},
 				},
 			},
 		});
@@ -515,17 +519,27 @@ describe("Code sidecar runtime capabilities", () => {
 			transportType: "streamableHttp",
 			urlOrigin: "https://mcp.example.com",
 			headerKeys: ["Authorization"],
+			oauthRequired: true,
+			oauthAuthStatus: "pending",
+			oauthNextAction: "authenticate",
+			oauthDetail: "Authorization required",
 			replaced: true,
 		});
 		expect(JSON.stringify(result)).not.toContain("secret-value");
+		expect(JSON.stringify(result)).not.toContain("secret-verifier");
 		expect(stored.mcpServers.docs).toMatchObject({
 			type: "streamableHttp",
 			url: "https://mcp.example.com/context",
 			headers: {
 				Authorization: "Bearer secret-value",
 			},
+			oauth: {
+				codeVerifier: "secret-verifier",
+				lastError: "Authorization required",
+			},
 		});
 		expect(storedText).toContain("secret-value");
+		expect(storedText).toContain("secret-verifier");
 	});
 
 	it("previews workspace Cursor MCP imports without mutating settings", async () => {
