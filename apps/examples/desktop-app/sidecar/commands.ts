@@ -1166,6 +1166,9 @@ async function handleCursorUriPreviewCommand(
 	if (input.maxCommandFileBytes !== undefined) {
 		payload.maxCommandFileBytes = input.maxCommandFileBytes;
 	}
+	if (input.maxRuleFileBytes !== undefined) {
+		payload.maxRuleFileBytes = input.maxRuleFileBytes;
+	}
 	const reply = await sendHubCommand(
 		{},
 		{

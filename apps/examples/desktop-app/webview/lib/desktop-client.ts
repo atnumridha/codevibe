@@ -500,6 +500,9 @@ class DesktopClient {
 			...(input.maxCommandFileBytes !== undefined
 				? { maxCommandFileBytes: input.maxCommandFileBytes }
 				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
+				: {}),
 		});
 	}
 
@@ -513,6 +516,9 @@ class DesktopClient {
 			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
 			...(input.maxCommandFileBytes !== undefined
 				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
 				: {}),
 			...(input.provider ? { provider: input.provider } : {}),
 			...(input.model ? { model: input.model } : {}),
@@ -563,6 +569,9 @@ class DesktopClient {
 				...(input.maxCommandFileBytes !== undefined
 					? { maxCommandFileBytes: input.maxCommandFileBytes }
 					: {}),
+				...(input.maxRuleFileBytes !== undefined
+					? { maxRuleFileBytes: input.maxRuleFileBytes }
+					: {}),
 			},
 		);
 	}
@@ -577,6 +586,9 @@ class DesktopClient {
 			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
 			...(input.maxCommandFileBytes !== undefined
 				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
 				: {}),
 		});
 	}
@@ -593,6 +605,9 @@ class DesktopClient {
 			...(input.maxCommandFileBytes !== undefined
 				? { maxCommandFileBytes: input.maxCommandFileBytes }
 				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
+				: {}),
 		});
 	}
 
@@ -608,6 +623,9 @@ class DesktopClient {
 			...(input.maxCommandFileBytes !== undefined
 				? { maxCommandFileBytes: input.maxCommandFileBytes }
 				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
+				: {}),
 		});
 	}
 
@@ -621,6 +639,9 @@ class DesktopClient {
 			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
 			...(input.maxCommandFileBytes !== undefined
 				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
 				: {}),
 		});
 	}
