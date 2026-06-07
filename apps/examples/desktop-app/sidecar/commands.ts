@@ -193,6 +193,7 @@ type CursorPluginAddResponse = {
 	sourceParam?: CursorPluginAddRouteRequest["sourceParam"];
 	sourceConfigKey?: CursorPluginAddRouteRequest["sourceConfigKey"];
 	sourceLabel?: string;
+	force?: boolean;
 	reason?: string;
 	detail?: string;
 	paramKeys: string[];
@@ -646,6 +647,7 @@ function buildCursorPluginAddResponse(
 		...(request.sourceParam ? { sourceParam: request.sourceParam } : {}),
 		...(request.sourceConfigKey ? { sourceConfigKey: request.sourceConfigKey } : {}),
 		...(sourceLabel ? { sourceLabel } : {}),
+		...(request.force ? { force: true } : {}),
 		...(request.reason ? { reason: request.reason } : {}),
 		...(request.requiresReview ? { detail: request.detail } : {}),
 		paramKeys: Object.keys(request.params).sort(),
@@ -1739,7 +1741,7 @@ async function handleCursorPluginAddCommand(
 	const result = await installPlugin({
 		source: request.source,
 		cwd: workspaceRoot,
-		force: args?.force === true,
+		force: args?.force === true || request.force === true,
 		io: {
 			writeln: () => undefined,
 			writeErr: () => undefined,

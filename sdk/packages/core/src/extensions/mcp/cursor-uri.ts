@@ -272,6 +272,7 @@ export interface CursorPluginAddRouteRequest {
 	sourceParam?: "id" | "name" | "url" | "config";
 	sourceConfigKey?: "source" | "id" | "name" | "url";
 	displaySource?: string;
+	force?: boolean;
 	requiresReview: boolean;
 	reason?: string;
 	detail: string;
@@ -581,6 +582,21 @@ function getAutomationBoolean(
 	}
 	const normalized = typeof value === "string" ? value.toLowerCase() : undefined;
 	if (!normalized || !CURSOR_BOOLEAN_STRING_VALUES.has(normalized)) {
+		throw new CursorUriError(`${key} must be one of true, false, 1, 0, yes, or no`);
+	}
+	return ["true", "1", "yes"].includes(normalized);
+}
+
+function getRouteBooleanFlag(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): boolean {
+	const value = getRouteStringParam(params, key);
+	if (value === undefined) {
+		return false;
+	}
+	const normalized = value.toLowerCase();
+	if (!CURSOR_BOOLEAN_STRING_VALUES.has(normalized)) {
 		throw new CursorUriError(`${key} must be one of true, false, 1, 0, yes, or no`);
 	}
 	return ["true", "1", "yes"].includes(normalized);
@@ -1499,13 +1515,23 @@ export function buildCursorPluginAddRouteRequest(
 	uri: string,
 ): CursorPluginAddRouteRequest {
 	const params = parseCursorRouteParams(uri, "/plugin/add");
-	assertAllowedParamNames("/plugin/add", params, ["id", "name", "url", "config"]);
+	assertAllowedParamNames("/plugin/add", params, [
+		"id",
+		"name",
+		"url",
+		"force",
+		"replace",
+		"config",
+	]);
 
 	const sourceParam = (["id", "name", "url"] as const).find((key) =>
 		Boolean(getRouteStringParam(params, key)),
 	);
 	const config = getRecord(params.config);
 	const configSource = getCursorPluginConfigSource(config);
+	const forceParam = getRouteBooleanFlag(params, "force");
+	const replaceParam = getRouteBooleanFlag(params, "replace");
+	const force = forceParam || replaceParam;
 	const source = sourceParam
 		? getRouteStringParam(params, sourceParam)
 		: configSource?.source;
@@ -1521,8 +1547,10 @@ export function buildCursorPluginAddRouteRequest(
 			detail: [
 				"Plugin source: config payload",
 				`Config keys: ${Object.keys(config ?? {}).sort().join(", ") || "(none)"}`,
+				...(force ? ["Replace existing: requested"] : []),
 				"Install action: unsupported without explicit id, name, url, or config source key",
 			].join("\n"),
+			...(force ? { force } : {}),
 			params,
 		};
 	}
@@ -1536,11 +1564,13 @@ export function buildCursorPluginAddRouteRequest(
 		sourceParam: resolvedSourceParam,
 		...(configSource && !sourceParam ? { sourceConfigKey: configSource.sourceConfigKey } : {}),
 		displaySource,
+		...(force ? { force } : {}),
 		requiresReview: false,
 		detail: [
 			`Plugin source: ${displaySource}`,
 			`Source parameter: ${sourceParam ?? `config.${configSource?.sourceConfigKey ?? "source"}`}`,
 			...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
+			...(force ? ["Replace existing: requested"] : []),
 			"Install action: preview by default; requires explicit confirmation.",
 		].join("\n"),
 		params,

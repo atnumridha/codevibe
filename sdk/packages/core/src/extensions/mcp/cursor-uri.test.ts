@@ -751,6 +751,17 @@ describe("Cursor MCP install URI parser", () => {
 		});
 		expect(byId.detail).toContain("Plugin source: docs-helper");
 
+		const withReplace = buildCursorPluginAddRouteRequest(
+			"vscode://cline.cline/plugin/add?id=docs-helper&replace=true",
+		);
+		expect(withReplace).toMatchObject({
+			source: "docs-helper",
+			sourceParam: "id",
+			force: true,
+			requiresReview: false,
+		});
+		expect(withReplace.detail).toContain("Replace existing: requested");
+
 		const byUrl = buildCursorPluginAddRouteRequest(
 			"vscode://cline.cline/plugin/add?url=https%3A%2F%2Fexample.com%2Fplugin.js%3Ftoken%3Dsecret-value%23secret-fragment",
 		);

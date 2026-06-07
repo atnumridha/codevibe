@@ -926,6 +926,35 @@ describe("Code sidecar runtime capabilities", () => {
 		});
 	});
 
+	it("previews Cursor plugin replace requests from URI flags", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-plugin-add-"));
+		tempDirs.push(workspace);
+		const ctx = createSidecarContext(workspace);
+
+		const result = await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				id: "docs-helper",
+				replace: "true",
+			}).toString()}`,
+		});
+
+		expect(result).toMatchObject({
+			handled: true,
+			route: "plugin-add",
+			confirmed: false,
+			installed: false,
+			actionable: true,
+			requiresReview: false,
+			sourceParam: "id",
+			sourceLabel: "docs-helper",
+			force: true,
+			paramKeys: ["id", "replace"],
+		});
+	});
+
 	it("redacts URL query details from Cursor plugin previews", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
@@ -1039,6 +1068,65 @@ describe("Code sidecar runtime capabilities", () => {
 					path: result.entryPaths[0],
 				}),
 			]),
+		);
+	});
+
+	it("uses URI replace flags when reinstalling confirmed Cursor plugins", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-plugin-add-"));
+		tempDirs.push(workspace);
+		const pluginPath = join(workspace, "docs-plugin.js");
+		await writeFile(
+			pluginPath,
+			[
+				"export default {",
+				"  name: 'docs-plugin',",
+				"  manifest: { capabilities: [] },",
+				"  activate() {}",
+				"};",
+				"",
+			].join("\n"),
+		);
+		const ctx = createSidecarContext(workspace);
+		const first = (await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				name: "./docs-plugin.js",
+			}).toString()}`,
+			confirmed: true,
+		})) as { entryPaths: string[] };
+
+		await writeFile(
+			pluginPath,
+			[
+				"export default {",
+				"  name: 'docs-plugin',",
+				"  manifest: { capabilities: [] },",
+				"  activate() { return 'updated'; }",
+				"};",
+				"",
+			].join("\n"),
+		);
+		const result = (await handleCommand(ctx, "cursor_plugin_add", {
+			uri: `vscode://cline.cline/plugin/add?${new URLSearchParams({
+				name: "./docs-plugin.js",
+				replace: "true",
+			}).toString()}`,
+			confirmed: true,
+		})) as {
+			installed: boolean;
+			force?: boolean;
+			entryPaths: string[];
+		};
+
+		expect(result).toMatchObject({
+			installed: true,
+			force: true,
+			entryPaths: first.entryPaths,
+		});
+		await expect(readFile(result.entryPaths[0], "utf8")).resolves.toContain(
+			"updated",
 		);
 	});
 
