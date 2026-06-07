@@ -733,6 +733,15 @@ export function CursorUriView({
 	};
 
 	const runBrowserClose = async () => {
+		if (!browserAvailable) {
+			setBrowserResult({
+				query: "browser_action:close",
+				result: "",
+				error: "Browser automation is unavailable.",
+				success: false,
+			});
+			return;
+		}
 		setBrowserRunning(true);
 		try {
 			const result = await desktopClient.browserAction({ action: "close" });
@@ -875,7 +884,7 @@ export function CursorUriView({
 								Scroll Down
 							</Button>
 							<Button
-								disabled={browserRunning}
+								disabled={!browserAvailable || browserRunning}
 								onClick={() => void runBrowserClose()}
 								variant="outline"
 							>
