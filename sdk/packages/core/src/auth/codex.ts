@@ -276,15 +276,16 @@ function resolveCallbackServerConfig(): {
 	}
 }
 
-function getAccountId(accessToken: string, idToken?: string): string | null {
+function getAccessTokenAccountId(accessToken: string): string | null {
 	const accessPayload = decodeJwtPayload(accessToken) as JwtPayload | null;
-	const idPayload = idToken ? (decodeJwtPayload(idToken) as JwtPayload | null) : null;
-	const accessAccountId = getAccountIdFromPayload(accessPayload, {
+	return getAccountIdFromPayload(accessPayload, {
 		includeOrganizations: false,
 	});
-	if (accessAccountId) {
-		return accessAccountId;
-	}
+}
+
+function getJwtFallbackAccountId(accessToken: string, idToken?: string): string | null {
+	const accessPayload = decodeJwtPayload(accessToken) as JwtPayload | null;
+	const idPayload = idToken ? (decodeJwtPayload(idToken) as JwtPayload | null) : null;
 
 	const idAccountId = getAccountIdFromPayload(idPayload, {
 		includeOrganizations: true,
@@ -296,6 +297,13 @@ function getAccountId(accessToken: string, idToken?: string): string | null {
 	return getAccountIdFromPayload(accessPayload, {
 		includeOrganizations: true,
 	});
+}
+
+function getAccountId(accessToken: string, idToken?: string): string | null {
+	return (
+		getAccessTokenAccountId(accessToken) ??
+		getJwtFallbackAccountId(accessToken, idToken)
+	);
 }
 
 function getAccountIdFromPayload(
@@ -428,8 +436,11 @@ export function loadOpenAICodexHomeCredentialsSync(options?: {
 		modelsCache.client_version.trim().length > 0
 			? modelsCache.client_version.trim()
 			: undefined;
-	const accountId = getAccountId(accessToken, idToken);
 	const tokenAccountId = authJson.tokens?.account_id?.trim() || undefined;
+	const accountId =
+		getAccessTokenAccountId(accessToken) ??
+		tokenAccountId ??
+		getJwtFallbackAccountId(accessToken, idToken);
 
 	return {
 		access: accessToken,

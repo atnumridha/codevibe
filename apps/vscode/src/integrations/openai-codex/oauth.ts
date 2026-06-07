@@ -193,12 +193,13 @@ function extractAccountIdFromClaims(
  * Extract ChatGPT account ID from token response
  * Prefer the access-token ChatGPT account claim before id-token organization fallbacks.
  */
-function extractAccountId(tokens: { id_token?: string; access_token: string }): string | undefined {
+function extractAccessTokenAccountId(accessToken: string): string | undefined {
+	const accessClaims = accessToken ? parseJwtClaims(accessToken) : undefined
+	return extractAccountIdFromClaims(accessClaims, { includeOrganizations: false })
+}
+
+function extractJwtFallbackAccountId(tokens: { id_token?: string; access_token: string }): string | undefined {
 	const accessClaims = tokens.access_token ? parseJwtClaims(tokens.access_token) : undefined
-	const accessAccountId = extractAccountIdFromClaims(accessClaims, { includeOrganizations: false })
-	if (accessAccountId) {
-		return accessAccountId
-	}
 
 	if (tokens.id_token) {
 		const claims = parseJwtClaims(tokens.id_token)
@@ -207,6 +208,10 @@ function extractAccountId(tokens: { id_token?: string; access_token: string }): 
 	}
 
 	return extractAccountIdFromClaims(accessClaims, { includeOrganizations: true })
+}
+
+function extractAccountId(tokens: { id_token?: string; access_token: string }): string | undefined {
+	return extractAccessTokenAccountId(tokens.access_token) ?? extractJwtFallbackAccountId(tokens)
 }
 
 function extractEmail(tokens: { id_token?: string; access_token: string }): string | undefined {
@@ -367,7 +372,7 @@ export async function loadCodexHomeCredentials(options?: {
 		id_token: authJson.tokens.id_token,
 		expires: extractExpiryMs(accessToken, options?.now),
 		email: extractEmail(tokens),
-		accountId: extractAccountId(tokens) ?? tokenAccountId,
+		accountId: extractAccessTokenAccountId(accessToken) ?? tokenAccountId ?? extractJwtFallbackAccountId(tokens),
 		tokenSource: "codex-home",
 		installationId,
 		clientVersion,

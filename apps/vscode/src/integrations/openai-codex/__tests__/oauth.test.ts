@@ -210,12 +210,15 @@ describe("OpenAI Codex OAuth local profile support", () => {
 		expect(credentials?.accountId).to.equal("acct_from_access")
 	})
 
-	it("uses Codex home token account_id when JWT account claims are missing", async () => {
+	it("uses Codex home token account_id before id-token organization fallbacks", async () => {
 		const codexHome = join(tmpdir(), `codevibe-codex-home-token-account-${Date.now()}`)
 		await mkdir(codexHome, { recursive: true })
 		const accessToken = jwt({
 			exp: 2_000,
 			email: "access@example.com",
+		})
+		const idToken = jwt({
+			organizations: [{ id: "org-from-id-token" }],
 		})
 
 		await writeFile(
@@ -224,6 +227,7 @@ describe("OpenAI Codex OAuth local profile support", () => {
 				tokens: {
 					access_token: accessToken,
 					refresh_token: "refresh-secret",
+					id_token: idToken,
 					account_id: "acct-from-file",
 				},
 			}),

@@ -301,12 +301,15 @@ describe("auth/codex token lifecycle", () => {
 		expect(credentials?.metadata).not.toHaveProperty("clientVersion");
 	});
 
-	it("uses Codex home token account_id when JWT account claims are missing", () => {
+	it("uses Codex home token account_id before id-token organization fallbacks", () => {
 		const codexHome = mkdtempSync(join(tmpdir(), "cline-codex-home-"));
 		tempDirs.push(codexHome);
 		const accessToken = createJwt({
 			exp: 2_000,
 			email: "codex@example.com",
+		});
+		const idToken = createJwt({
+			organizations: [{ id: "org-from-id-token" }],
 		});
 		writeFileSync(
 			join(codexHome, "auth.json"),
@@ -314,6 +317,7 @@ describe("auth/codex token lifecycle", () => {
 				tokens: {
 					access_token: accessToken,
 					refresh_token: "refresh-home",
+					id_token: idToken,
 					account_id: "acct-from-file",
 				},
 			}),
