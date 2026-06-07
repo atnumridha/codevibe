@@ -100,6 +100,10 @@ import type { HubSessionState } from "./hub-session-records";
 import { handleAccountGetCurrent } from "./handlers/account-handlers";
 import { handleCatalogList } from "./handlers/catalog-handlers";
 import { handleMentionFilesSearch } from "./handlers/mention-file-handlers";
+import {
+	handlePromptCommandsExecute,
+	handlePromptCommandsList,
+} from "./handlers/prompt-command-handlers";
 import type { NativeHubTransport } from "./native-transport";
 
 const SETTINGS_TYPES = new Set<CoreSettingsType>([
@@ -1057,6 +1061,10 @@ export class HubServerTransport implements NativeHubTransport {
 				return handleCatalogList(envelope);
 			case "mention_files.search":
 				return await handleMentionFilesSearch(this.ctx, envelope);
+			case "prompt_commands.list":
+				return await handlePromptCommandsList(this.ctx, envelope);
+			case "prompt_commands.execute":
+				return await handlePromptCommandsExecute(this.ctx, envelope);
 			case "session.create":
 				return await handleSessionCreate(
 					this.ctx,

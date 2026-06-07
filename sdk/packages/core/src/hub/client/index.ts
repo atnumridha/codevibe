@@ -13,6 +13,10 @@ import {
 	type HubMentionFileSearchRequest,
 	type HubMentionFileSearchResponse,
 	type HubModelCatalog,
+	type HubPromptCommandExecuteRequest,
+	type HubPromptCommandExecuteResponse,
+	type HubPromptCommandListRequest,
+	type HubPromptCommandListResponse,
 	type HubReplyEnvelope,
 	type HubTransportFrame,
 	resolveHubCommandTimeoutMs,
@@ -566,6 +570,41 @@ export class NodeHubClient {
 			truncated: false,
 			results: [],
 		}) as HubMentionFileSearchResponse;
+	}
+
+	async listPromptCommands(
+		input: HubPromptCommandListRequest = {},
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<HubPromptCommandListResponse> {
+		const reply = await this.command(
+			"prompt_commands.list",
+			{ ...input },
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return (reply.payload ?? {
+			query: "",
+			workspaceRoot: "",
+			count: 0,
+			commands: [],
+		}) as HubPromptCommandListResponse;
+	}
+
+	async executePromptCommand(
+		input: HubPromptCommandExecuteRequest,
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<HubPromptCommandExecuteResponse> {
+		const reply = await this.command(
+			"prompt_commands.execute",
+			{ ...input },
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return (reply.payload ?? {
+			name: "",
+			kind: "workflow",
+			prompt: "",
+		}) as HubPromptCommandExecuteResponse;
 	}
 
 	async ingestCursorNdjson(

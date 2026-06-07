@@ -745,6 +745,137 @@ describe("NodeHubClient", () => {
 		});
 	});
 
+	describe("prompt commands", () => {
+		const originalWebSocket = globalThis.WebSocket;
+
+		beforeEach(() => {
+			FakeWebSocket.instances = [];
+			(
+				globalThis as unknown as { WebSocket?: typeof FakeWebSocket }
+			).WebSocket = FakeWebSocket;
+		});
+
+		afterEach(() => {
+			if (originalWebSocket) {
+				globalThis.WebSocket = originalWebSocket;
+			} else {
+				delete (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
+			}
+		});
+
+		it("sends typed prompt command list and execute commands", async () => {
+			const client = new NodeHubClient({ url: "ws://127.0.0.1:25463/hub" });
+			const connectPromise = client.connect();
+			const socket = FakeWebSocket.instances[0];
+			if (!socket) {
+				throw new Error("expected fake websocket instance");
+			}
+			socket.open();
+			await connectPromise;
+
+			const findCommandFrame = (command: string) =>
+				[...socket.sentFrames].reverse().find((frame) => {
+					const envelope = (frame as { envelope?: { command?: string } })
+						.envelope;
+					return envelope?.command === command;
+				}) as
+					| {
+							kind?: string;
+							envelope?: {
+								requestId?: string;
+								command?: string;
+								payload?: Record<string, unknown>;
+								timeoutMs?: number | null;
+							};
+					  }
+					| undefined;
+			const replyTo = (
+				frame:
+					| {
+							envelope?: {
+								requestId?: string;
+							};
+					  }
+					| undefined,
+				payload: Record<string, unknown>,
+			) => {
+				(
+					socket as unknown as { emit: (type: string, payload: unknown) => void }
+				).emit("message", {
+					data: JSON.stringify({
+						kind: "reply",
+						envelope: {
+							version: "v1",
+							requestId: frame?.envelope?.requestId,
+							ok: true,
+							payload,
+						},
+					}),
+				});
+			};
+
+			const listPromise = client.listPromptCommands(
+				{
+					workspaceRoot: "/workspace",
+					query: "rel",
+				},
+				{ timeoutMs: 5_000 },
+			);
+			const listFrame = findCommandFrame("prompt_commands.list");
+			expect(listFrame).toMatchObject({
+				kind: "command",
+				envelope: {
+					command: "prompt_commands.list",
+					payload: {
+						workspaceRoot: "/workspace",
+						query: "rel",
+					},
+					timeoutMs: 5_000,
+				},
+			});
+			replyTo(listFrame, {
+				query: "rel",
+				workspaceRoot: "/workspace",
+				count: 1,
+				commands: [{ id: "release", name: "release", kind: "workflow" }],
+			});
+			await expect(listPromise).resolves.toMatchObject({
+				query: "rel",
+				count: 1,
+				commands: [{ name: "release" }],
+			});
+
+			const executePromise = client.executePromptCommand({
+				workspaceRoot: "/workspace",
+				name: "/release",
+				input: "now",
+			});
+			const executeFrame = findCommandFrame("prompt_commands.execute");
+			expect(executeFrame).toMatchObject({
+				kind: "command",
+				envelope: {
+					command: "prompt_commands.execute",
+					payload: {
+						workspaceRoot: "/workspace",
+						name: "/release",
+						input: "now",
+					},
+				},
+			});
+			replyTo(executeFrame, {
+				name: "release",
+				kind: "workflow",
+				prompt: "Run release.\n\nnow",
+			});
+			await expect(executePromise).resolves.toMatchObject({
+				name: "release",
+				prompt: "Run release.\n\nnow",
+			});
+
+			await client.dispose();
+		});
+	});
+
 	describe("cursor NDJSON ingest", () => {
 		const originalWebSocket = globalThis.WebSocket;
 

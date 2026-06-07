@@ -416,6 +416,41 @@ export interface HubMentionFileSearchResponse extends Record<string, unknown> {
 	results: HubMentionFileSearchResult[];
 }
 
+export interface HubPromptCommandListRequest extends Record<string, unknown> {
+	workspaceRoot?: string;
+	cwd?: string;
+	query?: string;
+}
+
+export interface HubPromptCommandExecuteRequest extends Record<string, unknown> {
+	workspaceRoot?: string;
+	cwd?: string;
+	name?: string;
+	command?: string;
+	input?: string;
+}
+
+export interface HubPromptCommandSummary extends Record<string, unknown> {
+	id: string;
+	name: string;
+	kind: "skill" | "workflow";
+	description?: string;
+}
+
+export interface HubPromptCommandListResponse extends Record<string, unknown> {
+	query: string;
+	workspaceRoot: string;
+	count: number;
+	commands: HubPromptCommandSummary[];
+}
+
+export interface HubPromptCommandExecuteResponse
+	extends Record<string, unknown> {
+	name: string;
+	kind: "skill" | "workflow";
+	prompt: string;
+}
+
 export interface CursorNdjsonIngestRequest extends Record<string, unknown> {
 	ndjson?: string;
 	input?: string;
