@@ -31,6 +31,10 @@ function asPositiveIntegerAtMost(value: unknown, max: number): number | undefine
 	return Math.min(value, max);
 }
 
+function asBoolean(value: unknown): boolean | undefined {
+	return typeof value === "boolean" ? value : undefined;
+}
+
 function resolveClientWorkspaceRoot(
 	ctx: HubTransportContext,
 	envelope: HubCommandEnvelope,
@@ -42,6 +46,20 @@ function resolveClientWorkspaceRoot(
 	const workspaceContext = ctx.clients.get(clientId)?.workspaceContext;
 	return (
 		asString(workspaceContext?.workspaceRoot) ?? asString(workspaceContext?.cwd)
+	);
+}
+
+function resolveClientCursorRetrievalIndexingPrivacyGate(
+	ctx: HubTransportContext,
+	envelope: HubCommandEnvelope,
+): boolean | undefined {
+	const clientId = envelope.clientId?.trim();
+	if (!clientId) {
+		return undefined;
+	}
+	return asBoolean(
+		ctx.clients.get(clientId)?.workspaceContext
+			?.cursorRetrievalIndexingPrivacyGate,
 	);
 }
 
@@ -116,7 +134,13 @@ export async function handleMentionFilesSearch(
 			payload.ttlMs >= 0
 				? payload.ttlMs
 				: undefined;
-		const files = await getFileIndex(workspaceRoot, { ttlMs });
+		const cursorRetrievalIndexingPrivacyGate =
+			asBoolean(payload.cursorRetrievalIndexingPrivacyGate) ??
+			resolveClientCursorRetrievalIndexingPrivacyGate(ctx, envelope);
+		const files = await getFileIndex(workspaceRoot, {
+			ttlMs,
+			cursorRetrievalIndexingPrivacyGate,
+		});
 		const ranked = Array.from(files)
 			.map((file) => {
 				const score = scoreFileMatch(file, query);

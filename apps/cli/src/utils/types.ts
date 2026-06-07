@@ -27,6 +27,7 @@ export interface Config extends Omit<CoreSessionConfig, "apiKey" | "mode"> {
 	sandbox: boolean;
 	sandboxDataDir?: string;
 	cursorSandboxPolicy?: CursorSandboxRuntimePolicy;
+	cursorRetrievalIndexingPrivacyGate?: boolean;
 	thinking: boolean;
 	outputMode: CliOutputMode;
 	mode: CliAgentMode;

@@ -42,6 +42,8 @@ export function createSessionSpawnTool(
 			? createBuiltinTools({
 					cwd: config.cwd,
 					...ToolPresets[resolveToolPresetName({ mode: config.mode })],
+					cursorRetrievalIndexingPrivacyGate:
+						config.cursorRetrievalIndexingPrivacyGate,
 					executors: toolExecutors,
 				})
 			: [];
@@ -73,6 +75,8 @@ export function createSessionSpawnTool(
 					extensions: config.extensions,
 					logger: config.logger,
 					telemetry: config.telemetry,
+					cursorRetrievalIndexingPrivacyGate:
+						config.cursorRetrievalIndexingPrivacyGate,
 				},
 			getConnectionConfig: () =>
 				deps

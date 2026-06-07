@@ -44,6 +44,13 @@ export interface SearchExecutorOptions {
 	 * @default 20
 	 */
 	maxDepth?: number;
+
+	/**
+	 * When false, the SDK search index honors only gitignore rules and keeps
+	 * legacy behavior that may include Cursor-ignored files.
+	 * @default true
+	 */
+	cursorRetrievalIndexingPrivacyGate?: boolean;
 }
 
 const DEFAULT_INCLUDE_EXTENSIONS = [
@@ -342,6 +349,7 @@ export function createSearchExecutor(
 		maxResults = 100,
 		contextLines = 2,
 		maxDepth = 20,
+		cursorRetrievalIndexingPrivacyGate,
 	} = options;
 	const excludeDirsSet = new Set(excludeDirs);
 	const includeExtensionsSet = new Set(
@@ -361,7 +369,9 @@ export function createSearchExecutor(
 		// Try ripgrep first if available
 		const isRgAvailable = await checkRipgrepAvailable();
 		let rgMatches: SearchMatch[] | null = null;
-		const fileList = await getFileIndex(cwd);
+		const fileList = await getFileIndex(cwd, {
+			cursorRetrievalIndexingPrivacyGate,
+		});
 		if (isRgAvailable) {
 			rgMatches = await searchWithRipgrep(
 				query,

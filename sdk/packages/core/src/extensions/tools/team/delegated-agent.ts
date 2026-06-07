@@ -41,6 +41,7 @@ export interface DelegatedAgentRuntimeConfig
 	logger?: BasicLogger;
 	telemetry?: ITelemetryService;
 	workspaceMetadata?: string;
+	cursorRetrievalIndexingPrivacyGate?: boolean;
 }
 
 export interface DelegatedAgentConfigProvider {

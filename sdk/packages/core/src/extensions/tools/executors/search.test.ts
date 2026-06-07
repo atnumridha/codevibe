@@ -55,4 +55,35 @@ describe("createSearchExecutor", () => {
 			await rm(cwd, { recursive: true, force: true });
 		}
 	});
+
+	it("can search Cursor-indexing ignored files when the privacy gate is disabled", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "generated"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"generated/\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "generated", "types.ts"),
+				"export const legacy = 'CURSOR_SECRET'\n",
+				"utf8",
+			);
+
+			const search = createSearchExecutor({
+				cursorRetrievalIndexingPrivacyGate: false,
+			});
+			const result = await search(
+				"CURSOR_SECRET",
+				cwd,
+				{} as AgentToolContext,
+			);
+
+			expect(result).toContain("Found 1 result");
+			expect(result).toContain("generated/types.ts");
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
 });

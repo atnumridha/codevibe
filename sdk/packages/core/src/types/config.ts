@@ -212,6 +212,12 @@ export interface CoreSessionConfig
 		| ConsecutiveMistakeLimitDecision;
 	toolRoutingRules?: ToolRoutingRule[];
 	/**
+	 * Cursor-compatible privacy gate for retrieval/indexing features. When true
+	 * (the default), SDK workspace indexes and searches omit files excluded by
+	 * `.cursorignore` and `.cursorindexingignore`.
+	 */
+	cursorRetrievalIndexingPrivacyGate?: boolean;
+	/**
 	 * Optional metadata merged into every tool execution context.
 	 * Hosts use this to pass runtime policy data such as Cursor sandbox bounds.
 	 */

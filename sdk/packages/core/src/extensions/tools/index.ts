@@ -190,9 +190,17 @@ export function createBuiltinTools(
 		executors: executorOverrides,
 		...toolsConfig
 	} = options;
+	const effectiveExecutorOptions: DefaultExecutorsOptions = {
+		...executorOptions,
+		search: {
+			cursorRetrievalIndexingPrivacyGate:
+				toolsConfig.cursorRetrievalIndexingPrivacyGate,
+			...(executorOptions.search ?? {}),
+		},
+	};
 
 	const executors = {
-		...createDefaultExecutors(executorOptions),
+		...createDefaultExecutors(effectiveExecutorOptions),
 		...(executorOverrides ?? {}),
 	};
 

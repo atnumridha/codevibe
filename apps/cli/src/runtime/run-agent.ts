@@ -150,7 +150,10 @@ export async function runAgent(
 	}
 
 	const startTime = performance.now();
-	void prewarmFileIndex(config.cwd).catch((error: unknown) => {
+	void prewarmFileIndex(config.cwd, {
+		cursorRetrievalIndexingPrivacyGate:
+			config.cursorRetrievalIndexingPrivacyGate,
+	}).catch((error: unknown) => {
 		logCliError(config.logger, "File index prewarm failed", { error });
 	});
 

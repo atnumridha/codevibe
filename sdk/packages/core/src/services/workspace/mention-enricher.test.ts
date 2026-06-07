@@ -90,6 +90,35 @@ describe("enrichPromptWithMentions", () => {
 		}
 	});
 
+	it("can match Cursor-indexing ignored mentions when the privacy gate is disabled", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "generated"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"generated/\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "generated", "types.ts"),
+				"export type Legacy = string\n",
+				"utf8",
+			);
+
+			const result = await enrichPromptWithMentions(
+				"Use @generated/types.ts",
+				cwd,
+				{ cursorRetrievalIndexingPrivacyGate: false },
+			);
+
+			expect(result.mentions).toEqual(["generated/types.ts"]);
+			expect(result.matchedFiles).toEqual(["generated/types.ts"]);
+			expect(result.ignoredMentions).toEqual([]);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it("respects maxTotalBytes while keeping prompt unchanged", async () => {
 		const cwd = await createTempWorkspace();
 		try {

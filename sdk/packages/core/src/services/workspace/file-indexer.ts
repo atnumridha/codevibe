@@ -24,6 +24,7 @@ const WORKSPACE_IGNORE_FILE_NAMES = [
 	".cursorignore",
 	".cursorindexingignore",
 ];
+const WORKSPACE_GIT_IGNORE_FILE_NAMES = [".gitignore"];
 
 interface IgnoreRule {
 	basePath: string;
@@ -51,12 +52,19 @@ interface CacheEntry {
 
 export interface FastFileIndexOptions {
 	ttlMs?: number;
+	/**
+	 * When false, keeps legacy search/indexing behavior by honoring only
+	 * gitignore-style rules. Defaults to true so Cursor privacy ignores are
+	 * applied before a file enters the SDK index.
+	 */
+	cursorRetrievalIndexingPrivacyGate?: boolean;
 }
 
 interface IndexRequestMessage {
 	type: "index";
 	requestId: number;
 	cwd: string;
+	cursorRetrievalIndexingPrivacyGate?: boolean;
 }
 
 interface IndexResponseMessage {
@@ -67,6 +75,22 @@ interface IndexResponseMessage {
 }
 
 const CACHE = new Map<string, CacheEntry>();
+
+function shouldApplyCursorPrivacyRules(options: FastFileIndexOptions): boolean {
+	return options.cursorRetrievalIndexingPrivacyGate !== false;
+}
+
+function getIgnoreFileNames(
+	options: FastFileIndexOptions,
+): ReadonlyArray<string> {
+	return shouldApplyCursorPrivacyRules(options)
+		? WORKSPACE_IGNORE_FILE_NAMES
+		: WORKSPACE_GIT_IGNORE_FILE_NAMES;
+}
+
+function getCacheKey(cwd: string, options: FastFileIndexOptions): string {
+	return `${path.resolve(cwd)}\0cursorPrivacy=${shouldApplyCursorPrivacyRules(options) ? "on" : "off"}`;
+}
 
 function canUseFileIndexWorker(): boolean {
 	if (!isMainThread) {
@@ -189,10 +213,15 @@ function parseIgnoreContent(content: string, basePath: string): IgnoreRule[] {
 	return rules;
 }
 
-async function readIgnoreRules(cwd: string, basePath: string): Promise<IgnoreRule[]> {
+async function readIgnoreRules(
+	cwd: string,
+	basePath: string,
+	options: FastFileIndexOptions = {},
+): Promise<IgnoreRule[]> {
 	const dir = basePath ? path.join(cwd, basePath) : cwd;
+	const ignoreFileNames = getIgnoreFileNames(options);
 	const ruleSets = await Promise.all(
-		WORKSPACE_IGNORE_FILE_NAMES.map(async (fileName) => {
+		ignoreFileNames.map(async (fileName) => {
 			try {
 				return parseIgnoreContent(
 					await readFile(path.join(dir, fileName), "utf8"),
@@ -308,13 +337,14 @@ function collectDirectories(files: Set<string>): string[] {
 async function filterIgnoredFiles(
 	cwd: string,
 	files: Set<string>,
+	options: FastFileIndexOptions = {},
 ): Promise<Set<string>> {
 	const rules: IgnoreRule[] = [];
 	for (const dir of collectDirectories(files)) {
 		if (dir && isPathIgnored(dir, true, rules)) {
 			continue;
 		}
-		rules.push(...(await readIgnoreRules(cwd, dir)));
+		rules.push(...(await readIgnoreRules(cwd, dir, options)));
 	}
 
 	return new Set(
@@ -362,6 +392,7 @@ async function walkDir(
 	dir: string,
 	files: Set<string>,
 	rules: IgnoreRule[],
+	options: FastFileIndexOptions = {},
 ): Promise<void> {
 	let entries: Dirent[];
 	try {
@@ -375,7 +406,11 @@ async function walkDir(
 	const relativeDir = normalizeRelativePath(toPosixRelative(cwd, dir));
 	const activeRules = [
 		...rules,
-		...(await readIgnoreRules(cwd, relativeDir === "." ? "" : relativeDir)),
+		...(await readIgnoreRules(
+			cwd,
+			relativeDir === "." ? "" : relativeDir,
+			options,
+		)),
 	];
 	for (const entry of entries) {
 		const absolutePath = path.join(dir, entry.name);
@@ -390,7 +425,7 @@ async function walkDir(
 				continue;
 			}
 			try {
-				await walkDir(cwd, absolutePath, files, activeRules);
+				await walkDir(cwd, absolutePath, files, activeRules, options);
 			} catch (error) {
 				if (shouldSkipWalkError(error)) {
 					continue;
@@ -405,17 +440,23 @@ async function walkDir(
 	}
 }
 
-async function listFilesFallback(cwd: string): Promise<Set<string>> {
+async function listFilesFallback(
+	cwd: string,
+	options: FastFileIndexOptions = {},
+): Promise<Set<string>> {
 	const files = new Set<string>();
-	await walkDir(cwd, cwd, files, []);
+	await walkDir(cwd, cwd, files, [], options);
 	return files;
 }
 
-async function buildIndex(cwd: string): Promise<Set<string>> {
+async function buildIndex(
+	cwd: string,
+	options: FastFileIndexOptions = {},
+): Promise<Set<string>> {
 	try {
-		return await filterIgnoredFiles(cwd, await listFilesWithRg(cwd));
+		return await filterIgnoredFiles(cwd, await listFilesWithRg(cwd), options);
 	} catch {
-		return listFilesFallback(cwd);
+		return listFilesFallback(cwd, options);
 	}
 }
 
@@ -430,7 +471,10 @@ function startWorkerServer(): void {
 			return;
 		}
 
-		void buildIndex(message.cwd)
+		void buildIndex(message.cwd, {
+			cursorRetrievalIndexingPrivacyGate:
+				message.cursorRetrievalIndexingPrivacyGate,
+		})
 			.then((files) => {
 				const response: IndexResponseMessage = {
 					type: "indexResult",
@@ -496,7 +540,10 @@ class FileIndexWorkerClient {
 		});
 	}
 
-	requestIndex(cwd: string): Promise<string[] | null> {
+	requestIndex(
+		cwd: string,
+		options: FastFileIndexOptions = {},
+	): Promise<string[] | null> {
 		const requestId = ++this.nextRequestId;
 		const result = new Promise<string[] | null>((resolve, reject) => {
 			const timeout = setTimeout(() => {
@@ -520,6 +567,8 @@ class FileIndexWorkerClient {
 			type: "index",
 			requestId,
 			cwd,
+			cursorRetrievalIndexingPrivacyGate:
+				options.cursorRetrievalIndexingPrivacyGate,
 		};
 		this.worker.postMessage(message);
 		return result;
@@ -547,20 +596,23 @@ function getWorkerClient(): FileIndexWorkerClient | null {
 	return workerClient;
 }
 
-async function buildIndexInBackground(cwd: string): Promise<Set<string>> {
+async function buildIndexInBackground(
+	cwd: string,
+	options: FastFileIndexOptions = {},
+): Promise<Set<string>> {
 	const workerClient = getWorkerClient();
 	if (!workerClient) {
-		return buildIndex(cwd);
+		return buildIndex(cwd, options);
 	}
 
 	try {
-		const files = await workerClient.requestIndex(cwd);
+		const files = await workerClient.requestIndex(cwd, options);
 		if (files === null) {
-			return buildIndex(cwd);
+			return buildIndex(cwd, options);
 		}
 		return new Set(files);
 	} catch {
-		return buildIndex(cwd);
+		return buildIndex(cwd, options);
 	}
 }
 
@@ -571,7 +623,8 @@ export async function getFileIndex(
 	const ttlMs = options.ttlMs ?? DEFAULT_INDEX_TTL_MS;
 	const now = Date.now();
 	pruneStaleCacheEntries(now);
-	const existing = CACHE.get(cwd);
+	const cacheKey = getCacheKey(cwd, options);
+	const existing = CACHE.get(cacheKey);
 
 	if (
 		existing &&
@@ -588,8 +641,8 @@ export async function getFileIndex(
 		return existing.pending;
 	}
 
-	const pending = buildIndexInBackground(cwd).then((files) => {
-		CACHE.set(cwd, {
+	const pending = buildIndexInBackground(cwd, options).then((files) => {
+		CACHE.set(cacheKey, {
 			files,
 			lastBuiltAt: Date.now(),
 			lastAccessedAt: Date.now(),
@@ -598,7 +651,7 @@ export async function getFileIndex(
 		return files;
 	});
 
-	CACHE.set(cwd, {
+	CACHE.set(cacheKey, {
 		files: existing?.files ?? new Set<string>(),
 		lastBuiltAt: existing?.lastBuiltAt ?? 0,
 		lastAccessedAt: now,

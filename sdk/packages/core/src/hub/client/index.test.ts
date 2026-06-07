@@ -677,6 +677,7 @@ describe("NodeHubClient", () => {
 					query: "app",
 					limit: 5,
 					ttlMs: 0,
+					cursorRetrievalIndexingPrivacyGate: false,
 				},
 				{ timeoutMs: 5_000 },
 			);
@@ -704,6 +705,7 @@ describe("NodeHubClient", () => {
 						query: "app",
 						limit: 5,
 						ttlMs: 0,
+						cursorRetrievalIndexingPrivacyGate: false,
 					},
 					timeoutMs: 5_000,
 				},

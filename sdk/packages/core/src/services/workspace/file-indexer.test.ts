@@ -126,6 +126,55 @@ describe("file indexer", () => {
 		}
 	});
 
+	it("can include Cursor-indexing ignored files when the privacy gate is disabled", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "generated"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"generated/\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "generated", "types.ts"),
+				"generated\n",
+				"utf8",
+			);
+
+			const index = await getFileIndex(cwd, {
+				ttlMs: 0,
+				cursorRetrievalIndexingPrivacyGate: false,
+			});
+			expect(index.has("generated/types.ts")).toBe(true);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
+	it("keeps privacy-gated and legacy indexes in separate cache entries", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "private"), { recursive: true });
+			await writeFile(path.join(cwd, ".cursorignore"), "private/\n", "utf8");
+			await writeFile(
+				path.join(cwd, "private", "secret.ts"),
+				"secret\n",
+				"utf8",
+			);
+
+			const legacyIndex = await getFileIndex(cwd, {
+				ttlMs: 60_000,
+				cursorRetrievalIndexingPrivacyGate: false,
+			});
+			expect(legacyIndex.has("private/secret.ts")).toBe(true);
+
+			const privacyIndex = await getFileIndex(cwd, { ttlMs: 60_000 });
+			expect(privacyIndex.has("private/secret.ts")).toBe(false);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it("honors later negated Cursor indexing ignore rules", async () => {
 		const cwd = await createTempWorkspace();
 		try {

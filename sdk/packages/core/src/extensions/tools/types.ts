@@ -377,6 +377,12 @@ export interface DefaultToolsConfig {
 	cwd?: string;
 
 	/**
+	 * Enables Cursor-compatible retrieval/indexing privacy filtering for
+	 * built-in tools that enumerate workspace files. Defaults to true.
+	 */
+	cursorRetrievalIndexingPrivacyGate?: boolean;
+
+	/**
 	 * Timeout for file read operations in milliseconds
 	 * @default 10000
 	 */

@@ -115,6 +115,66 @@ describe("hub mention_files.search command", () => {
 		}
 	});
 
+	it("can include Cursor-ignored paths when a client disables the privacy gate", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-hub-mention-legacy-"));
+		mkdirSync(join(root, "private"), { recursive: true });
+		writeFileSync(join(root, ".cursorignore"), "private/\n", "utf8");
+		writeFileSync(
+			join(root, "private", "secret.ts"),
+			"export const secret = 1\n",
+			"utf8",
+		);
+
+		const transport = new HubServerTransport({
+			runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
+			scheduleOptions: { dbPath: join(root, "schedule.db") },
+		});
+
+		try {
+			await transport.handleCommand({
+				version: "v1",
+				command: "client.register",
+				requestId: "req-register-legacy",
+				clientId: "client-one",
+				payload: {
+					clientType: "test-client",
+					transport: "native",
+					workspaceContext: {
+						workspaceRoot: root,
+						cursorRetrievalIndexingPrivacyGate: false,
+					},
+				},
+			});
+			const reply = await transport.handleCommand({
+				version: "v1",
+				command: "mention_files.search",
+				requestId: "req-mention-legacy",
+				clientId: "client-one",
+				payload: {
+					query: "secret",
+					ttlMs: 0,
+				},
+			});
+
+			expect(reply).toMatchObject({
+				ok: true,
+				payload: {
+					workspaceRoot: root,
+					results: [
+						{
+							path: "private/secret.ts",
+							basename: "secret.ts",
+							directory: "private",
+						},
+					],
+				},
+			});
+		} finally {
+			await transport.stop();
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	it("rejects requests without a workspace root", async () => {
 		const transport = new HubServerTransport({
 			runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),

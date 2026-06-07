@@ -50,6 +50,7 @@ export interface HubClientRegistration {
 	workspaceContext?: {
 		workspaceRoot?: string;
 		cwd?: string;
+		cursorRetrievalIndexingPrivacyGate?: boolean;
 	};
 	protocolVersion?: HubProtocolVersion;
 }
@@ -67,6 +68,7 @@ export interface HubClientRecord {
 	workspaceContext?: {
 		workspaceRoot?: string;
 		cwd?: string;
+		cursorRetrievalIndexingPrivacyGate?: boolean;
 	};
 }
 
@@ -399,6 +401,7 @@ export interface HubMentionFileSearchRequest extends Record<string, unknown> {
 	cwd?: string;
 	limit?: number;
 	ttlMs?: number;
+	cursorRetrievalIndexingPrivacyGate?: boolean;
 }
 
 export interface HubMentionFileSearchResult extends Record<string, unknown> {

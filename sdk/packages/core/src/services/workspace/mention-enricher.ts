@@ -70,7 +70,11 @@ export async function enrichPromptWithMentions(
 	const maxFiles = options.maxFiles;
 	const maxFileBytes = options.maxFileBytes;
 	const maxTotalBytes = options.maxTotalBytes;
-	const fileList = await getFileIndex(cwd, { ttlMs: options.ttlMs });
+	const fileList = await getFileIndex(cwd, {
+		ttlMs: options.ttlMs,
+		cursorRetrievalIndexingPrivacyGate:
+			options.cursorRetrievalIndexingPrivacyGate,
+	});
 	const matched: string[] = [];
 	const ignored: string[] = [];
 	const attachments: Array<{ path: string; content: string }> = [];

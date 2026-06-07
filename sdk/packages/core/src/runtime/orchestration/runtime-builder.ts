@@ -91,6 +91,7 @@ function createBuiltinToolsList(
 	modelId: string,
 	toolRoutingRules: ToolRoutingRule[] | undefined,
 	toolPolicies: CoreSessionConfig["toolPolicies"],
+	cursorRetrievalIndexingPrivacyGate: boolean | undefined,
 	skillsExecutor?: SkillsExecutorWithMetadata,
 	executorOverrides?: Partial<ToolExecutors>,
 ): AgentTool[] {
@@ -107,6 +108,7 @@ function createBuiltinToolsList(
 			cwd,
 			...preset,
 			enableSkills: !!skillsExecutor,
+			cursorRetrievalIndexingPrivacyGate,
 			...toolRoutingConfig,
 			executors: {
 				...(skillsExecutor
@@ -128,6 +130,7 @@ function isSkillsToolEnabledForSession(input: {
 	modelId: string;
 	toolRoutingRules?: ToolRoutingRule[];
 	toolPolicies?: CoreSessionConfig["toolPolicies"];
+	cursorRetrievalIndexingPrivacyGate?: boolean;
 	toolExecutors?: Partial<ToolExecutors>;
 }): boolean {
 	return createBuiltinToolsList(
@@ -137,6 +140,7 @@ function isSkillsToolEnabledForSession(input: {
 		input.modelId,
 		input.toolRoutingRules,
 		input.toolPolicies,
+		input.cursorRetrievalIndexingPrivacyGate,
 		SKILLS_PROBE_EXECUTOR,
 		input.toolExecutors,
 	).some((tool) => tool.name === "skills");
@@ -375,6 +379,8 @@ export class DefaultRuntimeBuilder implements RuntimeBuilder {
 				modelId: config.modelId,
 				toolRoutingRules: config.toolRoutingRules,
 				toolPolicies: config.toolPolicies,
+				cursorRetrievalIndexingPrivacyGate:
+					config.cursorRetrievalIndexingPrivacyGate,
 				toolExecutors,
 			});
 
@@ -401,6 +407,7 @@ export class DefaultRuntimeBuilder implements RuntimeBuilder {
 					config.modelId,
 					config.toolRoutingRules,
 					config.toolPolicies,
+					config.cursorRetrievalIndexingPrivacyGate,
 					undefined,
 					toolExecutors,
 				),
@@ -449,6 +456,8 @@ export class DefaultRuntimeBuilder implements RuntimeBuilder {
 			logger: logger ?? config.logger,
 			telemetry: input.telemetry ?? config.telemetry,
 			workspaceMetadata: config.workspaceMetadata,
+			cursorRetrievalIndexingPrivacyGate:
+				config.cursorRetrievalIndexingPrivacyGate,
 		});
 		if (!this.teamRuntimeEntries.has(registryKey)) {
 			this.teamRuntimeEntries.set(registryKey, {
@@ -536,6 +545,7 @@ export class DefaultRuntimeBuilder implements RuntimeBuilder {
 									config.modelId,
 									config.toolRoutingRules,
 									config.toolPolicies,
+									config.cursorRetrievalIndexingPrivacyGate,
 									undefined,
 									toolExecutors,
 								)
