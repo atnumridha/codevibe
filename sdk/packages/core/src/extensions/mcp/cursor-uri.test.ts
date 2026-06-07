@@ -71,6 +71,24 @@ describe("Cursor MCP install URI parser", () => {
 		).toBe("/background-agent");
 	});
 
+	it("recognizes the planned Cursor-compatible route families", () => {
+		for (const [uri, expectedPath] of [
+			["cursor://createchat?prompt=hi", "/createchat"],
+			["cursor://mcp/install?name=docs", "/mcp/install"],
+			["cursor://background-agent?prompt=hi", "/background-agent"],
+			["cursor://settings?query=codex", "/settings"],
+			["cursor://prompt?text=hi", "/prompt"],
+			["cursor://command?name=review", "/command"],
+			["cursor://rule?name=style", "/rule"],
+			["cursor://pr-review?repo=owner%2Frepo&number=1", "/pr-review"],
+			["cursor://plugin/add?id=docs", "/plugin/add"],
+			["cursor://glass?text=hi", "/glass"],
+			["cursor://automation/ingest?ndjson=%7B%7D", "/automation/ingest"],
+		] as const) {
+			expect(getCursorCompatibleUriPath(uri)).toBe(expectedPath);
+		}
+	});
+
 	it("builds a direct streamable HTTP server request", () => {
 		const request = buildCursorMcpInstallRequest(
 			route({ name: "docs", url: "https://mcp.example.com/context" }),
@@ -673,6 +691,20 @@ describe("Cursor MCP install URI parser", () => {
 		expect(() =>
 			buildCursorAgentTaskRouteRequest("vscode://cline.cline/pr-review?repo=owner%2Frepo"),
 		).toThrow("PR URL or repository plus PR number is required");
+
+		expect(() =>
+			buildCursorAgentTaskRouteRequest("vscode://cline.cline/createchat?prompt="),
+		).toThrow("prompt, text, or message is required");
+
+		expect(() =>
+			buildCursorAgentTaskRouteRequest(
+				"vscode://cline.cline/background-agent?prompt=%20%20",
+			),
+		).toThrow("prompt, task, or message is required");
+
+		expect(() =>
+			buildCursorAgentTaskRouteRequest("vscode://cline.cline/command?name="),
+		).toThrow("command input is required");
 
 		expect(() =>
 			buildCursorAgentTaskRouteRequest(

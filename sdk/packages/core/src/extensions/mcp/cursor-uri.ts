@@ -1183,7 +1183,7 @@ function assertRequiredParams(
 		return;
 	}
 
-	if (!definition.requiredAny.some((key) => params[key] !== undefined)) {
+	if (!definition.requiredAny.some((key) => Boolean(getRouteStringParam(params, key)))) {
 		throw new CursorUriError(
 			definition.requiredMessage ?? "required query parameter is missing",
 		);
