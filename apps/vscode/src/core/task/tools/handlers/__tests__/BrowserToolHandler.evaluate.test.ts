@@ -39,6 +39,42 @@ function makeEvaluateBlock(text = "document.title") {
 	}
 }
 
+function makeLaunchBlock(url: string) {
+	return {
+		type: "tool_use" as const,
+		name: ClineDefaultTool.BROWSER,
+		params: { action: "launch", url },
+		partial: false,
+	}
+}
+
+function createLaunchConfig(navigateResult?: unknown) {
+	const browserSession = {
+		launchBrowser: sinon.stub().resolves(undefined),
+		navigateToUrl: sinon.stub().resolves(navigateResult ?? {}),
+		closeBrowser: sinon.stub().resolves({}),
+	}
+	const callbacks = {
+		say: sinon.stub().resolves(undefined),
+		sayAndCreateMissingParamError: sinon.stub().resolves("missing"),
+		removeLastPartialMessageIfExistsWithType: sinon.stub().resolves(undefined),
+		applyLatestBrowserSettings: sinon.stub().resolves(browserSession),
+	}
+
+	return {
+		config: {
+			taskState: { consecutiveMistakeCount: 0 },
+			browserSettings: { allowBrowserEvaluate: false },
+			services: { browserSession },
+			callbacks,
+			autoApprovalSettings: { enableNotifications: false },
+			autoApprover: { shouldAutoApproveTool: sinon.stub().returns(true) },
+		} as any,
+		browserSession,
+		callbacks,
+	}
+}
+
 function createSnapshotConfig(snapshotResult?: unknown) {
 	const browserSession = {
 		snapshot: sinon.stub().resolves(snapshotResult ?? {}),
@@ -163,6 +199,25 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert(!serializedResponse.includes("secret-token-value-1234567890"))
 		assert(!serializedResponse.includes("sk-secret-value-1234567890"))
 		assert(serializedResponse.includes("[REDACTED]"))
+	})
+
+	it("redacts sensitive launch URLs in browser action display without changing navigation", async () => {
+		const secretUrl = "https://example.com/?access_token=secret-token-value-1234567890"
+		const { config, browserSession, callbacks } = createLaunchConfig({
+			currentUrl: secretUrl,
+			title: "Dashboard",
+		})
+
+		await new BrowserToolHandler().execute(config, makeLaunchBlock(secretUrl))
+
+		const launchSay = callbacks.say.getCalls().find((call) => call.args[0] === "browser_action_launch")
+		const resultSay = callbacks.say.getCalls().find((call) => call.args[0] === "browser_action_result")
+		assert.equal(browserSession.navigateToUrl.calledOnceWith(secretUrl), true)
+		assert(launchSay)
+		assert(!String(launchSay?.args[1]).includes("secret-token-value-1234567890"))
+		assert(String(launchSay?.args[1]).includes("[REDACTED]"))
+		assert(resultSay)
+		assert(!String(resultSay?.args[1]).includes("secret-token-value-1234567890"))
 	})
 
 	it("captures a read-only browser snapshot with redacted text and DOM", async () => {
@@ -362,5 +417,23 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert.equal(payload.action, "type")
 		assert(!payload.text.includes("secret-token-value-1234567890"))
 		assert(payload.text.includes("[REDACTED]"))
+	})
+
+	it("redacts sensitive launch URLs while streaming partial browser action display", async () => {
+		const ask = sinon.stub().resolves(undefined)
+		const uiHelpers = {
+			shouldAutoApproveTool: sinon.stub().returns(false),
+			removeClosingTag: sinon.stub().callsFake((_block, _tag, value) => value),
+			removeLastPartialMessageIfExistsWithType: sinon.stub().resolves(undefined),
+			ask,
+		} as any
+
+		await new BrowserToolHandler().handlePartialBlock(
+			makeLaunchBlock("https://example.com/?access_token=secret-token-value-1234567890"),
+			uiHelpers,
+		)
+
+		assert(!String(ask.firstCall.args[1]).includes("secret-token-value-1234567890"))
+		assert(String(ask.firstCall.args[1]).includes("[REDACTED]"))
 	})
 })

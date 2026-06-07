@@ -113,20 +113,19 @@ export class BrowserToolHandler implements IFullyManagedTool {
 
 		// Handle partial block streaming - exact original logic
 		if (action === "launch") {
+			const displayUrl = redactSensitiveBrowserText(uiHelpers.removeClosingTag(block, "url", url))
 			if (uiHelpers.shouldAutoApproveTool(block.name)) {
 				await uiHelpers.removeLastPartialMessageIfExistsWithType("ask", "browser_action_launch")
 				await uiHelpers.say(
 					"browser_action_launch",
-					uiHelpers.removeClosingTag(block, "url", url),
+					displayUrl,
 					undefined,
 					undefined,
 					block.partial,
 				)
 			} else {
 				await uiHelpers.removeLastPartialMessageIfExistsWithType("say", "browser_action_launch")
-				await uiHelpers
-					.ask("browser_action_launch", uiHelpers.removeClosingTag(block, "url", url), block.partial)
-					.catch(() => {})
+				await uiHelpers.ask("browser_action_launch", displayUrl, block.partial).catch(() => {})
 			}
 		} else {
 			const displayText = uiHelpers.removeClosingTag(block, "text", text)
@@ -178,20 +177,25 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					}
 				}
 				config.taskState.consecutiveMistakeCount = 0
+				const displayUrl = redactSensitiveBrowserText(url) ?? url
 
 				// Handle approval flow for launch using callbacks
 				const autoApprover = config.autoApprover || { shouldAutoApproveTool: () => false }
 				if (autoApprover.shouldAutoApproveTool(block.name)) {
 					await config.callbacks.removeLastPartialMessageIfExistsWithType("ask", "browser_action_launch")
-					await config.callbacks.say("browser_action_launch", url, undefined, undefined, false)
+					await config.callbacks.say("browser_action_launch", displayUrl, undefined, undefined, false)
 				} else {
 					// Show notification for approval if enabled
 					showNotificationForApproval(
-						`Cline wants to use a browser and launch ${url}`,
+						`Cline wants to use a browser and launch ${displayUrl}`,
 						config.autoApprovalSettings.enableNotifications,
 					)
 					await config.callbacks.removeLastPartialMessageIfExistsWithType("say", "browser_action_launch")
-					const didApprove = await ToolResultUtils.askApprovalAndPushFeedback("browser_action_launch", url, config)
+					const didApprove = await ToolResultUtils.askApprovalAndPushFeedback(
+						"browser_action_launch",
+						displayUrl,
+						config,
+					)
 					if (!didApprove) {
 						return formatResponse.toolDenied()
 					}
