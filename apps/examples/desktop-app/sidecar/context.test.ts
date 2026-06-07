@@ -1917,6 +1917,65 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(startMock).not.toHaveBeenCalled();
 	});
 
+	it("does not launch when Cursor preview metadata disagrees with the actual URI", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		previewCursorUriMock.mockResolvedValueOnce({
+			handled: true,
+			route: "createchat",
+			path: "/createchat",
+			requiresConfirmation: true,
+			taskPrompt: "Review the settings route as an agent task.",
+		});
+		const startMock = vi.fn(async () => ({ sessionId: "session-cursor" }));
+		const ctx = createSidecarContext("/workspace/project");
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+		} as never;
+
+		await expect(
+			handleCommand(ctx, "cursor_uri_launch", {
+				uri: "vscode://cline.cline/settings?query=codex",
+				confirmed: true,
+			}),
+		).rejects.toThrow("not launchable");
+		expect(startMock).not.toHaveBeenCalled();
+	});
+
+	it("does not launch rule review previews when the actual URI is not a rule route", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		previewCursorUriMock.mockResolvedValueOnce({
+			handled: true,
+			route: "rule",
+			path: "/rule",
+			kind: "review",
+			requiresConfirmation: true,
+			taskPrompt: "Review this rule payload.",
+		});
+		const startMock = vi.fn(async () => ({ sessionId: "session-rule-review" }));
+		const ctx = createSidecarContext("/workspace/project");
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+		} as never;
+
+		await expect(
+			handleCommand(ctx, "cursor_uri_launch", {
+				uri: "vscode://cline.cline/settings?query=rules",
+				confirmed: true,
+			}),
+		).rejects.toThrow("not launchable");
+		expect(startMock).not.toHaveBeenCalled();
+	});
+
 	it("does not launch automation previews even when they include task prompts", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

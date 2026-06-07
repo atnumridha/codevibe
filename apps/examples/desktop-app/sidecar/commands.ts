@@ -1224,6 +1224,7 @@ function getJsonRecord(value: unknown): JsonRecord | undefined {
 function isCursorRuleReviewPreview(preview: CursorUriPreviewResponse): boolean {
 	return (
 		getCursorPreviewString(preview, "route") === "rule" &&
+		getCursorPreviewString(preview, "path") === "/rule" &&
 		getCursorPreviewString(preview, "kind") === "review"
 	);
 }
@@ -1360,19 +1361,51 @@ function readCursorAgentTaskRouteDetails(uri: string): JsonRecord | undefined {
 	}
 }
 
+function isActualCursorRuleReviewRoute(uri: string): boolean {
+	try {
+		return buildCursorRuleRouteRequest(uri).kind === "review";
+	} catch {
+		return false;
+	}
+}
+
+function doesPreviewMatchAgentRouteDetails(
+	preview: CursorUriPreviewResponse,
+	details: JsonRecord | undefined,
+): boolean {
+	if (!details) {
+		return false;
+	}
+	const actualPath = typeof details.path === "string" ? details.path : undefined;
+	const actualKind = typeof details.kind === "string" ? details.kind : undefined;
+	const previewPath = getCursorPreviewString(preview, "path");
+	const previewRoute = getCursorPreviewString(preview, "route");
+	if (!actualPath || !actualKind || previewPath !== actualPath) {
+		return false;
+	}
+	return (
+		previewRoute === actualKind ||
+		(actualKind === "command" && previewRoute === "command-file")
+	);
+}
+
 function isLaunchableCursorAgentPreview(
 	preview: CursorUriPreviewResponse,
 	taskPrompt: string | undefined,
+	uri: string,
 ): boolean {
-	const path = getCursorPreviewString(preview, "path");
-	const route = getCursorPreviewString(preview, "route");
-	return Boolean(
-		taskPrompt &&
-			(isCursorRuleReviewPreview(preview) ||
-				(path &&
-					(CURSOR_URI_LAUNCHABLE_AGENT_PATHS.has(path) ||
-						(route === "command-file" && path === "/command")))),
-	);
+	if (!taskPrompt) {
+		return false;
+	}
+	if (isCursorRuleReviewPreview(preview)) {
+		return isActualCursorRuleReviewRoute(uri);
+	}
+	const details = readCursorAgentTaskRouteDetails(uri);
+	if (!doesPreviewMatchAgentRouteDetails(preview, details)) {
+		return false;
+	}
+	const path = typeof details?.path === "string" ? details.path : undefined;
+	return Boolean(path && CURSOR_URI_LAUNCHABLE_AGENT_PATHS.has(path));
 }
 
 function getCursorQueuedAgentToolPolicies(): JsonRecord {
@@ -1456,7 +1489,10 @@ async function handleCursorUriLaunchCommand(
 	}
 	const taskPrompt = resolveCursorPreviewTaskPrompt(preview, input.uri);
 	const route = getCursorPreviewString(preview, "route") ?? "unknown";
-	if (!isLaunchableCursorAgentPreview(preview, taskPrompt) || !taskPrompt) {
+	if (
+		!isLaunchableCursorAgentPreview(preview, taskPrompt, input.uri) ||
+		!taskPrompt
+	) {
 		throw new Error(
 			`Cursor URI route "${route}" can be previewed but is not launchable from the desktop app yet`,
 		);
