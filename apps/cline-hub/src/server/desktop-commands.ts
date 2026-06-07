@@ -2,8 +2,10 @@ import {
 	addLocalProvider,
 	type ClineAccountActionRequest,
 	ClineAccountService,
+	createStandaloneBrowserUnavailableResult,
 	ensureCustomProvidersLoaded,
 	executeClineAccountAction,
+	getStandaloneBrowserAutomationStatus,
 	getLocalProviderModels,
 	listLocalProviders,
 	loginLocalProvider,
@@ -55,6 +57,29 @@ const ROUTINE_SCHEDULE_COMMANDS = new Set([
 	"trigger_routine_schedule",
 	"delete_routine_schedule",
 ]);
+
+function browserActionQuery(args?: Record<string, unknown>): string {
+	const action =
+		typeof args?.action === "string" && args.action.trim()
+			? args.action.trim()
+			: "unknown";
+	const tabId =
+		typeof args?.tab_id === "string" && args.tab_id.trim()
+			? args.tab_id.trim()
+			: "";
+	return tabId ? `browser_action:${action}:${tabId}` : `browser_action:${action}`;
+}
+
+function browserTabQuery(
+	toolName: "browser_snapshot" | "browser_screenshot",
+	args?: Record<string, unknown>,
+): string {
+	const tabId =
+		typeof args?.tab_id === "string" && args.tab_id.trim()
+			? args.tab_id.trim()
+			: "";
+	return tabId ? `${toolName}:${tabId}` : toolName;
+}
 
 export async function handleDesktopCommand(
 	ctx: HubContext,
@@ -148,6 +173,37 @@ export async function handleDesktopCommand(
 			args as ClineAccountActionRequest,
 			accountService,
 		);
+	}
+	if (command === "browser_automation_status") {
+		return getStandaloneBrowserAutomationStatus({
+			host: "cline-hub",
+			safeBrowserEvaluateEnabled: false,
+		});
+	}
+	if (command === "browser_snapshot") {
+		return createStandaloneBrowserUnavailableResult({
+			toolName: "browser_snapshot",
+			query: browserTabQuery("browser_snapshot", args),
+			host: "cline-hub",
+			safeBrowserEvaluateEnabled: false,
+		});
+	}
+	if (command === "browser_action") {
+		return createStandaloneBrowserUnavailableResult({
+			toolName: "browser_action",
+			query: browserActionQuery(args),
+			host: "cline-hub",
+			action: typeof args?.action === "string" ? args.action.trim() : undefined,
+			safeBrowserEvaluateEnabled: false,
+		});
+	}
+	if (command === "browser_screenshot") {
+		return createStandaloneBrowserUnavailableResult({
+			toolName: "browser_screenshot",
+			query: browserTabQuery("browser_screenshot", args),
+			host: "cline-hub",
+			safeBrowserEvaluateEnabled: false,
+		});
 	}
 	if (command === "get_global_settings") {
 		return readGlobalSettings();

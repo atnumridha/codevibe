@@ -31,6 +31,7 @@ import {
 	buildCursorRuleRouteRequest,
 	ClineAccountService,
 	ClineCore,
+	createStandaloneBrowserUnavailableResult,
 	createLocalHubScheduleRuntimeHandlers,
 	createUserInstructionConfigService,
 	discoverPluginModulePaths,
@@ -38,6 +39,7 @@ import {
 	ensureHubServer,
 	executeClineAccountAction,
 	getCoreBuiltinToolCatalog,
+	getStandaloneBrowserAutomationStatus,
 	getLocalProviderModels,
 	HubScheduleCommandService,
 	HubScheduleService,
@@ -2200,6 +2202,29 @@ function openFileInEditor(filePath: string): void {
 	child.unref();
 }
 
+function browserActionQuery(args?: Record<string, unknown>): string {
+	const action =
+		typeof args?.action === "string" && args.action.trim()
+			? args.action.trim()
+			: "unknown";
+	const tabId =
+		typeof args?.tab_id === "string" && args.tab_id.trim()
+			? args.tab_id.trim()
+			: "";
+	return tabId ? `browser_action:${action}:${tabId}` : `browser_action:${action}`;
+}
+
+function browserTabQuery(
+	toolName: "browser_snapshot" | "browser_screenshot",
+	args?: Record<string, unknown>,
+): string {
+	const tabId =
+		typeof args?.tab_id === "string" && args.tab_id.trim()
+			? args.tab_id.trim()
+			: "";
+	return tabId ? `${toolName}:${tabId}` : toolName;
+}
+
 // ---------------------------------------------------------------------------
 // Main command router
 // ---------------------------------------------------------------------------
@@ -2258,6 +2283,37 @@ export async function handleCommand(
 	}
 	if (command === "cursor_git_action") {
 		return await handleCursorGitActionCommand(ctx, args);
+	}
+	if (command === "browser_automation_status") {
+		return getStandaloneBrowserAutomationStatus({
+			host: "desktop-sidecar",
+			safeBrowserEvaluateEnabled: false,
+		});
+	}
+	if (command === "browser_snapshot") {
+		return createStandaloneBrowserUnavailableResult({
+			toolName: "browser_snapshot",
+			query: browserTabQuery("browser_snapshot", args),
+			host: "desktop-sidecar",
+			safeBrowserEvaluateEnabled: false,
+		});
+	}
+	if (command === "browser_action") {
+		return createStandaloneBrowserUnavailableResult({
+			toolName: "browser_action",
+			query: browserActionQuery(args),
+			host: "desktop-sidecar",
+			action: typeof args?.action === "string" ? args.action.trim() : undefined,
+			safeBrowserEvaluateEnabled: false,
+		});
+	}
+	if (command === "browser_screenshot") {
+		return createStandaloneBrowserUnavailableResult({
+			toolName: "browser_screenshot",
+			query: browserTabQuery("browser_screenshot", args),
+			host: "desktop-sidecar",
+			safeBrowserEvaluateEnabled: false,
+		});
 	}
 	if (command === "get_chat_ws_endpoint") {
 		return "";

@@ -1591,6 +1591,65 @@ describe("Code sidecar runtime capabilities", () => {
 		expect(JSON.stringify(result)).not.toContain("session-normal");
 	});
 
+	it("reports standalone browser automation as fail-closed", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const ctx = createSidecarContext("/workspace/project");
+		const status = await handleCommand(ctx, "browser_automation_status");
+
+		expect(status).toMatchObject({
+			available: false,
+			status: "unavailable",
+			host: "desktop-sidecar",
+			cursorCompatibility: true,
+			toolNames: [
+				"browser_snapshot",
+				"browser_action",
+				"browser_screenshot",
+			],
+			executorNames: [
+				"browserSnapshot",
+				"browserAction",
+				"browserScreenshot",
+			],
+			safeBrowserEvaluateEnabled: false,
+			evaluatePolicy: "disabled-by-default",
+			executors: {
+				browserSnapshot: "missing",
+				browserAction: "missing",
+				browserScreenshot: "missing",
+			},
+		});
+
+		const snapshotResult = await handleCommand(ctx, "browser_snapshot", {
+			tab_id: "active",
+		});
+		expect(snapshotResult).toMatchObject({
+			query: "browser_snapshot:active",
+			result: "",
+			success: false,
+		});
+		expect(JSON.stringify(snapshotResult)).toContain(
+			"Standalone browser automation executor is not configured",
+		);
+
+		const evaluateResult = await handleCommand(ctx, "browser_action", {
+			action: "evaluate",
+			tab_id: "active",
+			text: "localStorage.getItem('secret-token')",
+		});
+		expect(evaluateResult).toMatchObject({
+			query: "browser_action:evaluate:active",
+			result: "",
+			success: false,
+		});
+		expect(JSON.stringify(evaluateResult)).toContain(
+			"browser_action evaluate is disabled",
+		);
+		expect(JSON.stringify(evaluateResult)).not.toContain("secret-token");
+	});
+
 	it("does not launch preview-only Cursor routes", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");
