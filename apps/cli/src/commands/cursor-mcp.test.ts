@@ -38,6 +38,12 @@ describe("Cursor MCP install command", () => {
 		return settingsPath;
 	}
 
+	async function useBackgroundAgentRecordsPath(): Promise<string> {
+		const dir = await mkdtemp(join(tmpdir(), "cline-bg-agent-records-"));
+		tempDirs.push(dir);
+		return join(dir, "background-agent-records.json");
+	}
+
 	function createIo() {
 		const out: string[] = [];
 		const err: string[] = [];
@@ -527,6 +533,7 @@ describe("Cursor MCP install command", () => {
 	it("starts confirmed Cursor background-agent deeplinks as safe hub sessions", async () => {
 		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-"));
 		tempDirs.push(workspaceRoot);
+		const recordsPath = await useBackgroundAgentRecordsPath();
 		const { out, io } = createIo();
 		const ensureBackgroundAgentHub = vi.fn(async () => ({
 			url: "ws://127.0.0.1:25463",
@@ -550,6 +557,7 @@ describe("Cursor MCP install command", () => {
 			apiKey: "api-key",
 			ensureBackgroundAgentHub,
 			createBackgroundAgentSessionClient,
+			backgroundAgentRecordsPath: recordsPath,
 			io,
 		});
 
@@ -585,12 +593,18 @@ describe("Cursor MCP install command", () => {
 		expect(sessionClient.sendRuntimeSession).toHaveBeenCalledWith(
 			"session-bg",
 			expect.objectContaining({
-				prompt: expect.stringContaining("fix the bug"),
+				prompt: expect.stringContaining(
+					"Cursor-compatible background-agent launch prepared.",
+				),
 				delivery: "queue",
 				config: expect.objectContaining({ mode: "plan" }),
 			}),
 			{ timeoutMs: 5000 },
 		);
+		const sentPrompt = sessionClient.sendRuntimeSession.mock.calls[0]?.[1]
+			?.prompt as string;
+		expect(sentPrompt).toContain("fix the bug");
+		expect(sentPrompt).toContain("fallback reason: Worktrees are disabled");
 		expect(sessionClient.dispose).toHaveBeenCalled();
 		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
 			handled: true,
@@ -604,14 +618,24 @@ describe("Cursor MCP install command", () => {
 			delivery: "queue",
 			paramKeys: ["branch", "prompt", "repo"],
 			backgroundAgent: {
-				launchMode: "hub-session-queued",
+				status: "running",
+				launchMode: "controller-record",
 				agentMode: "plan",
 				confirmationRequired: true,
 				autoApprovalProfile: "read-only-plan-confirmation-required",
 				worktreePolicy: "confirm-before-create",
 				repository: "owner/repo",
 				requestedBranch: "feature/safe",
+				fallbackReason: "Worktrees are disabled",
+				taskId: "session-bg",
 			},
+		});
+		const records = JSON.parse(await readFile(recordsPath, "utf8"));
+		expect(records).toHaveLength(1);
+		expect(records[0]).toMatchObject({
+			status: "running",
+			taskId: "session-bg",
+			fallbackReason: "Worktrees are disabled",
 		});
 	});
 
@@ -619,6 +643,7 @@ describe("Cursor MCP install command", () => {
 		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-src-"));
 		const worktreeRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-worktree-"));
 		tempDirs.push(workspaceRoot, worktreeRoot);
+		const recordsPath = await useBackgroundAgentRecordsPath();
 		const { out, io } = createIo();
 		const ensureBackgroundAgentHub = vi.fn(async () => ({
 			url: "ws://127.0.0.1:25463",
@@ -648,6 +673,7 @@ describe("Cursor MCP install command", () => {
 			ensureBackgroundAgentHub,
 			createBackgroundAgentWorktree,
 			createBackgroundAgentSessionClient,
+			backgroundAgentRecordsPath: recordsPath,
 			io,
 		});
 
@@ -670,7 +696,7 @@ describe("Cursor MCP install command", () => {
 		expect(sessionClient.sendRuntimeSession).toHaveBeenCalledWith(
 			"session-bg-worktree",
 			expect.objectContaining({
-				prompt: expect.stringContaining("CLI prepared an isolated worktree"),
+				prompt: expect.stringContaining("Prepared isolated worktree"),
 			}),
 			{ timeoutMs: 5000 },
 		);
@@ -682,20 +708,35 @@ describe("Cursor MCP install command", () => {
 			sessionId: "session-bg-worktree",
 			workspaceRoot: worktreeRoot,
 			cwd: worktreeRoot,
+			backgroundAgent: {
+				status: "running",
+				launchMode: "worktree",
+				worktreePath: worktreeRoot,
+				worktreeBaseRef: "feature/safe",
+				taskId: "session-bg-worktree",
+			},
 			worktree: {
 				created: true,
 				sourceWorkspaceRoot: workspaceRoot,
 				path: worktreeRoot,
-				taskId: "abc12",
-				repoRoot: workspaceRoot,
+				baseRef: "feature/safe",
 			},
+		});
+		const records = JSON.parse(await readFile(recordsPath, "utf8"));
+		expect(records[0]).toMatchObject({
+			status: "running",
+			launchMode: "worktree",
+			worktreePath: worktreeRoot,
+			worktreeBaseRef: "feature/safe",
+			taskId: "session-bg-worktree",
 		});
 	});
 
-	it("does not start background-agent sessions when requested worktree creation fails", async () => {
+	it("falls back to a controller-record launch when requested worktree creation fails", async () => {
 		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-src-"));
 		tempDirs.push(workspaceRoot);
-		const { out, err, io } = createIo();
+		const recordsPath = await useBackgroundAgentRecordsPath();
+		const { out, io } = createIo();
 		const ensureBackgroundAgentHub = vi.fn(async () => ({
 			url: "ws://127.0.0.1:25463",
 			authToken: "hub-token",
@@ -704,7 +745,13 @@ describe("Cursor MCP install command", () => {
 			success: false,
 			message: "Not a git repository",
 		}));
-		const createBackgroundAgentSessionClient = vi.fn();
+		const sessionClient = {
+			connect: vi.fn(async () => {}),
+			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-bg-fallback" })),
+			sendRuntimeSession: vi.fn(async () => ({})),
+			dispose: vi.fn(async () => {}),
+		};
+		const createBackgroundAgentSessionClient = vi.fn(() => sessionClient);
 
 		const code = await runCursorUriCommand({
 			uri: "vscode://cline.cline/background-agent?prompt=fix%20the%20bug",
@@ -715,17 +762,40 @@ describe("Cursor MCP install command", () => {
 			ensureBackgroundAgentHub,
 			createBackgroundAgentWorktree,
 			createBackgroundAgentSessionClient,
+			backgroundAgentRecordsPath: recordsPath,
 			io,
 		});
 
-		expect(code).toBe(1);
+		expect(code).toBe(0);
+		expect(ensureBackgroundAgentHub).toHaveBeenCalledWith(workspaceRoot);
+		expect(createBackgroundAgentSessionClient).toHaveBeenCalledWith(
+			expect.objectContaining({
+				workspaceRoot,
+				cwd: workspaceRoot,
+			}),
+		);
+		const sentPrompt = sessionClient.sendRuntimeSession.mock.calls[0]?.[1]
+			?.prompt as string;
+		expect(sentPrompt).toContain("fallback reason: Not a git repository");
 		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
-			handled: false,
-			error: expect.stringContaining("Failed to prepare Cursor background-agent worktree"),
+			handled: true,
+			route: "background-agent",
+			started: true,
+			sessionId: "session-bg-fallback",
+			backgroundAgent: {
+				status: "running",
+				launchMode: "controller-record",
+				fallbackReason: "Not a git repository",
+				taskId: "session-bg-fallback",
+			},
 		});
-		expect(err).toHaveLength(0);
-		expect(ensureBackgroundAgentHub).not.toHaveBeenCalled();
-		expect(createBackgroundAgentSessionClient).not.toHaveBeenCalled();
+		const records = JSON.parse(await readFile(recordsPath, "utf8"));
+		expect(records[0]).toMatchObject({
+			status: "running",
+			launchMode: "controller-record",
+			fallbackReason: "Not a git repository",
+			taskId: "session-bg-fallback",
+		});
 	});
 
 	it("starts confirmed Cursor agent-task deeplinks as queued plan sessions", async () => {

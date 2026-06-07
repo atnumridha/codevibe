@@ -14,16 +14,24 @@ import {
 	formatCursorMcpInstallDetail,
 	HubSessionClient,
 	installPlugin,
+	launchCursorBackgroundAgent,
 	loadMcpSettingsFile,
 	resolveCursorMcpSettingsPath,
 	resolveGlobalCursorMcpSettingsPath,
 	resolveCursorCommandFileRouteRequest,
+	resolveBackgroundAgentRecordsPath,
+	resolveClineDataDir,
+	upsertBackgroundAgentTaskRecordFile,
+	createBackgroundAgentWorktree as createSharedBackgroundAgentWorktree,
 	type ClineAutomationNdjsonIngestOptions,
 	type ClineAutomationNdjsonIngressResult,
 	type ClineCoreAutomationApi,
 	type CursorAutomationEventSummary,
 	type CursorAutomationIngestRouteRequest,
 	type CursorAutomationRejectedLineSummary,
+	type BackgroundAgentTaskRecord,
+	type CursorBackgroundAgentLaunchRequest,
+	type WorktreeResult,
 } from "@cline/core";
 import type {
 	ChatRunTurnRequest,
@@ -92,6 +100,7 @@ export interface CursorMcpInstallCommandOptions {
 		options: BackgroundAgentSessionClientFactoryOptions,
 	) => BackgroundAgentSessionClient;
 	worktree?: boolean;
+	backgroundAgentRecordsPath?: string;
 	createBackgroundAgentWorktree?: (options: {
 		cwd: string;
 	}) => Promise<CreateTaskWorktreeResult>;
@@ -152,12 +161,26 @@ type CursorAgentTaskRouteResolution = {
 	};
 };
 
-type BackgroundAgentWorktreeReport = {
-	created: true;
-	sourceWorkspaceRoot: string;
-	path: string;
+type BackgroundAgentLifecycleReport = {
+	id: string;
+	status: BackgroundAgentTaskRecord["status"];
+	launchMode?: BackgroundAgentTaskRecord["launchMode"];
+	agentMode: BackgroundAgentTaskRecord["agentMode"];
+	confirmationRequired: true;
+	autoApprovalProfile: BackgroundAgentTaskRecord["autoApprovalProfile"];
+	worktreePolicy: BackgroundAgentTaskRecord["worktreePolicy"];
+	repository?: string;
+	requestedBranch?: string;
+	requestedBaseBranch?: string;
+	workspaceRoot?: string;
+	worktreePath?: string;
+	worktreeBranch?: string;
+	worktreeBaseRef?: string;
+	fallbackReason?: string;
+	warning?: string;
 	taskId?: string;
-	repoRoot?: string;
+	errorMessage?: string;
+	toolPolicy: ReturnType<typeof getCursorQueuedAgentToolPolicies>;
 };
 
 function writeCommandError(
@@ -577,30 +600,91 @@ function resolveAgentTaskRoute(
 	};
 }
 
-async function createDefaultBackgroundAgentWorktree(options: {
-	cwd: string;
-}): Promise<CreateTaskWorktreeResult> {
-	const { createTaskWorktree } = await import("../utils/worktree");
-	return createTaskWorktree(options);
+function buildCursorBackgroundAgentLaunchRequest(
+	request: ReturnType<typeof buildCursorAgentTaskRouteRequest>,
+	taskPrompt: string,
+): CursorBackgroundAgentLaunchRequest {
+	return {
+		prompt: request.prompt ?? request.taskPrompt,
+		routePrompt: taskPrompt,
+		repository:
+			getCursorAgentParam(request.params, "repository") ??
+			getCursorAgentParam(request.params, "repo"),
+		requestedBranch: getCursorAgentParam(request.params, "branch"),
+		requestedBaseBranch: getCursorAgentParam(request.params, "baseBranch"),
+		config:
+			request.params.config &&
+			typeof request.params.config === "object" &&
+			!Array.isArray(request.params.config)
+				? request.params.config
+				: undefined,
+	};
 }
 
-function buildBackgroundAgentWorktreeTaskPrompt(
-	taskPrompt: string,
-	worktree: BackgroundAgentWorktreeReport,
-): string {
-	return [
-		"CLI prepared an isolated worktree for this Cursor background-agent deeplink.",
-		"",
-		"Prepared worktree:",
-		`- source workspace: ${worktree.sourceWorkspaceRoot}`,
-		`- path: ${worktree.path}`,
-		...(worktree.repoRoot ? [`- repository root: ${worktree.repoRoot}`] : []),
-		...(worktree.taskId ? [`- task id: ${worktree.taskId}`] : []),
-		"",
-		"Use this worktree for any confirmed file or git changes. The deeplink still does not grant permission to mutate files, run commands, install packages, open network connections, or use MCP tools without the normal approvals.",
-		"",
-		taskPrompt,
-	].join("\n");
+function backgroundAgentRecordsPath(options: CursorMcpInstallCommandOptions): string {
+	return (
+		options.backgroundAgentRecordsPath ??
+		resolveBackgroundAgentRecordsPath(resolveClineDataDir())
+	);
+}
+
+function toBackgroundAgentLifecycleReport(
+	record: BackgroundAgentTaskRecord,
+): BackgroundAgentLifecycleReport {
+	return {
+		id: record.id,
+		status: record.status,
+		...(record.launchMode ? { launchMode: record.launchMode } : {}),
+		agentMode: record.agentMode,
+		confirmationRequired: record.confirmationRequired,
+		autoApprovalProfile: record.autoApprovalProfile,
+		worktreePolicy: record.worktreePolicy,
+		...(record.repository ? { repository: record.repository } : {}),
+		...(record.requestedBranch
+			? { requestedBranch: record.requestedBranch }
+			: {}),
+		...(record.requestedBaseBranch
+			? { requestedBaseBranch: record.requestedBaseBranch }
+			: {}),
+		...(record.workspaceRoot ? { workspaceRoot: record.workspaceRoot } : {}),
+		...(record.worktreePath ? { worktreePath: record.worktreePath } : {}),
+		...(record.worktreeBranch
+			? { worktreeBranch: record.worktreeBranch }
+			: {}),
+		...(record.worktreeBaseRef
+			? { worktreeBaseRef: record.worktreeBaseRef }
+			: {}),
+		...(record.fallbackReason
+			? { fallbackReason: record.fallbackReason }
+			: {}),
+		...(record.warning ? { warning: record.warning } : {}),
+		...(record.taskId ? { taskId: record.taskId } : {}),
+		...(record.errorMessage ? { errorMessage: record.errorMessage } : {}),
+		toolPolicy: getCursorQueuedAgentToolPolicies(),
+	};
+}
+
+function toCliWorktreeResult(
+	result: CreateTaskWorktreeResult,
+	fallbackBranch: string | undefined,
+): WorktreeResult {
+	return {
+		success: result.success,
+		message: result.message,
+		...(result.path
+			? {
+					worktree: {
+						path: resolve(result.path),
+						branch: fallbackBranch ?? "",
+						commitHash: "",
+						isCurrent: false,
+						isBare: false,
+						isDetached: false,
+						isLocked: false,
+					},
+				}
+			: {}),
+	};
 }
 
 function getCursorAgentParam(
@@ -634,6 +718,117 @@ function buildBackgroundAgentSafetyMetadata(
 		...(repository ? { repository } : {}),
 		...(requestedBranch ? { requestedBranch } : {}),
 		...(requestedBaseBranch ? { requestedBaseBranch } : {}),
+	};
+}
+
+async function launchCursorBackgroundAgentTask(
+	options: CursorMcpInstallCommandOptions,
+	request: ReturnType<typeof buildCursorAgentTaskRouteRequest>,
+	resolved: CursorAgentTaskRouteResolution,
+): Promise<{
+	record: BackgroundAgentTaskRecord;
+	workspaceRoot: string;
+	cwd: string;
+	provider: string;
+	model: string;
+}> {
+	const sourceWorkspaceRoot = resolve(options.cwd ?? process.cwd());
+	const providerId = options.providerId?.trim() || "openai-codex";
+	const modelId = options.modelId?.trim() || "gpt-5.5";
+	const ensureHub = options.ensureBackgroundAgentHub ?? ensureCliHubServer;
+	const createClient =
+		options.createBackgroundAgentSessionClient ??
+		((clientOptions: BackgroundAgentSessionClientFactoryOptions) =>
+			new HubSessionClient({
+				address: clientOptions.address,
+				authToken: clientOptions.authToken,
+				clientType: "cli-cursor-background-agent",
+				displayName: "Cline CLI (Cursor background agent)",
+				workspaceRoot: clientOptions.workspaceRoot,
+				cwd: clientOptions.cwd,
+			}));
+	let taskWorkspaceRoot = sourceWorkspaceRoot;
+	let taskCwd = sourceWorkspaceRoot;
+
+	const record = await launchCursorBackgroundAgent(
+		buildCursorBackgroundAgentLaunchRequest(request, resolved.taskPrompt),
+		{
+			getWorkspaceRoot: async () => sourceWorkspaceRoot,
+			areWorktreesEnabled: () => options.worktree === true,
+			createWorktree: async (cwd, worktreePath, worktreeOptions) => {
+				if (options.createBackgroundAgentWorktree) {
+					return toCliWorktreeResult(
+						await options.createBackgroundAgentWorktree({ cwd }),
+						worktreeOptions.branch,
+					);
+				}
+				return createSharedBackgroundAgentWorktree(
+					cwd,
+					worktreePath,
+					worktreeOptions,
+				);
+			},
+			onRecordChange: (nextRecord) => {
+				upsertBackgroundAgentTaskRecordFile(
+					backgroundAgentRecordsPath(options),
+					nextRecord,
+				);
+			},
+			startTask: async (safePrompt, _taskSettings, recordAtStart) => {
+				taskWorkspaceRoot =
+					recordAtStart.worktreePath ??
+					recordAtStart.workspaceRoot ??
+					sourceWorkspaceRoot;
+				taskCwd = taskWorkspaceRoot;
+				const hub = await ensureHub(taskWorkspaceRoot);
+				const client = createClient({
+					address: hub.url,
+					authToken: hub.authToken,
+					workspaceRoot: taskWorkspaceRoot,
+					cwd: taskCwd,
+				});
+				const startRequest: ChatStartSessionRequest = {
+					workspaceRoot: taskWorkspaceRoot,
+					cwd: taskCwd,
+					provider: providerId,
+					model: modelId,
+					apiKey: options.apiKey?.trim() || undefined,
+					mode: "plan",
+					enableTools: true,
+					enableSpawn: false,
+					enableTeams: false,
+					autoApproveTools: false,
+					toolPolicies: getCursorQueuedAgentToolPolicies(),
+					source: "cline-cli-cursor-background-agent",
+					interactive: false,
+				};
+				try {
+					await client.connect?.();
+					const started = await client.startRuntimeSession(startRequest);
+					await client.sendRuntimeSession(
+						started.sessionId,
+						{
+							config: startRequest,
+							prompt: safePrompt,
+							delivery: "queue",
+						},
+						{ timeoutMs: BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS },
+					);
+					return started.sessionId;
+				} finally {
+					await client.dispose?.();
+					client.close?.();
+				}
+			},
+		},
+	);
+
+	return {
+		record,
+		workspaceRoot: taskWorkspaceRoot,
+		cwd: taskCwd,
+		provider: providerId,
+		model: modelId,
 	};
 }
 
@@ -695,35 +890,61 @@ async function launchCursorAgentTask(
 	}
 
 	const sourceWorkspaceRoot = resolve(options.cwd ?? process.cwd());
-	let cwd = sourceWorkspaceRoot;
-	let workspaceRoot = sourceWorkspaceRoot;
-	let worktree: BackgroundAgentWorktreeReport | undefined;
-	if (request.kind === "background-agent" && options.worktree) {
-		const createWorktree =
-			options.createBackgroundAgentWorktree ??
-			createDefaultBackgroundAgentWorktree;
-		const result = await createWorktree({ cwd: sourceWorkspaceRoot });
-		if (!result.success || !result.path) {
-			return writeUriError(
-				options,
-				`Failed to prepare Cursor background-agent worktree: ${result.message}`,
+	const resolved = resolveAgentTaskRoute(request, sourceWorkspaceRoot);
+	if (request.kind === "background-agent") {
+		const launched = await launchCursorBackgroundAgentTask(
+			options,
+			request,
+			resolved,
+		);
+		const backgroundAgent = toBackgroundAgentLifecycleReport(launched.record);
+		if (options.json) {
+			options.io.writeln(
+				JSON.stringify({
+					handled: true,
+					route: resolved.route,
+					path: request.path,
+					started: true,
+					sessionId: launched.record.taskId,
+					workspaceRoot: launched.workspaceRoot,
+					cwd: launched.cwd,
+					provider: launched.provider,
+					model: launched.model,
+					delivery: "queue",
+					paramKeys: Object.keys(request.params).sort(),
+					backgroundAgent,
+					...(launched.record.worktreePath
+						? {
+								worktree: {
+									created: true,
+									sourceWorkspaceRoot,
+									path: launched.record.worktreePath,
+									branch: launched.record.worktreeBranch,
+									baseRef: launched.record.worktreeBaseRef,
+								},
+							}
+						: {}),
+				}),
 			);
+		} else {
+			options.io.writeln(
+				`Started Cursor ${resolved.route} agent session ${launched.record.taskId}`,
+			);
+			options.io.writeln(`Workspace: ${launched.workspaceRoot}`);
+			if (launched.record.worktreePath) {
+				options.io.writeln(`Worktree: ${launched.record.worktreePath}`);
+			}
+			if (launched.record.fallbackReason) {
+				options.io.writeln(`Fallback: ${launched.record.fallbackReason}`);
+			}
 		}
-		workspaceRoot = resolve(result.path);
-		cwd = workspaceRoot;
-		worktree = {
-			created: true,
-			sourceWorkspaceRoot,
-			path: workspaceRoot,
-			...(result.taskId ? { taskId: result.taskId } : {}),
-			...(result.repoRoot ? { repoRoot: result.repoRoot } : {}),
-		};
+		return 0;
 	}
-	const resolved = resolveAgentTaskRoute(request, workspaceRoot);
+
+	const cwd = sourceWorkspaceRoot;
+	const workspaceRoot = sourceWorkspaceRoot;
 	const glass = buildCursorGlassRouteMetadata(request);
-	const taskPrompt = worktree
-		? buildBackgroundAgentWorktreeTaskPrompt(resolved.taskPrompt, worktree)
-		: resolved.taskPrompt;
+	const taskPrompt = resolved.taskPrompt;
 	const providerId = options.providerId?.trim() || "openai-codex";
 	const modelId = options.modelId?.trim() || "gpt-5.5";
 	const ensureHub = options.ensureBackgroundAgentHub ?? ensureCliHubServer;
@@ -799,10 +1020,6 @@ async function launchCursorAgentTask(
 					delivery: "queue",
 					paramKeys: Object.keys(request.params).sort(),
 					...(glass ? { glass } : {}),
-					...(request.kind === "background-agent"
-						? { backgroundAgent: buildBackgroundAgentSafetyMetadata(request) }
-						: {}),
-					...(worktree ? { worktree } : {}),
 					...(resolved.commandFile
 						? { commandFile: resolved.commandFile }
 						: {}),
@@ -813,9 +1030,6 @@ async function launchCursorAgentTask(
 				`Started Cursor ${resolved.route} agent session ${started.sessionId}`,
 			);
 			options.io.writeln(`Workspace: ${workspaceRoot}`);
-			if (worktree) {
-				options.io.writeln(`Worktree: ${worktree.path}`);
-			}
 		}
 		return 0;
 	} finally {
