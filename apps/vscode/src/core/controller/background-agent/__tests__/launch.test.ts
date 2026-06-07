@@ -23,7 +23,11 @@ describe("launchCursorBackgroundAgent", () => {
 			worktreePath: string
 			options: { branch?: string; baseBranch?: string; createNewBranch?: boolean }
 		}> = []
-		const startedTasks: Array<{ prompt: string; taskSettings: Partial<Settings> }> = []
+		const startedTasks: Array<{
+			prompt: string
+			taskSettings: Partial<Settings>
+			record: BackgroundAgentTaskRecord
+		}> = []
 
 		const result = await launchCursorBackgroundAgent(baseRequest, {
 			getWorkspaceRoot: async () => "/tmp/repo",
@@ -46,8 +50,9 @@ describe("launchCursorBackgroundAgent", () => {
 					},
 				}
 			},
-			startTask: async (prompt, taskSettings) => {
-				startedTasks.push({ prompt, taskSettings })
+			startTask: async (prompt, taskSettings, record) => {
+				record.errorMessage = "mutated by adapter"
+				startedTasks.push({ prompt, taskSettings, record })
 				return "task-1"
 			},
 			onRecordChange: (record) => records.push(record),
@@ -70,6 +75,12 @@ describe("launchCursorBackgroundAgent", () => {
 		expect(startedTasks[0].taskSettings.autoApprovalSettings?.actions.editFiles).to.equal(false)
 		expect(startedTasks[0].taskSettings.autoApprovalSettings?.actions.executeSafeCommands).to.equal(false)
 		expect(startedTasks[0].taskSettings.autoApprovalSettings?.actions.useMcp).to.equal(false)
+		expect(startedTasks[0].record).to.deep.include({
+			id: "bg-test-123456",
+			status: "starting",
+			launchMode: "worktree",
+			worktreePath: "/tmp/repo-background-agent-bg-test-123456",
+		})
 
 		expect(result.status).to.equal("running")
 		expect(result.agentMode).to.equal("plan")
@@ -77,6 +88,7 @@ describe("launchCursorBackgroundAgent", () => {
 		expect(result.worktreePolicy).to.equal("confirm-before-create")
 		expect(result.launchMode).to.equal("worktree")
 		expect(result.taskId).to.equal("task-1")
+		expect(result.errorMessage).to.equal(undefined)
 		expect(records.map((record) => record.status)).to.include.members([
 			"queued",
 			"preparing",

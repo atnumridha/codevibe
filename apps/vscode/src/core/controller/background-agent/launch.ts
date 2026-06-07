@@ -28,7 +28,11 @@ export interface BackgroundAgentLaunchDependencies {
 			createNewBranch?: boolean
 		},
 	) => Promise<WorktreeResult>
-	startTask: (prompt: string, taskSettings: Partial<Settings>) => Promise<string | undefined>
+	startTask: (
+		prompt: string,
+		taskSettings: Partial<Settings>,
+		record: BackgroundAgentTaskRecord,
+	) => Promise<string | undefined>
 	onRecordChange?: (record: BackgroundAgentTaskRecord) => void
 	now?: () => number
 	createId?: () => string
@@ -307,7 +311,11 @@ export async function launchCursorBackgroundAgent(
 	updateRecord("starting")
 
 	try {
-		const taskId = await dependencies.startTask(taskPrompt, createBackgroundAgentTaskSettings())
+		const taskId = await dependencies.startTask(
+			taskPrompt,
+			createBackgroundAgentTaskSettings(),
+			cloneRecord(record),
+		)
 		updateRecord("running", { taskId })
 		return cloneRecord(record)
 	} catch (error) {
