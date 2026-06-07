@@ -24,6 +24,32 @@ describe("CursorUriRoutes", () => {
 		expect(isCursorCompatibleUriPath("/not-cursor")).to.equal(false)
 	})
 
+	it("parses the planned Cursor-compatible route families", () => {
+		const cases = [
+			["/createchat", "prompt=Fix%20the%20tests", "createchat"],
+			["/mcp/install", "name=docs&url=https%3A%2F%2Fmcp.example.com", "mcp-install"],
+			["/background-agent", "prompt=Fix%20the%20tests", "background-agent"],
+			["/settings", "section=providers", "settings"],
+			["/prompt", "text=Summarize%20this", "prompt"],
+			["/command", "command=npm%20test", "command"],
+			["/rule", "name=project&content=Use%20focused%20tests", "rule"],
+			["/pr-review", "repo=atnumridha%2Fcodevibe&number=123", "pr-review"],
+			["/plugin/add", "id=docs-helper", "plugin-add"],
+			["/glass", "text=Continue%20here", "glass"],
+			["/automation/ingest", "ndjson=%7B%7D", "automation-ingest"],
+		] as const
+
+		for (const [path, query, kind] of cases) {
+			const result = parseCursorCompatibleUri(path, new URLSearchParams(query))
+			expect(result.recognized, path).to.equal(true)
+			if (!result.recognized || "error" in result) {
+				throw new Error(`expected ${path} route to parse`)
+			}
+			expect(result.route.path).to.equal(path)
+			expect(result.route.kind).to.equal(kind)
+		}
+	})
+
 	it("normalizes native cursor:// route hosts into Cursor route paths", () => {
 		expect(getCursorCompatibleUriPath(new URL("cursor://createchat?prompt=hi"))).to.equal("/createchat")
 		expect(getCursorCompatibleUriPath(new URL("cursor://mcp/install?name=docs"))).to.equal("/mcp/install")
@@ -98,6 +124,28 @@ describe("CursorUriRoutes", () => {
 			throw new Error("expected unknown parameter route to fail")
 		}
 		expect(result.error).to.contain("Unrecognized key")
+	})
+
+	it("rejects blank required route inputs after trimming", () => {
+		const cases = [
+			["/createchat", "prompt=%20%20", "prompt, text, or message is required"],
+			["/mcp/install", "name=%20%20", "one MCP identifier or config is required"],
+			["/background-agent", "prompt=%20%20", "prompt, task, or message is required"],
+			["/command", "command=%20%20", "command input is required"],
+			["/rule", "name=%20%20", "rule input is required"],
+			["/pr-review", "repo=atnumridha%2Fcodevibe&number=%20%20", "PR URL or repository plus PR number is required"],
+			["/plugin/add", "id=%20%20", "plugin identifier or config is required"],
+			["/automation/ingest", "ndjson=%20%20", "ndjson or input is required"],
+		] as const
+
+		for (const [path, query, expectedError] of cases) {
+			const result = parseCursorCompatibleUri(path, new URLSearchParams(query))
+			expect(result.recognized, path).to.equal(true)
+			if (!result.recognized || !("error" in result)) {
+				throw new Error(`expected ${path} route to fail`)
+			}
+			expect(result.error).to.contain(expectedError)
+		}
 	})
 
 	it("formats command routes as review tasks instead of direct execution", () => {

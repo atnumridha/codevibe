@@ -114,6 +114,18 @@ const optionalBoundedString = z.string().max(MAX_CURSOR_URI_PARAM_LENGTH).option
 const optionalBooleanString = z.enum(["true", "false", "1", "0", "yes", "no"]).optional()
 const configSchema = z.record(z.string(), z.unknown()).optional()
 
+function hasNonBlankString(value: unknown): value is string {
+	return typeof value === "string" && value.trim().length > 0
+}
+
+function hasAnyNonBlankString(
+	value: object,
+	keys: readonly string[],
+): boolean {
+	const record = value as Record<string, unknown>
+	return keys.some((key) => hasNonBlankString(record[key]))
+}
+
 function gitCheckoutTarget(label: string) {
 	return boundedString.transform((value) => value.trim()).superRefine((value, ctx) => {
 		const result = normalizeGitCheckoutTarget(value, label)
@@ -152,7 +164,7 @@ const promptLikeSchema = z
 		config: configSchema,
 	})
 	.strict()
-	.refine((value) => value.prompt || value.text || value.message, "prompt, text, or message is required")
+	.refine((value) => hasAnyNonBlankString(value, ["prompt", "text", "message"]), "prompt, text, or message is required")
 
 const mcpInstallSchema = z
 	.object({
@@ -166,7 +178,7 @@ const mcpInstallSchema = z
 	})
 	.strict()
 	.refine(
-		(value) => value.name || value.server || value.id || value.url || value.command || value.package || value.config,
+		(value) => hasAnyNonBlankString(value, ["name", "server", "id", "url", "command", "package"]) || value.config,
 		"one MCP identifier or config is required",
 	)
 
@@ -182,7 +194,7 @@ const backgroundAgentSchema = z
 		config: configSchema,
 	})
 	.strict()
-	.refine((value) => value.prompt || value.task || value.message, "prompt, task, or message is required")
+	.refine((value) => hasAnyNonBlankString(value, ["prompt", "task", "message"]), "prompt, task, or message is required")
 
 const settingsSchema = z
 	.object({
@@ -205,7 +217,7 @@ const commandSchema = z
 		config: configSchema,
 	})
 	.strict()
-	.refine((value) => value.command || value.name || value.text || value.prompt || value.message, "command input is required")
+	.refine((value) => hasAnyNonBlankString(value, ["command", "name", "text", "prompt", "message"]), "command input is required")
 
 const ruleSchema = z
 	.object({
@@ -216,7 +228,7 @@ const ruleSchema = z
 		config: configSchema,
 	})
 	.strict()
-	.refine((value) => value.name || value.path || value.content || value.url || value.config, "rule input is required")
+	.refine((value) => hasAnyNonBlankString(value, ["name", "path", "content", "url"]) || value.config, "rule input is required")
 
 const prReviewSchema = z
 	.object({
@@ -230,7 +242,10 @@ const prReviewSchema = z
 	})
 	.strict()
 	.refine(
-		(value) => value.url || ((value.repo || value.repository) && (value.number || value.pullRequest)),
+		(value) =>
+			hasNonBlankString(value.url) ||
+			((hasNonBlankString(value.repo) || hasNonBlankString(value.repository)) &&
+				(hasNonBlankString(value.number) || hasNonBlankString(value.pullRequest))),
 		"PR URL or repository plus PR number is required",
 	)
 
@@ -242,7 +257,7 @@ const pluginAddSchema = z
 		config: configSchema,
 	})
 	.strict()
-	.refine((value) => value.id || value.name || value.url || value.config, "plugin identifier or config is required")
+	.refine((value) => hasAnyNonBlankString(value, ["id", "name", "url"]) || value.config, "plugin identifier or config is required")
 
 const glassSchema = z
 	.object({
@@ -313,7 +328,11 @@ const automationIngestSchema = z
 	})
 	.strict()
 	.refine(
-		(value) => value.ndjson || value.input || hasStringConfigValue(value.config, "ndjson") || hasStringConfigValue(value.config, "input"),
+		(value) =>
+			hasNonBlankString(value.ndjson) ||
+			hasNonBlankString(value.input) ||
+			hasStringConfigValue(value.config, "ndjson") ||
+			hasStringConfigValue(value.config, "input"),
 		"ndjson or input is required",
 	)
 
@@ -459,7 +478,12 @@ function getPromptText(route: CursorCompatibleUriRoute): string | undefined {
 }
 
 function hasStringConfigValue(config: unknown, key: string): boolean {
-	return !!config && typeof config === "object" && !Array.isArray(config) && typeof (config as Record<string, unknown>)[key] === "string"
+	return (
+		!!config &&
+		typeof config === "object" &&
+		!Array.isArray(config) &&
+		hasNonBlankString((config as Record<string, unknown>)[key])
+	)
 }
 
 function getConfigString(route: CursorCompatibleUriRoute, key: string): string | undefined {
