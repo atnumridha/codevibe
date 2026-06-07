@@ -1,11 +1,32 @@
 "use client";
 
-import { ChevronDown, ChevronRight, Moon, Sun, X } from "lucide-react";
+import {
+	AlertTriangle,
+	Camera,
+	CheckCircle2,
+	ChevronDown,
+	ChevronRight,
+	Globe2,
+	Loader2,
+	Moon,
+	Play,
+	RefreshCw,
+	Sun,
+	X,
+	XCircle,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { desktopClient } from "@/lib/desktop-client";
+import {
+	desktopClient,
+	type BrowserAutomationStatus,
+	type BrowserToolResult,
+} from "@/lib/desktop-client";
 import type {
 	Provider,
 	ProviderCatalogResponse,
@@ -44,6 +65,34 @@ type Theme = "dark" | "light";
 type GlobalSettingsResponse = {
 	telemetryOptOut: boolean;
 };
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: undefined;
+}
+
+function recordString(
+	record: Record<string, unknown> | undefined,
+	key: string,
+): string {
+	const value = record?.[key];
+	return typeof value === "string" ? value.trim() : "";
+}
+
+function browserResultSummary(result: BrowserToolResult | undefined): string {
+	if (!result) {
+		return "";
+	}
+	if (!result.success) {
+		return result.error ?? "Browser command failed.";
+	}
+	const payload = asRecord(result.result);
+	const title = recordString(payload, "title");
+	const url = recordString(payload, "url");
+	const logs = recordString(payload, "logs");
+	return [title, url, logs ? "logs" : ""].filter(Boolean).join(" | ");
+}
 
 const PROVIDER_CATALOG_CACHE_TTL_MS = 60_000;
 
@@ -525,6 +574,22 @@ function GeneralSettingsContent({
 	const [telemetryLoading, setTelemetryLoading] = useState(true);
 	const [telemetrySaving, setTelemetrySaving] = useState(false);
 	const [telemetryError, setTelemetryError] = useState<string | null>(null);
+	const [browserStatus, setBrowserStatus] = useState<
+		BrowserAutomationStatus | undefined
+	>();
+	const [browserStatusError, setBrowserStatusError] = useState<string | null>(
+		null,
+	);
+	const [browserStatusLoading, setBrowserStatusLoading] = useState(false);
+	const [browserUrl, setBrowserUrl] = useState("http://127.0.0.1:3000");
+	const [browserRunning, setBrowserRunning] = useState(false);
+	const [browserResult, setBrowserResult] = useState<
+		BrowserToolResult | undefined
+	>();
+	const browserAvailable = browserStatus?.available === true;
+	const browserResultPayload = asRecord(browserResult?.result);
+	const browserScreenshot = recordString(browserResultPayload, "screenshot");
+	const browserSummary = browserResultSummary(browserResult);
 
 	const loadGlobalSettings = useCallback(async () => {
 		setTelemetryLoading(true);
@@ -549,6 +614,27 @@ function GeneralSettingsContent({
 		return () => window.clearTimeout(timeoutId);
 	}, [loadGlobalSettings]);
 
+	const loadBrowserStatus = useCallback(async () => {
+		setBrowserStatusLoading(true);
+		setBrowserStatusError(null);
+		try {
+			const status = await desktopClient.getBrowserAutomationStatus();
+			setBrowserStatus(status);
+		} catch (error) {
+			setBrowserStatus(undefined);
+			setBrowserStatusError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setBrowserStatusLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		const timeoutId = window.setTimeout(() => {
+			void loadBrowserStatus();
+		}, 0);
+		return () => window.clearTimeout(timeoutId);
+	}, [loadBrowserStatus]);
+
 	const updateTelemetryOptOut = async (nextValue: boolean) => {
 		const previousValue = telemetryOptOut;
 		setTelemetryOptOut(nextValue);
@@ -568,6 +654,71 @@ function GeneralSettingsContent({
 			setTelemetryError(message);
 		} finally {
 			setTelemetrySaving(false);
+		}
+	};
+
+	const runBrowserLaunch = async () => {
+		const url = browserUrl.trim();
+		if (!url) {
+			setBrowserResult({
+				query: "browser_action:launch",
+				result: "",
+				error: "URL is required.",
+				success: false,
+			});
+			return;
+		}
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({
+				action: "launch",
+				url,
+			});
+			setBrowserResult(result);
+			await loadBrowserStatus();
+		} catch (error) {
+			setBrowserResult({
+				query: "browser_action:launch",
+				result: "",
+				error: error instanceof Error ? error.message : String(error),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserScreenshot = async () => {
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserScreenshot();
+			setBrowserResult(result);
+		} catch (error) {
+			setBrowserResult({
+				query: "browser_screenshot",
+				result: "",
+				error: error instanceof Error ? error.message : String(error),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserClose = async () => {
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({ action: "close" });
+			setBrowserResult(result);
+		} catch (error) {
+			setBrowserResult({
+				query: "browser_action:close",
+				result: "",
+				error: error instanceof Error ? error.message : String(error),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
 		}
 	};
 
@@ -624,6 +775,116 @@ function GeneralSettingsContent({
 							disabled={telemetryLoading || telemetrySaving}
 							onCheckedChange={(checked) => void updateTelemetryOptOut(checked)}
 						/>
+					</div>
+				</section>
+				<section className="mt-4 rounded-lg border border-border p-5">
+					<div className="flex flex-col gap-4">
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<div className="flex min-w-0 items-center gap-2">
+								<Globe2 className="size-4 text-muted-foreground" />
+								<p className="text-sm font-medium text-foreground">
+									Browser Automation
+								</p>
+							</div>
+							<div className="flex items-center gap-2">
+								<Badge variant={browserAvailable ? "default" : "outline"}>
+									{browserAvailable ? "Available" : "Unavailable"}
+								</Badge>
+								<Button
+									aria-label="Refresh browser status"
+									disabled={browserStatusLoading}
+									onClick={() => void loadBrowserStatus()}
+									size="icon"
+									type="button"
+									variant="ghost"
+								>
+									{browserStatusLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<RefreshCw className="size-4" />
+									)}
+								</Button>
+							</div>
+						</div>
+						<div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+							<span className="rounded-md border bg-background px-1.5 py-0.5">
+								Host: {browserStatus?.host ?? "cline-hub"}
+							</span>
+							<span className="rounded-md border bg-background px-1.5 py-0.5">
+								Evaluate:{" "}
+								{browserStatus?.safeBrowserEvaluateEnabled ? "on" : "off"}
+							</span>
+							<span className="rounded-md border bg-background px-1.5 py-0.5">
+								Tools: {browserStatus?.toolNames?.length ?? 0}
+							</span>
+						</div>
+						{browserStatusError || browserStatus?.reason ? (
+							<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+								{browserStatusError ?? browserStatus?.reason}
+								{browserStatus?.nextStep ? ` ${browserStatus.nextStep}` : ""}
+							</div>
+						) : null}
+						<div className="flex flex-col gap-2 md:flex-row">
+							<Input
+								aria-label="Browser URL"
+								onChange={(event) => setBrowserUrl(event.target.value)}
+								placeholder="http://127.0.0.1:3000"
+								value={browserUrl}
+							/>
+							<div className="flex shrink-0 flex-wrap gap-2">
+								<Button
+									disabled={!browserAvailable || browserRunning}
+									onClick={() => void runBrowserLaunch()}
+									type="button"
+									variant="outline"
+								>
+									{browserRunning ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<Play className="size-4" />
+									)}
+									Launch
+								</Button>
+								<Button
+									disabled={!browserAvailable || browserRunning}
+									onClick={() => void runBrowserScreenshot()}
+									type="button"
+									variant="outline"
+								>
+									<Camera className="size-4" />
+									Screenshot
+								</Button>
+								<Button
+									disabled={browserRunning}
+									onClick={() => void runBrowserClose()}
+									type="button"
+									variant="outline"
+								>
+									<XCircle className="size-4" />
+									Close
+								</Button>
+							</div>
+						</div>
+						{browserResult ? (
+							<Alert variant={browserResult.success ? "default" : "destructive"}>
+								{browserResult.success ? (
+									<CheckCircle2 className="size-4" />
+								) : (
+									<AlertTriangle className="size-4" />
+								)}
+								<AlertTitle>{browserResult.query}</AlertTitle>
+								<AlertDescription>
+									{browserSummary || (browserResult.success ? "done" : "failed")}
+								</AlertDescription>
+							</Alert>
+						) : null}
+						{browserScreenshot ? (
+							<img
+								alt="Browser automation screenshot"
+								className="max-h-72 rounded-md border border-border object-contain"
+								src={browserScreenshot}
+							/>
+						) : null}
 					</div>
 				</section>
 			</div>
