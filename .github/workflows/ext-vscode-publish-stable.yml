@@ -60,6 +60,11 @@ jobs:
                   fetch-tags: true
                   lfs: true
 
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+
             - name: Validate CodeVibe Release Gate
               working-directory: ${{ github.workspace }}
               env:
@@ -161,11 +166,6 @@ jobs:
                   fi
                   echo "tag=$TAG" >> $GITHUB_OUTPUT
                   echo "resolved_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
-            - name: Setup Node.js
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 22
 
             - name: Install extension dependencies
               working-directory: ${{ github.workspace }}
