@@ -26,6 +26,9 @@ export interface BackgroundAgentTaskRecord {
 	id: string
 	source: "cursor-deeplink"
 	status: BackgroundAgentLifecycleStatus
+	agentMode: "plan"
+	autoApprovalProfile: "read-only-plan-confirmation-required"
+	worktreePolicy: "confirm-before-create"
 	launchMode?: "worktree" | "controller-record"
 	createdAt: number
 	updatedAt: number
@@ -180,6 +183,9 @@ export function buildBackgroundAgentTaskPrompt(
 		"Controller launch record:",
 		`- id: ${record.id}`,
 		`- status: ${record.status}`,
+		`- agent mode: ${record.agentMode}`,
+		`- auto-approval profile: ${record.autoApprovalProfile}`,
+		`- worktree policy: ${record.worktreePolicy}`,
 		`- confirmation required: yes`,
 	]
 
@@ -246,6 +252,9 @@ export async function launchCursorBackgroundAgent(
 		id: (dependencies.createId ?? defaultCreateId)(),
 		source: "cursor-deeplink",
 		status: "queued",
+		agentMode: "plan",
+		autoApprovalProfile: "read-only-plan-confirmation-required",
+		worktreePolicy: "confirm-before-create",
 		createdAt: now(),
 		updatedAt: now(),
 		prompt: request.prompt,

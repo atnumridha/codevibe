@@ -72,6 +72,9 @@ describe("launchCursorBackgroundAgent", () => {
 		expect(startedTasks[0].taskSettings.autoApprovalSettings?.actions.useMcp).to.equal(false)
 
 		expect(result.status).to.equal("running")
+		expect(result.agentMode).to.equal("plan")
+		expect(result.autoApprovalProfile).to.equal("read-only-plan-confirmation-required")
+		expect(result.worktreePolicy).to.equal("confirm-before-create")
 		expect(result.launchMode).to.equal("worktree")
 		expect(result.taskId).to.equal("task-1")
 		expect(records.map((record) => record.status)).to.include.members([

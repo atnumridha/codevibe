@@ -129,6 +129,9 @@ message BackgroundAgentSession {
   optional string warning = 18;
   optional string task_id = 19;
   optional string error_message = 20;
+  optional string agent_mode = 21;
+  optional string auto_approval_profile = 22;
+  optional string worktree_policy = 23;
 }
 
 // Response for Cursor-compatible background-agent lifecycle sessions
