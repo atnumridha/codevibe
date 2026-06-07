@@ -1,7 +1,12 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: static */
 
+import { randomUUID } from "node:crypto";
 import * as Llms from "@cline/llms";
-import { loadOpenAICodexHomeCredentialsSync } from "../../auth/codex";
+import {
+	loadOpenAICodexHomeCredentialsSync,
+	refreshOpenAICodexToken,
+} from "../../auth/codex";
+import { CORE_BUILD_VERSION } from "../../version";
 import {
 	fetchModelIdsFromSource,
 	resolveModelsSourceUrl,
@@ -116,6 +121,7 @@ function toRuntimeCapabilities(
 
 export const DEFAULT_MODELS_CATALOG_URL = "https://models.dev/api.json";
 const OPENAI_CODEX_DEFAULT_CLIENT_VERSION = "0.136.0";
+const OPENAI_CODEX_USER_AGENT = `Cline/${CORE_BUILD_VERSION || "1.0.0"}`;
 const DEFAULT_MODELS_CATALOG_CACHE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_PRIVATE_MODELS_CACHE_TTL_MS = 5 * 60 * 1000;
 const DEFAULT_PRIVATE_MODELS_REQUEST_TIMEOUT_MS = 5_000;
@@ -441,10 +447,7 @@ async function fetchHicapPrivateModels(
 	return models;
 }
 
-async function fetchOpenAICodexPrivateModels(
-	config: ProviderConfig,
-	token: string,
-): Promise<Record<string, ModelInfo>> {
+function buildOpenAICodexModelsUrl(config: ProviderConfig): string {
 	const baseUrl =
 		normalizeBaseUrl(config.baseUrl) || "https://chatgpt.com/backend-api/codex";
 	const url = new URL(`${baseUrl.replace(/\/+$/, "")}/models`);
@@ -452,20 +455,79 @@ async function fetchOpenAICodexPrivateModels(
 		"client_version",
 		config.codex?.clientVersion ?? OPENAI_CODEX_DEFAULT_CLIENT_VERSION,
 	);
+	return url.toString();
+}
 
-	const accountId = config.codex?.accountId ?? config.accountId;
+function buildOpenAICodexModelsHeaders(
+	config: ProviderConfig,
+	token: string,
+	sessionId: string,
+	accountIdOverride?: string,
+): Record<string, string> {
+	const accountId =
+		accountIdOverride ?? config.codex?.accountId ?? config.accountId;
 	const installationId = config.codex?.installationId;
-	const response = await fetchWithTimeout(url.toString(), {
+	return {
+		Authorization: `Bearer ${token}`,
+		originator: "cline",
+		session_id: sessionId,
+		"User-Agent": OPENAI_CODEX_USER_AGENT,
+		...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
+		...(installationId
+			? { "x-codex-installation-id": installationId }
+			: {}),
+	};
+}
+
+async function requestOpenAICodexModels(
+	config: ProviderConfig,
+	token: string,
+	sessionId: string,
+	accountIdOverride?: string,
+): Promise<Response> {
+	return await fetchWithTimeout(buildOpenAICodexModelsUrl(config), {
 		method: "GET",
-		headers: {
-			Authorization: `Bearer ${token}`,
-			originator: "cline",
-			...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
-			...(installationId
-				? { "x-codex-installation-id": installationId }
-				: {}),
-		},
+		headers: buildOpenAICodexModelsHeaders(
+			config,
+			token,
+			sessionId,
+			accountIdOverride,
+		),
 	});
+}
+
+async function fetchOpenAICodexPrivateModels(
+	config: ProviderConfig,
+	token: string,
+): Promise<Record<string, ModelInfo>> {
+	const accountId = config.codex?.accountId ?? config.accountId;
+	const sessionId = randomUUID();
+	let response = await requestOpenAICodexModels(config, token, sessionId);
+	if (
+		(response.status === 401 || response.status === 403) &&
+		config.refreshToken
+	) {
+		try {
+			const refreshed = await refreshOpenAICodexToken(config.refreshToken, {
+				access: token,
+				refresh: config.refreshToken,
+				expires: Date.now(),
+				accountId,
+				metadata: {
+					...(config.codex ?? {}),
+					provider: "openai-codex",
+				},
+			});
+			response = await requestOpenAICodexModels(
+				config,
+				refreshed.access,
+				sessionId,
+				refreshed.accountId,
+			);
+		} catch {
+			// Preserve the token-safe HTTP status error from the original request.
+		}
+	}
 	if (!response.ok) {
 		throw new Error(
 			`OpenAI Codex model refresh failed: HTTP ${response.status}`,

@@ -347,6 +347,8 @@ describe("resolveProviderConfig", () => {
 					"ChatGPT-Account-Id": "acct_123",
 					"x-codex-installation-id": "install_123",
 					originator: "cline",
+					session_id: expect.any(String),
+					"User-Agent": expect.stringMatching(/^Cline\//),
 				}),
 			}),
 		);
@@ -364,6 +366,111 @@ describe("resolveProviderConfig", () => {
 		);
 		expect(resolved?.knownModels?.["hidden-codex"]).toBeUndefined();
 		expect(resolved?.knownModels?.["gpt-5.5"]?.maxInputTokens).toBe(272_000);
+	});
+
+	it("refreshes OpenAI Codex credentials and retries authenticated model discovery once", async () => {
+		const refreshedToken = createJwt({
+			exp: Math.floor(Date.now() / 1000) + 3600,
+			"https://api.openai.com/auth": {
+				chatgpt_account_id: "acct_refreshed",
+			},
+		});
+		const fetchMock = vi.fn(
+			async (url: string | URL | Request, _init?: RequestInit) => {
+				const href = String(url);
+				if (href.includes("/oauth/token")) {
+					return new Response(
+						JSON.stringify({
+							access_token: refreshedToken,
+							refresh_token: "refresh-new",
+							expires_in: 3600,
+						}),
+						{
+							status: 200,
+							headers: { "content-type": "application/json" },
+						},
+					);
+				}
+				const modelCallCount = fetchMock.mock.calls.filter(([callUrl]) =>
+					String(callUrl).includes("/models"),
+				).length;
+				if (modelCallCount === 1) {
+					return new Response("expired", { status: 401 });
+				}
+				return new Response(
+					JSON.stringify({
+						models: [
+							{
+								display_name: "Refreshed Codex",
+								slug: "gpt-refreshed-codex",
+								supported_in_api: true,
+							},
+						],
+					}),
+					{
+						status: 200,
+						headers: { "content-type": "application/json" },
+					},
+				);
+			},
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		const resolved = await resolveProviderConfig(
+			"openai-codex",
+			{ cacheTtlMs: 0, failOnError: true },
+			{
+				providerId: "openai-codex",
+				modelId: "gpt-5.5",
+				apiKey: "expired-token",
+				refreshToken: "refresh-old",
+				accountId: "acct_old",
+				codex: {
+					clientVersion: "0.136.0-test",
+					installationId: "install_123",
+				},
+			},
+		);
+
+		expect(fetchMock).toHaveBeenNthCalledWith(
+			1,
+			"https://chatgpt.com/backend-api/codex/models?client_version=0.136.0-test",
+			expect.objectContaining({
+				method: "GET",
+				headers: expect.objectContaining({
+					Authorization: "Bearer expired-token",
+					"ChatGPT-Account-Id": "acct_old",
+					"x-codex-installation-id": "install_123",
+					session_id: expect.any(String),
+					"User-Agent": expect.stringMatching(/^Cline\//),
+				}),
+			}),
+		);
+		expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/oauth/token");
+		const firstModelsHeaders = fetchMock.mock.calls[0]?.[1]?.headers as
+			| Record<string, string>
+			| undefined;
+
+		expect(fetchMock).toHaveBeenNthCalledWith(
+			3,
+			"https://chatgpt.com/backend-api/codex/models?client_version=0.136.0-test",
+			expect.objectContaining({
+				method: "GET",
+				headers: expect.objectContaining({
+					Authorization: `Bearer ${refreshedToken}`,
+					"ChatGPT-Account-Id": "acct_refreshed",
+					"x-codex-installation-id": "install_123",
+					session_id: firstModelsHeaders?.session_id,
+					"User-Agent": expect.stringMatching(/^Cline\//),
+				}),
+			}),
+		);
+		expect(resolved?.knownModels?.["gpt-refreshed-codex"]).toEqual(
+			expect.objectContaining({
+				name: "Refreshed Codex",
+				status: "active",
+			}),
+		);
 	});
 
 	it("uses Codex home credentials for first-run authenticated model discovery", async () => {
@@ -432,6 +539,9 @@ describe("resolveProviderConfig", () => {
 						Authorization: expect.stringMatching(/^Bearer /),
 						"ChatGPT-Account-Id": "acct_home",
 						"x-codex-installation-id": "install_home",
+						originator: "cline",
+						session_id: expect.any(String),
+						"User-Agent": expect.stringMatching(/^Cline\//),
 					}),
 				}),
 			);
