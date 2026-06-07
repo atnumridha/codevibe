@@ -649,6 +649,61 @@ export class OpenAiCodexOAuthManager {
 		server?: http.Server
 	} | null = null
 
+	private async refreshCurrentCredentials(): Promise<OpenAiCodexCredentials> {
+		if (!this.credentials) {
+			throw new Error("No OpenAI Codex credentials are loaded")
+		}
+		if (!this.refreshPromise) {
+			this.refreshPromise = refreshAccessToken(this.credentials)
+		}
+
+		const newCredentials = await this.refreshPromise
+		this.refreshPromise = null
+		await this.saveCredentials(newCredentials)
+		return newCredentials
+	}
+
+	private async loadVscodeSecretFallbackAfterInvalidGrant(
+		failedCredentials: OpenAiCodexCredentials,
+		error: unknown,
+	): Promise<OpenAiCodexCredentials | null> {
+		if (
+			failedCredentials.tokenSource !== "codex-home" ||
+			!(error instanceof OpenAiCodexOAuthTokenError) ||
+			!error.isLikelyInvalidGrant()
+		) {
+			return null
+		}
+
+		try {
+			const fallbackCredentials = await loadVscodeSecretCredentials()
+			if (!fallbackCredentials) {
+				return null
+			}
+			this.credentials = fallbackCredentials
+			if (!isTokenExpired(fallbackCredentials)) {
+				Logger.log("[openai-codex-oauth] Using VS Code secret credentials after Codex home refresh failed")
+				return fallbackCredentials
+			}
+
+			const refreshedFallback = await this.refreshCurrentCredentials()
+			Logger.log("[openai-codex-oauth] Refreshed VS Code secret credentials after Codex home refresh failed")
+			return refreshedFallback
+		} catch (fallbackError) {
+			this.refreshPromise = null
+			Logger.error(
+				`[openai-codex-oauth] Failed to use VS Code secret fallback after Codex home refresh failed: ${safeErrorSummary(
+					fallbackError,
+				)}`,
+			)
+			if (fallbackError instanceof OpenAiCodexOAuthTokenError && fallbackError.isLikelyInvalidGrant()) {
+				Logger.log("[openai-codex-oauth] VS Code secret refresh token appears invalid; clearing stored credentials")
+				await this.clearCredentials()
+			}
+			return null
+		}
+	}
+
 	/**
 	 * Force a refresh using the stored refresh token even if the access token is not expired.
 	 * Useful when the server invalidates an access token early.
@@ -663,19 +718,23 @@ export class OpenAiCodexOAuthManager {
 		}
 
 		try {
-			// De-dupe concurrent refreshes
-			if (!this.refreshPromise) {
-				this.refreshPromise = refreshAccessToken(this.credentials)
-			}
-
-			const newCredentials = await this.refreshPromise
-			this.refreshPromise = null
-			await this.saveCredentials(newCredentials)
+			const newCredentials = await this.refreshCurrentCredentials()
 			return newCredentials.access_token
 		} catch (error) {
+			const failedCredentials = this.credentials
 			this.refreshPromise = null
 			Logger.error(`[openai-codex-oauth] Failed to force refresh token: ${safeErrorSummary(error)}`)
-			if (error instanceof OpenAiCodexOAuthTokenError && error.isLikelyInvalidGrant()) {
+			const fallbackCredentials = failedCredentials
+				? await this.loadVscodeSecretFallbackAfterInvalidGrant(failedCredentials, error)
+				: null
+			if (fallbackCredentials) {
+				return fallbackCredentials.access_token
+			}
+			if (
+				failedCredentials?.tokenSource !== "codex-home" &&
+				error instanceof OpenAiCodexOAuthTokenError &&
+				error.isLikelyInvalidGrant()
+			) {
 				Logger.log("[openai-codex-oauth] Refresh token appears invalid; clearing stored credentials")
 				await this.clearCredentials()
 			}
@@ -746,20 +805,24 @@ export class OpenAiCodexOAuthManager {
 		// Check if token is expired and refresh if needed
 		if (isTokenExpired(this.credentials)) {
 			try {
-				// De-dupe concurrent refreshes
-				if (!this.refreshPromise) {
-					this.refreshPromise = refreshAccessToken(this.credentials)
-				}
-
-				const newCredentials = await this.refreshPromise
-				this.refreshPromise = null
-				await this.saveCredentials(newCredentials)
+				await this.refreshCurrentCredentials()
 			} catch (error) {
+				const failedCredentials = this.credentials
 				this.refreshPromise = null
 				Logger.error(`[openai-codex-oauth] Failed to refresh token: ${safeErrorSummary(error)}`)
+				const fallbackCredentials = failedCredentials
+					? await this.loadVscodeSecretFallbackAfterInvalidGrant(failedCredentials, error)
+					: null
+				if (fallbackCredentials) {
+					return fallbackCredentials.access_token
+				}
 
 				// Only clear secrets when the refresh token is clearly invalid/revoked.
-				if (error instanceof OpenAiCodexOAuthTokenError && error.isLikelyInvalidGrant()) {
+				if (
+					failedCredentials?.tokenSource !== "codex-home" &&
+					error instanceof OpenAiCodexOAuthTokenError &&
+					error.isLikelyInvalidGrant()
+				) {
 					Logger.log("[openai-codex-oauth] Refresh token appears invalid; clearing stored credentials")
 					await this.clearCredentials()
 				}

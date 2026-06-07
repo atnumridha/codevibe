@@ -255,6 +255,46 @@ describe("OpenAI Codex OAuth local profile support", () => {
 		expect(getSecretKey.called).to.equal(false)
 	})
 
+	it("falls back to VS Code secret credentials when stale Codex home refresh is invalid", async () => {
+		mockAuthSource()
+		const getSecretKey = sinon.stub().withArgs("openai-codex-oauth-credentials").returns(
+			JSON.stringify({
+				type: "openai-codex",
+				access_token: "vscode-access-secret",
+				refresh_token: "vscode-refresh-secret",
+				expires: Date.now() + 10 * 60_000,
+				tokenSource: "oauth",
+			}),
+		)
+		const setSecret = sinon.stub()
+		sinon.stub(StateManager, "get").returns({
+			getSecretKey,
+			setSecret,
+			flushPendingState: sinon.stub().resolves(),
+		} as unknown as StateManager)
+		const codexHome = await createCodexHome(jwt({ exp: 1 }), "stale-codex-refresh-secret")
+		const manager = new OpenAiCodexOAuthManager()
+
+		const loaded = await manager.loadCredentials({ codexHome })
+		expect(loaded?.tokenSource).to.equal("codex-home")
+
+		const accessToken = await mockFetchForTesting(
+			(async () =>
+				new Response(
+					JSON.stringify({
+						error: "invalid_grant",
+						error_description: "stale Codex home refresh token",
+					}),
+					{ status: 401, statusText: "Unauthorized" },
+				)) as typeof globalThis.fetch,
+			async () => await manager.getAccessToken(),
+		)
+
+		expect(accessToken).to.equal("vscode-access-secret")
+		expect(getSecretKey.called).to.equal(true)
+		expect(setSecret.called).to.equal(false)
+	})
+
 	it("defaults to VS Code secret storage when Codex home credentials are missing", async () => {
 		mockAuthSource()
 		stubVscodeSecret(vscodeSecretCredentialsJson("vscode-access-secret"))
