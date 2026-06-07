@@ -7,6 +7,7 @@ import {
 	FlaskConical,
 	HardDriveDownload,
 	Info,
+	Link2,
 	type LucideIcon,
 	SlidersHorizontal,
 	SquareMousePointer,
@@ -31,6 +32,7 @@ import SectionHeader from "./SectionHeader";
 import AboutSection from "./sections/AboutSection";
 import ApiConfigurationSection from "./sections/ApiConfigurationSection";
 import BrowserSettingsSection from "./sections/BrowserSettingsSection";
+import CursorCompatibilitySection from "./sections/CursorCompatibilitySection";
 import DebugSection from "./sections/DebugSection";
 import FeatureSettingsSection from "./sections/FeatureSettingsSection";
 import GeneralSettingsSection from "./sections/GeneralSettingsSection";
@@ -45,6 +47,7 @@ type SettingsTabID =
 	| "features"
 	| "browser"
 	| "terminal"
+	| "cursor-compat"
 	| "general"
 	| "about"
 	| "debug"
@@ -89,6 +92,13 @@ export const SETTINGS_TABS: SettingsTab[] = [
 		tooltipText: "Terminal Settings",
 		headerText: "Terminal Settings",
 		icon: SquareTerminal,
+	},
+	{
+		id: "cursor-compat",
+		name: "Cursor Links",
+		tooltipText: "Cursor-Compatible Links",
+		headerText: "Cursor-Compatible Links",
+		icon: Link2,
 	},
 	{
 		id: "general",
@@ -157,6 +167,7 @@ const SettingsView = ({ onDone, targetSection }: SettingsViewProps) => {
 			features: FeatureSettingsSection,
 			browser: BrowserSettingsSection,
 			terminal: TerminalSettingsSection,
+			"cursor-compat": CursorCompatibilitySection,
 			"remote-config": RemoteConfigSection,
 			about: AboutSection,
 			debug: DebugSection,
