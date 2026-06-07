@@ -333,6 +333,10 @@
             "type": "string",
             "description": "The response to provide to the user."
           },
+          "needs_more_exploration": {
+            "type": "boolean",
+            "description": "Set to true if while formulating your response that you found you need to do more exploration with tools, for example reading files. Defaults to false if not specified."
+          },
           "task_progress": {
             "type": "string",
             "description": "A checklist showing task progress with the latest status of each subtasks included previously if any."

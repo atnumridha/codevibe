@@ -7,6 +7,7 @@ import { toolSpecFunctionDeclarations, toolSpecFunctionDefinition, toolSpecInput
 import { browser_action_variants } from "../tools/browser_action"
 import { browser_screenshot_variants } from "../tools/browser_screenshot"
 import { browser_snapshot_variants } from "../tools/browser_snapshot"
+import { plan_mode_respond_variants } from "../tools/plan_mode_respond"
 import type { SystemPromptContext } from "../types"
 
 const mockContext: SystemPromptContext = {
@@ -127,6 +128,23 @@ describe("native tool placeholder replacement", () => {
 			expect(desc).to.include("Use @workspace:path syntax")
 			expect(desc).to.not.include("{{CWD}}")
 			expect(desc).to.not.include("{{MULTI_ROOT_HINT}}")
+		}
+	})
+})
+
+describe("plan_mode_respond native schema", () => {
+	it("exposes needs_more_exploration for native GPT-5 plan responses", () => {
+		for (const family of [ModelFamily.NATIVE_GPT_5, ModelFamily.NATIVE_NEXT_GEN]) {
+			const spec = plan_mode_respond_variants.find((variant) => variant.variant === family)
+
+			expect(spec, `plan_mode_respond spec for ${family}`).to.exist
+			expect(spec!.description).to.include("needs_more_exploration")
+
+			const openAI = toolSpecFunctionDefinition(spec!, mockContext)
+			const properties = (openAI as any).function.parameters.properties
+			expect(properties.needs_more_exploration).to.deep.include({
+				type: "boolean",
+			})
 		}
 	})
 })

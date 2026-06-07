@@ -68,6 +68,13 @@ However, if while writing your response you realize you actually need to do more
 			instruction: `The response to provide to the user.`,
 		},
 		{
+			name: "needs_more_exploration",
+			required: false,
+			instruction:
+				"Set to true if while formulating your response that you found you need to do more exploration with tools, for example reading files. Defaults to false if not specified.",
+			type: "boolean",
+		},
+		{
 			name: "task_progress",
 			required: false,
 			instruction: "A checklist showing task progress with the latest status of each subtasks included previously if any.",
