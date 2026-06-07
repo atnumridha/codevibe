@@ -1,30 +1,18 @@
 import { StringRequest } from "@shared/proto/cline/common"
-import { VSCodeButton, VSCodeTextArea } from "@vscode/webview-ui-toolkit/react"
-import { useCallback, useState, type FormEvent } from "react"
+import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
+import { useCallback, useMemo, useState, type FormEvent } from "react"
 import { Badge } from "@/components/ui/badge"
 import { UiServiceClient } from "@/services/grpc-client"
 import Section from "../Section"
+import {
+	buildCursorUriPreview,
+	CURSOR_COMPATIBILITY_SURFACES,
+	CURSOR_COMPATIBLE_ROUTE_LABELS,
+} from "./cursorCompatibilityPreview"
 
 interface CursorCompatibilitySectionProps {
 	renderSectionHeader: (tabId: string) => JSX.Element | null
 }
-
-const ROUTES = [
-	"/createchat",
-	"/mcp/install",
-	"/background-agent",
-	"/settings",
-	"/prompt",
-	"/command",
-	"/rule",
-	"/pr-review",
-	"/plugin/add",
-	"/glass",
-	"/automation/ingest",
-	"/git/checkout",
-	"/git/branch",
-	"/git/commit",
-] as const
 
 const EXAMPLES = [
 	{
@@ -57,6 +45,7 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 	const [uri, setUri] = useState("")
 	const [isLaunching, setIsLaunching] = useState(false)
 	const [status, setStatus] = useState<LaunchStatus | null>(null)
+	const preview = useMemo(() => buildCursorUriPreview(uri), [uri])
 
 	const launchUri = useCallback(async () => {
 		const trimmedUri = uri.trim()
@@ -102,15 +91,14 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 						<label className="text-xs font-medium text-foreground/80" htmlFor="cursor-compatible-uri">
 							URI
 						</label>
-						<VSCodeTextArea
-							className="w-full"
+						<textarea
+							className="min-h-24 w-full resize-y rounded border border-input-border bg-input-background p-2 text-sm text-foreground outline-none focus:border-button-background"
 							id="cursor-compatible-uri"
-							onInput={(event) => {
+							onChange={(event) => {
 								setUri((event.target as HTMLTextAreaElement).value)
 								setStatus(null)
 							}}
 							placeholder="vscode://cline.cline/createchat?prompt=..."
-							resize="vertical"
 							rows={4}
 							value={uri}
 						/>
@@ -129,6 +117,19 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 								{example.label}
 							</VSCodeButton>
 						))}
+					</div>
+
+					<div className="flex flex-col gap-2">
+						<div className="flex items-center gap-2">
+							<div className="text-xs font-medium text-foreground/80 uppercase tracking-wider">Preview</div>
+							{preview.redacted && <Badge variant="outline">redacted</Badge>}
+							{preview.route && <Badge variant="info">{preview.route}</Badge>}
+						</div>
+						<pre
+							aria-label="Redacted URI preview"
+							className="m-0 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded border border-input-foreground/20 bg-input-background/40 p-2 text-xs">
+							{preview.text}
+						</pre>
 					</div>
 
 					<VSCodeButton disabled={isLaunching || !uri.trim()} type="submit">
@@ -151,9 +152,19 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 			<Section>
 				<div className="text-xs font-medium text-foreground/80 uppercase tracking-wider">Routes</div>
 				<div className="flex flex-wrap gap-1.5">
-					{ROUTES.map((route) => (
-						<Badge key={route} variant="outline">
-							{route}
+					{CURSOR_COMPATIBLE_ROUTE_LABELS.map((route) => (
+						<Badge key={route.path} variant={preview.route === route.path ? "info" : "outline"}>
+							{route.label}: {route.path}
+						</Badge>
+					))}
+				</div>
+			</Section>
+			<Section>
+				<div className="text-xs font-medium text-foreground/80 uppercase tracking-wider">Surfaces</div>
+				<div className="flex flex-wrap gap-1.5">
+					{CURSOR_COMPATIBILITY_SURFACES.map((surface) => (
+						<Badge key={surface} variant="outline">
+							{surface}
 						</Badge>
 					))}
 				</div>

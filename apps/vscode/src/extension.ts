@@ -63,6 +63,7 @@ import {
 } from "./services/uri/CursorUriRoutes"
 import { getRawExtensionUriString } from "./services/uri/ExtensionUriString"
 import { LG_TASK_URI_PATH, SharedUriHandler, TASK_URI_PATH } from "./services/uri/SharedUriHandler"
+import { redactUriForLogging } from "./services/uri/UriRedaction"
 import { ShowMessageType } from "./shared/proto/host/window"
 import { fileExistsAtPath } from "./utils/fs"
 
@@ -197,7 +198,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 
 		if (!success) {
-			Logger.warn("Extension URI handler: Failed to process URI:", uri.toString())
+			Logger.warn("Extension URI handler: Failed to process URI:", redactUriForLogging(uri.toString()))
 		}
 	}
 	context.subscriptions.push(vscode.window.registerUriHandler({ handleUri }))
