@@ -205,6 +205,8 @@ export type WebviewActionSessionSummary = {
 	outputTokens?: number;
 	totalCost?: number;
 	agentCount: number;
+	backgroundAgent?: boolean;
+	backgroundAgentDetails?: Record<string, unknown>;
 };
 
 export type WebviewHubEvent = {

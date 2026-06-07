@@ -70,9 +70,9 @@ function expandCursorMcpValue<T>(value: T, context: CursorMcpVariableContext): T
 	return value;
 }
 
-function normalizeTransportAliasFields<T extends Record<string, unknown>>(
-	value: T,
-): T {
+function normalizeTransportAliasFields(
+	value: Record<string, unknown>,
+): Record<string, unknown> {
 	const normalizedType = normalizeCursorMcpTransportType(
 		value.type ?? value.transportType,
 	);

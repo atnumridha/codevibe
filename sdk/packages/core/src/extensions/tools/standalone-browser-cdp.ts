@@ -362,7 +362,6 @@ class CdpConnection {
 export class StandaloneBrowserCdpAutomation {
 	private browserProcess: ChildProcess | undefined;
 	private page: CdpConnection | undefined;
-	private debugPort: number | undefined;
 	private profileDir: string | undefined;
 	private logs: string[] = [];
 	private currentMousePosition: string | undefined;
@@ -497,7 +496,6 @@ export class StandaloneBrowserCdpAutomation {
 			await rm(this.profileDir, { recursive: true, force: true }).catch(() => {});
 			this.profileDir = undefined;
 		}
-		this.debugPort = undefined;
 		this.currentMousePosition = undefined;
 		this.logs = [];
 	}
@@ -516,7 +514,6 @@ export class StandaloneBrowserCdpAutomation {
 		}
 		const port = await getOpenPort();
 		const profileDir = await mkdtemp(join(tmpdir(), "codevibe-browser-"));
-		this.debugPort = port;
 		this.profileDir = profileDir;
 		this.browserProcess = spawn(
 			executablePath,

@@ -751,7 +751,7 @@ export class SessionRuntime {
 			telemetry: this.telemetry,
 			tools,
 			toolContextMetadata: {
-				cwd: this.config.cwd,
+				cwd: (this.config as AgentConfig & { cwd?: string }).cwd,
 				modelSupportsImages:
 					modelInfo?.capabilities?.includes("images") ?? true,
 				...this.config.toolContextMetadata,

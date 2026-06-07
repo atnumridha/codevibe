@@ -20,7 +20,7 @@ import {
 	X,
 	XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -642,6 +642,70 @@ export function SettingsView({
 
 const DEFAULT_CURSOR_URI =
 	"vscode://cline.cline/createchat?prompt=Review%20the%20diff";
+const CURSOR_LINK_ROUTE_LABELS = [
+	{ label: "Chat", path: "/createchat" },
+	{ label: "MCP", path: "/mcp/install" },
+	{ label: "Background", path: "/background-agent" },
+	{ label: "Settings", path: "/settings" },
+	{ label: "Prompt", path: "/prompt" },
+	{ label: "Command", path: "/command" },
+	{ label: "Rule", path: "/rule" },
+	{ label: "PR Review", path: "/pr-review" },
+	{ label: "Plugin", path: "/plugin/add" },
+	{ label: "Glass", path: "/glass" },
+	{ label: "NDJSON", path: "/automation/ingest" },
+	{ label: "Checkout", path: "/git/checkout" },
+	{ label: "Branch", path: "/git/branch" },
+	{ label: "Commit", path: "/git/commit" },
+] as const;
+const CURSOR_LINK_ROUTE_PATHS = new Set<string>(
+	CURSOR_LINK_ROUTE_LABELS.map((route) => route.path),
+);
+const CURSOR_LINK_SURFACES = [
+	"Codex auth",
+	"Composer",
+	"MCP install",
+	"Browser",
+	"Retrieval",
+	"Background agents",
+	"Rules",
+	"Sandbox",
+	"Git helpers",
+	"NDJSON ingest",
+	"Plugins",
+] as const;
+const CURSOR_LINK_EXAMPLES = [
+	{
+		label: "Chat",
+		uri: DEFAULT_CURSOR_URI,
+	},
+	{
+		label: "MCP",
+		uri: "vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+	},
+	{
+		label: "Background",
+		uri: "codevibe://background-agent?prompt=Investigate%20flaky%20tests&repo=owner%2Frepo",
+	},
+	{
+		label: "NDJSON",
+		uri: `vscode://cline.cline/automation/ingest?ndjson=${encodeURIComponent(
+			JSON.stringify({ eventId: "evt-1", eventType: "cursor.demo" }),
+		)}`,
+	},
+	{
+		label: "Git",
+		uri: "codevibe://git/checkout?branch=feature%2Fdemo",
+	},
+	{
+		label: "Plugin",
+		uri: "codevibe://plugin/add?id=docs-helper&replace=true",
+	},
+] as const;
+const CURSOR_SECRET_KEY_PATTERN =
+	/(authorization|api[-_]?key|cookie|credential|id[-_]?token|jwt|password|refresh[-_]?token|secret|session|token)/i;
+const CURSOR_BEARER_SECRET_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
+const CURSOR_URI_PREVIEW_VALUE_LIMIT = 512;
 const CURSOR_LAUNCHABLE_AGENT_PATHS = new Set([
 	"/createchat",
 	"/background-agent",
@@ -653,6 +717,211 @@ const CURSOR_LAUNCHABLE_AGENT_PATHS = new Set([
 	"/git/branch",
 	"/git/commit",
 ]);
+
+function truncateCursorPreviewValue(value: string): string {
+	const normalized = value.replace(/[\r\n\t]+/g, " ").trim();
+	if (normalized.length <= CURSOR_URI_PREVIEW_VALUE_LIMIT) {
+		return normalized;
+	}
+	return `${normalized.slice(0, CURSOR_URI_PREVIEW_VALUE_LIMIT)}...`;
+}
+
+function isCursorSecretKey(key: string): boolean {
+	return CURSOR_SECRET_KEY_PATTERN.test(key);
+}
+
+function redactCursorSecretLikeString(value: string): {
+	redacted: boolean;
+	value: string;
+} {
+	const replaced = value.replace(CURSOR_BEARER_SECRET_PATTERN, "Bearer [REDACTED]");
+	return { value: replaced, redacted: replaced !== value };
+}
+
+function redactCursorSecretBearingUrl(value: string): {
+	redacted: boolean;
+	value: string;
+} {
+	try {
+		const parsed = new URL(value);
+		let redacted = false;
+		for (const key of [...new Set(parsed.searchParams.keys())]) {
+			if (isCursorSecretKey(key)) {
+				parsed.searchParams.set(key, "[REDACTED]");
+				redacted = true;
+			}
+		}
+		return redacted
+			? { value: parsed.toString(), redacted }
+			: { value, redacted: false };
+	} catch {
+		return { value, redacted: false };
+	}
+}
+
+function redactCursorJsonValue(
+	value: unknown,
+	parentKey = "",
+): { redacted: boolean; value: unknown } {
+	if (isCursorSecretKey(parentKey)) {
+		return { value: "[REDACTED]", redacted: true };
+	}
+
+	if (typeof value === "string") {
+		const urlRedaction = redactCursorSecretBearingUrl(value);
+		const bearerRedaction = redactCursorSecretLikeString(urlRedaction.value);
+		return {
+			value: bearerRedaction.value,
+			redacted: urlRedaction.redacted || bearerRedaction.redacted,
+		};
+	}
+
+	if (Array.isArray(value)) {
+		let redacted = false;
+		const next = value.map((entry) => {
+			const result = redactCursorJsonValue(entry);
+			redacted ||= result.redacted;
+			return result.value;
+		});
+		return { value: next, redacted };
+	}
+
+	if (value && typeof value === "object") {
+		let redacted = false;
+		const next: Record<string, unknown> = {};
+		for (const [key, entry] of Object.entries(value)) {
+			const result = redactCursorJsonValue(entry, key);
+			redacted ||= result.redacted;
+			next[key] = result.value;
+		}
+		return { value: next, redacted };
+	}
+
+	return { value, redacted: false };
+}
+
+function redactCursorParamValue(
+	key: string,
+	value: string,
+): { redacted: boolean; value: string } {
+	if (isCursorSecretKey(key)) {
+		return { value: "[REDACTED]", redacted: true };
+	}
+
+	if (key === "config") {
+		try {
+			const parsed = parseCursorConfigPreviewValue(value);
+			const result = redactCursorJsonValue(parsed);
+			return {
+				value: truncateCursorPreviewValue(JSON.stringify(result.value)),
+				redacted: result.redacted,
+			};
+		} catch {
+			const fallback = redactCursorSecretLikeString(value);
+			return {
+				value: truncateCursorPreviewValue(fallback.value),
+				redacted: fallback.redacted,
+			};
+		}
+	}
+
+	const urlRedaction = redactCursorSecretBearingUrl(value);
+	const bearerRedaction = redactCursorSecretLikeString(urlRedaction.value);
+	return {
+		value: truncateCursorPreviewValue(bearerRedaction.value),
+		redacted: urlRedaction.redacted || bearerRedaction.redacted,
+	};
+}
+
+function parseCursorConfigPreviewValue(value: string): unknown {
+	try {
+		return JSON.parse(value);
+	} catch {
+		const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+		const padded = normalized.padEnd(
+			Math.ceil(normalized.length / 4) * 4,
+			"=",
+		);
+		return JSON.parse(atob(padded));
+	}
+}
+
+function inferCursorRoute(parsed: URL): string {
+	const directPath = parsed.pathname || "/";
+	if (CURSOR_LINK_ROUTE_PATHS.has(directPath)) {
+		return directPath;
+	}
+
+	const hostPath = parsed.hostname
+		? `/${parsed.hostname}${directPath === "/" ? "" : directPath}`
+		: directPath;
+	if (CURSOR_LINK_ROUTE_PATHS.has(hostPath)) {
+		return hostPath;
+	}
+
+	if (parsed.hostname === "anysphere.cursor-mcp" && directPath === "/install") {
+		return "/mcp/install";
+	}
+
+	return directPath;
+}
+
+function buildCursorUriLocalPreview(input: string): {
+	paramKeys: string[];
+	redacted: boolean;
+	route?: string;
+	text: string;
+} {
+	const trimmed = input.trim();
+	if (!trimmed) {
+		return {
+			paramKeys: [],
+			redacted: false,
+			text: "Enter a Cursor or CodeVibe URI.",
+		};
+	}
+
+	let parsed: URL;
+	try {
+		parsed = new URL(trimmed);
+	} catch {
+		return {
+			paramKeys: [],
+			redacted: false,
+			text: "URI is not valid.",
+		};
+	}
+
+	const route = inferCursorRoute(parsed);
+	const paramKeys = [...new Set(parsed.searchParams.keys())].sort();
+	let redacted = false;
+	const lines = [
+		`scheme: ${parsed.protocol.replace(/:$/, "")}`,
+		`host: ${parsed.hostname || "(none)"}`,
+		`route: ${route}`,
+	];
+
+	if (paramKeys.length === 0) {
+		lines.push("params: none");
+	} else {
+		lines.push("params:");
+		for (const key of paramKeys) {
+			const values = parsed.searchParams.getAll(key);
+			for (const value of values) {
+				const result = redactCursorParamValue(key, value);
+				redacted ||= result.redacted;
+				lines.push(`  ${key}: ${result.value}`);
+			}
+		}
+	}
+
+	return {
+		paramKeys,
+		redacted,
+		route,
+		text: lines.join("\n"),
+	};
+}
 
 function CursorLinksContent({
 	onOpenSettings,
@@ -706,6 +975,10 @@ function CursorLinksContent({
 	>();
 	const [gitError, setGitError] = useState<string | null>(null);
 	const [gitLoading, setGitLoading] = useState(false);
+	const localPreview = useMemo(
+		() => buildCursorUriLocalPreview(cursorUri),
+		[cursorUri],
+	);
 
 	const previewRecord = asRecord(preview);
 	const route = recordString(previewRecord, "route");
@@ -1003,20 +1276,35 @@ function CursorLinksContent({
 				<section className="rounded-lg border border-border p-5">
 					<div className="flex flex-col gap-3">
 						<div className="flex flex-wrap gap-1.5">
-							{[
-								"/createchat",
-								"/background-agent",
-								"/mcp/install",
-								"/settings",
-								"/prompt",
-								"/command",
-								"/rule",
-								"/plugin/add",
-								"/glass",
-							].map((item) => (
-								<Badge key={item} variant="outline">
-									{item}
+							{CURSOR_LINK_ROUTE_LABELS.map((item) => (
+								<Badge
+									key={item.path}
+									variant={
+										localPreview.route === item.path ? "secondary" : "outline"
+									}
+								>
+									{item.label}: {item.path}
 								</Badge>
+							))}
+						</div>
+						<div className="flex flex-wrap gap-1.5">
+							{CURSOR_LINK_SURFACES.map((surface) => (
+								<Badge key={surface} variant="outline">
+									{surface}
+								</Badge>
+							))}
+						</div>
+						<div className="flex flex-wrap gap-2">
+							{CURSOR_LINK_EXAMPLES.map((example) => (
+								<Button
+									key={example.label}
+									onClick={() => updateCursorUri(example.uri)}
+									size="sm"
+									type="button"
+									variant="outline"
+								>
+									{example.label}
+								</Button>
 							))}
 						</div>
 						<Textarea
@@ -1026,6 +1314,22 @@ function CursorLinksContent({
 							placeholder="vscode://cline.cline/createchat?prompt=..."
 							value={cursorUri}
 						/>
+						<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2">
+							<div className="mb-2 flex flex-wrap items-center gap-2">
+								<p className="text-xs font-medium text-muted-foreground">
+									Redacted URI Preview
+								</p>
+								{localPreview.route ? (
+									<Badge variant="outline">{localPreview.route}</Badge>
+								) : null}
+								{localPreview.redacted ? (
+									<Badge variant="outline">redacted</Badge>
+								) : null}
+							</div>
+							<pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-xs text-foreground">
+								{localPreview.text}
+							</pre>
+						</div>
 						{canLaunchCursorUri ? (
 							<div className="flex flex-wrap items-center gap-2">
 								<div className="flex rounded-md border border-border/70 p-0.5">

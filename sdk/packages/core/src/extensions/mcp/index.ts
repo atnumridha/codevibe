@@ -31,6 +31,7 @@ export {
 	buildCursorSettingsRouteRequest,
 	buildCursorMcpInstallRequest,
 	buildCursorPluginAddRouteRequest,
+	getCursorCompatibleUriPath,
 	resolveCursorCommandFileRouteRequest,
 	resolveCursorRuleFileRouteRequest,
 	CursorMcpInstallError,

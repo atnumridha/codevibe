@@ -168,6 +168,7 @@ export function trackSession(record: unknown): TrackedSession | undefined {
 export function toActionSessionSummary(
 	session: TrackedSession,
 ): WebviewActionSessionSummary {
+	const backgroundAgent = isBackgroundAgentSession(session);
 	return {
 		sessionId: session.sessionId,
 		title: session.title || basename(session.workspaceRoot || session.cwd),
@@ -185,6 +186,10 @@ export function toActionSessionSummary(
 		outputTokens: session.outputTokens,
 		totalCost: session.totalCost,
 		agentCount: session.agentCount,
+		...(backgroundAgent ? { backgroundAgent: true } : {}),
+		...(backgroundAgent
+			? { backgroundAgentDetails: backgroundAgentDetailsFor(session) }
+			: {}),
 	};
 }
 

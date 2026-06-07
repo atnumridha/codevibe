@@ -149,6 +149,138 @@ describe("hub Cursor URI preview command", () => {
 		});
 	});
 
+	it("previews every Cursor route family used by standalone settings without leaking config values", async () => {
+		const transport = createTransport();
+		const secretConfig = encodeConfig({
+			token: "route-secret-value",
+			headers: { Authorization: "Bearer route-secret-value" },
+		});
+		const automationConfig = encodeConfig({
+			input: JSON.stringify({
+				eventId: "evt-valid",
+				eventType: "cursor.route.validated",
+				payload: { token: "route-secret-value" },
+			}),
+			token: "route-secret-value",
+		});
+		const cases = [
+			{
+				name: "settings",
+				uri: `codevibe://settings?section=codex-auth&config=${secretConfig}`,
+				match: {
+					route: "settings",
+					requiresConfirmation: false,
+					query: "codex-auth",
+					sourceParam: "section",
+				},
+			},
+			{
+				name: "prompt",
+				uri: `codevibe://prompt?text=Review%20this&config=${secretConfig}`,
+				match: {
+					route: "prompt",
+					path: "/prompt",
+					requiresConfirmation: true,
+					hasPrompt: true,
+					paramKeys: ["config", "text"],
+					configKeys: ["headers", "token"],
+				},
+			},
+			{
+				name: "pr-review",
+				uri: `codevibe://pr-review?repo=owner%2Frepo&number=42&instructions=Check%20risk&config=${secretConfig}`,
+				match: {
+					route: "pr-review",
+					path: "/pr-review",
+					requiresConfirmation: true,
+					hasPrompt: false,
+					paramKeys: ["config", "instructions", "number", "repo"],
+					configKeys: ["headers", "token"],
+				},
+			},
+			{
+				name: "rule-review",
+				uri: `codevibe://rule?name=team-style&content=Prefer%20small%20diffs&config=${secretConfig}`,
+				match: {
+					route: "rule",
+					kind: "review",
+					requiresConfirmation: true,
+					name: "team-style",
+				},
+			},
+			{
+				name: "git-checkout",
+				uri: `codevibe://git/checkout?branch=feature%2Fcursor-parity&config=${secretConfig}`,
+				match: {
+					route: "git-checkout",
+					path: "/git/checkout",
+					requiresConfirmation: true,
+					paramKeys: ["branch", "config"],
+					configKeys: ["headers", "token"],
+				},
+			},
+			{
+				name: "git-branch",
+				uri: `codevibe://git/branch?name=feature%2Fsafe&baseBranch=main&checkout=true&config=${secretConfig}`,
+				match: {
+					route: "git-branch",
+					path: "/git/branch",
+					requiresConfirmation: true,
+					paramKeys: ["baseBranch", "checkout", "config", "name"],
+					configKeys: ["headers", "token"],
+				},
+			},
+			{
+				name: "git-commit",
+				uri: `codevibe://git/commit?message=fix%3A%20safe%20routes&staged=true&config=${secretConfig}`,
+				match: {
+					route: "git-commit",
+					path: "/git/commit",
+					requiresConfirmation: true,
+					paramKeys: ["config", "message", "staged"],
+					configKeys: ["headers", "token"],
+				},
+			},
+			{
+				name: "automation-ingest",
+				uri: `codevibe://automation/ingest?config=${automationConfig}`,
+				match: {
+					route: "automation-ingest",
+					requiresConfirmation: true,
+					valid: true,
+					eventCount: 1,
+					rejectedCount: 0,
+					paramKeys: ["config"],
+					configKeys: ["input", "token"],
+				},
+			},
+		];
+
+		for (const testCase of cases) {
+			const reply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.uri.preview",
+				requestId: `req-route-${testCase.name}`,
+				clientId: "client-one",
+				payload: {
+					uri: testCase.uri,
+				},
+			});
+
+			expect(reply, testCase.name).toMatchObject({
+				ok: true,
+				payload: {
+					handled: true,
+					...testCase.match,
+				},
+			});
+			expect(JSON.stringify(reply), testCase.name).not.toContain(
+				"route-secret-value",
+			);
+			expect(JSON.stringify(reply), testCase.name).not.toContain("Bearer");
+		}
+	});
+
 	it("previews background-agent launch intent without leaking config values", async () => {
 		const transport = createTransport();
 		const config = encodeConfig({
@@ -788,7 +920,9 @@ describe("hub Cursor URI launch command", () => {
 			workspaceRoot: "/workspace/repo",
 			cwd: "/workspace/repo",
 		});
-		expect(startInput.toolPolicies).toBeUndefined();
+		expect(startInput.toolPolicies).toMatchObject({
+			"*": { autoApprove: true },
+		});
 		expect(runTurn).toHaveBeenCalledWith(
 			expect.objectContaining({
 				sessionId: startConfig.sessionId,
