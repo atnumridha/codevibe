@@ -3,6 +3,7 @@ import { buildCursorAgentTaskRouteRequest } from "@cline/core";
 import { workspaceRoot } from "./deps";
 import type { JsonRecord } from "./types";
 import { asTrimmedString } from "./utils";
+import { resolveWorkspaceSubpath } from "./workspace-boundary";
 
 type GitStatusEntry = {
 	status: string;
@@ -126,7 +127,11 @@ export function runCursorGitAction(args?: JsonRecord): JsonRecord {
 		throw new Error("cursor_git_action requires a non-empty uri");
 	}
 	const requestedWorkspaceRoot =
-		asTrimmedString(args?.workspaceRoot) ?? workspaceRoot;
+		resolveWorkspaceSubpath(
+			workspaceRoot,
+			asTrimmedString(args?.workspaceRoot),
+			"cursor_git_action",
+		);
 	const request = buildCursorAgentTaskRouteRequest(uri);
 	const confirmed = args?.confirmed === true;
 	if (
