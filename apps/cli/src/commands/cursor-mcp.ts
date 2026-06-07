@@ -603,6 +603,40 @@ function buildBackgroundAgentWorktreeTaskPrompt(
 	].join("\n");
 }
 
+function getCursorAgentParam(
+	params: Record<string, string | Record<string, unknown>>,
+	key: string,
+): string | undefined {
+	const value = params[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function buildBackgroundAgentSafetyMetadata(
+	request: ReturnType<typeof buildCursorAgentTaskRouteRequest>,
+) {
+	const repository =
+		getCursorAgentParam(request.params, "repository") ??
+		getCursorAgentParam(request.params, "repo");
+	const requestedBranch = getCursorAgentParam(request.params, "branch");
+	const requestedBaseBranch = getCursorAgentParam(request.params, "baseBranch");
+
+	return {
+		launchMode: "hub-session-queued",
+		agentMode: "plan",
+		confirmationRequired: true,
+		autoApprovalProfile: "read-only-plan-confirmation-required",
+		worktreePolicy: "confirm-before-create",
+		toolPolicy: {
+			default: "disabled",
+			enabled: ["read_files", "search_codebase"],
+			autoApproved: ["read_files", "search_codebase"],
+		},
+		...(repository ? { repository } : {}),
+		...(requestedBranch ? { requestedBranch } : {}),
+		...(requestedBaseBranch ? { requestedBaseBranch } : {}),
+	};
+}
+
 function writeAgentTaskRoutePreview(
 	options: CursorMcpInstallCommandOptions,
 	request = buildCursorAgentTaskRouteRequest(options.uri),
@@ -621,6 +655,9 @@ function writeAgentTaskRoutePreview(
 				taskPrompt: resolved.taskPrompt,
 				paramKeys: Object.keys(request.params).sort(),
 				...(glass ? { glass } : {}),
+				...(request.kind === "background-agent"
+					? { backgroundAgent: buildBackgroundAgentSafetyMetadata(request) }
+					: {}),
 				...(request.kind === "background-agent" && options.worktree
 					? { worktree: { requested: true, created: false } }
 					: {}),
@@ -762,6 +799,9 @@ async function launchCursorAgentTask(
 					delivery: "queue",
 					paramKeys: Object.keys(request.params).sort(),
 					...(glass ? { glass } : {}),
+					...(request.kind === "background-agent"
+						? { backgroundAgent: buildBackgroundAgentSafetyMetadata(request) }
+						: {}),
 					...(worktree ? { worktree } : {}),
 					...(resolved.commandFile
 						? { commandFile: resolved.commandFile }

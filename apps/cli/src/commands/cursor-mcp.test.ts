@@ -480,6 +480,19 @@ describe("Cursor MCP install command", () => {
 			requiresAgent: true,
 			prompt: "fix the bug",
 			taskPrompt: expect.stringContaining("fix the bug"),
+			backgroundAgent: {
+				launchMode: "hub-session-queued",
+				agentMode: "plan",
+				confirmationRequired: true,
+				autoApprovalProfile: "read-only-plan-confirmation-required",
+				worktreePolicy: "confirm-before-create",
+				repository: "owner/repo",
+				toolPolicy: {
+					default: "disabled",
+					enabled: ["read_files", "search_codebase"],
+					autoApproved: ["read_files", "search_codebase"],
+				},
+			},
 		});
 	});
 
@@ -590,6 +603,15 @@ describe("Cursor MCP install command", () => {
 			model: "gpt-5.5",
 			delivery: "queue",
 			paramKeys: ["branch", "prompt", "repo"],
+			backgroundAgent: {
+				launchMode: "hub-session-queued",
+				agentMode: "plan",
+				confirmationRequired: true,
+				autoApprovalProfile: "read-only-plan-confirmation-required",
+				worktreePolicy: "confirm-before-create",
+				repository: "owner/repo",
+				requestedBranch: "feature/safe",
+			},
 		});
 	});
 
