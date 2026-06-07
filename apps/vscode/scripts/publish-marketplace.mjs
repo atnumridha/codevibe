@@ -48,6 +48,30 @@ function readVersion() {
 	return packageJson.version.trim()
 }
 
+function commandCandidates(name) {
+	const executableName = process.platform === "win32" ? `${name}.cmd` : name
+	const localBin = path.join(projectRoot, "node_modules", ".bin", executableName)
+	return fs.existsSync(localBin)
+		? [localBin, executableName]
+		: [executableName]
+}
+
+function runAny(candidates, args) {
+	let lastError
+	for (const command of candidates) {
+		try {
+			run(command, args)
+			return
+		} catch (error) {
+			lastError = error
+			if (error?.code !== "ENOENT") {
+				throw error
+			}
+		}
+	}
+	throw lastError ?? new Error(`Unable to find command: ${candidates.join(" or ")}`)
+}
+
 try {
 	assertCursorParityReleaseGate("CodeVibe marketplace publish")
 	const version = readVersion()
@@ -65,13 +89,13 @@ try {
 	if (isPrerelease) {
 		vsceArgs.push("--pre-release")
 	}
-	run("vsce", vsceArgs)
+	runAny(commandCandidates("vsce"), vsceArgs)
 
-	const ovsxArgs = ["ovsx", "publish", vsixPath]
+	const ovsxArgs = ["publish", vsixPath]
 	if (isPrerelease) {
 		ovsxArgs.push("--pre-release")
 	}
-	run("npx", ovsxArgs)
+	runAny(commandCandidates("ovsx"), ovsxArgs)
 } catch (error) {
 	console.error(`publish-marketplace: ${error instanceof Error ? error.message : String(error)}`)
 	process.exit(1)
