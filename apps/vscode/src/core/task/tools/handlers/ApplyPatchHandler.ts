@@ -582,13 +582,9 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 		const changes: Record<string, FileChange> = {}
 
 		for (const [path, action] of Object.entries(patch.actions)) {
-			const targetResolution = await this.pathResolver!.resolveAndValidate(
-				path,
-				"ApplyPatchHandler.previewPatch",
-				"write",
-			)
-			if (!targetResolution) {
-				continue
+			await this.assertPatchActionPathAllowed(path, "ApplyPatchHandler.patchToCommit")
+			if (action.type === PatchActionType.UPDATE && action.movePath) {
+				await this.assertPatchActionPathAllowed(action.movePath, "ApplyPatchHandler.patchToCommit.move")
 			}
 
 			switch (action.type) {
@@ -616,6 +612,13 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 		}
 
 		return { changes }
+	}
+
+	private async assertPatchActionPathAllowed(path: string, caller: string): Promise<void> {
+		const targetResolution = await this.pathResolver!.resolveAndValidate(path, caller, "write")
+		if (!targetResolution) {
+			throw new DiffError(`Invalid or disallowed patch path: ${path}`)
+		}
 	}
 
 	/**
