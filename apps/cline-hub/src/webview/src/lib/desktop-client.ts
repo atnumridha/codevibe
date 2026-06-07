@@ -101,6 +101,28 @@ export type CursorMcpInstallResponse = Record<string, unknown> & {
 	headerKeys?: string[];
 };
 
+export type CursorRuleOpenInput = CursorUriPreviewInput & {
+	confirmed: true;
+	open?: boolean;
+};
+
+export type CursorRuleOpenResponse = Record<string, unknown> & {
+	handled: true;
+	route: "rule";
+	kind: "file" | "review";
+	confirmed: boolean;
+	actionable: boolean;
+	created: boolean;
+	opened: boolean;
+	workspaceRoot: string;
+	filename?: string;
+	relativePath?: string;
+	filePath?: string;
+	reason?: string;
+	name?: string;
+	path?: string;
+};
+
 export type WorkspaceFileSearchInput = {
 	workspaceRoot?: string;
 	cwd?: string;
@@ -204,6 +226,24 @@ class HubDesktopClient {
 		return await this.invoke<CursorMcpInstallResponse>("cursor_mcp_install", {
 			uri: input.uri,
 			confirmed: input.confirmed,
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+			...(input.maxCommandFileBytes !== undefined
+				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
+				: {}),
+		});
+	}
+
+	async openCursorRule(
+		input: CursorRuleOpenInput,
+	): Promise<CursorRuleOpenResponse> {
+		return await this.invoke<CursorRuleOpenResponse>("cursor_rule_open", {
+			uri: input.uri,
+			confirmed: input.confirmed,
+			...(input.open !== undefined ? { open: input.open } : {}),
 			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
 			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
 			...(input.maxCommandFileBytes !== undefined

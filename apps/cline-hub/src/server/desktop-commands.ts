@@ -37,6 +37,7 @@ import {
 	startConnectorChannel,
 	stopConnectorChannel,
 } from "./connectors";
+import { openCursorRule } from "./cursor-rules";
 import { providerSettingsManager, workspaceRoot } from "./deps";
 import {
 	deleteMcpServer,
@@ -291,6 +292,11 @@ export async function handleDesktopCommand(
 		const input =
 			args && typeof args === "object" ? (args as JsonRecord) : undefined;
 		return installCursorMcpServer(input);
+	}
+	if (command === "cursor_rule_open") {
+		const input =
+			args && typeof args === "object" ? (args as JsonRecord) : undefined;
+		return openCursorRule(input);
 	}
 	if (command === "set_mcp_server_disabled") {
 		return setMcpServerDisabled(

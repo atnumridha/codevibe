@@ -29,6 +29,7 @@ import {
 	type BrowserAutomationStatus,
 	type BrowserToolResult,
 	type CursorMcpInstallResponse,
+	type CursorRuleOpenResponse,
 	type CursorUriPreviewResponse,
 } from "@/lib/desktop-client";
 import type {
@@ -606,6 +607,11 @@ function CursorLinksContent() {
 	>();
 	const [installError, setInstallError] = useState<string | null>(null);
 	const [installLoading, setInstallLoading] = useState(false);
+	const [ruleResult, setRuleResult] = useState<
+		CursorRuleOpenResponse | undefined
+	>();
+	const [ruleError, setRuleError] = useState<string | null>(null);
+	const [ruleLoading, setRuleLoading] = useState(false);
 
 	const previewRecord = asRecord(preview);
 	const route = recordString(previewRecord, "route");
@@ -618,6 +624,8 @@ function CursorLinksContent() {
 	const paramKeys = recordStringArray(previewRecord, "paramKeys");
 	const configKeys = recordStringArray(previewRecord, "configKeys");
 	const canInstallMcp = route === "mcp-install";
+	const canOpenRule =
+		route === "rule" && recordString(previewRecord, "kind") === "file";
 
 	const runPreview = async () => {
 		const uri = cursorUri.trim();
@@ -626,6 +634,8 @@ function CursorLinksContent() {
 			setPreviewError("URI is required.");
 			setInstallResult(undefined);
 			setInstallError(null);
+			setRuleResult(undefined);
+			setRuleError(null);
 			return;
 		}
 		setPreviewLoading(true);
@@ -633,6 +643,8 @@ function CursorLinksContent() {
 		setPreview(undefined);
 		setInstallResult(undefined);
 		setInstallError(null);
+		setRuleResult(undefined);
+		setRuleError(null);
 		try {
 			const result = await desktopClient.previewCursorUri({
 				uri,
@@ -653,6 +665,8 @@ function CursorLinksContent() {
 		setPreviewError(null);
 		setInstallResult(undefined);
 		setInstallError(null);
+		setRuleResult(undefined);
+		setRuleError(null);
 	};
 
 	const runMcpInstall = async () => {
@@ -675,6 +689,30 @@ function CursorLinksContent() {
 			setInstallError(error instanceof Error ? error.message : String(error));
 		} finally {
 			setInstallLoading(false);
+		}
+	};
+
+	const runRuleOpen = async () => {
+		const uri = cursorUri.trim();
+		if (!uri || !canOpenRule) {
+			return;
+		}
+		setRuleLoading(true);
+		setRuleError(null);
+		setRuleResult(undefined);
+		try {
+			const result = await desktopClient.openCursorRule({
+				uri,
+				confirmed: true,
+				open: true,
+				maxCommandFileBytes: 64 * 1024,
+				maxRuleFileBytes: 64 * 1024,
+			});
+			setRuleResult(result);
+		} catch (error) {
+			setRuleError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setRuleLoading(false);
 		}
 	};
 
@@ -741,6 +779,21 @@ function CursorLinksContent() {
 									Install MCP
 								</Button>
 							) : null}
+							{canOpenRule ? (
+								<Button
+									disabled={ruleLoading}
+									onClick={() => void runRuleOpen()}
+									type="button"
+									variant="outline"
+								>
+									{ruleLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<CheckCircle2 className="size-4" />
+									)}
+									Open Rule
+								</Button>
+							) : null}
 						</div>
 					</div>
 				</section>
@@ -782,6 +835,32 @@ function CursorLinksContent() {
 									? `headers: ${installResult.headerKeys.join(", ")}`
 									: "",
 								installResult.settingsPath,
+							]
+								.filter(Boolean)
+								.join(" | ")}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
+				{ruleError ? (
+					<Alert className="mt-4" variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>Rule action failed</AlertTitle>
+						<AlertDescription>{ruleError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{ruleResult ? (
+					<Alert className="mt-4">
+						<CheckCircle2 className="size-4" />
+						<AlertTitle>
+							{ruleResult.created ? "Cursor rule created" : "Cursor rule opened"}
+						</AlertTitle>
+						<AlertDescription>
+							{[
+								ruleResult.relativePath,
+								ruleResult.opened ? "opened" : "",
+								ruleResult.workspaceRoot,
 							]
 								.filter(Boolean)
 								.join(" | ")}
