@@ -160,7 +160,12 @@ jobs:
                       echo "Error: tag '$TAG' does not exist in the repository"
                       exit 1
                     fi
-                    echo "Using existing tag '$TAG'."
+                    TAG_SHA=$(git rev-list -n 1 "$TAG_REF^{commit}")
+                    if [[ "$TAG_SHA" != "$TESTED_SHA" ]]; then
+                      echo "Error: tag '$TAG' exists at $TAG_SHA, but tests ran against $TESTED_SHA"
+                      exit 1
+                    fi
+                    echo "Using existing tag '$TAG' at tested SHA."
                   fi
 
                   git checkout --detach "$TAG_REF^{commit}"

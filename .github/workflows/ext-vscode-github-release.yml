@@ -144,8 +144,8 @@ jobs:
                     echo "Error: final tag '$TAG' does not match package version '$EXPECTED_TAG'"
                     exit 1
                   fi
-                  if [[ "$RELEASE_STAGE" == "candidate" && "$TAG" != "$EXPECTED_TAG" && "$TAG" != "$EXPECTED_TAG"-* ]]; then
-                    echo "Error: candidate tag '$TAG' must match '$EXPECTED_TAG' or use an rc suffix like '$EXPECTED_TAG-rc.1'"
+                  if [[ "$RELEASE_STAGE" == "candidate" && "$TAG" != "$EXPECTED_TAG"-rc.* ]]; then
+                    echo "Error: candidate tag '$TAG' must use an rc suffix like '$EXPECTED_TAG-rc.1'"
                     exit 1
                   fi
 
@@ -167,7 +167,7 @@ jobs:
 
                   CHECKED_OUT_TAG="v$(node -p "require('./apps/vscode/package.json').version")"
                   if [[ "$TAG" != "$CHECKED_OUT_TAG" ]]; then
-                    if [[ "$RELEASE_STAGE" != "candidate" || "$TAG" != "$CHECKED_OUT_TAG"-* ]]; then
+                    if [[ "$RELEASE_STAGE" != "candidate" || "$TAG" != "$CHECKED_OUT_TAG"-rc.* ]]; then
                       echo "Error: tag '$TAG' points at a package version '$CHECKED_OUT_TAG'"
                       exit 1
                     fi
