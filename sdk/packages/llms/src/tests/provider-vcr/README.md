@@ -23,8 +23,9 @@ LLMS_PROVIDER_VCR_RECORD=1 LLMS_PROVIDER_VCR_TARGET=cline bun -F @cline/llms tes
 
 Record mode prefers the normal Cline CLI provider settings path. To use another
 file, set `LLMS_PROVIDER_VCR_SETTINGS_PATH=/path/to/providers.json`.
-`ANTHROPIC_API_KEY` and `CLINE_API_KEY` can be used without a settings file, but
-ChatGPT OAuth needs saved `openai-codex` provider settings. For local Cline API
+`ANTHROPIC_API_KEY` and `CLINE_API_KEY` can be used without a settings file.
+ChatGPT OAuth can use saved `openai-codex` provider settings or Codex Home
+credentials from `~/.codex/auth.json` (or `CODEX_HOME`). For local Cline API
 recording, also set `CLINE_ENVIRONMENT=local`.
 
 After recording, the test normalizes dynamic response fields such as response

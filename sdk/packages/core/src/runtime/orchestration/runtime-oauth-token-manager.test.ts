@@ -6,16 +6,19 @@ import {
 
 const {
 	getValidOpenAICodexCredentials,
+	loadOpenAICodexHomeCredentialsSync,
 	getValidClineCredentials,
 	getValidOcaCredentials,
 } = vi.hoisted(() => ({
 	getValidOpenAICodexCredentials: vi.fn(),
+	loadOpenAICodexHomeCredentialsSync: vi.fn(),
 	getValidClineCredentials: vi.fn(),
 	getValidOcaCredentials: vi.fn(),
 }));
 
 vi.mock("../../auth/codex", () => ({
 	getValidOpenAICodexCredentials,
+	loadOpenAICodexHomeCredentialsSync,
 }));
 
 vi.mock("../../auth/cline", () => ({
@@ -143,6 +146,68 @@ describe("RuntimeOAuthTokenManager", () => {
 				auth: expect.objectContaining({
 					accessToken: "access-home-new",
 					refreshToken: "refresh-home-new",
+					accountId: "acct-home",
+					expiresAt: 4_000_000_000_000,
+					installationId: "install_home",
+					clientVersion: "0.136.0-test",
+					tokenSource: "codex-home",
+					authMode: "chatgpt",
+				}),
+			}),
+			{ setLastUsed: false, tokenSource: "oauth" },
+		);
+	});
+
+	it("imports Codex Home credentials when no OpenAI Codex settings exist", async () => {
+		const getProviderSettings = vi.fn().mockReturnValue(undefined);
+		const saveProviderSettings = vi.fn();
+		loadOpenAICodexHomeCredentialsSync.mockReturnValueOnce({
+			access: "access-home",
+			refresh: "refresh-home",
+			expires: 4_000_000_000_000,
+			accountId: "acct-home",
+			metadata: {
+				provider: "openai-codex",
+				installationId: "install_home",
+				clientVersion: "0.136.0-test",
+				tokenSource: "codex-home",
+				authMode: "chatgpt",
+			},
+		});
+		getValidOpenAICodexCredentials.mockImplementationOnce(
+			async (credentials) => credentials,
+		);
+
+		const manager = new RuntimeOAuthTokenManager({
+			providerSettingsManager: {
+				getProviderSettings,
+				saveProviderSettings,
+			} as never,
+		});
+
+		const result = await manager.resolveProviderApiKey({
+			providerId: "openai-codex",
+		});
+
+		expect(result).toMatchObject({
+			providerId: "openai-codex",
+			apiKey: "access-home",
+			accountId: "acct-home",
+			codex: {
+				accountId: "acct-home",
+				installationId: "install_home",
+				clientVersion: "0.136.0-test",
+				tokenSource: "codex-home",
+				authMode: "chatgpt",
+			},
+			refreshed: false,
+		});
+		expect(saveProviderSettings).toHaveBeenCalledWith(
+			expect.objectContaining({
+				provider: "openai-codex",
+				auth: expect.objectContaining({
+					accessToken: "access-home",
+					refreshToken: "refresh-home",
 					accountId: "acct-home",
 					expiresAt: 4_000_000_000_000,
 					installationId: "install_home",

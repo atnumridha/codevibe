@@ -8,7 +8,10 @@ import {
 	type ClineOAuthCredentials,
 	getValidClineCredentials,
 } from "../../auth/cline";
-import { getValidOpenAICodexCredentials } from "../../auth/codex";
+import {
+	getValidOpenAICodexCredentials,
+	loadOpenAICodexHomeCredentialsSync,
+} from "../../auth/codex";
 import { getValidOcaCredentials } from "../../auth/oca";
 import { decodeJwtPayload } from "../../auth/utils";
 import { ProviderSettingsManager } from "../../services/storage/provider-settings-manager";
@@ -168,6 +171,23 @@ function toCredentials(
 	};
 }
 
+function toOpenAICodexSettingsFromCredentials(
+	credentials: ClineOAuthCredentials,
+): ProviderSettings {
+	const codex = readCodexMetadataFromCredentials(credentials, undefined);
+	const auth = {
+		accessToken: toStoredAccessToken("openai-codex", credentials.access),
+		refreshToken: credentials.refresh,
+		accountId: credentials.accountId ?? codex?.accountId,
+		...(codex ?? {}),
+	} as ProviderSettings["auth"] & { expiresAt?: number };
+	auth.expiresAt = credentials.expires;
+	return {
+		provider: "openai-codex",
+		auth,
+	};
+}
+
 function authSettingsEqual(
 	a: ProviderSettings["auth"] | undefined,
 	b: ProviderSettings["auth"] | undefined,
@@ -260,8 +280,21 @@ export class RuntimeOAuthTokenManager {
 		providerId: ManagedOAuthProviderId,
 		forceRefresh: boolean,
 	): Promise<RuntimeOAuthResolution | null> {
-		const settings =
-			this.providerSettingsManager.getProviderSettings(providerId);
+		let settings = this.providerSettingsManager.getProviderSettings(providerId);
+		let settingsFromCodexHome = false;
+		if (!settings && providerId === "openai-codex") {
+			let codexHomeCredentials: ClineOAuthCredentials | null;
+			try {
+				codexHomeCredentials = loadOpenAICodexHomeCredentialsSync();
+			} catch {
+				codexHomeCredentials = null;
+			}
+			if (codexHomeCredentials) {
+				settings =
+					toOpenAICodexSettingsFromCredentials(codexHomeCredentials);
+				settingsFromCodexHome = true;
+			}
+		}
 		if (!settings) {
 			return null;
 		}
@@ -302,7 +335,7 @@ export class RuntimeOAuthTokenManager {
 			auth: nextAuth,
 		};
 		const wasRefreshed = !authSettingsEqual(settings.auth, nextSettings.auth);
-		if (wasRefreshed) {
+		if (wasRefreshed || settingsFromCodexHome) {
 			this.providerSettingsManager.saveProviderSettings(nextSettings, {
 				setLastUsed: false,
 				tokenSource: "oauth",
