@@ -7,6 +7,7 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Globe2,
+	Link2,
 	Loader2,
 	Moon,
 	Play,
@@ -22,10 +23,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
 	desktopClient,
 	type BrowserAutomationStatus,
 	type BrowserToolResult,
+	type CursorUriPreviewResponse,
 } from "@/lib/desktop-client";
 import type {
 	Provider,
@@ -55,6 +58,7 @@ const navCategories = [
 	"Providers",
 	"Customizations",
 	"MCP",
+	"Cursor Links",
 	"Channels",
 	"Schedules",
 	"Account",
@@ -78,6 +82,27 @@ function recordString(
 ): string {
 	const value = record?.[key];
 	return typeof value === "string" ? value.trim() : "";
+}
+
+function recordBoolean(
+	record: Record<string, unknown> | undefined,
+	key: string,
+): boolean | undefined {
+	const value = record?.[key];
+	return typeof value === "boolean" ? value : undefined;
+}
+
+function recordStringArray(
+	record: Record<string, unknown> | undefined,
+	key: string,
+): string[] {
+	const value = record?.[key];
+	if (!Array.isArray(value)) {
+		return [];
+	}
+	return value
+		.map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+		.filter(Boolean);
 }
 
 function browserResultSummary(result: BrowserToolResult | undefined): string {
@@ -537,6 +562,8 @@ export function SettingsView({
 						)
 					) : activeNav === "MCP" ? (
 						<McpServersContent />
+					) : activeNav === "Cursor Links" ? (
+						<CursorLinksContent />
 					) : activeNav === "Channels" ? (
 						<ChannelsContent />
 					) : activeNav === "Schedules" ? (
@@ -560,6 +587,177 @@ export function SettingsView({
 				</div>
 			</div>
 		</div>
+	);
+}
+
+const DEFAULT_CURSOR_URI =
+	"vscode://cline.cline/createchat?prompt=Review%20the%20diff";
+
+function CursorLinksContent() {
+	const [cursorUri, setCursorUri] = useState(DEFAULT_CURSOR_URI);
+	const [preview, setPreview] = useState<
+		CursorUriPreviewResponse | undefined
+	>();
+	const [previewError, setPreviewError] = useState<string | null>(null);
+	const [previewLoading, setPreviewLoading] = useState(false);
+
+	const previewRecord = asRecord(preview);
+	const route = recordString(previewRecord, "route");
+	const path = recordString(previewRecord, "path");
+	const taskPrompt = recordString(previewRecord, "taskPrompt");
+	const requiresConfirmation = recordBoolean(
+		previewRecord,
+		"requiresConfirmation",
+	);
+	const paramKeys = recordStringArray(previewRecord, "paramKeys");
+	const configKeys = recordStringArray(previewRecord, "configKeys");
+
+	const runPreview = async () => {
+		const uri = cursorUri.trim();
+		if (!uri) {
+			setPreview(undefined);
+			setPreviewError("URI is required.");
+			return;
+		}
+		setPreviewLoading(true);
+		setPreviewError(null);
+		setPreview(undefined);
+		try {
+			const result = await desktopClient.previewCursorUri({
+				uri,
+				maxCommandFileBytes: 64 * 1024,
+				maxRuleFileBytes: 64 * 1024,
+			});
+			setPreview(result);
+		} catch (error) {
+			setPreviewError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setPreviewLoading(false);
+		}
+	};
+
+	return (
+		<ScrollArea className="h-full">
+			<div className="mx-auto max-w-3xl px-8 py-6">
+				<div className="mb-6 flex items-center gap-2">
+					<Link2 className="size-4 text-muted-foreground" />
+					<h2 className="text-lg font-semibold text-foreground">
+						Cursor Links
+					</h2>
+				</div>
+				<section className="rounded-lg border border-border p-5">
+					<div className="flex flex-col gap-3">
+						<div className="flex flex-wrap gap-1.5">
+							{[
+								"/createchat",
+								"/background-agent",
+								"/mcp/install",
+								"/settings",
+								"/prompt",
+								"/command",
+								"/rule",
+								"/plugin/add",
+								"/glass",
+							].map((item) => (
+								<Badge key={item} variant="outline">
+									{item}
+								</Badge>
+							))}
+						</div>
+						<Textarea
+							aria-label="Cursor-compatible URI"
+							className="min-h-28 resize-y font-mono text-xs"
+							onChange={(event) => setCursorUri(event.target.value)}
+							placeholder="vscode://cline.cline/createchat?prompt=..."
+							value={cursorUri}
+						/>
+						<div className="flex flex-wrap gap-2">
+							<Button
+								disabled={previewLoading}
+								onClick={() => void runPreview()}
+								type="button"
+							>
+								{previewLoading ? (
+									<Loader2 className="size-4 animate-spin" />
+								) : (
+									<Link2 className="size-4" />
+								)}
+								Preview
+							</Button>
+						</div>
+					</div>
+				</section>
+
+				{previewError ? (
+					<Alert className="mt-4" variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>Preview failed</AlertTitle>
+						<AlertDescription>{previewError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{preview ? (
+					<section className="mt-4 rounded-lg border border-border p-5">
+						<div className="flex flex-wrap items-center gap-2">
+							<Badge variant={preview.handled ? "default" : "outline"}>
+								{preview.handled ? "Handled" : "Unhandled"}
+							</Badge>
+							{route ? <Badge variant="outline">{route}</Badge> : null}
+							{path ? <Badge variant="outline">{path}</Badge> : null}
+							{requiresConfirmation !== undefined ? (
+								<Badge variant="outline">
+									{requiresConfirmation
+										? "Confirmation required"
+										: "No confirmation"}
+								</Badge>
+							) : null}
+						</div>
+						{taskPrompt ? (
+							<div className="mt-4 rounded-md border border-border/70 bg-muted/30 px-3 py-2">
+								<p className="text-xs font-medium text-muted-foreground">
+									Task Prompt
+								</p>
+								<p className="mt-1 whitespace-pre-wrap break-words text-sm text-foreground">
+									{taskPrompt}
+								</p>
+							</div>
+						) : null}
+						{paramKeys.length > 0 || configKeys.length > 0 ? (
+							<div className="mt-4 grid gap-3 md:grid-cols-2">
+								{paramKeys.length > 0 ? (
+									<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2">
+										<p className="text-xs font-medium text-muted-foreground">
+											Params
+										</p>
+										<p className="mt-1 break-words font-mono text-xs text-foreground">
+											{paramKeys.join(", ")}
+										</p>
+									</div>
+								) : null}
+								{configKeys.length > 0 ? (
+									<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2">
+										<p className="text-xs font-medium text-muted-foreground">
+											Config Keys
+										</p>
+										<p className="mt-1 break-words font-mono text-xs text-foreground">
+											{configKeys.join(", ")}
+										</p>
+									</div>
+								) : null}
+							</div>
+						) : null}
+						<div className="mt-4">
+							<p className="mb-2 text-xs font-medium text-muted-foreground">
+								Preview Payload
+							</p>
+							<pre className="max-h-80 overflow-auto rounded-md border border-border/70 bg-muted/30 p-3 text-xs whitespace-pre-wrap break-words text-foreground">
+								{JSON.stringify(preview, null, 2)}
+							</pre>
+						</div>
+					</section>
+				) : null}
+			</div>
+		</ScrollArea>
 	);
 }
 

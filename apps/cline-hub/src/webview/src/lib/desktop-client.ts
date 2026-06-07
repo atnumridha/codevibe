@@ -62,6 +62,24 @@ export type BrowserScreenshotInput = {
 	full_page?: boolean;
 };
 
+export type CursorUriPreviewInput = {
+	uri: string;
+	workspaceRoot?: string;
+	workspaceRoots?: string[];
+	maxCommandFileBytes?: number;
+	maxRuleFileBytes?: number;
+};
+
+export type CursorUriPreviewResponse = Record<string, unknown> & {
+	handled: boolean;
+	route?: string;
+	path?: string;
+	requiresConfirmation?: boolean;
+	taskPrompt?: string;
+	paramKeys?: string[];
+	configKeys?: string[];
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 
 class HubDesktopClient {
@@ -140,6 +158,15 @@ class HubDesktopClient {
 		input: BrowserScreenshotInput = {},
 	): Promise<BrowserToolResult> {
 		return await this.invoke<BrowserToolResult>("browser_screenshot", input);
+	}
+
+	async previewCursorUri(
+		input: CursorUriPreviewInput,
+	): Promise<CursorUriPreviewResponse> {
+		return await this.invoke<CursorUriPreviewResponse>(
+			"cursor_uri_preview",
+			input,
+		);
 	}
 }
 

@@ -20,7 +20,10 @@ import {
 	setTelemetryOptOutGlobally,
 	toggleDisabledTool,
 } from "@cline/core";
-import { getClineEnvironmentConfig } from "@cline/shared";
+import {
+	getClineEnvironmentConfig,
+	type CursorUriPreviewRequest,
+} from "@cline/shared";
 import {
 	getHubBrowserAutomationStatus,
 	runHubBrowserActionCommand,
@@ -50,7 +53,12 @@ import type { HubContext } from "./state";
 import { broadcastHubState } from "./state-payloads";
 import type { JsonRecord } from "./types";
 import { listUserInstructionConfigs } from "./user-instructions";
-import { openExternalUrl, readProviderSettingsUpdate } from "./utils";
+import {
+	asTrimmedString,
+	openExternalUrl,
+	readProviderSettingsUpdate,
+	toPositiveInt,
+} from "./utils";
 
 const ROUTINE_SCHEDULE_COMMANDS = new Set([
 	"list_routine_schedules",
@@ -61,6 +69,31 @@ const ROUTINE_SCHEDULE_COMMANDS = new Set([
 	"trigger_routine_schedule",
 	"delete_routine_schedule",
 ]);
+
+function readCursorUriPreviewRequest(
+	args: Record<string, unknown> | undefined,
+): CursorUriPreviewRequest {
+	const uri = asTrimmedString(args?.uri);
+	if (!uri) {
+		throw new Error("cursor_uri_preview requires a non-empty uri");
+	}
+	const requestedWorkspaceRoot =
+		asTrimmedString(args?.workspaceRoot) ?? asTrimmedString(workspaceRoot);
+	const workspaceRoots = Array.isArray(args?.workspaceRoots)
+		? args.workspaceRoots
+				.map((entry) => asTrimmedString(entry))
+				.filter((entry): entry is string => Boolean(entry))
+		: undefined;
+	const maxCommandFileBytes = toPositiveInt(args?.maxCommandFileBytes);
+	const maxRuleFileBytes = toPositiveInt(args?.maxRuleFileBytes);
+	return {
+		uri,
+		...(requestedWorkspaceRoot ? { workspaceRoot: requestedWorkspaceRoot } : {}),
+		...(workspaceRoots?.length ? { workspaceRoots } : {}),
+		...(maxCommandFileBytes ? { maxCommandFileBytes } : {}),
+		...(maxRuleFileBytes ? { maxRuleFileBytes } : {}),
+	};
+}
 
 export async function handleDesktopCommand(
 	ctx: HubContext,
@@ -166,6 +199,14 @@ export async function handleDesktopCommand(
 	}
 	if (command === "browser_screenshot") {
 		return await runHubBrowserScreenshotCommand(args);
+	}
+	if (command === "cursor_uri_preview") {
+		if (!ctx.uiClient) {
+			throw new Error("Hub is not connected.");
+		}
+		return await ctx.uiClient.previewCursorUri(
+			readCursorUriPreviewRequest(args),
+		);
 	}
 	if (command === "get_global_settings") {
 		return readGlobalSettings();

@@ -69,6 +69,7 @@ const SETTINGS_SECTION_PATHS: Record<SettingsSection, string> = {
 	Providers: "/settings/providers",
 	Customizations: "/settings/customizations",
 	MCP: "/settings/mcp",
+	"Cursor Links": "/settings/cursor-links",
 	Channels: "/settings/channels",
 	Schedules: "/settings/schedules",
 	Account: "/settings/account",
