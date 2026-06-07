@@ -77,6 +77,10 @@ import {
 	type CursorBackgroundAgentLaunchRequest,
 	launchCursorBackgroundAgent,
 } from "./background-agent/launch"
+import {
+	normalizeBackgroundAgentTaskRecords,
+	upsertBackgroundAgentTaskRecord,
+} from "./background-agent/persistence"
 import { sendMcpMarketplaceCatalogEvent } from "./mcp/subscribeToMcpMarketplaceCatalog"
 import { getClineOnboardingModels } from "./models/getClineOnboardingModels"
 import { appendClineStealthModels } from "./models/refreshOpenRouterModels"
@@ -153,6 +157,7 @@ export class Controller {
 		Session.reset() // Reset session on controller initialization
 		PromptRegistry.getInstance() // Ensure prompts and tools are registered
 		this.stateManager = StateManager.get()
+		this.hydrateBackgroundAgentTaskRecords()
 		StateManager.get().registerCallbacks({
 			onPersistenceError: async ({ error }: PersistenceErrorEvent) => {
 				// Just log - don't call reInitialize() (that sets isInitialized=false which
@@ -749,8 +754,17 @@ export class Controller {
 		return Array.from(this.backgroundAgentTaskRecords.values()).sort((a, b) => a.createdAt - b.createdAt)
 	}
 
+	private hydrateBackgroundAgentTaskRecords() {
+		const records = normalizeBackgroundAgentTaskRecords(
+			this.stateManager.getGlobalStateKey("backgroundAgentTaskRecords"),
+		)
+		this.backgroundAgentTaskRecords = new Map(records.map((record) => [record.id, record]))
+	}
+
 	private updateBackgroundAgentTaskRecord(record: BackgroundAgentTaskRecord) {
-		this.backgroundAgentTaskRecords.set(record.id, { ...record })
+		const records = upsertBackgroundAgentTaskRecord(this.backgroundAgentTaskRecords.values(), record)
+		this.backgroundAgentTaskRecords = new Map(records.map((item) => [item.id, item]))
+		this.stateManager.setGlobalState("backgroundAgentTaskRecords", records)
 	}
 
 	async handleCursorBackgroundAgentLaunch(request: CursorBackgroundAgentLaunchRequest) {

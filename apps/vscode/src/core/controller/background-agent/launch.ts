@@ -1,17 +1,11 @@
 import * as path from "path"
 import { DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
+import type { BackgroundAgentLifecycleStatus, BackgroundAgentTaskRecord } from "@shared/BackgroundAgent"
 import type { Settings } from "@shared/storage/state-keys"
 import { normalizeGitBranchName, normalizeGitCheckoutTarget } from "@utils/git-helper"
 import type { WorktreeResult } from "@utils/git-worktree"
 
-export type BackgroundAgentLifecycleStatus =
-	| "queued"
-	| "preparing"
-	| "worktree_ready"
-	| "fallback_ready"
-	| "starting"
-	| "running"
-	| "failed"
+export type { BackgroundAgentLifecycleStatus, BackgroundAgentTaskRecord } from "@shared/BackgroundAgent"
 
 export interface CursorBackgroundAgentLaunchRequest {
 	prompt: string
@@ -20,32 +14,6 @@ export interface CursorBackgroundAgentLaunchRequest {
 	requestedBranch?: string
 	requestedBaseBranch?: string
 	config?: Record<string, unknown>
-}
-
-export interface BackgroundAgentTaskRecord {
-	id: string
-	source: "cursor-deeplink"
-	status: BackgroundAgentLifecycleStatus
-	agentMode: "plan"
-	autoApprovalProfile: "read-only-plan-confirmation-required"
-	worktreePolicy: "confirm-before-create"
-	launchMode?: "worktree" | "controller-record"
-	createdAt: number
-	updatedAt: number
-	prompt: string
-	routePrompt?: string
-	repository?: string
-	requestedBranch?: string
-	requestedBaseBranch?: string
-	workspaceRoot?: string
-	worktreePath?: string
-	worktreeBranch?: string
-	worktreeBaseRef?: string
-	confirmationRequired: true
-	fallbackReason?: string
-	warning?: string
-	taskId?: string
-	errorMessage?: string
 }
 
 export interface BackgroundAgentLaunchDependencies {

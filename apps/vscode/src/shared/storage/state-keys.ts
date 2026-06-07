@@ -1,4 +1,5 @@
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
+import type { BackgroundAgentTaskRecord } from "@shared/BackgroundAgent"
 import {
 	ApiProvider,
 	DEFAULT_API_PROVIDER,
@@ -93,6 +94,7 @@ const GLOBAL_STATE_FIELDS = {
 	dismissedBanners: { default: [] as Array<{ bannerId: string; dismissedAt: number }> },
 	// Path to worktree that should auto-open Cline sidebar when launched
 	worktreeAutoOpenPath: { default: undefined as string | undefined },
+	backgroundAgentTaskRecords: { default: [] as BackgroundAgentTaskRecord[] },
 } satisfies FieldDefinitions
 
 // Fields that map directly to ApiHandlerOptions in @shared/api.ts

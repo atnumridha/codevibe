@@ -288,6 +288,7 @@ describe("State Keys Type Safety", () => {
 			const testCases: Array<{ key: GlobalStateAndSettingsKey; expectedType: string }> = [
 				{ key: "autoApprovalSettings", expectedType: "object" },
 				{ key: "browserSettings", expectedType: "object" },
+				{ key: "backgroundAgentTaskRecords", expectedType: "array" },
 				{ key: "shellIntegrationTimeout", expectedType: "number" },
 				{ key: "preferredLanguage", expectedType: "string" },
 				{ key: "yoloModeToggled", expectedType: "boolean" },
