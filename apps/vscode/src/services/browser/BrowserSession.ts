@@ -422,86 +422,88 @@ export class BrowserSession {
 		}
 
 		try {
-			await action(this.page)
-		} catch (err) {
-			const errorMessage = err instanceof Error ? err.message : String(err)
+			try {
+				await action(this.page)
+			} catch (err) {
+				const errorMessage = err instanceof Error ? err.message : String(err)
 
-			if (!(err instanceof TimeoutError)) {
-				if (includeLogs) {
-					logs.push(`[Error] ${errorMessage}`)
-				}
+				if (!(err instanceof TimeoutError)) {
+					if (includeLogs) {
+						logs.push(`[Error] ${errorMessage}`)
+					}
 
-				// Capture error telemetry
-				if (this.ulid) {
-					telemetryService.captureBrowserError(this.ulid, "browser_action_error", errorMessage, {
-						isRemote: this.isConnectedToRemote,
-						action: this.browserActions[this.browserActions.length - 1],
-					})
+					// Capture error telemetry
+					if (this.ulid) {
+						telemetryService.captureBrowserError(this.ulid, "browser_action_error", errorMessage, {
+							isRemote: this.isConnectedToRemote,
+							action: this.browserActions[this.browserActions.length - 1],
+						})
+					}
 				}
 			}
-		}
 
-		if (includeLogs) {
-			await pWaitFor(() => Date.now() - lastLogTs >= 500, {
-				timeout: 3_000,
-				interval: 100,
-			}).catch(() => {})
-		}
-
-		let screenshot: string | undefined
-		if (includeScreenshot) {
-			const screenshotOptions: ScreenshotOptions = {
-				encoding: "base64",
-				fullPage: options.fullPage === true,
-
-				// clip: {
-				// 	x: 0,
-				// 	y: 0,
-				// 	width: 900,
-				// 	height: 600,
-				// },
+			if (includeLogs) {
+				await pWaitFor(() => Date.now() - lastLogTs >= 500, {
+					timeout: 3_000,
+					interval: 100,
+				}).catch(() => {})
 			}
 
-			const screenshotType = this.useWebp ? "webp" : "png"
-			let screenshotBase64 = await this.page.screenshot({
-				...screenshotOptions,
-				type: screenshotType,
-			})
-			screenshot = `data:image/${screenshotType};base64,${screenshotBase64}`
+			let screenshot: string | undefined
+			if (includeScreenshot) {
+				const screenshotOptions: ScreenshotOptions = {
+					encoding: "base64",
+					fullPage: options.fullPage === true,
 
-			if (!screenshotBase64) {
-				// choosing to try screenshot again, regardless of the initial type
-				Logger.info(`${screenshotType} screenshot failed, trying png`)
-				screenshotBase64 = await this.page.screenshot({
+					// clip: {
+					// 	x: 0,
+					// 	y: 0,
+					// 	width: 900,
+					// 	height: 600,
+					// },
+				}
+
+				const screenshotType = this.useWebp ? "webp" : "png"
+				let screenshotBase64 = await this.page.screenshot({
 					...screenshotOptions,
-					type: "png",
+					type: screenshotType,
 				})
-				screenshot = `data:image/png;base64,${screenshotBase64}`
-			}
+				screenshot = `data:image/${screenshotType};base64,${screenshotBase64}`
 
-			if (!screenshotBase64) {
-				// Capture error telemetry
-				if (this.ulid) {
-					telemetryService.captureBrowserError(this.ulid, "screenshot_error", "Failed to take screenshot", {
-						isRemote: this.isConnectedToRemote,
-						action: this.browserActions[this.browserActions.length - 1],
+				if (!screenshotBase64) {
+					// choosing to try screenshot again, regardless of the initial type
+					Logger.info(`${screenshotType} screenshot failed, trying png`)
+					screenshotBase64 = await this.page.screenshot({
+						...screenshotOptions,
+						type: "png",
 					})
+					screenshot = `data:image/png;base64,${screenshotBase64}`
 				}
-				throw new Error("Failed to take screenshot.")
+
+				if (!screenshotBase64) {
+					// Capture error telemetry
+					if (this.ulid) {
+						telemetryService.captureBrowserError(this.ulid, "screenshot_error", "Failed to take screenshot", {
+							isRemote: this.isConnectedToRemote,
+							action: this.browserActions[this.browserActions.length - 1],
+						})
+					}
+					throw new Error("Failed to take screenshot.")
+				}
 			}
-		}
 
-		if (includeLogs) {
-			// this.page.removeAllListeners() <- causes the page to crash!
-			this.page.off("console", consoleListener)
-			this.page.off("pageerror", errorListener)
-		}
-
-		return {
-			screenshot,
-			logs: includeLogs ? logs.join("\n") : undefined,
-			currentUrl: this.page.url(),
-			currentMousePosition: this.currentMousePosition,
+			return {
+				screenshot,
+				logs: includeLogs ? logs.join("\n") : undefined,
+				currentUrl: this.page.url(),
+				currentMousePosition: this.currentMousePosition,
+			}
+		} finally {
+			if (includeLogs) {
+				// this.page.removeAllListeners() <- causes the page to crash!
+				this.page.off("console", consoleListener)
+				this.page.off("pageerror", errorListener)
+			}
 		}
 	}
 

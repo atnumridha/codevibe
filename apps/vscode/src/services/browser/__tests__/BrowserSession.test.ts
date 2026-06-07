@@ -5,6 +5,7 @@ type Listener = (...args: any[]) => void
 
 class FakePage {
 	private listeners = new Map<string, Set<Listener>>()
+	public screenshotError: Error | undefined
 
 	on(event: string, listener: Listener) {
 		const listeners = this.listeners.get(event) ?? new Set<Listener>()
@@ -31,6 +32,13 @@ class FakePage {
 	url(): string {
 		return "https://example.com"
 	}
+
+	async screenshot(): Promise<string> {
+		if (this.screenshotError) {
+			throw this.screenshotError
+		}
+		return "base64-screenshot"
+	}
 }
 
 describe("BrowserSession", () => {
@@ -50,6 +58,23 @@ describe("BrowserSession", () => {
 		)
 
 		expect(result.logs).to.equal("[error] Something happened")
+		expect(page.listenerCount("console")).to.equal(0)
+		expect(page.listenerCount("pageerror")).to.equal(0)
+	})
+
+	it("detaches console listeners when screenshot capture fails", async () => {
+		const session = new BrowserSession({} as any)
+		const page = new FakePage()
+		page.screenshotError = new Error("screenshot failed")
+		;(session as any).page = page
+
+		try {
+			await session.doAction(async () => {})
+			throw new Error("expected doAction to throw")
+		} catch (error) {
+			expect((error as Error).message).to.equal("screenshot failed")
+		}
+
 		expect(page.listenerCount("console")).to.equal(0)
 		expect(page.listenerCount("pageerror")).to.equal(0)
 	})
