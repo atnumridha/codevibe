@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	createAuthorizationFlow,
 	getValidOpenAICodexCredentials,
 	loadOpenAICodexHomeCredentialsSync,
 	normalizeOpenAICodexCredentials,
@@ -41,6 +42,15 @@ describe("auth/codex token lifecycle", () => {
 		for (const dir of tempDirs.splice(0)) {
 			rmSync(dir, { recursive: true, force: true });
 		}
+	});
+
+	it("uses the Cline Codex originator in authorization URLs by default", async () => {
+		const flow = await createAuthorizationFlow();
+		const url = new URL(flow.url);
+
+		expect(url.searchParams.get("originator")).toBe("cline");
+		expect(url.searchParams.get("codex_cli_simplified_flow")).toBe("true");
+		expect(url.searchParams.get("id_token_add_organizations")).toBe("true");
 	});
 
 	it("returns current credentials when not expired", async () => {

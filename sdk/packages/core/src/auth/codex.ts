@@ -46,6 +46,8 @@ export const OPENAI_CODEX_OAUTH_CONFIG = {
 	httpTimeoutMs: 30 * 1000,
 } as const;
 
+export const OPENAI_CODEX_ORIGINATOR = "cline";
+
 type CodexTokenSuccess = {
 	type: "success";
 	access: string;
@@ -223,8 +225,8 @@ async function refreshAccessToken(
 	}
 }
 
-async function createAuthorizationFlow(
-	originator = "pi",
+export async function createAuthorizationFlow(
+	originator = OPENAI_CODEX_ORIGINATOR,
 ): Promise<{ verifier: string; state: string; url: string }> {
 	const { verifier, challenge } = await getProofKey();
 	const state = nanoid(32);
@@ -633,6 +635,7 @@ export const openaiCodexOAuthProvider: OAuthProviderInterface = {
 			onPrompt: callbacks.onPrompt,
 			onProgress: callbacks.onProgress,
 			onManualCodeInput: callbacks.onManualCodeInput,
+			originator: OPENAI_CODEX_ORIGINATOR,
 		});
 	},
 

@@ -13,7 +13,10 @@ import {
 } from "@cline/shared";
 import { createOAuthClientCallbacks } from "../../auth/client";
 import { loginClineOAuth } from "../../auth/cline";
-import { loginOpenAICodex } from "../../auth/codex";
+import {
+	loginOpenAICodex,
+	OPENAI_CODEX_ORIGINATOR,
+} from "../../auth/codex";
 import { loginOcaOAuth } from "../../auth/oca";
 import { resolveProviderConfig } from "../../services/llms/provider-defaults";
 import type {
@@ -907,6 +910,7 @@ export async function loginLocalProvider(
 		onPrompt: callbacks.onPrompt,
 		onProgress: callbacks.onProgress,
 		onManualCodeInput: callbacks.onManualCodeInput,
+		originator: OPENAI_CODEX_ORIGINATOR,
 		telemetry,
 	});
 }
