@@ -1,5 +1,9 @@
 import {
 	createSessionId,
+	type CursorNdjsonEventGetRequest,
+	type CursorNdjsonEventListRequest,
+	type CursorNdjsonIngestRequest,
+	type CursorNdjsonIngestStatusResponse,
 	type CursorUriPreviewRequest,
 	type CursorUriPreviewResponse,
 	type HubClientRegistration,
@@ -505,6 +509,79 @@ export class NodeHubClient {
 			{ timeoutMs: options?.timeoutMs },
 		);
 		return (reply.payload ?? { handled: false }) as CursorUriPreviewResponse;
+	}
+
+	async ingestCursorNdjson(
+		input: string | CursorNdjsonIngestRequest,
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<Record<string, unknown>> {
+		const payload =
+			typeof input === "string" ? { ndjson: input } : { ...input };
+		const reply = await this.command(
+			"cursor.ndjsonIngest.ingest",
+			payload,
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
+	}
+
+	async listCursorNdjsonEvents(
+		input: CursorNdjsonEventListRequest = {},
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<Record<string, unknown>> {
+		const reply = await this.command(
+			"cursor.ndjsonIngest.list",
+			{ ...input },
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
+	}
+
+	async getCursorNdjsonEvent(
+		input: string | CursorNdjsonEventGetRequest,
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<Record<string, unknown>> {
+		const payload =
+			typeof input === "string" ? { eventId: input } : { ...input };
+		const reply = await this.command(
+			"cursor.ndjsonIngest.get",
+			payload,
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return reply.payload ?? {};
+	}
+
+	async getCursorNdjsonIngestStatus(
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<CursorNdjsonIngestStatusResponse> {
+		const reply = await this.command(
+			"cursor.ndjsonIngest.status",
+			{},
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return (reply.payload ?? {
+			enabled: false,
+			transport: "hub",
+			commands: {
+				ingest: "cursor.ndjsonIngest.ingest",
+				list: "cursor.ndjsonIngest.list",
+				get: "cursor.ndjsonIngest.get",
+				status: "cursor.ndjsonIngest.status",
+			},
+			defaults: {
+				source: "cursor",
+				maxLineBytes: 16 * 1024,
+				maxEvents: 100,
+			},
+			limits: {
+				maxLineBytes: 64 * 1024,
+				maxEvents: 1_000,
+			},
+		}) as CursorNdjsonIngestStatusResponse;
 	}
 
 	private async commandOnce(

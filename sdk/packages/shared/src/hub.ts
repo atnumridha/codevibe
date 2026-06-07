@@ -348,6 +348,10 @@ export type HubCommandName =
 	| "settings.patch"
 	| "settings.toggle"
 	| "cursor.uri.preview"
+	| "cursor.ndjsonIngest.ingest"
+	| "cursor.ndjsonIngest.list"
+	| "cursor.ndjsonIngest.get"
+	| "cursor.ndjsonIngest.status"
 	| "cron.event.ingest"
 	| "cron.event.list"
 	| "cron.event.get"
@@ -369,6 +373,49 @@ export interface CursorUriPreviewResponse extends Record<string, unknown> {
 	handled: boolean;
 	route?: string;
 	requiresConfirmation?: boolean;
+}
+
+export interface CursorNdjsonIngestRequest extends Record<string, unknown> {
+	ndjson?: string;
+	input?: string;
+	defaultSource?: string;
+	allowedSources?: string[];
+	maxLineBytes?: number;
+	maxEvents?: number;
+}
+
+export interface CursorNdjsonEventListRequest extends Record<string, unknown> {
+	eventType?: string;
+	source?: string;
+	processingStatus?: string;
+	limit?: number;
+	includePayload?: boolean;
+}
+
+export interface CursorNdjsonEventGetRequest extends Record<string, unknown> {
+	eventId: string;
+	includePayload?: boolean;
+}
+
+export interface CursorNdjsonIngestStatusResponse
+	extends Record<string, unknown> {
+	enabled: boolean;
+	transport: "hub";
+	commands: {
+		ingest: "cursor.ndjsonIngest.ingest";
+		list: "cursor.ndjsonIngest.list";
+		get: "cursor.ndjsonIngest.get";
+		status: "cursor.ndjsonIngest.status";
+	};
+	defaults: {
+		source: "cursor";
+		maxLineBytes: number;
+		maxEvents: number;
+	};
+	limits: {
+		maxLineBytes: number;
+		maxEvents: number;
+	};
 }
 
 export function getDefaultHubCommandTimeoutMs(

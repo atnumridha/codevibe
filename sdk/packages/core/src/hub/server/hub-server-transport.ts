@@ -1,4 +1,5 @@
 import type {
+	CursorNdjsonIngestStatusResponse,
 	CursorUriPreviewRequest,
 	CursorUriPreviewResponse,
 	HubClientRecord,
@@ -120,6 +121,7 @@ const DEFAULT_CRON_EVENT_INGEST_MAX_LINE_BYTES = 16 * 1024;
 const DEFAULT_CRON_EVENT_INGEST_MAX_EVENTS = 100;
 const MAX_CRON_EVENT_INGEST_MAX_LINE_BYTES = 64 * 1024;
 const MAX_CRON_EVENT_INGEST_MAX_EVENTS = 1_000;
+const CURSOR_NDJSON_INGEST_DEFAULT_SOURCE = "cursor";
 const CRON_EVENT_SECRET_KEY_PATTERN =
 	/(token|secret|password|authorization|api[-_]?key|credential|cookie|session)/i;
 
@@ -249,13 +251,16 @@ function requireOptionalHubPositiveIntegerAtMost(
 	return value;
 }
 
-function requireCronEventListLimit(payload: Record<string, unknown>): number | undefined {
+function requireCronEventListLimit(
+	payload: Record<string, unknown>,
+	commandName = "cron.event.list",
+): number | undefined {
 	const value = payload.limit;
 	if (value === undefined) {
 		return undefined;
 	}
 	if (typeof value !== "number" || !Number.isFinite(value)) {
-		throw new Error("cron.event.list payload 'limit' must be a finite number.");
+		throw new Error(`${commandName} payload 'limit' must be a finite number.`);
 	}
 	return Math.min(
 		MAX_CRON_EVENT_LIST_LIMIT,
@@ -350,7 +355,12 @@ function parseSettingsPatchInput(payload: unknown): CoreSettingsPatchInput {
 	};
 }
 
-function parseCronEventIngestInput(payload: unknown): {
+function parseCronEventIngestInput(
+	payload: unknown,
+	options: { commandName: string; defaultSource?: string } = {
+		commandName: "cron.event.ingest",
+	},
+): {
 	input: string;
 	defaultSource?: string;
 	allowedSources?: string[];
@@ -360,48 +370,58 @@ function parseCronEventIngestInput(payload: unknown): {
 	if (typeof payload === "string") {
 		return {
 			input: payload,
+			...(options.defaultSource ? { defaultSource: options.defaultSource } : {}),
 			maxLineBytes: DEFAULT_CRON_EVENT_INGEST_MAX_LINE_BYTES,
 			maxEvents: DEFAULT_CRON_EVENT_INGEST_MAX_EVENTS,
 		};
 	}
 	if (!isPayloadObject(payload)) {
-		throw new Error("cron.event.ingest payload must be an object or NDJSON string.");
+		throw new Error(
+			`${options.commandName} payload must be an object or NDJSON string.`,
+		);
 	}
 	const inputValue = payload.ndjson ?? payload.input;
 	if (inputValue !== undefined && typeof inputValue !== "string") {
-		throw new Error("cron.event.ingest payload 'ndjson' must be a string.");
+		throw new Error(`${options.commandName} payload 'ndjson' must be a string.`);
 	}
 	const defaultSource = payload.defaultSource;
 	if (defaultSource !== undefined && typeof defaultSource !== "string") {
-		throw new Error("cron.event.ingest payload 'defaultSource' must be a string.");
+		throw new Error(
+			`${options.commandName} payload 'defaultSource' must be a string.`,
+		);
 	}
 	const allowedSources = requireOptionalHubStringArray(
 		payload,
 		"allowedSources",
-		"cron.event.ingest",
+		options.commandName,
 	);
 	const maxLineBytes = requireOptionalHubPositiveIntegerAtMost(
 		payload,
 		"maxLineBytes",
-		"cron.event.ingest",
+		options.commandName,
 		MAX_CRON_EVENT_INGEST_MAX_LINE_BYTES,
 	);
 	const maxEvents = requireOptionalHubPositiveIntegerAtMost(
 		payload,
 		"maxEvents",
-		"cron.event.ingest",
+		options.commandName,
 		MAX_CRON_EVENT_INGEST_MAX_EVENTS,
 	);
+	const resolvedDefaultSource =
+		defaultSource?.trim() || options.defaultSource?.trim();
 	return {
 		input: inputValue ?? JSON.stringify(payload),
-		...(defaultSource?.trim() ? { defaultSource: defaultSource.trim() } : {}),
+		...(resolvedDefaultSource ? { defaultSource: resolvedDefaultSource } : {}),
 		...(allowedSources ? { allowedSources } : {}),
 		maxLineBytes: maxLineBytes ?? DEFAULT_CRON_EVENT_INGEST_MAX_LINE_BYTES,
 		maxEvents: maxEvents ?? DEFAULT_CRON_EVENT_INGEST_MAX_EVENTS,
 	};
 }
 
-function parseCronEventListInput(payload: unknown): {
+function parseCronEventListInput(
+	payload: unknown,
+	commandName = "cron.event.list",
+): {
 	options: ListEventLogsOptions;
 	includePayload: boolean;
 } {
@@ -409,7 +429,7 @@ function parseCronEventListInput(payload: unknown): {
 		return { options: {}, includePayload: false };
 	}
 	if (!isPayloadObject(payload)) {
-		throw new Error("cron.event.list payload must be an object.");
+		throw new Error(`${commandName} payload must be an object.`);
 	}
 	const processingStatus = requireOptionalHubString(payload, "processingStatus");
 	if (
@@ -419,7 +439,7 @@ function parseCronEventListInput(payload: unknown): {
 		)
 	) {
 		throw new Error(
-			"cron.event.list payload 'processingStatus' must be one of: received, unmatched, queued, suppressed, failed.",
+			`${commandName} payload 'processingStatus' must be one of: received, unmatched, queued, suppressed, failed.`,
 		);
 	}
 	return {
@@ -428,12 +448,15 @@ function parseCronEventListInput(payload: unknown): {
 			eventType: requireOptionalHubString(payload, "eventType"),
 			source: requireOptionalHubString(payload, "source"),
 			processingStatus: processingStatus as CronEventProcessingStatus | undefined,
-			limit: requireCronEventListLimit(payload),
+			limit: requireCronEventListLimit(payload, commandName),
 		},
 	};
 }
 
-function parseCronEventGetInput(payload: unknown): {
+function parseCronEventGetInput(
+	payload: unknown,
+	commandName = "cron.event.get",
+): {
 	eventId: string;
 	includePayload: boolean;
 } {
@@ -441,11 +464,13 @@ function parseCronEventGetInput(payload: unknown): {
 		return { eventId: payload.trim(), includePayload: true };
 	}
 	if (!isPayloadObject(payload)) {
-		throw new Error("cron.event.get payload must be an object or event id string.");
+		throw new Error(`${commandName} payload must be an object or event id string.`);
 	}
 	const value = payload.eventId ?? payload.id;
 	if (typeof value !== "string" || !value.trim()) {
-		throw new Error("cron.event.get payload 'eventId' must be a non-empty string.");
+		throw new Error(
+			`${commandName} payload 'eventId' must be a non-empty string.`,
+		);
 	}
 	return {
 		eventId: value.trim(),
@@ -1088,12 +1113,39 @@ export class HubServerTransport implements NativeHubTransport {
 				return await this.handleSettingsPatch(envelope);
 			case "cursor.uri.preview":
 				return this.handleCursorUriPreview(envelope);
+			case "cursor.ndjsonIngest.ingest":
+				return this.handleCronEventIngest(envelope, {
+					commandName: "cursor.ndjsonIngest.ingest",
+					defaultSource: CURSOR_NDJSON_INGEST_DEFAULT_SOURCE,
+					errorCode: "cursor_ndjson_ingest_failed",
+				});
+			case "cursor.ndjsonIngest.list":
+				return this.handleCronEventList(envelope, {
+					commandName: "cursor.ndjsonIngest.list",
+					errorCode: "cursor_ndjson_list_failed",
+				});
+			case "cursor.ndjsonIngest.get":
+				return this.handleCronEventGet(envelope, {
+					commandName: "cursor.ndjsonIngest.get",
+					errorCode: "cursor_ndjson_get_failed",
+				});
+			case "cursor.ndjsonIngest.status":
+				return this.handleCursorNdjsonIngestStatus(envelope);
 			case "cron.event.ingest":
-				return this.handleCronEventIngest(envelope);
+				return this.handleCronEventIngest(envelope, {
+					commandName: "cron.event.ingest",
+					errorCode: "cron_event_ingest_failed",
+				});
 			case "cron.event.list":
-				return this.handleCronEventList(envelope);
+				return this.handleCronEventList(envelope, {
+					commandName: "cron.event.list",
+					errorCode: "cron_event_list_failed",
+				});
 			case "cron.event.get":
-				return this.handleCronEventGet(envelope);
+				return this.handleCronEventGet(envelope, {
+					commandName: "cron.event.get",
+					errorCode: "cron_event_get_failed",
+				});
 			default: {
 				const reply = await this.scheduleCommands.handleCommand(envelope);
 				if (reply.ok) {
@@ -1296,7 +1348,44 @@ export class HubServerTransport implements NativeHubTransport {
 		}
 	}
 
-	private handleCronEventIngest(envelope: HubCommandEnvelope): HubReplyEnvelope {
+	private handleCursorNdjsonIngestStatus(
+		envelope: HubCommandEnvelope,
+	): HubReplyEnvelope {
+		const payload: CursorNdjsonIngestStatusResponse = {
+			enabled: Boolean(this.cronService),
+			transport: "hub",
+			commands: {
+				ingest: "cursor.ndjsonIngest.ingest",
+				list: "cursor.ndjsonIngest.list",
+				get: "cursor.ndjsonIngest.get",
+				status: "cursor.ndjsonIngest.status",
+			},
+			defaults: {
+				source: CURSOR_NDJSON_INGEST_DEFAULT_SOURCE,
+				maxLineBytes: DEFAULT_CRON_EVENT_INGEST_MAX_LINE_BYTES,
+				maxEvents: DEFAULT_CRON_EVENT_INGEST_MAX_EVENTS,
+			},
+			limits: {
+				maxLineBytes: MAX_CRON_EVENT_INGEST_MAX_LINE_BYTES,
+				maxEvents: MAX_CRON_EVENT_INGEST_MAX_EVENTS,
+			},
+		};
+		return {
+			version: envelope.version,
+			requestId: envelope.requestId,
+			ok: true,
+			payload,
+		};
+	}
+
+	private handleCronEventIngest(
+		envelope: HubCommandEnvelope,
+		options: {
+			commandName: string;
+			errorCode: string;
+			defaultSource?: string;
+		},
+	): HubReplyEnvelope {
 		if (!this.cronService) {
 			return {
 				version: envelope.version,
@@ -1304,12 +1393,15 @@ export class HubServerTransport implements NativeHubTransport {
 				ok: false,
 				error: {
 					code: "cron_not_enabled",
-					message: "cron.event.ingest requires hub cronOptions.",
+					message: `${options.commandName} requires hub cronOptions.`,
 				},
 			};
 		}
 		try {
-			const input = parseCronEventIngestInput(envelope.payload);
+			const input = parseCronEventIngestInput(envelope.payload, {
+				commandName: options.commandName,
+				...(options.defaultSource ? { defaultSource: options.defaultSource } : {}),
+			});
 			const result = this.cronService.ingestNdjson(input.input, {
 				...(input.defaultSource ? { defaultSource: input.defaultSource } : {}),
 				...(input.allowedSources ? { allowedSources: input.allowedSources } : {}),
@@ -1330,14 +1422,17 @@ export class HubServerTransport implements NativeHubTransport {
 				requestId: envelope.requestId,
 				ok: false,
 				error: {
-					code: "cron_event_ingest_failed",
+					code: options.errorCode,
 					message: error instanceof Error ? error.message : String(error),
 				},
 			};
 		}
 	}
 
-	private handleCronEventList(envelope: HubCommandEnvelope): HubReplyEnvelope {
+	private handleCronEventList(
+		envelope: HubCommandEnvelope,
+		options: { commandName: string; errorCode: string },
+	): HubReplyEnvelope {
 		if (!this.cronService) {
 			return {
 				version: envelope.version,
@@ -1345,12 +1440,15 @@ export class HubServerTransport implements NativeHubTransport {
 				ok: false,
 				error: {
 					code: "cron_not_enabled",
-					message: "cron.event.list requires hub cronOptions.",
+					message: `${options.commandName} requires hub cronOptions.`,
 				},
 			};
 		}
 		try {
-			const input = parseCronEventListInput(envelope.payload);
+			const input = parseCronEventListInput(
+				envelope.payload,
+				options.commandName,
+			);
 			const events = this.cronService.listEventLogs(input.options);
 			return {
 				version: envelope.version,
@@ -1371,14 +1469,17 @@ export class HubServerTransport implements NativeHubTransport {
 				requestId: envelope.requestId,
 				ok: false,
 				error: {
-					code: "cron_event_list_failed",
+					code: options.errorCode,
 					message: error instanceof Error ? error.message : String(error),
 				},
 			};
 		}
 	}
 
-	private handleCronEventGet(envelope: HubCommandEnvelope): HubReplyEnvelope {
+	private handleCronEventGet(
+		envelope: HubCommandEnvelope,
+		options: { commandName: string; errorCode: string },
+	): HubReplyEnvelope {
 		if (!this.cronService) {
 			return {
 				version: envelope.version,
@@ -1386,12 +1487,12 @@ export class HubServerTransport implements NativeHubTransport {
 				ok: false,
 				error: {
 					code: "cron_not_enabled",
-					message: "cron.event.get requires hub cronOptions.",
+					message: `${options.commandName} requires hub cronOptions.`,
 				},
 			};
 		}
 		try {
-			const input = parseCronEventGetInput(envelope.payload);
+			const input = parseCronEventGetInput(envelope.payload, options.commandName);
 			const event = this.cronService.getEventLog(input.eventId);
 			if (!event) {
 				return {
@@ -1420,7 +1521,7 @@ export class HubServerTransport implements NativeHubTransport {
 				requestId: envelope.requestId,
 				ok: false,
 				error: {
-					code: "cron_event_get_failed",
+					code: options.errorCode,
 					message: error instanceof Error ? error.message : String(error),
 				},
 			};

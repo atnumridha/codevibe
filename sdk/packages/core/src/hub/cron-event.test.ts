@@ -339,6 +339,154 @@ Summarize the Cursor git event.
 		}
 	});
 
+	it("exposes Cursor-named NDJSON ingest aliases through the hub", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-hub-cursor-ndjson-"));
+		const cronDir = join(root, "cron");
+		mkdirSync(join(cronDir, "events"), { recursive: true });
+		writeFileSync(
+			join(cronDir, "events", "cursor-branch.event.md"),
+			`---
+id: cursor-branch
+title: Cursor Branch
+workspaceRoot: ${root}
+event: git.branch.created
+filters:
+  branch: feature/cursor-alias
+---
+Summarize the Cursor branch event.
+`,
+			"utf8",
+		);
+
+		const transport = new HubServerTransport({
+			runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
+			scheduleOptions: { dbPath: join(root, "schedule.db") },
+			cronOptions: {
+				workspaceRoot: root,
+				specs: { cronSpecsDir: cronDir },
+				dbPath: join(root, "cron.db"),
+			},
+		});
+
+		try {
+			await transport.getCronService()?.reconcileNow();
+			const statusReply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.ndjsonIngest.status",
+				requestId: "req-cursor-status",
+				clientId: "client-one",
+				payload: {},
+			});
+
+			expect(statusReply).toMatchObject({
+				ok: true,
+				payload: {
+					enabled: true,
+					transport: "hub",
+					commands: {
+						ingest: "cursor.ndjsonIngest.ingest",
+						list: "cursor.ndjsonIngest.list",
+						get: "cursor.ndjsonIngest.get",
+						status: "cursor.ndjsonIngest.status",
+					},
+					defaults: {
+						source: "cursor",
+						maxLineBytes: 16 * 1024,
+						maxEvents: 100,
+					},
+					limits: {
+						maxLineBytes: 64 * 1024,
+						maxEvents: 1_000,
+					},
+				},
+			});
+
+			const ingestReply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.ndjsonIngest.ingest",
+				requestId: "req-cursor-ingest",
+				clientId: "client-one",
+				payload: {
+					ndjson: JSON.stringify({
+						id: "evt_cursor_branch_alias",
+						type: "git.branch.created",
+						attrs: { branch: "feature/cursor-alias" },
+						data: { token: "secret-value" },
+					}),
+				},
+			});
+
+			expect(ingestReply).toMatchObject({
+				ok: true,
+				payload: {
+					eventCount: 1,
+					rejectedCount: 0,
+					results: [
+						{
+							eventId: "evt_cursor_branch_alias",
+							eventType: "git.branch.created",
+							source: "cursor",
+							duplicate: false,
+							matchedSpecIds: ["cursor-branch"],
+						},
+					],
+				},
+			});
+			expect(JSON.stringify(ingestReply)).not.toContain("secret-value");
+
+			const listReply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.ndjsonIngest.list",
+				requestId: "req-cursor-list",
+				clientId: "client-one",
+				payload: {
+					source: "cursor",
+					limit: 10,
+				},
+			});
+
+			expect(listReply).toMatchObject({
+				ok: true,
+				payload: {
+					count: 1,
+					events: [
+						{
+							eventId: "evt_cursor_branch_alias",
+							eventType: "git.branch.created",
+							source: "cursor",
+						},
+					],
+				},
+			});
+
+			const getReply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.ndjsonIngest.get",
+				requestId: "req-cursor-get",
+				clientId: "client-one",
+				payload: {
+					eventId: "evt_cursor_branch_alias",
+					includePayload: true,
+				},
+			});
+
+			expect(getReply).toMatchObject({
+				ok: true,
+				payload: {
+					event: {
+						eventId: "evt_cursor_branch_alias",
+						source: "cursor",
+						attributes: { branch: "feature/cursor-alias" },
+						payload: { token: "[redacted]" },
+					},
+				},
+			});
+		} finally {
+			await transport.stop();
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	it("bounds cron.event.ingest payloads by default and rejects oversized requested limits", async () => {
 		const root = mkdtempSync(join(tmpdir(), "cline-hub-cron-event-limits-"));
 		const transport = new HubServerTransport({
@@ -534,6 +682,21 @@ Summarize the Cursor git event.
 				ok: false,
 				error: {
 					code: "cron_not_enabled",
+				},
+			});
+
+			const statusReply = await transport.handleCommand({
+				version: "v1",
+				command: "cursor.ndjsonIngest.status",
+				requestId: "req-4",
+				clientId: "client-one",
+				payload: {},
+			});
+			expect(statusReply).toMatchObject({
+				ok: true,
+				payload: {
+					enabled: false,
+					transport: "hub",
 				},
 			});
 		} finally {
