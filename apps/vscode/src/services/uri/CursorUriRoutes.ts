@@ -163,7 +163,7 @@ const promptLikeSchema = z
 		workspace: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine((value) => hasAnyNonBlankString(value, ["prompt", "text", "message"]), "prompt, text, or message is required")
 
 const mcpInstallSchema = z
@@ -176,7 +176,7 @@ const mcpInstallSchema = z
 		package: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine(
 		(value) => hasAnyNonBlankString(value, ["name", "server", "id", "url", "command", "package"]) || value.config,
 		"one MCP identifier or config is required",
@@ -193,7 +193,7 @@ const backgroundAgentSchema = z
 		baseBranch: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine((value) => hasAnyNonBlankString(value, ["prompt", "task", "message"]), "prompt, task, or message is required")
 
 const settingsSchema = z
@@ -203,7 +203,7 @@ const settingsSchema = z
 		query: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 
 const commandSchema = z
 	.object({
@@ -216,7 +216,7 @@ const commandSchema = z
 		workspace: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine((value) => hasAnyNonBlankString(value, ["command", "name", "text", "prompt", "message"]), "command input is required")
 
 const ruleSchema = z
@@ -227,7 +227,7 @@ const ruleSchema = z
 		url: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine((value) => hasAnyNonBlankString(value, ["name", "path", "content", "url"]) || value.config, "rule input is required")
 
 const prReviewSchema = z
@@ -240,7 +240,7 @@ const prReviewSchema = z
 		instructions: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine(
 		(value) =>
 			hasNonBlankString(value.url) ||
@@ -258,7 +258,7 @@ const pluginAddSchema = z
 		replace: optionalBooleanString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine((value) => hasAnyNonBlankString(value, ["id", "name", "url"]) || value.config, "plugin identifier or config is required")
 
 const glassSchema = z
@@ -268,7 +268,7 @@ const glassSchema = z
 		message: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 
 const gitCheckoutSchema = z
 	.object({
@@ -281,7 +281,7 @@ const gitCheckoutSchema = z
 		workspace: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine((value) => value.branch || value.ref || value.target, "branch, ref, or target is required")
 
 const gitBranchSchema = z
@@ -297,7 +297,7 @@ const gitBranchSchema = z
 		workspace: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine((value) => value.name || value.branch, "name or branch is required")
 
 const gitCommitSchema = z
@@ -315,7 +315,7 @@ const gitCommitSchema = z
 		workspace: optionalBoundedString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 
 const automationIngestSchema = z
 	.object({
@@ -328,7 +328,7 @@ const automationIngestSchema = z
 		strict: optionalBooleanString,
 		config: configSchema,
 	})
-	.strict()
+	.passthrough()
 	.refine(
 		(value) =>
 			hasNonBlankString(value.ndjson) ||

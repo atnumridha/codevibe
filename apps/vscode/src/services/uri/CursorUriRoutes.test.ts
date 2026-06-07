@@ -150,14 +150,30 @@ describe("CursorUriRoutes", () => {
 		expect(result.error).to.contain("duplicate query parameter")
 	})
 
-	it("rejects unknown route parameters", () => {
+	it("preserves unknown route parameters as sanitized route context", () => {
 		const result = parseCursorCompatibleUri("/command", new URLSearchParams("command=ls&extra=value"))
 
 		expect(result.recognized).to.equal(true)
-		if (!result.recognized || !("error" in result)) {
-			throw new Error("expected unknown parameter route to fail")
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected unknown parameter route to parse")
 		}
-		expect(result.error).to.contain("Unrecognized key")
+		expect(result.route.params).to.deep.include({
+			command: "ls",
+			extra: "value",
+		})
+		expect(buildCursorCompatibleTaskPrompt(result.route)).to.contain("- extra: value")
+	})
+
+	it("redacts secret-shaped unknown route parameters in task prompts", () => {
+		const result = parseCursorCompatibleUri("/command", new URLSearchParams("command=ls&token=secret-value"))
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected secret parameter route to parse")
+		}
+		const prompt = buildCursorCompatibleTaskPrompt(result.route)
+		expect(prompt).to.contain("- token: [redacted]")
+		expect(prompt).not.to.contain("secret-value")
 	})
 
 	it("rejects blank required route inputs after trimming", () => {

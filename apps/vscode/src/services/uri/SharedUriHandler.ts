@@ -111,6 +111,25 @@ function getRouteStringParam(route: CursorCompatibleUriRoute, key: string): stri
 	return typeof value === "string" && value.trim() ? value.trim() : undefined
 }
 
+function getRouteConfigRecord(route: CursorCompatibleUriRoute): Record<string, unknown> | undefined {
+	const value = route.params.config
+	return value && typeof value === "object" && !Array.isArray(value) ? value : undefined
+}
+
+function getRouteConfigStringParam(route: CursorCompatibleUriRoute, key: string): string | undefined {
+	const value = getRouteConfigRecord(route)?.[key]
+	return typeof value === "string" && value.trim() ? value.trim() : undefined
+}
+
+function getCursorRuleContent(route: CursorCompatibleUriRoute): string | undefined {
+	return (
+		getRouteStringParam(route, "content") ||
+		getRouteConfigStringParam(route, "content") ||
+		getRouteConfigStringParam(route, "rule") ||
+		getRouteConfigStringParam(route, "markdown")
+	)
+}
+
 function normalizeSettingsSectionKey(value: string): string {
 	return value
 		.trim()
@@ -145,11 +164,16 @@ function normalizeCursorRuleTarget(route: CursorCompatibleUriRoute): {
 	filename: string
 	relativePath: string
 } | undefined {
-	if (getRouteStringParam(route, "content") || getRouteStringParam(route, "url")) {
+	if (!getCursorRuleContent(route) && getRouteStringParam(route, "url")) {
 		return undefined
 	}
 
-	const requested = (getRouteStringParam(route, "name") || getRouteStringParam(route, "path"))?.replace(/\\/g, "/")
+	const requested = (
+		getRouteStringParam(route, "name") ||
+		getRouteStringParam(route, "path") ||
+		getRouteConfigStringParam(route, "name") ||
+		getRouteConfigStringParam(route, "path")
+	)?.replace(/\\/g, "/")
 	if (!requested || requested.includes("\0") || path.isAbsolute(requested) || requested.split("/").includes("..")) {
 		return undefined
 	}
@@ -201,6 +225,10 @@ function buildCursorRuleStarterContent(filename: string): string {
 		].join("\n")
 	}
 	return [`# ${title}`, "", "Add project-wide agent guidance here.", ""].join("\n")
+}
+
+function normalizeImportedCursorRuleContent(content: string): string {
+	return content.endsWith("\n") ? content : `${content}\n`
 }
 
 function normalizeCursorCommandTarget(route: CursorCompatibleUriRoute): {
@@ -945,17 +973,31 @@ export class SharedUriHandler {
 		if (!target) {
 			return false
 		}
+		const importedContent = getCursorRuleContent(route)
+		const replaceExisting = getRouteBooleanFlag(route, "replace") || getRouteBooleanFlag(route, "force")
+		let importedRuleWritten = false
 
 		const choice = await HostProvider.window.showMessage({
 			type: ShowMessageType.WARNING,
-			message: `Create or open Cursor rule "${target.filename}"?`,
+			message: importedContent
+				? `Import Cursor rule "${target.filename}"?`
+				: `Create or open Cursor rule "${target.filename}"?`,
 			options: {
 				modal: true,
-				items: ["Create/Open"],
-				detail: `Target: ${target.relativePath}`,
+				items: [importedContent ? "Import Rule" : "Create/Open"],
+				detail: [
+					`Target: ${target.relativePath}`,
+					...(importedContent
+						? [
+								`Content length: ${importedContent.length} character(s)`,
+								...(replaceExisting ? ["Replace existing: requested"] : []),
+								"Rule content is not shown here to avoid leaking secrets into modal logs.",
+							]
+						: []),
+				].join("\n"),
 			},
 		})
-		if (choice.selectedOption !== "Create/Open") {
+		if (choice.selectedOption !== (importedContent ? "Import Rule" : "Create/Open")) {
 			return true
 		}
 
@@ -963,7 +1005,14 @@ export class SharedUriHandler {
 		const filePath = path.resolve(cwd, target.relativePath)
 		await fs.mkdir(path.dirname(filePath), { recursive: true })
 		try {
-			await fs.writeFile(filePath, buildCursorRuleStarterContent(target.filename), { flag: "wx" })
+			await fs.writeFile(
+				filePath,
+				importedContent
+					? normalizeImportedCursorRuleContent(importedContent)
+					: buildCursorRuleStarterContent(target.filename),
+				importedContent && replaceExisting ? undefined : { flag: "wx" },
+			)
+			importedRuleWritten = Boolean(importedContent)
 		} catch (error) {
 			const code =
 				error && typeof error === "object" && "code" in error
@@ -971,6 +1020,16 @@ export class SharedUriHandler {
 					: undefined
 			if (code !== "EEXIST") {
 				throw error
+			}
+			if (importedContent) {
+				await HostProvider.window.showMessage({
+					type: ShowMessageType.WARNING,
+					message: `Cursor rule "${target.filename}" already exists.`,
+					options: {
+						items: [],
+						detail: "Reopen the deeplink with replace=true to overwrite this file after confirmation.",
+					},
+				})
 			}
 		}
 
@@ -981,7 +1040,9 @@ export class SharedUriHandler {
 		await HostProvider.window.openFile({ filePath })
 		await HostProvider.window.showMessage({
 			type: ShowMessageType.INFORMATION,
-			message: `Opened Cursor rule "${target.filename}".`,
+			message: importedRuleWritten
+				? `Imported Cursor rule "${target.filename}".`
+				: `Opened Cursor rule "${target.filename}".`,
 		})
 		return true
 	}

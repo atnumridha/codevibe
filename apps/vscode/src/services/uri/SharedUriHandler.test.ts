@@ -942,19 +942,81 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should route Cursor rule content payloads through task review", async () => {
+			it("should import Cursor rule content payloads after confirmation", async () => {
 				showMessageStub.resetBehavior()
-				showMessageStub.resolves({ selectedOption: "Create Task" })
+				showMessageStub.resolves({ selectedOption: "Import Rule" })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/rule?name=team-style&content=Use%20short%20commits",
+					"vscode://cline.cline/rule?name=team-style&content=Use%20short%20commits%20with%20token%3Dsecret-value",
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor rule review task?")
-				sinon.assert.calledOnce(handleTaskCreationStub)
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Cursor-compatible rule deeplink")
-				expect(openFileStub.called).to.be.false
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Import Cursor rule "team-style.mdc"?')
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Target: .cursor/rules/team-style.mdc")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Content length:")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
+				const rulePath = path.join(workspaceDir, ".cursor", "rules", "team-style.mdc")
+				expect(await fs.readFile(rulePath, "utf8")).to.equal("Use short commits with token=secret-value\n")
+				sinon.assert.calledOnceWithExactly(openFileStub, { filePath: rulePath })
+				expect(showMessageStub.lastCall.args[0].message).to.equal('Imported Cursor rule "team-style.mdc".')
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should import Cursor rule content from config payloads", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Import Rule" })
+				const config = encodeConfig({
+					path: "team-style",
+					content: "Prefer focused tests.",
+					token: "secret-value",
+				})
+
+				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/rule?config=${config}`)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Import Cursor rule "team-style.mdc"?')
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
+				const rulePath = path.join(workspaceDir, ".cursor", "rules", "team-style.mdc")
+				expect(await fs.readFile(rulePath, "utf8")).to.equal("Prefer focused tests.\n")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should not overwrite existing Cursor rules without an explicit replace flag", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Import Rule" })
+				const rulePath = path.join(workspaceDir, ".cursor", "rules", "team-style.mdc")
+				await fs.mkdir(path.dirname(rulePath), { recursive: true })
+				await fs.writeFile(rulePath, "Existing guidance.\n", "utf8")
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/rule?name=team-style&content=Replacement%20guidance",
+				)
+
+				expect(result).to.be.true
+				expect(await fs.readFile(rulePath, "utf8")).to.equal("Existing guidance.\n")
+				expect(showMessageStub.secondCall.args[0].message).to.equal('Cursor rule "team-style.mdc" already exists.')
+				expect(showMessageStub.lastCall.args[0].message).to.equal('Opened Cursor rule "team-style.mdc".')
+				sinon.assert.calledOnceWithExactly(openFileStub, { filePath: rulePath })
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should overwrite existing Cursor rules when replace is explicitly confirmed", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Import Rule" })
+				const rulePath = path.join(workspaceDir, ".cursor", "rules", "team-style.mdc")
+				await fs.mkdir(path.dirname(rulePath), { recursive: true })
+				await fs.writeFile(rulePath, "Existing guidance.\n", "utf8")
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/rule?name=team-style&content=Replacement%20guidance&replace=true",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Replace existing: requested")
+				expect(await fs.readFile(rulePath, "utf8")).to.equal("Replacement guidance\n")
+				expect(showMessageStub.lastCall.args[0].message).to.equal('Imported Cursor rule "team-style.mdc".')
+				sinon.assert.calledOnceWithExactly(openFileStub, { filePath: rulePath })
+				expect(handleTaskCreationStub.called).to.be.false
 			})
 
 			it("should create a review task from a direct Cursor command payload", async () => {
