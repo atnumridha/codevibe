@@ -458,6 +458,99 @@ describe("NodeHubClient", () => {
 			});
 			await client.dispose();
 		});
+
+		it("sends typed cursor.uri.launch commands", async () => {
+			const client = new NodeHubClient({ url: "ws://127.0.0.1:25463/hub" });
+			const connectPromise = client.connect();
+			const socket = FakeWebSocket.instances[0];
+			if (!socket) {
+				throw new Error("expected fake websocket instance");
+			}
+			socket.open();
+			await connectPromise;
+
+			const launchPromise = client.launchCursorUri(
+				{
+					uri: "vscode://cline.cline/background-agent?prompt=Fix%20the%20queue",
+					workspaceRoot: "/workspace",
+					confirmed: true,
+					provider: "openai-codex",
+					model: "gpt-5.5",
+					mode: "plan",
+					enableTools: true,
+					enableSpawn: false,
+					enableTeams: false,
+					autoApproveTools: false,
+					delivery: "queue",
+					timeoutMs: 5_000,
+				},
+				{ timeoutMs: 10_000 },
+			);
+			const launchFrame = socket.sentFrames.find((frame) => {
+				const envelope = (frame as { envelope?: { command?: string } })
+					.envelope;
+				return envelope?.command === "cursor.uri.launch";
+			}) as
+				| {
+						kind?: string;
+						envelope?: {
+							requestId?: string;
+							command?: string;
+							payload?: Record<string, unknown>;
+							timeoutMs?: number | null;
+						};
+				  }
+				| undefined;
+			expect(launchFrame).toMatchObject({
+				kind: "command",
+				envelope: {
+					command: "cursor.uri.launch",
+					payload: {
+						uri: "vscode://cline.cline/background-agent?prompt=Fix%20the%20queue",
+						workspaceRoot: "/workspace",
+						confirmed: true,
+						provider: "openai-codex",
+						model: "gpt-5.5",
+						mode: "plan",
+						enableTools: true,
+						enableSpawn: false,
+						enableTeams: false,
+						autoApproveTools: false,
+						delivery: "queue",
+						timeoutMs: 5_000,
+					},
+					timeoutMs: 10_000,
+				},
+			});
+
+			(
+				socket as unknown as { emit: (type: string, payload: unknown) => void }
+			).emit("message", {
+				data: JSON.stringify({
+					kind: "reply",
+					envelope: {
+						version: "v1",
+						requestId: launchFrame?.envelope?.requestId,
+						ok: true,
+						payload: {
+							handled: true,
+							launched: true,
+							route: "background-agent",
+							sessionId: "session-1",
+							queued: true,
+						},
+					},
+				}),
+			});
+			await expect(launchPromise).resolves.toMatchObject({
+				handled: true,
+				launched: true,
+				route: "background-agent",
+				sessionId: "session-1",
+				queued: true,
+			});
+			await client.dispose();
+		});
 	});
 
 	describe("account", () => {

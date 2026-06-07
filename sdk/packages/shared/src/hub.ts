@@ -350,6 +350,7 @@ export type HubCommandName =
 	| "settings.patch"
 	| "settings.toggle"
 	| "cursor.uri.preview"
+	| "cursor.uri.launch"
 	| "cursor.ndjsonIngest.ingest"
 	| "cursor.ndjsonIngest.list"
 	| "cursor.ndjsonIngest.get"
@@ -375,6 +376,35 @@ export interface CursorUriPreviewResponse extends Record<string, unknown> {
 	handled: boolean;
 	route?: string;
 	requiresConfirmation?: boolean;
+}
+
+export interface CursorUriLaunchRequest extends CursorUriPreviewRequest {
+	confirmed: boolean;
+	provider?: string;
+	model?: string;
+	mode?: "plan" | "act";
+	enableTools?: boolean;
+	enableSpawn?: boolean;
+	enableTeams?: boolean;
+	autoApproveTools?: boolean;
+	delivery?: "queue" | "steer";
+	timeoutMs?: number;
+}
+
+export interface CursorUriLaunchResponse extends Record<string, unknown> {
+	handled: boolean;
+	launched: boolean;
+	route?: string;
+	path?: string;
+	sessionId?: string;
+	provider?: string;
+	model?: string;
+	mode?: "plan" | "act";
+	queued?: boolean;
+	backgroundAgent?: boolean;
+	backgroundAgentDetails?: Record<string, unknown>;
+	metadata?: Record<string, unknown>;
+	preview?: CursorUriPreviewResponse;
 }
 
 export interface HubCurrentAccountResponse extends Record<string, unknown> {

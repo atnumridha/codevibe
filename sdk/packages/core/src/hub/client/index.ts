@@ -4,6 +4,8 @@ import {
 	type CursorNdjsonEventListRequest,
 	type CursorNdjsonIngestRequest,
 	type CursorNdjsonIngestStatusResponse,
+	type CursorUriLaunchRequest,
+	type CursorUriLaunchResponse,
 	type CursorUriPreviewRequest,
 	type CursorUriPreviewResponse,
 	type HubCurrentAccountResponse,
@@ -522,6 +524,65 @@ export class NodeHubClient {
 			{ timeoutMs: options?.timeoutMs },
 		);
 		return (reply.payload ?? { handled: false }) as CursorUriPreviewResponse;
+	}
+
+	async launchCursorUri(
+		input: CursorUriLaunchRequest,
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<CursorUriLaunchResponse> {
+		const payload: Record<string, unknown> = {
+			uri: input.uri,
+			confirmed: input.confirmed,
+		};
+		if (input.workspaceRoot !== undefined) {
+			payload.workspaceRoot = input.workspaceRoot;
+		}
+		if (input.workspaceRoots !== undefined) {
+			payload.workspaceRoots = input.workspaceRoots;
+		}
+		if (input.maxCommandFileBytes !== undefined) {
+			payload.maxCommandFileBytes = input.maxCommandFileBytes;
+		}
+		if (input.maxRuleFileBytes !== undefined) {
+			payload.maxRuleFileBytes = input.maxRuleFileBytes;
+		}
+		if (input.provider !== undefined) {
+			payload.provider = input.provider;
+		}
+		if (input.model !== undefined) {
+			payload.model = input.model;
+		}
+		if (input.mode !== undefined) {
+			payload.mode = input.mode;
+		}
+		if (input.enableTools !== undefined) {
+			payload.enableTools = input.enableTools;
+		}
+		if (input.enableSpawn !== undefined) {
+			payload.enableSpawn = input.enableSpawn;
+		}
+		if (input.enableTeams !== undefined) {
+			payload.enableTeams = input.enableTeams;
+		}
+		if (input.autoApproveTools !== undefined) {
+			payload.autoApproveTools = input.autoApproveTools;
+		}
+		if (input.delivery !== undefined) {
+			payload.delivery = input.delivery;
+		}
+		if (input.timeoutMs !== undefined) {
+			payload.timeoutMs = input.timeoutMs;
+		}
+		const reply = await this.command(
+			"cursor.uri.launch",
+			payload,
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return (reply.payload ?? {
+			handled: false,
+			launched: false,
+		}) as CursorUriLaunchResponse;
 	}
 
 	async getCurrentAccount(options?: {

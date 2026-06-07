@@ -1,5 +1,7 @@
 import type {
 	HubClientRecord,
+	CursorUriLaunchRequest,
+	CursorUriLaunchResponse,
 	CursorUriPreviewRequest,
 	CursorUriPreviewResponse,
 	HubEventEnvelope,
@@ -91,6 +93,13 @@ export class HubUIClient {
 		options?: { timeoutMs?: number | null },
 	): Promise<CursorUriPreviewResponse> {
 		return this.client.previewCursorUri(input, options);
+	}
+
+	async launchCursorUri(
+		input: CursorUriLaunchRequest,
+		options?: { timeoutMs?: number | null },
+	): Promise<CursorUriLaunchResponse> {
+		return this.client.launchCursorUri(input, options);
 	}
 
 	/**

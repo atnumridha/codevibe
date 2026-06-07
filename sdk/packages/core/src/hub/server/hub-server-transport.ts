@@ -1,5 +1,6 @@
 import type {
 	CursorNdjsonIngestStatusResponse,
+	CursorUriLaunchRequest,
 	CursorUriPreviewRequest,
 	CursorUriPreviewResponse,
 	HubClientRecord,
@@ -36,6 +37,7 @@ import {
 	resolveCursorCommandFileRouteRequest,
 	resolveCursorRuleFileRouteRequest,
 } from "../../extensions/mcp/cursor-uri";
+import { DefaultToolNames } from "../../extensions/tools/constants";
 import { LocalRuntimeHost } from "../../runtime/host/local-runtime-host";
 import type {
 	PendingPromptsRuntimeService,
@@ -341,7 +343,12 @@ function requireOptionalHubStringArray(
 
 function requireOptionalHubPositiveInteger(
 	payload: Record<string, unknown>,
-	key: "maxLineBytes" | "maxEvents" | "maxCommandFileBytes",
+	key:
+		| "maxLineBytes"
+		| "maxEvents"
+		| "maxCommandFileBytes"
+		| "maxRuleFileBytes"
+		| "timeoutMs",
 	commandName: string,
 ): number | undefined {
 	const value = payload[key];
@@ -757,6 +764,146 @@ function parseCursorUriPreviewInput(
 			: {}),
 		...(maxCommandFileBytes !== undefined ? { maxCommandFileBytes } : {}),
 		...(maxRuleFileBytes !== undefined ? { maxRuleFileBytes } : {}),
+	};
+}
+
+function optionalLaunchBoolean(
+	payload: Record<string, unknown>,
+	key: keyof CursorUriLaunchRequest,
+): boolean | undefined {
+	const value = payload[key];
+	if (value === undefined) return undefined;
+	if (typeof value !== "boolean") {
+		throw new Error(`cursor.uri.launch payload '${String(key)}' must be a boolean.`);
+	}
+	return value;
+}
+
+function parseCursorUriLaunchInput(
+	payload: unknown,
+): CursorUriLaunchRequest {
+	if (!isPayloadObject(payload)) {
+		throw new Error("cursor.uri.launch payload must be an object.");
+	}
+	const previewInput = parseCursorUriPreviewInput(payload);
+	if (payload.confirmed !== true) {
+		throw new Error("cursor.uri.launch requires confirmed=true.");
+	}
+	const modeValue = optionalTrimmedString(payload.mode);
+	if (modeValue !== undefined && modeValue !== "plan" && modeValue !== "act") {
+		throw new Error("cursor.uri.launch payload 'mode' must be plan or act.");
+	}
+	const deliveryValue = optionalTrimmedString(payload.delivery);
+	if (
+		deliveryValue !== undefined &&
+		deliveryValue !== "queue" &&
+		deliveryValue !== "steer"
+	) {
+		throw new Error(
+			"cursor.uri.launch payload 'delivery' must be queue or steer.",
+		);
+	}
+	const timeoutMs = requireOptionalHubPositiveInteger(
+		payload,
+		"timeoutMs",
+		"cursor.uri.launch",
+	);
+	const enableTools = optionalLaunchBoolean(payload, "enableTools");
+	const enableSpawn = optionalLaunchBoolean(payload, "enableSpawn");
+	const enableTeams = optionalLaunchBoolean(payload, "enableTeams");
+	const autoApproveTools = optionalLaunchBoolean(payload, "autoApproveTools");
+	return {
+		...previewInput,
+		confirmed: true,
+		...(optionalTrimmedString(payload.provider)
+			? { provider: optionalTrimmedString(payload.provider) }
+			: {}),
+		...(optionalTrimmedString(payload.model)
+			? { model: optionalTrimmedString(payload.model) }
+			: {}),
+		...(modeValue ? { mode: modeValue as "plan" | "act" } : {}),
+		...(enableTools !== undefined ? { enableTools } : {}),
+		...(enableSpawn !== undefined ? { enableSpawn } : {}),
+		...(enableTeams !== undefined ? { enableTeams } : {}),
+		...(autoApproveTools !== undefined ? { autoApproveTools } : {}),
+		...(deliveryValue ? { delivery: deliveryValue as "queue" | "steer" } : {}),
+		...(timeoutMs !== undefined ? { timeoutMs } : {}),
+	};
+}
+
+function cursorPreviewString(
+	preview: CursorUriPreviewResponse,
+	key: string,
+): string | undefined {
+	const value = preview[key];
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function cursorPreviewStringArray(
+	preview: CursorUriPreviewResponse,
+	key: string,
+): string[] {
+	const value = preview[key];
+	if (!Array.isArray(value)) return [];
+	return value
+		.map((item) => (typeof item === "string" ? item.trim() : ""))
+		.filter(Boolean);
+}
+
+function buildCursorLaunchMetadata(
+	preview: CursorUriPreviewResponse,
+): Record<string, JsonValue | undefined> {
+	const route = cursorPreviewString(preview, "route") ?? "unknown";
+	const path = cursorPreviewString(preview, "path");
+	const paramKeys = cursorPreviewStringArray(preview, "paramKeys");
+	const configKeys = cursorPreviewStringArray(preview, "configKeys");
+	const backgroundAgent =
+		route === "background-agent" || path === "/background-agent";
+	const previewBackgroundAgent = cloneJsonRecord(preview.backgroundAgent);
+	const backgroundAgentDetails = backgroundAgent
+		? {
+				route: "background-agent",
+				path: "/background-agent",
+				agentMode: "plan",
+				confirmationRequired: true,
+				autoApprovalProfile: "read-only-plan-confirmation-required",
+				worktreePolicy: "confirm-before-create",
+				...(previewBackgroundAgent ?? {}),
+				...(configKeys.length > 0 ? { configKeys } : {}),
+			}
+		: undefined;
+	const cursor: Record<string, JsonValue | undefined> = {
+		source: "cursor-uri",
+		route,
+		background: backgroundAgent,
+	};
+	if (path) cursor.path = path;
+	if (paramKeys.length > 0) cursor.paramKeys = paramKeys;
+	if (configKeys.length > 0) cursor.configKeys = configKeys;
+	return {
+		cursor,
+		...(backgroundAgent ? { backgroundAgent: true } : {}),
+		...(backgroundAgentDetails ? { backgroundAgentDetails } : {}),
+	};
+}
+
+function extractCreatedSessionId(payload: unknown): string | undefined {
+	if (!isPayloadObject(payload)) return undefined;
+	const session = isPayloadObject(payload.session) ? payload.session : undefined;
+	return (
+		optionalTrimmedString(session?.sessionId) ??
+		optionalTrimmedString(payload.sessionId)
+	);
+}
+
+function cursorLaunchToolPolicies(): Record<string, JsonValue | undefined> {
+	return {
+		"*": { enabled: false, autoApprove: false },
+		[DefaultToolNames.READ_FILES]: { enabled: true, autoApprove: true },
+		[DefaultToolNames.SEARCH_CODEBASE]: {
+			enabled: true,
+			autoApprove: true,
+		},
 	};
 }
 
@@ -1303,6 +1450,8 @@ export class HubServerTransport implements NativeHubTransport {
 				return await this.handleSettingsPatch(envelope);
 			case "cursor.uri.preview":
 				return this.handleCursorUriPreview(envelope);
+			case "cursor.uri.launch":
+				return await this.handleCursorUriLaunch(envelope);
 			case "cursor.ndjsonIngest.ingest":
 				return this.handleCronEventIngest(envelope, {
 					commandName: "cursor.ndjsonIngest.ingest",
@@ -1805,6 +1954,148 @@ export class HubServerTransport implements NativeHubTransport {
 						error instanceof CursorMcpInstallError
 							? "cursor_uri_invalid"
 							: "cursor_uri_preview_failed",
+					message,
+				},
+			};
+		}
+	}
+
+	private async handleCursorUriLaunch(
+		envelope: HubCommandEnvelope,
+	): Promise<HubReplyEnvelope> {
+		try {
+			const input = parseCursorUriLaunchInput(envelope.payload);
+			const preview = summarizeCursorUriPreview(input);
+			const taskPrompt = cursorPreviewString(preview, "taskPrompt");
+			const route = cursorPreviewString(preview, "route") ?? "unknown";
+			const path = cursorPreviewString(preview, "path");
+			if (
+				!preview.handled ||
+				!taskPrompt ||
+				!path ||
+				!CURSOR_AGENT_TASK_ROUTE_PATHS.has(path)
+			) {
+				throw new CursorUriError(
+					`Cursor URI route "${route}" can be previewed but is not launchable from Hub transport.`,
+				);
+			}
+			const workspaceRoot =
+				input.workspaceRoot ?? input.workspaceRoots?.find((entry) => entry.trim());
+			if (!workspaceRoot) {
+				throw new CursorUriError(
+					"cursor.uri.launch requires workspaceRoot or workspaceRoots.",
+				);
+			}
+			const provider = input.provider ?? "openai-codex";
+			const model = input.model ?? "gpt-5.5";
+			const mode = input.mode ?? "plan";
+			const metadata = buildCursorLaunchMetadata(preview);
+			const backgroundAgent = metadata.backgroundAgent === true;
+			const plannedSessionId = createSessionId();
+			const backgroundAgentDetails = backgroundAgent
+				? {
+						...(cloneJsonRecord(metadata.backgroundAgentDetails) ?? {}),
+						taskId: plannedSessionId,
+					}
+				: undefined;
+			const sessionMetadata = {
+				...metadata,
+				...(backgroundAgentDetails ? { backgroundAgentDetails } : {}),
+				source: "cursor-uri",
+				provider,
+				model,
+				prompt: taskPrompt,
+				interactive: true,
+			};
+			const createReply = await handleSessionCreate(
+				this.ctx,
+				{
+					...envelope,
+					requestId: `${envelope.requestId}:session-create`,
+					command: "session.create",
+					payload: {
+						workspaceRoot,
+						cwd: workspaceRoot,
+						sessionConfig: {
+							sessionId: plannedSessionId,
+							providerId: provider,
+							modelId: model,
+							workspaceRoot,
+							cwd: workspaceRoot,
+							mode,
+							enableTools: input.enableTools ?? true,
+							enableSpawnAgent: input.enableSpawn ?? false,
+							enableAgentTeams: input.enableTeams ?? false,
+						},
+						metadata: sessionMetadata,
+						runtimeOptions: {
+							mode,
+							enableTools: input.enableTools ?? true,
+							enableSpawn: input.enableSpawn ?? false,
+							enableTeams: input.enableTeams ?? false,
+							autoApproveTools: input.autoApproveTools ?? false,
+						},
+						modelSelection: { provider, model },
+						toolPolicies:
+							input.autoApproveTools === true
+								? undefined
+								: cursorLaunchToolPolicies(),
+					},
+				},
+				(request) => requestToolApprovalHandler(this.ctx, request),
+			);
+			if (!createReply.ok) {
+				return { ...createReply, requestId: envelope.requestId };
+			}
+			const sessionId = extractCreatedSessionId(createReply.payload);
+			if (!sessionId) {
+				throw new Error("cursor.uri.launch session.create returned no session id.");
+			}
+			const runReply = await handleSessionInput(this.ctx, {
+				...envelope,
+				requestId: `${envelope.requestId}:session-send-input`,
+				command: "session.send_input",
+				sessionId,
+				payload: {
+					sessionId,
+					prompt: taskPrompt,
+					mode,
+					delivery: input.delivery ?? "queue",
+					...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
+				},
+			});
+			if (!runReply.ok) {
+				return { ...runReply, requestId: envelope.requestId };
+			}
+			return okReply(envelope, {
+				handled: true,
+				launched: true,
+				route,
+				...(path ? { path } : {}),
+				sessionId,
+				provider,
+				model,
+				mode,
+				queued: (input.delivery ?? "queue") === "queue",
+				backgroundAgent,
+				...(backgroundAgent
+					? { backgroundAgentDetails }
+					: {}),
+				metadata: sessionMetadata,
+				preview,
+			});
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			return {
+				version: envelope.version,
+				requestId: envelope.requestId,
+				ok: false,
+				error: {
+					code:
+						error instanceof CursorUriError ||
+						error instanceof CursorMcpInstallError
+							? "cursor_uri_invalid"
+							: "cursor_uri_launch_failed",
 					message,
 				},
 			};

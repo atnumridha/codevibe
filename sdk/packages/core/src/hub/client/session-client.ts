@@ -5,6 +5,8 @@ import type {
 	ChatStartSessionRequest,
 	ChatStartSessionResponse,
 	ChatTurnResult,
+	CursorUriLaunchRequest,
+	CursorUriLaunchResponse,
 	CursorUriPreviewRequest,
 	CursorUriPreviewResponse,
 	HubEventEnvelope,
@@ -1163,5 +1165,13 @@ export class HubSessionClient {
 	): Promise<CursorUriPreviewResponse> {
 		await this.ensureMetadataApplied();
 		return this.client.previewCursorUri(input, options);
+	}
+
+	async launchCursorUri(
+		input: CursorUriLaunchRequest,
+		options?: { timeoutMs?: number | null },
+	): Promise<CursorUriLaunchResponse> {
+		await this.ensureMetadataApplied();
+		return this.client.launchCursorUri(input, options);
 	}
 }
