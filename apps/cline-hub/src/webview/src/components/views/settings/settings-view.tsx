@@ -33,6 +33,7 @@ import {
 	type CursorMcpInstallResponse,
 	type CursorPluginAddResponse,
 	type CursorRuleOpenResponse,
+	type CursorUriLaunchResponse,
 	type CursorUriPreviewResponse,
 } from "@/lib/desktop-client";
 import type {
@@ -597,6 +598,17 @@ export function SettingsView({
 
 const DEFAULT_CURSOR_URI =
 	"vscode://cline.cline/createchat?prompt=Review%20the%20diff";
+const CURSOR_LAUNCHABLE_AGENT_PATHS = new Set([
+	"/createchat",
+	"/background-agent",
+	"/prompt",
+	"/command",
+	"/pr-review",
+	"/glass",
+	"/git/checkout",
+	"/git/branch",
+	"/git/commit",
+]);
 
 function CursorLinksContent() {
 	const [cursorUri, setCursorUri] = useState(DEFAULT_CURSOR_URI);
@@ -605,6 +617,11 @@ function CursorLinksContent() {
 	>();
 	const [previewError, setPreviewError] = useState<string | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
+	const [launchResult, setLaunchResult] = useState<
+		CursorUriLaunchResponse | undefined
+	>();
+	const [launchError, setLaunchError] = useState<string | null>(null);
+	const [launchLoading, setLaunchLoading] = useState(false);
 	const [installResult, setInstallResult] = useState<
 		CursorMcpInstallResponse | undefined
 	>();
@@ -641,6 +658,11 @@ function CursorLinksContent() {
 	);
 	const paramKeys = recordStringArray(previewRecord, "paramKeys");
 	const configKeys = recordStringArray(previewRecord, "configKeys");
+	const canLaunchCursorUri =
+		Boolean(taskPrompt) &&
+		Boolean(path) &&
+		(CURSOR_LAUNCHABLE_AGENT_PATHS.has(path ?? "") ||
+			(route === "command-file" && path === "/command"));
 	const canIngestAutomation =
 		route === "automation-ingest" &&
 		recordBoolean(previewRecord, "requiresConfirmation") === true &&
@@ -662,6 +684,8 @@ function CursorLinksContent() {
 		if (!uri) {
 			setPreview(undefined);
 			setPreviewError("URI is required.");
+			setLaunchResult(undefined);
+			setLaunchError(null);
 			setInstallResult(undefined);
 			setInstallError(null);
 			setIngestResult(undefined);
@@ -677,6 +701,8 @@ function CursorLinksContent() {
 		setPreviewLoading(true);
 		setPreviewError(null);
 		setPreview(undefined);
+		setLaunchResult(undefined);
+		setLaunchError(null);
 		setInstallResult(undefined);
 		setInstallError(null);
 		setIngestResult(undefined);
@@ -705,6 +731,8 @@ function CursorLinksContent() {
 		setCursorUri(value);
 		setPreview(undefined);
 		setPreviewError(null);
+		setLaunchResult(undefined);
+		setLaunchError(null);
 		setInstallResult(undefined);
 		setInstallError(null);
 		setIngestResult(undefined);
@@ -737,6 +765,29 @@ function CursorLinksContent() {
 			setInstallError(error instanceof Error ? error.message : String(error));
 		} finally {
 			setInstallLoading(false);
+		}
+	};
+
+	const runCursorLaunch = async () => {
+		const uri = cursorUri.trim();
+		if (!uri || !canLaunchCursorUri) {
+			return;
+		}
+		setLaunchLoading(true);
+		setLaunchError(null);
+		setLaunchResult(undefined);
+		try {
+			const result = await desktopClient.launchCursorUri({
+				uri,
+				confirmed: true,
+				maxCommandFileBytes: 64 * 1024,
+				maxRuleFileBytes: 64 * 1024,
+			});
+			setLaunchResult(result);
+		} catch (error) {
+			setLaunchError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setLaunchLoading(false);
 		}
 	};
 
@@ -881,6 +932,21 @@ function CursorLinksContent() {
 								)}
 								Preview
 							</Button>
+							{canLaunchCursorUri ? (
+								<Button
+									disabled={launchLoading}
+									onClick={() => void runCursorLaunch()}
+									type="button"
+									variant="outline"
+								>
+									{launchLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<Play className="size-4" />
+									)}
+									Launch
+								</Button>
+							) : null}
 							{canInstallMcp ? (
 								<Button
 									disabled={installLoading}
@@ -965,6 +1031,33 @@ function CursorLinksContent() {
 						<AlertTriangle className="size-4" />
 						<AlertTitle>Preview failed</AlertTitle>
 						<AlertDescription>{previewError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{launchError ? (
+					<Alert className="mt-4" variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>Launch failed</AlertTitle>
+						<AlertDescription>{launchError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{launchResult ? (
+					<Alert className="mt-4">
+						<CheckCircle2 className="size-4" />
+						<AlertTitle>Cursor session launched</AlertTitle>
+						<AlertDescription>
+							{[
+								launchResult.sessionId,
+								launchResult.route,
+								launchResult.backgroundAgent ? "background" : "",
+								launchResult.glass ? "glass" : "",
+								`${launchResult.provider}/${launchResult.model}`,
+								launchResult.queued ? "queued" : "",
+							]
+								.filter(Boolean)
+								.join(" | ")}
+						</AlertDescription>
 					</Alert>
 				) : null}
 

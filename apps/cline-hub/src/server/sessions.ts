@@ -75,7 +75,7 @@ export function resolveLaunchContext(
 	};
 }
 
-function buildSessionStartInput(
+export function buildSessionStartInput(
 	context: SessionContext,
 	options?: {
 		mode?: "act" | "plan";
@@ -90,6 +90,7 @@ function buildSessionStartInput(
 		source?: SessionSource;
 		sessionMetadata?: Record<string, unknown>;
 		initialMessages?: Message[];
+		toolPolicies?: ClineCoreStartInput["toolPolicies"];
 	},
 ): ClineCoreStartInput {
 	const mode = options?.mode === "plan" ? "plan" : "act";
@@ -127,9 +128,10 @@ function buildSessionStartInput(
 			? { initialMessages: options.initialMessages }
 			: {}),
 		toolPolicies:
-			options?.autoApproveTools === false
+			options?.toolPolicies ??
+			(options?.autoApproveTools === false
 				? { "*": { autoApprove: false } }
-				: { "*": { autoApprove: true } },
+				: { "*": { autoApprove: true } }),
 	};
 }
 

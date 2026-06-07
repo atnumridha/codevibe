@@ -104,6 +104,29 @@ export type CursorAutomationIngestResponse = Record<string, unknown> & {
 	workspaceRoot: string;
 };
 
+export type CursorUriLaunchInput = CursorUriPreviewInput & {
+	confirmed: true;
+	provider?: string;
+	model?: string;
+};
+
+export type CursorUriLaunchResponse = Record<string, unknown> & {
+	handled: true;
+	launched: true;
+	route: string;
+	path?: string;
+	backgroundAgent: boolean;
+	glass?: boolean;
+	backgroundAgentDetails?: Record<string, unknown>;
+	sessionId: string;
+	provider: string;
+	model: string;
+	mode: "plan";
+	queued: boolean;
+	metadata: Record<string, unknown>;
+	preview: CursorUriPreviewResponse;
+};
+
 export type CursorMcpInstallResponse = Record<string, unknown> & {
 	handled: true;
 	route: "mcp-install";
@@ -309,6 +332,25 @@ class HubDesktopClient {
 					: {}),
 			},
 		);
+	}
+
+	async launchCursorUri(
+		input: CursorUriLaunchInput,
+	): Promise<CursorUriLaunchResponse> {
+		return await this.invoke<CursorUriLaunchResponse>("cursor_uri_launch", {
+			uri: input.uri,
+			confirmed: input.confirmed,
+			...(input.provider ? { provider: input.provider } : {}),
+			...(input.model ? { model: input.model } : {}),
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+			...(input.maxCommandFileBytes !== undefined
+				? { maxCommandFileBytes: input.maxCommandFileBytes }
+				: {}),
+			...(input.maxRuleFileBytes !== undefined
+				? { maxRuleFileBytes: input.maxRuleFileBytes }
+				: {}),
+		});
 	}
 
 	async installCursorMcp(

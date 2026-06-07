@@ -39,6 +39,7 @@ import {
 } from "./connectors";
 import { ingestCursorAutomation } from "./cursor-automation";
 import { runCursorGitAction } from "./cursor-git";
+import { launchCursorUri } from "./cursor-launch";
 import { addCursorPlugin } from "./cursor-plugins";
 import { openCursorRule } from "./cursor-rules";
 import { providerSettingsManager, workspaceRoot } from "./deps";
@@ -255,6 +256,11 @@ export async function handleDesktopCommand(
 		const input =
 			args && typeof args === "object" ? (args as JsonRecord) : undefined;
 		return await ingestCursorAutomation(input);
+	}
+	if (command === "cursor_uri_launch") {
+		const input =
+			args && typeof args === "object" ? (args as JsonRecord) : undefined;
+		return await launchCursorUri(ctx, input);
 	}
 	if (command === "search_workspace_files") {
 		if (!ctx.uiClient) {
