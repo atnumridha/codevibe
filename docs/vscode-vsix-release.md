@@ -9,7 +9,7 @@ CodeVibe releases are blocked until the Cursor-parity gate passes end to end:
 - VSIX install smoke test
 - manual installed-VS-Code validation of Codex auth, Plan/Act, diffs, terminal approvals, MCP, browser automation, background agents, and Cursor-compatible deeplinks
 
-Set `CODEVIBE_ALL_PARITY_VALIDATED=true` only after those checks pass, and provide `CODEVIBE_PARITY_EVIDENCE_URL` as an `https://` URL to the release checklist or validation log. The evidence should include the VS Code version, VSIX version, install smoke output, and manual installed-VS-Code parity results.
+Set `CODEVIBE_ALL_PARITY_VALIDATED=true` only after those checks pass, and provide `CODEVIBE_PARITY_EVIDENCE_URL` as an `https://` URL to the release checklist or validation log. Use `docs/cursor-parity-validation-checklist.md` as the checklist template. The evidence should include the VS Code version, VSIX version, install smoke output, and manual installed-VS-Code parity results.
 
 ## Version And Tag
 
@@ -34,6 +34,15 @@ Required inputs:
 - `parity_evidence_url`: `https://...`
 
 The workflow packages `apps/vscode/*.vsix`, smoke-installs it with VS Code, and uploads it to the GitHub Release. If `prerelease` is true, the VSIX is packaged with `--pre-release`.
+
+If `gh` is unavailable locally, dispatch the workflow from GitHub:
+
+1. Open `https://github.com/atnumridha/codevibe/actions/workflows/ext-vscode-github-release.yml`.
+2. Choose **Run workflow** on the release commit or release branch.
+3. Set `tag` to `vX.Y.Z`, matching `apps/vscode/package.json`.
+4. Keep `run_tests` and `run_e2e` set to `true`.
+5. Set `all_parity_validated` to `true` only after the checklist evidence is complete.
+6. Paste the `https://` checklist or validation-log URL into `parity_evidence_url`.
 
 ## Marketplace Release
 
@@ -62,6 +71,13 @@ export CODEVIBE_ALL_PARITY_VALIDATED=true
 export CODEVIBE_PARITY_EVIDENCE_URL="https://github.com/<owner>/<repo>/issues/<id>"
 node scripts/check-local-release-prereqs.mjs --release --github-release
 npm run package:github-vsix:release -- --verify-install
+```
+
+If the VS Code CLI is not named `code`, either set `CODEVIBE_VSCODE_CLI` or pass `--code`:
+
+```sh
+CODEVIBE_VSCODE_CLI="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" npm run package:github-vsix:release -- --verify-install
+npm run package:github-vsix:release -- --verify-install --code "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 ```
 
 For release-gated local packaging, `CODEVIBE_PARITY_EVIDENCE_URL` must point at an `https://` validation log or release checklist:
