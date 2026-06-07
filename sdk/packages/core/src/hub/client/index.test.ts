@@ -548,6 +548,101 @@ describe("NodeHubClient", () => {
 		});
 	});
 
+	describe("catalog", () => {
+		const originalWebSocket = globalThis.WebSocket;
+
+		beforeEach(() => {
+			FakeWebSocket.instances = [];
+			(
+				globalThis as unknown as { WebSocket?: typeof FakeWebSocket }
+			).WebSocket = FakeWebSocket;
+		});
+
+		afterEach(() => {
+			if (originalWebSocket) {
+				globalThis.WebSocket = originalWebSocket;
+			} else {
+				delete (globalThis as unknown as { WebSocket?: unknown }).WebSocket;
+			}
+		});
+
+		it("sends typed catalog list commands", async () => {
+			const client = new NodeHubClient({ url: "ws://127.0.0.1:25463/hub" });
+			const connectPromise = client.connect();
+			const socket = FakeWebSocket.instances[0];
+			if (!socket) {
+				throw new Error("expected fake websocket instance");
+			}
+			socket.open();
+			await connectPromise;
+
+			const catalogPromise = client.listCatalog({ timeoutMs: 5_000 });
+			const catalogFrame = [...socket.sentFrames].reverse().find((frame) => {
+				const envelope = (frame as { envelope?: { command?: string } })
+					.envelope;
+				return envelope?.command === "catalog.list";
+			}) as
+				| {
+						kind?: string;
+						envelope?: {
+							requestId?: string;
+							command?: string;
+							payload?: Record<string, unknown>;
+							timeoutMs?: number | null;
+						};
+				  }
+				| undefined;
+			expect(catalogFrame).toMatchObject({
+				kind: "command",
+				envelope: {
+					command: "catalog.list",
+					payload: {},
+					timeoutMs: 5_000,
+				},
+			});
+
+			(
+				socket as unknown as { emit: (type: string, payload: unknown) => void }
+			).emit("message", {
+				data: JSON.stringify({
+					kind: "reply",
+					envelope: {
+						version: "v1",
+						requestId: catalogFrame?.envelope?.requestId,
+						ok: true,
+						payload: {
+							catalog: {
+								providers: [
+									{
+										id: "openai-codex",
+										name: "Openai Codex",
+										enabled: true,
+										defaultModelId: "gpt-5.5",
+									},
+								],
+								modelsByProvider: {
+									"openai-codex": [{ id: "gpt-5.5" }],
+								},
+								defaultSelection: {
+									providerId: "openai-codex",
+									modelId: "gpt-5.5",
+								},
+							},
+						},
+					},
+				}),
+			});
+
+			await expect(catalogPromise).resolves.toMatchObject({
+				defaultSelection: {
+					providerId: "openai-codex",
+					modelId: "gpt-5.5",
+				},
+			});
+			await client.dispose();
+		});
+	});
+
 	describe("cursor NDJSON ingest", () => {
 		const originalWebSocket = globalThis.WebSocket;
 

@@ -98,6 +98,7 @@ import { logHubBoundaryError } from "./hub-server-logging";
 import type { HubWebSocketServerOptions } from "./hub-server-options";
 import type { HubSessionState } from "./hub-session-records";
 import { handleAccountGetCurrent } from "./handlers/account-handlers";
+import { handleCatalogList } from "./handlers/catalog-handlers";
 import type { NativeHubTransport } from "./native-transport";
 
 const SETTINGS_TYPES = new Set<CoreSettingsType>([
@@ -1051,6 +1052,8 @@ export class HubServerTransport implements NativeHubTransport {
 				return handleClientList(this.ctx, envelope);
 			case "cline.account.get_current":
 				return handleAccountGetCurrent(envelope);
+			case "catalog.list":
+				return handleCatalogList(envelope);
 			case "session.create":
 				return await handleSessionCreate(
 					this.ctx,

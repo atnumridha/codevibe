@@ -10,6 +10,7 @@ import {
 	type HubClientRegistration,
 	type HubCommandEnvelope,
 	type HubEventEnvelope,
+	type HubModelCatalog,
 	type HubReplyEnvelope,
 	type HubTransportFrame,
 	resolveHubCommandTimeoutMs,
@@ -530,6 +531,20 @@ export class NodeHubClient {
 				authenticated: false,
 			},
 		}) as HubCurrentAccountResponse;
+	}
+
+	async listCatalog(options?: {
+		sessionId?: string;
+		timeoutMs?: number | null;
+	}): Promise<HubModelCatalog> {
+		const reply = await this.command(
+			"catalog.list",
+			{},
+			options?.sessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		const payload = reply.payload as { catalog?: HubModelCatalog } | undefined;
+		return payload?.catalog ?? { providers: [], modelsByProvider: {} };
 	}
 
 	async ingestCursorNdjson(
