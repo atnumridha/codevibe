@@ -38,6 +38,8 @@ export function convertMcpServersToProtoMcpServers(mcpServers: McpServer[]): Pro
 		timeout: server.timeout,
 		oauthRequired: server.oauthRequired,
 		oauthAuthStatus: server.oauthAuthStatus,
+		settingsSource: server.settingsSource,
+		settingsPath: server.settingsPath,
 	}))
 	return protoServers
 }
@@ -138,6 +140,8 @@ export function convertProtoMcpServersToMcpServers(protoServers: ProtoMcpServer[
 			timeout: protoServer.timeout,
 			oauthRequired: protoServer.oauthRequired,
 			oauthAuthStatus: protoServer.oauthAuthStatus === "" ? undefined : (protoServer.oauthAuthStatus as McpOAuthAuthStatus),
+			settingsSource: protoServer.settingsSource === "" ? undefined : (protoServer.settingsSource as McpServer["settingsSource"]),
+			settingsPath: protoServer.settingsPath === "" ? undefined : protoServer.settingsPath,
 		}
 	})
 	return mcpServers

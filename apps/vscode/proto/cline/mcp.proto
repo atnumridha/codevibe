@@ -124,6 +124,8 @@ message McpServer {
   optional bool oauth_required = 10;
   optional string oauth_auth_status = 11;
   repeated McpPrompt prompts = 12;
+  optional string settings_source = 13;
+  optional string settings_path = 14;
 }
 
 message McpServers {

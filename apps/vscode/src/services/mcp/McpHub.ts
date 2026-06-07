@@ -24,6 +24,7 @@ import {
 	McpResourceResponse,
 	McpResourceTemplate,
 	McpServer,
+	McpServerSettingsSource,
 	McpTool,
 	McpToolCallResponse,
 	MIN_MCP_TIMEOUT_SECONDS,
@@ -57,6 +58,7 @@ type McpSettingsReadResult = {
 	settings: McpSettings
 	serverOrder: string[]
 	serverSettingsFiles: Map<string, string>
+	serverSettingsSources: Map<string, McpServerSettingsSource>
 }
 
 const CURSOR_MCP_SETTINGS_RELATIVE_PATH = path.join(".cursor", "mcp.json")
@@ -74,6 +76,7 @@ export class McpHub {
 	private fileWatchers: Map<string, FSWatcher> = new Map()
 	connections: McpConnection[] = []
 	private serverSettingsFiles: Map<string, string> = new Map()
+	private serverSettingsSources: Map<string, McpServerSettingsSource> = new Map()
 	private lastServerOrder: string[] = []
 	isConnecting = false
 	/**
@@ -194,6 +197,21 @@ export class McpHub {
 		]
 	}
 
+	private async getCursorMcpSettingsFilePathSources(): Promise<
+		Array<{ settingsPath: string; source: McpServerSettingsSource }>
+	> {
+		const roots = this.getWorkspaceRootPaths ? await this.getWorkspaceRootPaths() : []
+		const workspaceCursorPaths = new Set(
+			roots
+				.filter(Boolean)
+				.map((root) => path.normalize(path.join(root, CURSOR_MCP_SETTINGS_RELATIVE_PATH))),
+		)
+		return (await this.getCursorMcpSettingsFilePaths()).map((settingsPath) => ({
+			settingsPath,
+			source: workspaceCursorPaths.has(path.normalize(settingsPath)) ? "cursor-workspace" : "cursor-global",
+		}))
+	}
+
 	private async getCursorMcpWorkspaceRootForSettingsPath(settingsPath: string): Promise<string | undefined> {
 		const normalizedPath = path.normalize(settingsPath)
 		const roots = this.getWorkspaceRootPaths ? await this.getWorkspaceRootPaths() : []
@@ -282,12 +300,14 @@ export class McpHub {
 		const mergedServers: McpSettings["mcpServers"] = { ...nativeSettings.mcpServers }
 		const serverOrder = Object.keys(nativeSettings.mcpServers)
 		const serverSettingsFiles = new Map<string, string>()
+		const serverSettingsSources = new Map<string, McpServerSettingsSource>()
 
 		for (const serverName of serverOrder) {
 			serverSettingsFiles.set(serverName, nativeSettingsPath)
+			serverSettingsSources.set(serverName, "cline")
 		}
 
-		for (const cursorSettingsPath of await this.getCursorMcpSettingsFilePaths()) {
+		for (const { settingsPath: cursorSettingsPath, source } of await this.getCursorMcpSettingsFilePathSources()) {
 			if (!(await this.pathExists(cursorSettingsPath))) {
 				continue
 			}
@@ -307,16 +327,19 @@ export class McpHub {
 				mergedServers[serverName] = serverConfig
 				serverOrder.push(serverName)
 				serverSettingsFiles.set(serverName, cursorSettingsPath)
+				serverSettingsSources.set(serverName, source)
 			}
 		}
 
 		this.serverSettingsFiles = serverSettingsFiles
+		this.serverSettingsSources = serverSettingsSources
 		this.lastServerOrder = serverOrder
 
 		return {
 			settings: { mcpServers: mergedServers },
 			serverOrder,
 			serverSettingsFiles,
+			serverSettingsSources,
 		}
 	}
 
@@ -1258,7 +1281,11 @@ export class McpHub {
 				}
 				return indexA - indexB
 			})
-			.map((connection) => connection.server)
+			.map((connection) => ({
+				...connection.server,
+				settingsSource: this.serverSettingsSources.get(connection.server.name) ?? "cline",
+				settingsPath: this.serverSettingsFiles.get(connection.server.name),
+			}))
 	}
 
 	private async notifyWebviewOfServerChanges(): Promise<void> {
@@ -1611,6 +1638,7 @@ export class McpHub {
 			mergedSettings.mcpServers[serverName] = parsedConfig
 			const settingsPath = await this.getNativeMcpSettingsFilePath()
 			this.serverSettingsFiles.set(serverName, settingsPath)
+			this.serverSettingsSources.set(serverName, "cline")
 
 			// We don't write the zod-transformed version to the file.
 			// The above parse() call adds the transportType field to the server config
@@ -1654,6 +1682,7 @@ export class McpHub {
 
 			const settingsPath = await this.getNativeMcpSettingsFilePath()
 			this.serverSettingsFiles.set(serverName, settingsPath)
+			this.serverSettingsSources.set(serverName, "cline")
 			await fs.writeFile(settingsPath, JSON.stringify({ mcpServers: nativeSettings.mcpServers }, null, 2))
 
 			await this.reloadMcpServersFromSettings()
@@ -1692,6 +1721,7 @@ export class McpHub {
 				}
 				await fs.writeFile(settingsPath, JSON.stringify(updatedConfig, null, 2))
 				this.serverSettingsFiles.delete(serverName)
+				this.serverSettingsSources.delete(serverName)
 				await this.reloadMcpServersFromSettings()
 
 				// Get the servers in their correct order from settings

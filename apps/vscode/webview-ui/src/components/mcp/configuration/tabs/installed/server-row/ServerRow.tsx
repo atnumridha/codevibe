@@ -42,6 +42,16 @@ const TimeoutOptions = [
 	</VSCodeOption>
 ))
 
+function getSettingsSourceLabel(source: McpServer["settingsSource"]): string | undefined {
+	if (source === "cursor-workspace") {
+		return "Cursor workspace"
+	}
+	if (source === "cursor-global") {
+		return "Cursor global"
+	}
+	return undefined
+}
+
 const ServerRow = ({
 	server,
 	isExpandable = true,
@@ -56,6 +66,12 @@ const ServerRow = ({
 	const [isExpanded, setIsExpanded] = useState(false)
 	const [isDeleting, setIsDeleting] = useState(false)
 	const [isRestarting, setIsRestarting] = useState(false)
+	const settingsSourceLabel = getSettingsSourceLabel(server.settingsSource)
+	const settingsSourceTitle = settingsSourceLabel
+		? server.settingsPath
+			? `${settingsSourceLabel}: ${server.settingsPath}`
+			: settingsSourceLabel
+		: undefined
 
 	// Check if user is managed by remote config and if this server is remote-managed.
 	// Remote MCP servers from enterprise config are always URL-based (SSE/HTTP).
@@ -221,6 +237,13 @@ const ServerRow = ({
 				<span className="flex-1 overflow-hidden break-all whitespace-normal flex items-center">
 					{getMcpServerDisplayName(server.name, mcpMarketplaceCatalog)}
 				</span>
+				{settingsSourceLabel && (
+					<span
+						className="shrink-0 rounded-sm border border-description/40 px-1.5 py-0.5 text-[10px] text-description whitespace-nowrap"
+						title={settingsSourceTitle}>
+						{settingsSourceLabel}
+					</span>
+				)}
 				{/* Collapsed view controls */}
 				{!server.error && (
 					<Button

@@ -32,6 +32,7 @@ function createHub(settingsDir: string, workspaceRoots: string[], cursorSettings
 		cursorSettingsPaths ??
 		workspaceRoots.map((root) => path.join(root, ".cursor", "mcp.json"))
 	;(hub as any).serverSettingsFiles = new Map<string, string>()
+	;(hub as any).serverSettingsSources = new Map<string, string>()
 	;(hub as any).lastServerOrder = []
 	;(hub as any).isUpdatingClineSettings = false
 	;(hub as any).connections = []
@@ -121,6 +122,42 @@ describe("McpHub Cursor MCP settings", () => {
 		;(hub as any).serverSettingsFiles.get("shared").should.equal(cursorSettingsPath)
 		;(hub as any).serverSettingsFiles.get("gamma").should.equal(globalCursorSettingsPath)
 		;(hub as any).lastServerOrder.should.deepEqual(["alpha", "shared", "beta", "gamma"])
+	})
+
+	it("surfaces native, workspace Cursor, and global Cursor MCP settings sources", async () => {
+		const globalCursorSettingsPath = path.join(tempDir, "home", ".cursor", "mcp.json")
+		await writeJson(nativeSettingsPath, {
+			mcpServers: {
+				alpha: { type: "stdio", command: "native-alpha" },
+			},
+		})
+		await writeJson(cursorSettingsPath, {
+			mcpServers: {
+				beta: { type: "stdio", command: "workspace-beta" },
+			},
+		})
+		await writeJson(globalCursorSettingsPath, {
+			mcpServers: {
+				gamma: { type: "stdio", command: "global-gamma" },
+			},
+		})
+
+		const hub = createHub(settingsDir, [workspaceRoot], [
+			cursorSettingsPath,
+			globalCursorSettingsPath,
+		])
+		await (hub as any).readAndValidateMcpSettingsFile()
+		;(hub as any).connections = [makeConnection("alpha"), makeConnection("beta"), makeConnection("gamma")]
+
+		const servers = (hub as any).getSortedMcpServers(["alpha", "beta", "gamma"])
+
+		servers.map((server: { name: string }) => server.name).should.deepEqual(["alpha", "beta", "gamma"])
+		servers[0].settingsSource.should.equal("cline")
+		servers[0].settingsPath.should.equal(nativeSettingsPath)
+		servers[1].settingsSource.should.equal("cursor-workspace")
+		servers[1].settingsPath.should.equal(cursorSettingsPath)
+		servers[2].settingsSource.should.equal("cursor-global")
+		servers[2].settingsPath.should.equal(globalCursorSettingsPath)
 	})
 
 	it("expands Cursor workspace variables from .cursor/mcp.json", async () => {

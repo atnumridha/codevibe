@@ -7,6 +7,7 @@ export const CLINE_MCP_TOOL_IDENTIFIER = "0mcp0"
 export const DEFAULT_MCP_TIMEOUT_SECONDS = 60 // matches Anthropic's default timeout in their MCP SDK
 export const MIN_MCP_TIMEOUT_SECONDS = 1
 export type McpMode = "full" | "server-use-only" | "off"
+export type McpServerSettingsSource = "cline" | "cursor-workspace" | "cursor-global"
 
 export type McpServer = {
 	name: string
@@ -22,6 +23,8 @@ export type McpServer = {
 	uid?: string
 	oauthRequired?: boolean
 	oauthAuthStatus?: McpOAuthAuthStatus
+	settingsSource?: McpServerSettingsSource
+	settingsPath?: string
 }
 
 export type McpOAuthAuthStatus = "authenticated" | "unauthenticated" | "pending"
