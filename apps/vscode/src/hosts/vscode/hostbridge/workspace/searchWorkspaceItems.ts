@@ -50,7 +50,7 @@ export async function searchWorkspaceItems(request: SearchWorkspaceItemsRequest)
 
 	const limit = request.limit && request.limit > 0 ? request.limit : DEFAULT_SEARCH_LIMIT
 	const selectedType = request.selectedType
-	const items = (await getWorkspaceSearchItems(workspacePath))
+	const items = (await getWorkspaceSearchItems(workspacePath, { includeIgnored: request.includeIgnored === true }))
 		.filter((item) => matchesSelectedType(item, selectedType))
 		.sort((a, b) => a.path.localeCompare(b.path))
 	const rankedItems = await rankItems(request.query ?? "", items, limit)

@@ -299,7 +299,7 @@ describe("File Search", () => {
 				await fs.promises.writeFile(path.join(workspace, "src", "main.ts"), "main\n")
 
 				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
-				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+				const searchWorkspaceItemsStub = sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
 					SearchWorkspaceItemsResponse.create({
 						items: [
 							{
@@ -315,6 +315,7 @@ describe("File Search", () => {
 				const result = await fileSearch.searchWorkspaceFiles("", workspace, 20)
 
 				should(result.source).equal("host_index")
+				searchWorkspaceItemsStub.firstCall.args[0].includeIgnored.should.equal(false)
 				result.items.map((item) => item.path).should.containEql("src/main.ts")
 				result.items.map((item) => item.path).should.not.containEql("private/secret.ts")
 			} finally {
@@ -332,7 +333,7 @@ describe("File Search", () => {
 				await fs.promises.writeFile(path.join(workspace, "src", "main.ts"), "main\n")
 
 				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
-				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+				const searchWorkspaceItemsStub = sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
 					SearchWorkspaceItemsResponse.create({
 						items: [
 							{
@@ -350,6 +351,7 @@ describe("File Search", () => {
 				})
 
 				should(result.source).equal("host_index")
+				searchWorkspaceItemsStub.firstCall.args[0].includeIgnored.should.equal(true)
 				result.items.map((item) => item.path).should.containEql("src/main.ts")
 				result.items.map((item) => item.path).should.containEql("private/secret.ts")
 			} finally {

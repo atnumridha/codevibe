@@ -46,6 +46,7 @@ interface CacheEntry {
 
 export interface WorkspaceFileIndexOptions {
 	ttlMs?: number
+	includeIgnored?: boolean
 }
 
 export interface WorkspaceSearchItem {
@@ -95,6 +96,10 @@ async function filterIgnoredFiles(cwd: string, files: Set<string>): Promise<Set<
 	return new Set(Array.from(files).filter((file) => !isDefaultExcludedPath(file) && !isPathIgnored(file, false, rules)))
 }
 
+function filterDefaultExcludedFiles(files: Set<string>): Set<string> {
+	return new Set(Array.from(files).filter((file) => !isDefaultExcludedPath(file)))
+}
+
 async function listFilesWithRg(cwd: string): Promise<Set<string>> {
 	const output = await new Promise<string>((resolve, reject) => {
 		const child = spawn("rg", ["--files", "--hidden", "-g", "!.git"], {
@@ -130,7 +135,13 @@ async function listFilesWithRg(cwd: string): Promise<Set<string>> {
 	return new Set(files)
 }
 
-async function walkDir(cwd: string, dir: string, files: Set<string>, rules: IgnoreRule[]): Promise<void> {
+async function walkDir(
+	cwd: string,
+	dir: string,
+	files: Set<string>,
+	rules: IgnoreRule[],
+	options: { includeIgnored?: boolean } = {},
+): Promise<void> {
 	let entries: Dirent[]
 	try {
 		entries = await readdir(dir, { withFileTypes: true })
@@ -142,17 +153,19 @@ async function walkDir(cwd: string, dir: string, files: Set<string>, rules: Igno
 	}
 
 	const relativeDir = normalizeRelativePath(toPosixRelative(cwd, dir))
-	const activeRules = [...rules, ...(await readIgnoreRules(cwd, relativeDir === "." ? "" : relativeDir))]
+	const activeRules = options.includeIgnored
+		? rules
+		: [...rules, ...(await readIgnoreRules(cwd, relativeDir === "." ? "" : relativeDir))]
 	for (const entry of entries) {
 		const absolutePath = path.join(dir, entry.name)
 		const relativePath = toPosixRelative(cwd, absolutePath)
 		if (entry.isDirectory()) {
-			const ignoredDirectory = isPathIgnored(relativePath, true, activeRules)
+			const ignoredDirectory = !options.includeIgnored && isPathIgnored(relativePath, true, activeRules)
 			if (DEFAULT_EXCLUDE_DIRS.has(entry.name) || (ignoredDirectory && !hasNegatedDescendantRule(relativePath, activeRules))) {
 				continue
 			}
 			try {
-				await walkDir(cwd, absolutePath, files, activeRules)
+				await walkDir(cwd, absolutePath, files, activeRules, options)
 			} catch (error) {
 				if (shouldSkipWalkError(error)) {
 					continue
@@ -161,23 +174,28 @@ async function walkDir(cwd: string, dir: string, files: Set<string>, rules: Igno
 			}
 			continue
 		}
-		if (entry.isFile() && !isPathIgnored(relativePath, false, activeRules)) {
+		if (
+			entry.isFile() &&
+			!isDefaultExcludedPath(relativePath) &&
+			(options.includeIgnored || !isPathIgnored(relativePath, false, activeRules))
+		) {
 			files.add(relativePath)
 		}
 	}
 }
 
-async function listFilesFallback(cwd: string): Promise<Set<string>> {
+async function listFilesFallback(cwd: string, options: { includeIgnored?: boolean } = {}): Promise<Set<string>> {
 	const files = new Set<string>()
-	await walkDir(cwd, cwd, files, [])
+	await walkDir(cwd, cwd, files, [], options)
 	return files
 }
 
-async function buildIndex(cwd: string): Promise<Set<string>> {
+async function buildIndex(cwd: string, options: WorkspaceFileIndexOptions): Promise<Set<string>> {
 	try {
-		return await filterIgnoredFiles(cwd, await listFilesWithRg(cwd))
+		const files = await listFilesWithRg(cwd)
+		return options.includeIgnored ? filterDefaultExcludedFiles(files) : await filterIgnoredFiles(cwd, files)
 	} catch {
-		return listFilesFallback(cwd)
+		return listFilesFallback(cwd, options)
 	}
 }
 
@@ -185,7 +203,8 @@ export async function getFileIndex(cwd: string, options: WorkspaceFileIndexOptio
 	const ttlMs = options.ttlMs ?? DEFAULT_INDEX_TTL_MS
 	const now = Date.now()
 	pruneStaleCacheEntries(now)
-	const existing = CACHE.get(cwd)
+	const cacheKey = `${cwd}\0${options.includeIgnored === true ? "include-ignored" : "filtered"}`
+	const existing = CACHE.get(cacheKey)
 
 	if (existing && ttlMs > 0 && now - existing.lastBuiltAt <= ttlMs && existing.files.size > 0) {
 		existing.lastAccessedAt = now
@@ -197,8 +216,8 @@ export async function getFileIndex(cwd: string, options: WorkspaceFileIndexOptio
 		return existing.pending
 	}
 
-	const pending = buildIndex(cwd).then((files) => {
-		CACHE.set(cwd, {
+	const pending = buildIndex(cwd, options).then((files) => {
+		CACHE.set(cacheKey, {
 			files,
 			lastBuiltAt: Date.now(),
 			lastAccessedAt: Date.now(),
@@ -207,7 +226,7 @@ export async function getFileIndex(cwd: string, options: WorkspaceFileIndexOptio
 		return files
 	})
 
-	CACHE.set(cwd, {
+	CACHE.set(cacheKey, {
 		files: existing?.files ?? new Set<string>(),
 		lastBuiltAt: existing?.lastBuiltAt ?? 0,
 		lastAccessedAt: now,

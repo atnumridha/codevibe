@@ -89,6 +89,10 @@ message SearchWorkspaceItemsRequest {
   // this so the host returns only files under that root and relativizes
   // paths against it. Hosts that can't honor it should ignore it.
   optional string workspace_path = 4;
+  // When true, host indexes should include files matched by Cursor-compatible
+  // ignore files. Default host-side exclusions such as node_modules and .git
+  // may still apply.
+  optional bool include_ignored = 5;
 }
 
 // Response for host-side workspace search

@@ -220,12 +220,14 @@ async function executeHostIndexForFiles(
 	query: string,
 	workspacePath: string,
 	selectedType?: "file" | "folder",
+	options?: FileSearchPrivacyOptions,
 ): Promise<{ path: string; type: "file" | "folder"; label?: string }[] | null> {
 	try {
 		const req = SearchWorkspaceItemsRequest.create({
 			query,
 			workspacePath,
 			limit: HOST_INDEX_CANDIDATE_LIMIT,
+			includeIgnored: !shouldFilterIgnoredWorkspaceItems(options),
 			selectedType:
 				selectedType === "file"
 					? SearchWorkspaceItemsRequest_SearchItemType.FILE
@@ -317,7 +319,7 @@ export async function searchWorkspaceFiles(
 			}
 		}
 
-		const hostItems = await executeHostIndexForFiles(query, workspacePath, selectedType)
+		const hostItems = await executeHostIndexForFiles(query, workspacePath, selectedType, options)
 
 		const allItems = hostItems
 			? await filterWorkspaceItemsForPrivacy(workspacePath, hostItems, options)
