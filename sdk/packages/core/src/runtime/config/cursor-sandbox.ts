@@ -31,6 +31,12 @@ export interface CursorSandboxNetworkPolicy {
 	allow: string[];
 }
 
+export interface CursorSandboxCommandPermissions {
+	allow?: string[];
+	deny?: string[];
+	allowRedirects?: boolean;
+}
+
 export interface CursorSandboxConfig {
 	type: CursorSandboxType;
 	additionalReadwritePaths: string[];
@@ -61,6 +67,7 @@ export interface CursorSandboxRuntimePolicy {
 	allowWriteAutoApprove: boolean;
 	allowTerminalAutoApprove: boolean;
 	allowNetworkAutoApprove: boolean;
+	commandPermissions?: CursorSandboxCommandPermissions;
 }
 
 export interface ResolveCursorSandboxPolicyOptions {
@@ -180,6 +187,87 @@ const rawCursorSandboxConfigSchema = z
 	});
 
 export const CursorSandboxConfigSchema = rawCursorSandboxConfigSchema;
+
+export const CURSOR_SANDBOX_READ_ONLY_COMMAND_ALLOW_PATTERNS = [
+	"pwd",
+	"ls",
+	"ls *",
+	"cat *",
+	"head *",
+	"tail *",
+	"wc *",
+	"rg *",
+	"grep *",
+	"git status",
+	"git status *",
+	"git diff",
+	"git diff *",
+	"git log",
+	"git log *",
+	"git show",
+	"git show *",
+] as const;
+
+export const CURSOR_SANDBOX_GIT_WRITE_COMMAND_DENY_PATTERNS = [
+	"git add",
+	"git add *",
+	"git am",
+	"git am *",
+	"git apply",
+	"git apply *",
+	"git branch -d *",
+	"git branch -D *",
+	"git branch --delete *",
+	"git branch -m *",
+	"git branch -M *",
+	"git branch --move *",
+	"git branch -c *",
+	"git branch -C *",
+	"git branch --copy *",
+	"git checkout",
+	"git checkout *",
+	"git cherry-pick",
+	"git cherry-pick *",
+	"git clean",
+	"git clean *",
+	"git clone",
+	"git clone *",
+	"git commit",
+	"git commit *",
+	"git merge",
+	"git merge *",
+	"git mv",
+	"git mv *",
+	"git pull",
+	"git pull *",
+	"git push",
+	"git push *",
+	"git rebase",
+	"git rebase *",
+	"git reset",
+	"git reset *",
+	"git restore",
+	"git restore *",
+	"git revert",
+	"git revert *",
+	"git rm",
+	"git rm *",
+	"git stash",
+	"git stash *",
+	"git submodule add *",
+	"git submodule deinit *",
+	"git submodule set-branch *",
+	"git submodule set-url *",
+	"git submodule sync *",
+	"git submodule update *",
+	"git switch",
+	"git switch *",
+	"git tag *",
+	"git worktree add *",
+	"git worktree move *",
+	"git worktree remove *",
+	"git worktree repair *",
+] as const;
 
 export function normalizeCursorSandboxPolicySetting(
 	value: unknown,
@@ -408,7 +496,35 @@ function createRuntimePolicy(options: {
 		allowWriteAutoApprove,
 		allowTerminalAutoApprove,
 		allowNetworkAutoApprove,
+		commandPermissions: createCursorSandboxCommandPermissions(
+			effectiveAccess,
+			options.config.blockGitWrites,
+		),
 	};
+}
+
+export function createCursorSandboxCommandPermissions(
+	effectiveAccess: CursorSandboxEffectiveAccess,
+	blockGitWrites: boolean,
+): CursorSandboxCommandPermissions | undefined {
+	if (effectiveAccess === "readOnly") {
+		return {
+			allow: [...CURSOR_SANDBOX_READ_ONLY_COMMAND_ALLOW_PATTERNS],
+			deny: blockGitWrites
+				? [...CURSOR_SANDBOX_GIT_WRITE_COMMAND_DENY_PATTERNS]
+				: undefined,
+			allowRedirects: false,
+		};
+	}
+
+	if (blockGitWrites) {
+		return {
+			deny: [...CURSOR_SANDBOX_GIT_WRITE_COMMAND_DENY_PATTERNS],
+			allowRedirects: true,
+		};
+	}
+
+	return undefined;
 }
 
 function normalizeSandboxPaths(

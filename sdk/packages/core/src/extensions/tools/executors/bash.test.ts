@@ -16,9 +16,23 @@ const blockGitWritesCtx: AgentToolContext = {
 	metadata: {
 		cursorSandboxPolicy: {
 			source: "cursor-sandbox",
+			effectiveAccess: "workspace",
 			readablePaths: [process.cwd()],
 			writablePaths: [process.cwd()],
 			blockGitWrites: true,
+		},
+	},
+};
+
+const readOnlySandboxCtx: AgentToolContext = {
+	...ctx,
+	metadata: {
+		cursorSandboxPolicy: {
+			source: "cursor-sandbox",
+			effectiveAccess: "readOnly",
+			readablePaths: [process.cwd()],
+			writablePaths: [],
+			blockGitWrites: false,
 		},
 	},
 };
@@ -117,6 +131,42 @@ describe("createBashExecutor", () => {
 				blockGitWritesCtx,
 			),
 		).rejects.toThrow(".cursor/sandbox.json blockGitWrites");
+	});
+
+	it("allows read-only shell inspection commands in read-only Cursor sandbox mode", async () => {
+		const bash = createBashExecutor();
+		const output = await bash("pwd", process.cwd(), readOnlySandboxCtx);
+
+		expect(output.trim()).toBe(process.cwd());
+	});
+
+	it("blocks shell writes in read-only Cursor sandbox mode", async () => {
+		const bash = createBashExecutor();
+
+		await expect(
+			bash("echo hi > out.txt", process.cwd(), readOnlySandboxCtx),
+		).rejects.toThrow("read-only mode");
+		await expect(
+			bash(
+				{
+					command: process.execPath,
+					args: ["-e", "process.stdout.write('write')"],
+				},
+				process.cwd(),
+				readOnlySandboxCtx,
+			),
+		).rejects.toThrow("read-only mode");
+	});
+
+	it("blocks command substitution in read-only Cursor sandbox mode", async () => {
+		const bash = createBashExecutor();
+
+		await expect(
+			bash("git status $(touch out.txt)", process.cwd(), readOnlySandboxCtx),
+		).rejects.toThrow("read-only mode");
+		await expect(
+			bash("git status `touch out.txt`", process.cwd(), readOnlySandboxCtx),
+		).rejects.toThrow("read-only mode");
 	});
 
 	it("includes stderr in combined output on success", async () => {

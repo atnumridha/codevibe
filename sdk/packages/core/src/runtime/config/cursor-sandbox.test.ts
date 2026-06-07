@@ -166,6 +166,52 @@ describe("Cursor sandbox config", () => {
 		expect(toolPolicies.fetch_web_content).toEqual({ autoApprove: false });
 	});
 
+	it("exposes read-only command permissions for headless Cursor sandbox hosts", async () => {
+		await mkdir(path.join(tempDir, ".cursor"), { recursive: true });
+		await writeFile(
+			resolveCursorSandboxConfigPath(tempDir),
+			JSON.stringify({
+				type: "workspace_readonly",
+				blockGitWrites: true,
+				networkPolicy: { default: "allow" },
+			}),
+		);
+
+		const policy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			policySetting: "workspace",
+		});
+
+		expect(policy?.commandPermissions).toMatchObject({
+			allowRedirects: false,
+		});
+		expect(policy?.commandPermissions?.allow).toContain("git status *");
+		expect(policy?.commandPermissions?.deny).toContain("git commit *");
+	});
+
+	it("exposes git-write deny permissions without read-only allowlists", async () => {
+		await mkdir(path.join(tempDir, ".cursor"), { recursive: true });
+		await writeFile(
+			resolveCursorSandboxConfigPath(tempDir),
+			JSON.stringify({
+				blockGitWrites: true,
+				networkPolicy: { default: "allow" },
+			}),
+		);
+
+		const policy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			policySetting: "workspace",
+		});
+
+		expect(policy?.effectiveAccess).toBe("workspace");
+		expect(policy?.commandPermissions).toMatchObject({
+			allowRedirects: true,
+		});
+		expect(policy?.commandPermissions?.allow).toBeUndefined();
+		expect(policy?.commandPermissions?.deny).toContain("git push *");
+	});
+
 	it("merges sandbox tool policies into existing runtime policies", async () => {
 		await mkdir(path.join(tempDir, ".cursor"), { recursive: true });
 		await writeFile(

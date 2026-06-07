@@ -1,6 +1,7 @@
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import type { AgentToolContext } from "@cline/shared";
+import { CURSOR_SANDBOX_READ_ONLY_COMMAND_ALLOW_PATTERNS } from "../../../runtime/config/cursor-sandbox";
 import type { StructuredCommandInput } from "../schemas";
 
 const DIRECT_ACCESS_IGNORE_FILES = [
@@ -23,6 +24,7 @@ type CursorSandboxMetadataPolicy = {
 	writablePaths?: unknown;
 	networkPolicy?: unknown;
 	blockGitWrites?: unknown;
+	effectiveAccess?: unknown;
 };
 
 export type CursorSandboxAccessKind = "read" | "write";
@@ -300,6 +302,12 @@ function doesCursorSandboxBlockGitWrites(context: AgentToolContext): boolean {
 	return getCursorSandboxPolicy(context)?.blockGitWrites === true;
 }
 
+function doesCursorSandboxRequireReadOnlyCommands(
+	context: AgentToolContext,
+): boolean {
+	return getCursorSandboxPolicy(context)?.effectiveAccess === "readOnly";
+}
+
 function isSamePathOrDescendant(parentPath: string, filePath: string): boolean {
 	const parent = path.resolve(parentPath);
 	const child = path.resolve(filePath);
@@ -407,6 +415,90 @@ export function findCursorSandboxBlockedGitWriteInCommand(
 		}
 	}
 	return undefined;
+}
+
+export function findCursorSandboxBlockedReadOnlyCommand(
+	command: string | StructuredCommandInput,
+	context: AgentToolContext,
+): string | undefined {
+	if (!doesCursorSandboxRequireReadOnlyCommands(context)) {
+		return undefined;
+	}
+
+	if (typeof command === "string" && findUnsafeReadOnlyShellToken(command)) {
+		return command.trim() || command;
+	}
+
+	for (const parts of getCommandSegmentsForGitPolicy(command)) {
+		const segment = parts.join(" ").trim();
+		if (!segment) {
+			continue;
+		}
+		if (!matchesReadOnlyCommandPattern(segment)) {
+			return segment;
+		}
+	}
+	return undefined;
+}
+
+function findUnsafeReadOnlyShellToken(command: string): string | undefined {
+	let inSingleQuote = false;
+	let inDoubleQuote = false;
+	let isEscaped = false;
+
+	for (let index = 0; index < command.length; index++) {
+		const char = command[index];
+
+		if (isEscaped) {
+			isEscaped = false;
+			continue;
+		}
+		if (char === "\\" && !inSingleQuote) {
+			isEscaped = true;
+			continue;
+		}
+		if (char === "'" && !inDoubleQuote) {
+			inSingleQuote = !inSingleQuote;
+			continue;
+		}
+		if (char === '"' && !inSingleQuote) {
+			inDoubleQuote = !inDoubleQuote;
+			continue;
+		}
+
+		const inAnyQuote = inSingleQuote || inDoubleQuote;
+		if (!inAnyQuote && /[\n\r\u2028\u2029\u0085]/.test(char)) {
+			return "\\n";
+		}
+		if (!inAnyQuote && (char === ">" || char === "<")) {
+			return char;
+		}
+		if (!inSingleQuote && char === "`") {
+			return "`";
+		}
+		if (!inSingleQuote && char === "$" && command[index + 1] === "(") {
+			return "$(";
+		}
+	}
+
+	return undefined;
+}
+
+function matchesReadOnlyCommandPattern(command: string): boolean {
+	return CURSOR_SANDBOX_READ_ONLY_COMMAND_ALLOW_PATTERNS.some((pattern) =>
+		matchesCommandPattern(command, pattern),
+	);
+}
+
+function matchesCommandPattern(command: string, pattern: string): boolean {
+	const regex = new RegExp(
+		`^${pattern
+			.replace(/[.+^${}()|[\]\\]/g, "\\$&")
+			.replace(/\*/g, ".*")
+			.replace(/\?/g, ".")}$`,
+		"s",
+	);
+	return regex.test(command);
 }
 
 function doesNetworkAllowEntryMatch(entry: string, url: URL): boolean {

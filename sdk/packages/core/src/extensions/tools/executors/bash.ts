@@ -14,6 +14,7 @@ import { TimeoutError } from "../helpers";
 import type { BashExecutor } from "../types";
 import {
 	findCursorSandboxBlockedGitWriteInCommand,
+	findCursorSandboxBlockedReadOnlyCommand,
 	findCursorSandboxViolationInCommand,
 	findIgnoredPathInCommand,
 } from "./access-ignore";
@@ -220,6 +221,15 @@ export function createBashExecutor(
 		if (blockedGitWrite) {
 			throw new Error(
 				`Git write command "${blockedGitWrite}" is blocked by .cursor/sandbox.json blockGitWrites.`,
+			);
+		}
+		const blockedReadOnlyCommand = findCursorSandboxBlockedReadOnlyCommand(
+			command,
+			context,
+		);
+		if (blockedReadOnlyCommand) {
+			throw new Error(
+				"Shell command is blocked because .cursor/sandbox.json resolved to read-only mode.",
 			);
 		}
 		const isStructured = typeof command !== "string";
