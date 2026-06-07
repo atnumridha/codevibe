@@ -25,13 +25,16 @@ Create release notes in `CHANGELOG.md` before dispatching either release workflo
 
 Use `.github/workflows/ext-vscode-github-release.yml` when marketplace secrets are not available or when publishing only a GitHub Release artifact.
 
+For major changes that need installed-VS Code validation before the final parity gate is complete, dispatch the workflow with `release_stage` set to `candidate`. Candidate releases must be `prerelease=true` and `draft=true`; they package and smoke-install the VSIX, upload it to a draft GitHub prerelease, and intentionally skip `CODEVIBE_ALL_PARITY_VALIDATED` until final validation evidence exists. Use an rc tag such as `vX.Y.Z-rc.1`.
+
 Required inputs:
 
-- `tag`: `vX.Y.Z`
+- `tag`: `vX.Y.Z-rc.N` for a candidate, `vX.Y.Z` for final
+- `release_stage`: `candidate` for validation artifacts, `final` for the evidence-gated release
 - `run_tests`: `true`
 - `run_e2e`: `true`
-- `all_parity_validated`: `true`
-- `parity_evidence_url`: `https://...`
+- `all_parity_validated`: `true` only for `release_stage=final`
+- `parity_evidence_url`: `https://...` only for `release_stage=final`
 
 The workflow packages `apps/vscode/*.vsix`, smoke-installs it with VS Code, and uploads it to the GitHub Release. If `prerelease` is true, the VSIX is packaged with `--pre-release`.
 
@@ -39,10 +42,10 @@ If `gh` is unavailable locally, dispatch the workflow from GitHub:
 
 1. Open `https://github.com/atnumridha/codevibe/actions/workflows/ext-vscode-github-release.yml`.
 2. Choose **Run workflow** on the release commit or release branch.
-3. Set `tag` to `vX.Y.Z`, matching `apps/vscode/package.json`.
+3. Set `tag` to `vX.Y.Z-rc.N` for a candidate or `vX.Y.Z` for a final release, matching `apps/vscode/package.json`.
 4. Keep `run_tests` and `run_e2e` set to `true`.
-5. Set `all_parity_validated` to `true` only after the checklist evidence is complete.
-6. Paste the `https://` checklist or validation-log URL into `parity_evidence_url`.
+5. Use `release_stage=candidate`, `prerelease=true`, and `draft=true` until the checklist evidence is complete.
+6. For the final release, set `release_stage=final`, `all_parity_validated=true`, and paste the `https://` checklist or validation-log URL into `parity_evidence_url`.
 
 ## Marketplace Release
 
@@ -67,23 +70,22 @@ node apps/vscode/scripts/package-github-vsix.mjs --preflight
 npm --prefix apps/vscode ci --include=optional
 npm --prefix apps/vscode/webview-ui ci --include=optional
 cd apps/vscode
-export CODEVIBE_ALL_PARITY_VALIDATED=true
-export CODEVIBE_PARITY_EVIDENCE_URL="https://github.com/<owner>/<repo>/issues/<id>"
-node scripts/check-local-release-prereqs.mjs --release --github-release
-npm run package:github-vsix:release -- --verify-install
+npm run package:github-vsix -- --verify-install
 ```
 
 If the VS Code CLI is not named `code`, either set `CODEVIBE_VSCODE_CLI` or pass `--code`:
 
 ```sh
-CODEVIBE_VSCODE_CLI="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" npm run package:github-vsix:release -- --verify-install
-npm run package:github-vsix:release -- --verify-install --code "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+CODEVIBE_VSCODE_CLI="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" npm run package:github-vsix -- --verify-install
+npm run package:github-vsix -- --verify-install --code "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
 ```
 
 For release-gated local packaging, `CODEVIBE_PARITY_EVIDENCE_URL` must point at an `https://` validation log or release checklist:
 
 ```sh
-CODEVIBE_PARITY_EVIDENCE_URL="https://github.com/<owner>/<repo>/issues/<id>"
+export CODEVIBE_ALL_PARITY_VALIDATED=true
+export CODEVIBE_PARITY_EVIDENCE_URL="https://github.com/<owner>/<repo>/issues/<id>"
+npm run package:github-vsix:release -- --verify-install
 ```
 
 For prerelease packaging, pass `-- --pre-release`.

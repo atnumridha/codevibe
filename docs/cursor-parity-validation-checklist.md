@@ -26,13 +26,13 @@ npm --prefix apps/vscode run check-types
 npm --prefix apps/vscode run lint
 npm --prefix apps/vscode run test:unit
 npm --prefix apps/vscode run test:e2e:optimal
-npm --prefix apps/vscode run package:github-vsix:release -- --verify-install
+npm --prefix apps/vscode run package:github-vsix -- --verify-install
 ```
 
 If `code` is not on `PATH`, record the explicit VS Code CLI path used:
 
 ```sh
-CODEVIBE_VSCODE_CLI="/path/to/code" npm --prefix apps/vscode run package:github-vsix:release -- --verify-install
+CODEVIBE_VSCODE_CLI="/path/to/code" npm --prefix apps/vscode run package:github-vsix -- --verify-install
 ```
 
 ## CI Gates
