@@ -144,6 +144,19 @@ function commandCandidates(name) {
 		: [process.platform === "win32" ? `${name}.cmd` : name]
 }
 
+function macVsCodeCliCandidates() {
+	if (process.platform !== "darwin") {
+		return []
+	}
+	const home = os.homedir()
+	return [
+		"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+		...(home
+			? [path.join(home, "Applications", "Visual Studio Code.app", "Contents", "Resources", "app", "bin", "code")]
+			: []),
+	]
+}
+
 function codeCommandCandidates(codePath) {
 	if (codePath) {
 		return [codePath]
@@ -151,7 +164,7 @@ function codeCommandCandidates(codePath) {
 	if (process.env.CODEVIBE_VSCODE_CLI) {
 		return [process.env.CODEVIBE_VSCODE_CLI]
 	}
-	return commandCandidates("code")
+	return [...commandCandidates("code"), ...macVsCodeCliCandidates()]
 }
 
 function findExistingCodeInvocation(codePath) {

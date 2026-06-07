@@ -116,6 +116,19 @@ function checkCommand(checks, command, label, fix, args = ["--version"], require
 	return false
 }
 
+function macVsCodeCliCandidates() {
+	if (process.platform !== "darwin") {
+		return []
+	}
+	const home = process.env.HOME
+	return [
+		"/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code",
+		...(home
+			? [path.join(home, "Applications", "Visual Studio Code.app", "Contents", "Resources", "app", "bin", "code")]
+			: []),
+	]
+}
+
 function checkDependencies(checks) {
 	const extensionNodeModules = path.join(projectRoot, "node_modules")
 	const webviewNodeModules = path.join(projectRoot, "webview-ui", "node_modules")
@@ -247,6 +260,14 @@ function checkVsCodeCli(checks) {
 	if (commandOk("code", ["--version"])) {
 		add(checks, "pass", "VS Code CLI", "code is available on PATH")
 		return
+	}
+
+	for (const candidate of macVsCodeCliCandidates()) {
+		const result = commandResult(candidate, ["--version"])
+		if (result.ok) {
+			add(checks, "pass", "VS Code CLI", `macOS VS Code CLI works: ${candidate}`)
+			return
+		}
 	}
 
 	const testElectronPackage = path.join(
