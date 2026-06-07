@@ -712,11 +712,14 @@ function CursorLinksContent({
 	const configKeys = recordStringArray(previewRecord, "configKeys");
 	const canOpenSettings = route === "settings" && Boolean(onOpenSettings);
 	const settingsSection = cursorSettingsSectionFromPreview(previewRecord);
+	const canLaunchRuleReview =
+		route === "rule" && recordString(previewRecord, "kind") === "review";
 	const canLaunchCursorUri =
-		Boolean(taskPrompt) &&
-		Boolean(path) &&
-		(CURSOR_LAUNCHABLE_AGENT_PATHS.has(path ?? "") ||
-			(route === "command-file" && path === "/command"));
+		canLaunchRuleReview ||
+		(Boolean(taskPrompt) &&
+			Boolean(path) &&
+			(CURSOR_LAUNCHABLE_AGENT_PATHS.has(path ?? "") ||
+				(route === "command-file" && path === "/command")));
 	const canIngestAutomation =
 		route === "automation-ingest" &&
 		recordBoolean(previewRecord, "requiresConfirmation") === true &&

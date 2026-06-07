@@ -1,5 +1,6 @@
 import {
 	buildCursorAgentTaskRouteRequest,
+	buildCursorRuleRouteRequest,
 	DefaultToolNames,
 	SessionSource,
 } from "@cline/core";
@@ -24,6 +25,7 @@ const CURSOR_URI_LAUNCHABLE_AGENT_PATHS = new Set([
 	"/background-agent",
 	"/prompt",
 	"/command",
+	"/rule",
 	"/pr-review",
 	"/glass",
 	"/git/checkout",
@@ -96,6 +98,86 @@ function getJsonRecord(value: unknown): JsonRecord | undefined {
 		: undefined;
 }
 
+function isCursorRuleReviewPreview(preview: CursorUriPreviewResponse): boolean {
+	return (
+		getCursorPreviewString(preview, "route") === "rule" &&
+		getCursorPreviewString(preview, "kind") === "review"
+	);
+}
+
+function formatCursorRuleReviewUrl(value: string): string {
+	try {
+		const url = new URL(value);
+		return `${url.origin}${url.pathname}${url.search ? "?[redacted]" : ""}${
+			url.hash ? "#[redacted]" : ""
+		}`;
+	} catch {
+		return "[provided url]";
+	}
+}
+
+function readCursorRuleReviewConfigKeys(value: string | null): string[] {
+	if (!value) {
+		return [];
+	}
+	const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+	try {
+		const parsed = JSON.parse(
+			Buffer.from(
+				normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "="),
+				"base64",
+			).toString("utf8"),
+		) as unknown;
+		return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+			? Object.keys(parsed).sort()
+			: [];
+	} catch {
+		return [];
+	}
+}
+
+function buildCursorRuleReviewTaskPrompt(uri: string): string | undefined {
+	try {
+		const request = buildCursorRuleRouteRequest(uri);
+		if (request.kind !== "review") {
+			return undefined;
+		}
+		const params = new URL(uri).searchParams;
+		const content = params.get("content")?.trim();
+		const url = params.get("url")?.trim();
+		const configKeys = readCursorRuleReviewConfigKeys(params.get("config"));
+		return [
+			"A Cursor-compatible rule deeplink was opened with a payload that requires agent review before writing project rules.",
+			"",
+			"Review the requested rule change, inspect the existing Cursor rule files first, and ask for confirmation before creating or editing .cursorrules or files under .cursor/rules.",
+			"",
+			"Rule request:",
+			...(request.name ? [`- name: ${request.name}`] : []),
+			...(request.path ? [`- path: ${request.path}`] : []),
+			...(url ? [`- url: ${formatCursorRuleReviewUrl(url)}`] : []),
+			...(configKeys.length > 0
+				? [`- config keys: ${configKeys.join(", ")}`]
+				: []),
+			`- reason: ${request.reason}`,
+			...(content ? ["", "Requested rule content:", content] : []),
+		].join("\n");
+	} catch {
+		return undefined;
+	}
+}
+
+function resolveCursorPreviewTaskPrompt(
+	preview: CursorUriPreviewResponse,
+	uri: string,
+): string | undefined {
+	return (
+		getCursorPreviewString(preview, "taskPrompt") ??
+		(isCursorRuleReviewPreview(preview)
+			? buildCursorRuleReviewTaskPrompt(uri)
+			: undefined)
+	);
+}
+
 function getRouteParamString(
 	params: Record<string, string | Record<string, unknown>>,
 	key: string,
@@ -157,14 +239,16 @@ function readCursorAgentTaskRouteDetails(uri: string): JsonRecord | undefined {
 
 function isLaunchableCursorAgentPreview(
 	preview: CursorUriPreviewResponse,
+	taskPrompt: string | undefined,
 ): boolean {
 	const path = getCursorPreviewString(preview, "path");
 	const route = getCursorPreviewString(preview, "route");
 	return Boolean(
-		getCursorPreviewString(preview, "taskPrompt") &&
-			path &&
-			(CURSOR_URI_LAUNCHABLE_AGENT_PATHS.has(path) ||
-				(route === "command-file" && path === "/command")),
+		taskPrompt &&
+			(isCursorRuleReviewPreview(preview) ||
+				(path &&
+					(CURSOR_URI_LAUNCHABLE_AGENT_PATHS.has(path) ||
+						(route === "command-file" && path === "/command")))),
 	);
 }
 
@@ -250,9 +334,9 @@ export async function launchCursorUri(
 	if (!preview.handled) {
 		throw new Error("Cursor URI was not handled by the preview route");
 	}
-	const taskPrompt = getCursorPreviewString(preview, "taskPrompt");
+	const taskPrompt = resolveCursorPreviewTaskPrompt(preview, input.uri);
 	const route = getCursorPreviewString(preview, "route") ?? "unknown";
-	if (!isLaunchableCursorAgentPreview(preview) || !taskPrompt) {
+	if (!isLaunchableCursorAgentPreview(preview, taskPrompt) || !taskPrompt) {
 		throw new Error(
 			`Cursor URI route "${route}" can be previewed but is not launchable from Hub yet`,
 		);
