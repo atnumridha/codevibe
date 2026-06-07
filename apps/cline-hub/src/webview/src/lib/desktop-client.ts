@@ -31,7 +31,7 @@ export type BrowserAutomationStatus = Record<string, unknown> & {
 
 export type BrowserToolResult = {
 	query: string;
-	result: string;
+	result: unknown;
 	error?: string;
 	success: boolean;
 };

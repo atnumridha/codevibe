@@ -2,16 +2,20 @@
 
 import {
 	AlertTriangle,
+	Camera,
 	CheckCircle2,
 	Database,
 	FileText,
 	GitBranch,
+	Globe2,
 	Loader2,
 	Play,
 	Plug,
 	Puzzle,
+	RefreshCw,
 	Search,
 	Settings,
+	XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -27,6 +31,8 @@ import {
 } from "@/hooks/chat-session/constants";
 import {
 	desktopClient,
+	type BrowserAutomationStatus,
+	type BrowserToolResult,
 	type CursorAutomationIngestResponse,
 	type CursorGitActionResponse,
 	type CursorMcpInstallResponse,
@@ -82,6 +88,26 @@ function recordString(
 ): string {
 	const value = record?.[key];
 	return typeof value === "string" ? value.trim() : "";
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: undefined;
+}
+
+function browserResultSummary(result: BrowserToolResult | undefined): string {
+	if (!result) {
+		return "";
+	}
+	if (!result.success) {
+		return result.error ?? "Browser command failed.";
+	}
+	const payload = asRecord(result.result);
+	const title = recordString(payload, "title");
+	const url = recordString(payload, "url");
+	const logs = recordString(payload, "logs");
+	return [title, url, logs ? "logs" : ""].filter(Boolean).join(" | ");
 }
 
 function backgroundLaunchContext(launch: CursorUriLaunchResponse): string {
@@ -208,6 +234,18 @@ export function CursorUriView({
 	const [ruleOpening, setRuleOpening] = useState(false);
 	const [pluginAdding, setPluginAdding] = useState(false);
 	const [gitRunning, setGitRunning] = useState(false);
+	const [browserStatus, setBrowserStatus] = useState<
+		BrowserAutomationStatus | undefined
+	>();
+	const [browserStatusError, setBrowserStatusError] = useState<string | null>(
+		null,
+	);
+	const [browserStatusLoading, setBrowserStatusLoading] = useState(false);
+	const [browserUrl, setBrowserUrl] = useState("http://127.0.0.1:3000");
+	const [browserRunning, setBrowserRunning] = useState(false);
+	const [browserResult, setBrowserResult] = useState<
+		BrowserToolResult | undefined
+	>();
 
 	const taskPrompt = previewString(preview, "taskPrompt");
 	const route = previewString(preview, "route");
@@ -246,6 +284,32 @@ export function CursorUriView({
 		pluginAdding ||
 		gitRunning;
 	const launchContext = launch ? backgroundLaunchContext(launch) : "";
+	const browserAvailable = browserStatus?.available === true;
+	const browserResultPayload = asRecord(browserResult?.result);
+	const browserScreenshot = recordString(browserResultPayload, "screenshot");
+	const browserSummary = browserResultSummary(browserResult);
+
+	const loadBrowserStatus = useCallback(async () => {
+		setBrowserStatusLoading(true);
+		setBrowserStatusError(null);
+		try {
+			const status = await desktopClient.getBrowserAutomationStatus();
+			setBrowserStatus(status);
+		} catch (statusError) {
+			setBrowserStatus(undefined);
+			setBrowserStatusError(
+				statusError instanceof Error
+					? statusError.message
+					: String(statusError),
+			);
+		} finally {
+			setBrowserStatusLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		void loadBrowserStatus();
+	}, [loadBrowserStatus]);
 
 	const runPreviewForUri = useCallback(async (inputUri: string) => {
 		const trimmed = inputUri.trim();
@@ -469,6 +533,71 @@ export function CursorUriView({
 		});
 	};
 
+	const runBrowserLaunch = async () => {
+		const url = browserUrl.trim();
+		if (!url) {
+			setBrowserResult({
+				query: "browser_action:launch",
+				result: "",
+				error: "URL is required.",
+				success: false,
+			});
+			return;
+		}
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({
+				action: "launch",
+				url,
+			});
+			setBrowserResult(result);
+			await loadBrowserStatus();
+		} catch (runError) {
+			setBrowserResult({
+				query: "browser_action:launch",
+				result: "",
+				error: runError instanceof Error ? runError.message : String(runError),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserScreenshot = async () => {
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserScreenshot();
+			setBrowserResult(result);
+		} catch (runError) {
+			setBrowserResult({
+				query: "browser_screenshot",
+				result: "",
+				error: runError instanceof Error ? runError.message : String(runError),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserClose = async () => {
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({ action: "close" });
+			setBrowserResult(result);
+		} catch (runError) {
+			setBrowserResult({
+				query: "browser_action:close",
+				result: "",
+				error: runError instanceof Error ? runError.message : String(runError),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
 	return (
 		<ScrollArea className="h-full">
 			<div className="mx-auto flex max-w-5xl flex-col gap-5 p-6">
@@ -496,6 +625,98 @@ export function CursorUriView({
 									? "Openable"
 									: "Preview"}
 					</Badge>
+				</div>
+
+				<div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<div className="flex min-w-0 items-center gap-2">
+							<Globe2 className="size-4 text-muted-foreground" />
+							<h3 className="text-sm font-semibold text-foreground">
+								Browser Automation
+							</h3>
+						</div>
+						<div className="flex items-center gap-2">
+							<Badge variant={browserAvailable ? "default" : "outline"}>
+								{browserAvailable ? "Available" : "Unavailable"}
+							</Badge>
+							<Button
+								aria-label="Refresh browser status"
+								disabled={browserStatusLoading}
+								onClick={() => void loadBrowserStatus()}
+								size="icon"
+								variant="ghost"
+							>
+								{browserStatusLoading ? (
+									<Loader2 className="size-4 animate-spin" />
+								) : (
+									<RefreshCw className="size-4" />
+								)}
+							</Button>
+						</div>
+					</div>
+					{browserStatusError || browserStatus?.reason ? (
+						<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+							{browserStatusError ?? browserStatus?.reason}
+						</div>
+					) : null}
+					<div className="flex flex-col gap-2 md:flex-row">
+						<Input
+							aria-label="Browser URL"
+							onChange={(event) => setBrowserUrl(event.target.value)}
+							placeholder="http://127.0.0.1:3000"
+							value={browserUrl}
+						/>
+						<div className="flex shrink-0 flex-wrap gap-2">
+							<Button
+								disabled={!browserAvailable || browserRunning}
+								onClick={() => void runBrowserLaunch()}
+								variant="outline"
+							>
+								{browserRunning ? (
+									<Loader2 className="size-4 animate-spin" />
+								) : (
+									<Play className="size-4" />
+								)}
+								Launch
+							</Button>
+							<Button
+								disabled={!browserAvailable || browserRunning}
+								onClick={() => void runBrowserScreenshot()}
+								variant="outline"
+							>
+								<Camera className="size-4" />
+								Screenshot
+							</Button>
+							<Button
+								disabled={browserRunning}
+								onClick={() => void runBrowserClose()}
+								variant="outline"
+							>
+								<XCircle className="size-4" />
+								Close
+							</Button>
+						</div>
+					</div>
+					{browserResult ? (
+						<Alert variant={browserResult.success ? "default" : "destructive"}>
+							{browserResult.success ? (
+								<CheckCircle2 className="size-4" />
+							) : (
+								<AlertTriangle className="size-4" />
+							)}
+							<AlertTitle>{browserResult.query}</AlertTitle>
+							<AlertDescription>
+								{browserSummary || (browserResult.success ? "done" : "failed")}
+							</AlertDescription>
+						</Alert>
+					) : null}
+					{browserScreenshot ? (
+						<img
+							alt="Browser automation screenshot"
+							className="max-h-72 rounded-md border border-border object-contain"
+							src={browserScreenshot}
+						/>
+					) : null}
 				</div>
 
 				<div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">

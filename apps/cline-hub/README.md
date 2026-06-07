@@ -47,6 +47,8 @@ Environment variables:
 | `WORKSPACE_ROOT` | current directory | Workspace passed to the hub on startup. |
 | `CLINE_PROVIDER` | unset | Fallback provider id when no recent session is available to copy from. |
 | `CLINE_MODEL` | unset | Fallback model id when no recent session is available to copy from. |
+| `CODEVIBE_BROWSER_EXECUTABLE` | auto-detect | Chrome, Chromium, or Edge executable for standalone browser automation. |
+| `CODEVIBE_SAFE_BROWSER_EVALUATE` | `false` | Enables `browser_action` JavaScript evaluation for trusted local debugging. |
 
 The server prints both the bind URL and the public/invite URL at startup. When `ROOM_SECRET` is set, the printed invite URL includes `?roomSecret=...`; the browser UI also lets you paste the secret manually.
 

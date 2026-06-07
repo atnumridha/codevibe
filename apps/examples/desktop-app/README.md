@@ -38,6 +38,13 @@ Desktop transport envelope:
 - From the UI you can open a create form and add, pause/resume, trigger-now, and delete schedules.
 - The view is wired to the same scheduler APIs used by `cline schedule` through Tauri commands and `scripts/routine-schedules.ts`.
 
+## Settings: Features
+
+- The `Features` view previews and confirms Cursor-compatible URI routes.
+- The same view exposes standalone browser automation status and a small launch/screenshot/close control backed by the sidecar's Chrome DevTools Protocol adapter.
+- Browser automation auto-detects Chrome, Chromium, or Edge. Set `CODEVIBE_BROWSER_EXECUTABLE=/path/to/chrome` when auto-detection is not enough.
+- JavaScript evaluation stays disabled by default; set `CODEVIBE_SAFE_BROWSER_EVALUATE=true` only for trusted local debugging.
+
 ## Key Files
 
 - [`src-tauri/src/main.rs`](./src-tauri/src/main.rs) - Tauri shell lifecycle, backend launch, and native-only commands
