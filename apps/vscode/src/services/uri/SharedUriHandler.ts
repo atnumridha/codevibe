@@ -6,6 +6,7 @@ import { GlobalFileNames } from "@core/storage/disk"
 import { WebviewProvider } from "@/core/webview"
 import { HostProvider } from "@/hosts/host-provider"
 import { writeLgWebhookConfig, writeLgWebhookHooks } from "@/services/lg-cns-integration/webhook-hooks"
+import type { McpServer } from "@/shared/mcp"
 import { ShowMessageType } from "@/shared/proto/host/window"
 import { Logger } from "@/shared/services/Logger"
 import { getCwd, getDesktopDir } from "@/utils/path"
@@ -22,6 +23,7 @@ import {
 import {
 	buildCursorMcpInstallRequest,
 	formatCursorMcpInstallDetail,
+	getInstalledServerOAuthSummary,
 	type CursorMcpServerConfig,
 } from "./CursorMcpInstall"
 
@@ -57,7 +59,7 @@ interface SharedUriController {
 		setWorkspaceState(key: string, value: unknown): void
 	}
 	mcpHub: {
-		addServerFromConfig(serverName: string, serverConfig: CursorMcpServerConfig): Promise<unknown>
+		addServerFromConfig(serverName: string, serverConfig: CursorMcpServerConfig): Promise<McpServer[]>
 	}
 }
 
@@ -664,14 +666,27 @@ export class SharedUriHandler {
 						if (choice.selectedOption !== "Install") {
 							return true
 						}
-						await controller.mcpHub.addServerFromConfig(
+						const servers = await controller.mcpHub.addServerFromConfig(
 							installRequest.serverName,
 							installRequest.serverConfig,
 						)
+						const installedServer = servers.find((server) => server.name === installRequest.serverName)
+						const oauthSummary = getInstalledServerOAuthSummary(installedServer)
 						await controller.postStateToWebview()
 						await HostProvider.window.showMessage({
-							type: ShowMessageType.INFORMATION,
-							message: `Installed MCP server "${installRequest.serverName}".`,
+							type:
+								oauthSummary.oauthNextAction === "authenticate"
+									? ShowMessageType.WARNING
+									: ShowMessageType.INFORMATION,
+							message:
+								oauthSummary.oauthNextAction === "authenticate"
+									? `Installed MCP server "${installRequest.serverName}". Authentication required.`
+									: `Installed MCP server "${installRequest.serverName}".`,
+							options: oauthSummary.oauthDetail
+								? {
+										detail: oauthSummary.oauthDetail,
+									}
+								: undefined,
 						})
 						return true
 					}

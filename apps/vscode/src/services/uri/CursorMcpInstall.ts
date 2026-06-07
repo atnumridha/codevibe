@@ -1,4 +1,5 @@
 import type { z } from "zod"
+import type { McpServer } from "@/shared/mcp"
 import { ServerConfigSchema } from "@/services/mcp/schemas"
 import { expandEnvironmentVariables } from "@/utils/envExpansion"
 import type { CursorCompatibleUriRoute } from "./CursorUriRoutes"
@@ -14,10 +15,46 @@ export interface CursorMcpInstallRequest {
 	source: "config" | "direct"
 }
 
+export type CursorMcpOAuthNextAction = "none" | "authenticate"
+
+export interface CursorMcpOAuthSummary {
+	oauthRequired?: boolean
+	oauthAuthStatus?: McpServer["oauthAuthStatus"]
+	oauthNextAction?: CursorMcpOAuthNextAction
+	oauthDetail?: string
+}
+
 export class CursorMcpInstallError extends Error {
 	constructor(message: string) {
 		super(message)
 		this.name = "CursorMcpInstallError"
+	}
+}
+
+export function getInstalledServerOAuthSummary(server: McpServer | undefined): CursorMcpOAuthSummary {
+	if (!server) {
+		return {}
+	}
+
+	const oauthAuthStatus = server.oauthAuthStatus
+	const authStatusRequiresAuth = oauthAuthStatus === "unauthenticated" || oauthAuthStatus === "pending"
+	const oauthRequired = server.oauthRequired ?? authStatusRequiresAuth
+
+	if (!oauthRequired && !oauthAuthStatus) {
+		return {}
+	}
+
+	const oauthNextAction: CursorMcpOAuthNextAction =
+		oauthRequired && oauthAuthStatus !== "authenticated" ? "authenticate" : "none"
+
+	return {
+		oauthRequired,
+		oauthAuthStatus,
+		oauthNextAction,
+		oauthDetail:
+			oauthNextAction === "authenticate"
+				? server.error || "This MCP server requires authentication to get started."
+				: undefined,
 	}
 }
 

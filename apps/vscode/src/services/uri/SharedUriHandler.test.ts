@@ -7,6 +7,7 @@ import * as sinon from "sinon"
 import { WebviewProvider } from "@/core/webview"
 import { HostProvider } from "@/hosts/host-provider"
 import * as webhookHooks from "@/services/lg-cns-integration/webhook-hooks"
+import { ShowMessageType } from "@/shared/proto/host/window"
 import { Logger } from "@/shared/services/Logger"
 import { ErrorService } from "../error"
 import { SharedUriHandler } from "./SharedUriHandler"
@@ -287,6 +288,33 @@ describe("SharedUriHandler", () => {
 				})
 				sinon.assert.calledOnce(postStateToWebviewStub)
 				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should surface OAuth next action after installing a Cursor MCP route", async () => {
+				addServerFromConfigStub.resolves([
+					{
+						name: "docs",
+						config: '{"type":"streamableHttp","url":"https://mcp.example.com"}',
+						status: "disconnected",
+						error: "Authenticate this MCP server before using tools.",
+						oauthRequired: true,
+						oauthAuthStatus: "unauthenticated",
+					},
+				])
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				)
+
+				expect(result).to.be.true
+				sinon.assert.calledTwice(showMessageStub)
+				expect(showMessageStub.secondCall.args[0]).to.deep.include({
+					type: ShowMessageType.WARNING,
+					message: 'Installed MCP server "docs". Authentication required.',
+				})
+				expect(showMessageStub.secondCall.args[0].options.detail).to.contain("Authenticate this MCP server")
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				sinon.assert.calledOnce(postStateToWebviewStub)
 			})
 
 			it("should confirm and install a native CodeVibe MCP install route", async () => {
