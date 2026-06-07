@@ -35,10 +35,10 @@ export async function updateSettings(controller: Controller, request: UpdateSett
 			const convertedApiConfigurationFromProto = {
 				...protoApiConfiguration,
 				// Convert proto ApiProvider enums to native string types
-				planModeApiProvider: protoApiConfiguration.planModeApiProvider
+				planModeApiProvider: protoApiConfiguration.planModeApiProvider !== undefined
 					? convertProtoToApiProvider(protoApiConfiguration.planModeApiProvider)
 					: undefined,
-				actModeApiProvider: protoApiConfiguration.actModeApiProvider
+				actModeApiProvider: protoApiConfiguration.actModeApiProvider !== undefined
 					? convertProtoToApiProvider(protoApiConfiguration.actModeApiProvider)
 					: undefined,
 				planModeReasoningEffort: protoApiConfiguration.planModeReasoningEffort as OpenaiReasoningEffort | undefined,
