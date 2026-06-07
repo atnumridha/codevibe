@@ -267,6 +267,7 @@ export type CursorPluginAddResponse = Record<string, unknown> & {
 	installPath?: string;
 	entryCount?: number;
 	entryPaths?: string[];
+	force?: boolean;
 };
 
 export type CursorGitActionInput = CursorUriPreviewInput & {

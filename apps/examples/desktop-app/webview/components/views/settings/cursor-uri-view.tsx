@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
 	DEFAULT_CODEVIBE_MODEL_ID,
@@ -237,6 +238,7 @@ export function CursorUriView({
 	const [mcpInstalling, setMcpInstalling] = useState(false);
 	const [ruleOpening, setRuleOpening] = useState(false);
 	const [pluginAdding, setPluginAdding] = useState(false);
+	const [pluginForce, setPluginForce] = useState(false);
 	const [gitRunning, setGitRunning] = useState(false);
 	const [browserStatus, setBrowserStatus] = useState<
 		BrowserAutomationStatus | undefined
@@ -499,6 +501,7 @@ export function CursorUriView({
 			const result = await desktopClient.addCursorPlugin({
 				uri: trimmed,
 				confirmed: true,
+				force: pluginForce,
 			});
 			setPluginAdd(result);
 		} catch (addError) {
@@ -1027,6 +1030,19 @@ export function CursorUriView({
 							)}
 							Open Rule
 						</Button>
+						{canAddPlugin ? (
+							<div className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5">
+								<Switch
+									aria-label="Replace existing Cursor plugin"
+									checked={pluginForce}
+									disabled={isBusy}
+									onCheckedChange={setPluginForce}
+								/>
+								<span className="text-xs text-muted-foreground">
+									Replace existing
+								</span>
+							</div>
+						) : null}
 						<Button
 							disabled={!canAddPlugin || isBusy}
 							onClick={() => void runPluginAdd()}
@@ -1152,7 +1168,16 @@ export function CursorUriView({
 						</AlertTitle>
 						<AlertDescription>
 							{pluginAdd.installed
-								? `${pluginAdd.entryCount ?? 0} entry file(s)`
+								? [
+										pluginAdd.sourceLabel,
+										pluginAdd.force ? "replace requested" : "",
+										pluginAdd.entryCount !== undefined
+											? `${pluginAdd.entryCount} entry file(s)`
+											: "",
+										pluginAdd.installPath,
+									]
+										.filter(Boolean)
+										.join(" | ")
 								: (pluginAdd.reason ?? pluginAdd.detail ?? "Review required.")}
 						</AlertDescription>
 					</Alert>
