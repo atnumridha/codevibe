@@ -550,6 +550,44 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("not permission to run it")
 			})
 
+			it("should create review tasks for Cursor git branch helpers", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Review Task" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/git/branch?name=feature%2Fcursor-uri&base=main&checkout=true",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor git helper?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
+					"Requested git helper: branch creation or switch",
+				)
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("git branch helper")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("branch: feature/cursor-uri")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Ask for confirmation")
+			})
+
+			it("should create review tasks for Cursor git commit helpers", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Review Task" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/git/commit?message=fix%3A%20cursor%20routes&files=src%2Fa.ts%2Csrc%2Fb.ts",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor git helper?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
+					"Requested git helper: commit preparation",
+				)
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("git commit helper")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("fix: cursor routes")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Do not push")
+			})
+
 			it("should not create a task when Cursor git helper confirmation is cancelled", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
@@ -584,6 +622,18 @@ describe("SharedUriHandler", () => {
 
 				expect(result).to.be.true
 				sinon.assert.calledOnceWithExactly(openSettingsStub, { query: "@id:cline.apiProvider" })
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should open Cursor settings section and tab routes through the host", async () => {
+				const sectionResult = await SharedUriHandler.handleUri("cursor://settings?section=Providers")
+				const tabResult = await SharedUriHandler.handleUri("vscode://cline.cline/settings?tab=Cursor%20Links")
+
+				expect(sectionResult).to.be.true
+				expect(tabResult).to.be.true
+				sinon.assert.calledTwice(openSettingsStub)
+				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "Providers" })
+				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({ query: "Cursor Links" })
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -793,6 +843,30 @@ describe("SharedUriHandler", () => {
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor rule review task?")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Cursor-compatible rule deeplink")
+				expect(openFileStub.called).to.be.false
+			})
+
+			it("should create a review task from a direct Cursor command payload", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/command?command=npm%20test&cwd=packages%2Fwebview",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor command task?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /command")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route parameters: command, cwd")
+				sinon.assert.calledOnce(handleTaskCreationStub)
+				const prompt = handleTaskCreationStub.firstCall.args[0]
+				expect(prompt).to.contain("requested this command")
+				expect(prompt).to.contain("Review it with the user before running it")
+				expect(prompt).to.contain("```sh")
+				expect(prompt).to.contain("npm test")
+				expect(prompt).to.contain("normal terminal approval boundaries")
+				expect(addServerFromConfigStub.called).to.be.false
+				expect(openSettingsStub.called).to.be.false
 				expect(openFileStub.called).to.be.false
 			})
 
