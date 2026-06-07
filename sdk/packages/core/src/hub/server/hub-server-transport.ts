@@ -358,7 +358,11 @@ function parseCronEventIngestInput(payload: unknown): {
 	maxEvents?: number;
 } {
 	if (typeof payload === "string") {
-		return { input: payload };
+		return {
+			input: payload,
+			maxLineBytes: DEFAULT_CRON_EVENT_INGEST_MAX_LINE_BYTES,
+			maxEvents: DEFAULT_CRON_EVENT_INGEST_MAX_EVENTS,
+		};
 	}
 	if (!isPayloadObject(payload)) {
 		throw new Error("cron.event.ingest payload must be an object or NDJSON string.");

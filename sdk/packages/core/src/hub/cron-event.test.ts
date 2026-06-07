@@ -426,6 +426,61 @@ Summarize the Cursor git event.
 			expect(oversizedMaxLineBytesReply.error?.message).toContain(
 				"maxLineBytes' must be less than or equal to 65536",
 			);
+
+			const rawStringDefaultLimitReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-raw-string-default-limit",
+				clientId: "client-one",
+				payload: Array.from({ length: 101 }, (_, index) =>
+					JSON.stringify({
+						id: `evt_raw_default_limit_${index}`,
+						type: "git.commit.created",
+						source: "raw-test",
+					}),
+				).join("\n"),
+			});
+
+			expect(rawStringDefaultLimitReply).toMatchObject({
+				ok: true,
+				payload: {
+					eventCount: 100,
+					rejectedCount: 1,
+					rejected: [
+						{
+							lineNumber: 101,
+							reason: "too_many_events",
+						},
+					],
+				},
+			});
+
+			const rawStringMaxLineBytesReply = await transport.handleCommand({
+				version: "v1",
+				command: "cron.event.ingest",
+				requestId: "req-raw-string-max-line-bytes",
+				clientId: "client-one",
+				payload: JSON.stringify({
+					id: "evt_raw_large_line",
+					type: "git.commit.created",
+					source: "raw-test",
+					data: { text: "x".repeat(16 * 1024) },
+				}),
+			});
+
+			expect(rawStringMaxLineBytesReply).toMatchObject({
+				ok: true,
+				payload: {
+					eventCount: 0,
+					rejectedCount: 1,
+					rejected: [
+						{
+							lineNumber: 1,
+							reason: "line_too_large",
+						},
+					],
+				},
+			});
 		} finally {
 			await transport.stop();
 			rmSync(root, { recursive: true, force: true });
