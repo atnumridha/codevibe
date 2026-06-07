@@ -729,6 +729,22 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should open Cursor browser evaluate settings slugs directly", async () => {
+				const safeEvaluateResult = await SharedUriHandler.handleUri("cursor://settings?section=safe-browser-evaluate")
+				const browserEvaluateResult = await SharedUriHandler.handleUri("cursor://settings?tab=browser-evaluate")
+
+				expect(safeEvaluateResult).to.be.true
+				expect(browserEvaluateResult).to.be.true
+				sinon.assert.calledTwice(openSettingsStub)
+				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({
+					query: "@id:cline.cursorCompatibility.safeBrowserEvaluate.enabled",
+				})
+				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({
+					query: "@id:cline.cursorCompatibility.safeBrowserEvaluate.enabled",
+				})
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should confirm and install Cursor plugin add routes without creating a task", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Install Plugin" })

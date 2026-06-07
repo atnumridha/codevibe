@@ -40,4 +40,27 @@ describe("parseAssistantMessageV2", () => {
 		})
 		expect(blocks[0]).to.have.nested.property("params.include_screenshot", "true")
 	})
+
+	it("parses browser_screenshot tool calls and capture options", () => {
+		const blocks = parseAssistantMessageV2(`Need pixels only.
+
+<browser_screenshot>
+<tab_id>active</tab_id>
+<full_page>true</full_page>
+</browser_screenshot>`)
+
+		expect(blocks).to.have.length(2)
+		expect(blocks[0]).to.include({
+			type: "text",
+			content: "Need pixels only.",
+			partial: false,
+		})
+		expect(blocks[1]).to.include({
+			type: "tool_use",
+			name: ClineDefaultTool.BROWSER_SCREENSHOT,
+			partial: false,
+		})
+		expect(blocks[1]).to.have.nested.property("params.tab_id", "active")
+		expect(blocks[1]).to.have.nested.property("params.full_page", "true")
+	})
 })

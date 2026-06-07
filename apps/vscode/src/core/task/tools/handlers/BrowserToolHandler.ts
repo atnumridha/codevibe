@@ -5,6 +5,7 @@ import {
 	browserActions,
 	ClineSayBrowserAction,
 } from "@shared/ExtensionMessage"
+import { DEFAULT_BROWSER_SETTINGS } from "@/shared/BrowserSettings"
 import { ClineDefaultTool } from "@/shared/tools"
 import { ToolUse } from "../../../assistant-message"
 import { formatResponse } from "../../../prompts/responses"
@@ -20,6 +21,11 @@ const MAX_BROWSER_EVALUATE_RESULT_LENGTH = 12_000
 const MAX_BROWSER_SNAPSHOT_TEXT_LENGTH = 12_000
 const MAX_BROWSER_SNAPSHOT_HTML_LENGTH = 12_000
 const REDACTED_VALUE = "[REDACTED]"
+
+interface BrowserClickCoordinateValidation {
+	ok: boolean
+	error?: string
+}
 
 export function redactSensitiveBrowserText(text: string | undefined): string | undefined {
 	if (!text) {
@@ -89,6 +95,40 @@ function sanitizeBrowserSnapshotAttributes(
 		redactSensitiveBrowserText(value) ?? value,
 	])
 	return Object.fromEntries(redactedAttributes)
+}
+
+function validateBrowserClickCoordinate(coordinate: string, config: TaskConfig): BrowserClickCoordinateValidation {
+	const parts = coordinate.split(",").map((part) => part.trim())
+	if (parts.length !== 2 || parts.some((part) => part.length === 0)) {
+		return {
+			ok: false,
+			error: 'Browser click coordinate must use "x,y" format, for example "450,300".',
+		}
+	}
+
+	const [x, y] = parts.map(Number)
+	if (!Number.isFinite(x) || !Number.isFinite(y)) {
+		return {
+			ok: false,
+			error: "Browser click coordinate must contain finite numeric x and y values.",
+		}
+	}
+	if (x < 0 || y < 0) {
+		return {
+			ok: false,
+			error: "Browser click coordinate must not be negative.",
+		}
+	}
+
+	const viewport = config.browserSettings.viewport ?? DEFAULT_BROWSER_SETTINGS.viewport
+	if (x > viewport.width || y > viewport.height) {
+		return {
+			ok: false,
+			error: `Browser click coordinate ${x},${y} is outside the configured ${viewport.width}x${viewport.height} viewport.`,
+		}
+	}
+
+	return { ok: true }
 }
 
 export class BrowserToolHandler implements IFullyManagedTool {
@@ -229,6 +269,11 @@ export class BrowserToolHandler implements IFullyManagedTool {
 						const errorResult = await config.callbacks.sayAndCreateMissingParamError(this.name, "coordinate")
 						await config.services.browserSession.closeBrowser()
 						return errorResult
+					}
+					const coordinateValidation = validateBrowserClickCoordinate(coordinate, config)
+					if (!coordinateValidation.ok) {
+						config.taskState.consecutiveMistakeCount++
+						return formatResponse.toolError(coordinateValidation.error ?? "Browser click coordinate is invalid.")
 					}
 				}
 				if (action === "type") {

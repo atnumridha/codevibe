@@ -9,6 +9,7 @@ import { BrowserToolHandler, sanitizeBrowserActionResult } from "../BrowserToolH
 
 function createConfig(allowBrowserEvaluate: boolean, evaluateResult?: unknown) {
 	const browserSession = {
+		click: sinon.stub().resolves({}),
 		evaluate: sinon.stub().resolves(evaluateResult ?? {}),
 		type: sinon.stub().resolves({}),
 		closeBrowser: sinon.stub().resolves({}),
@@ -21,7 +22,7 @@ function createConfig(allowBrowserEvaluate: boolean, evaluateResult?: unknown) {
 	return {
 		config: {
 			taskState: { consecutiveMistakeCount: 0 },
-			browserSettings: { allowBrowserEvaluate },
+			browserSettings: { viewport: { width: 900, height: 600 }, allowBrowserEvaluate },
 			services: { browserSession },
 			callbacks,
 		} as any,
@@ -48,6 +49,15 @@ function makeLaunchBlock(url: string) {
 	}
 }
 
+function makeClickBlock(coordinate: string) {
+	return {
+		type: "tool_use" as const,
+		name: ClineDefaultTool.BROWSER,
+		params: { action: "click", coordinate },
+		partial: false,
+	}
+}
+
 function createLaunchConfig(navigateResult?: unknown) {
 	const browserSession = {
 		launchBrowser: sinon.stub().resolves(undefined),
@@ -65,7 +75,12 @@ function createLaunchConfig(navigateResult?: unknown) {
 		config: {
 			taskState: { consecutiveMistakeCount: 0 },
 			browserSettings: { allowBrowserEvaluate: false },
-			services: { browserSession },
+			services: {
+				browserSession,
+				stateManager: {
+					getGlobalSettingsKey: sinon.stub().returns(false),
+				},
+			},
 			callbacks,
 			autoApprovalSettings: { enableNotifications: false },
 			autoApprover: { shouldAutoApproveTool: sinon.stub().returns(true) },
@@ -131,6 +146,25 @@ function makeScreenshotBlock(params: Record<string, unknown> = {}) {
 		params,
 		partial: false,
 	}
+}
+
+function getToolResponseText(response: unknown): string {
+	if (!Array.isArray(response)) {
+		return String(response)
+	}
+	return response
+		.filter((block): block is { type: string; text: string } => block?.type === "text" && typeof block.text === "string")
+		.map((block) => block.text)
+		.join("\n")
+}
+
+function getToolResponseImageData(response: unknown): string[] {
+	if (!Array.isArray(response)) {
+		return []
+	}
+	return response
+		.map((block) => (block?.type === "image" ? block.source?.data : undefined))
+		.filter((data): data is string => typeof data === "string")
 }
 
 describe("BrowserToolHandler evaluate safety", () => {
@@ -218,6 +252,39 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert(String(launchSay?.args[1]).includes("[REDACTED]"))
 		assert(resultSay)
 		assert(!String(resultSay?.args[1]).includes("secret-token-value-1234567890"))
+	})
+
+	it("runs click when coordinates are numeric and inside the configured viewport", async () => {
+		const { config, browserSession, callbacks } = createConfig(false)
+
+		await new BrowserToolHandler().execute(config, makeClickBlock("450,300"))
+
+		const actionSay = callbacks.say.getCalls().find((call) => call.args[0] === ClineDefaultTool.BROWSER)
+		assert.equal(browserSession.click.calledOnceWith("450,300"), true)
+		assert.equal(config.taskState.consecutiveMistakeCount, 0)
+		assert(actionSay)
+		assert.equal(JSON.parse(actionSay?.args[1]).coordinate, "450,300")
+	})
+
+	it("rejects malformed browser click coordinates before clicking", async () => {
+		const { config, browserSession } = createConfig(false)
+
+		const response = await new BrowserToolHandler().execute(config, makeClickBlock("left,top"))
+
+		assert.equal(browserSession.click.called, false)
+		assert.equal(config.taskState.consecutiveMistakeCount, 1)
+		assert(String(response).includes("finite numeric x and y values"))
+	})
+
+	it("rejects browser click coordinates outside the configured viewport before clicking", async () => {
+		const { config, browserSession } = createConfig(false)
+		config.browserSettings.viewport = { width: 100, height: 80 }
+
+		const response = await new BrowserToolHandler().execute(config, makeClickBlock("101,40"))
+
+		assert.equal(browserSession.click.called, false)
+		assert.equal(config.taskState.consecutiveMistakeCount, 1)
+		assert(String(response).includes("outside the configured 100x80 viewport"))
 	})
 
 	it("captures a read-only browser snapshot with redacted text and DOM", async () => {
@@ -314,6 +381,8 @@ describe("BrowserToolHandler evaluate safety", () => {
 		})
 
 		const response = await new BrowserScreenshotToolHandler().execute(config, makeScreenshotBlock())
+		const responseText = getToolResponseText(response)
+		const responseImages = getToolResponseImageData(response)
 		const serializedResponse = JSON.stringify(response)
 		const resultSay = callbacks.say.getCalls().find((call) => call.args[0] === "browser_action_result")
 
@@ -330,8 +399,8 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert(!String(resultSay?.args[1]).includes("secret-token-value-1234567890"))
 		assert(!String(resultSay?.args[1]).includes("SHOULD_NOT_BE_IN_PREVIEW"))
 		assert(!serializedResponse.includes("secret-token-value-1234567890"))
-		assert(serializedResponse.includes("browser screenshot"))
-		assert(serializedResponse.includes("data:image/png;base64,abc"))
+		assert(responseText.includes("browser screenshot"))
+		assert.deepEqual(responseImages, ["abc"])
 	})
 
 	it("rejects browser screenshots for non-active tab ids until multi-tab capture is available", async () => {
@@ -363,7 +432,7 @@ describe("BrowserToolHandler evaluate safety", () => {
 			true,
 		)
 		assert.equal(config.taskState.consecutiveMistakeCount, 0)
-		assert(String(response).includes("browser screenshot"))
+		assert(getToolResponseText(response).includes("browser screenshot"))
 	})
 
 	it("redacts evaluate text while streaming partial browser action display", async () => {
