@@ -93,6 +93,12 @@ function sendJson(response: ServerResponse, statusCode: number, body: unknown): 
 	response.end(payload)
 }
 
+function readDebugSessionId(request: IncomingMessage): string | undefined {
+	const value = request.headers["x-debug-session-id"]
+	const raw = Array.isArray(value) ? value[0] : value
+	return typeof raw === "string" && raw.trim() ? raw.trim() : undefined
+}
+
 function readRequestBody(request: IncomingMessage): Promise<string> {
 	return new Promise((resolve, reject) => {
 		let bytes = 0
@@ -110,6 +116,12 @@ function readRequestBody(request: IncomingMessage): Promise<string> {
 		request.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")))
 		request.on("error", reject)
 	})
+}
+
+function toPublicStatus(status: CursorNdjsonIngestServerStatus): CursorNdjsonIngestServerStatus {
+	const publicStatus = { ...status }
+	delete publicStatus.sessionId
+	return publicStatus
 }
 
 function parseRequestPayload(request: IncomingMessage, rawBody: string): ParsedIngestPayload {
@@ -276,11 +288,15 @@ export class CursorNdjsonIngestServer {
 		try {
 			const requestUrl = new URL(request.url || "/", "http://localhost")
 			if (request.method === "GET" && requestUrl.pathname === "/status") {
-				sendJson(response, 200, this.getStatus())
+				sendJson(response, 200, toPublicStatus(this.getStatus()))
 				return
 			}
 			if (request.method !== "POST" || (requestUrl.pathname !== "/" && requestUrl.pathname !== "/ingest")) {
 				sendJson(response, 404, { error: "not_found" })
+				return
+			}
+			if (!this.status.sessionId || readDebugSessionId(request) !== this.status.sessionId) {
+				sendJson(response, 401, { error: "unauthorized" })
 				return
 			}
 

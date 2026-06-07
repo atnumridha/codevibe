@@ -62,6 +62,7 @@ describe("CursorNdjsonIngestServer", () => {
 			running: true,
 			bindAddress: "127.0.0.1",
 		})
+		expect(JSON.parse(response.body)).not.to.have.property("sessionId")
 	})
 
 	it("ingests raw NDJSON using Cursor defaults", async () => {
@@ -75,7 +76,10 @@ describe("CursorNdjsonIngestServer", () => {
 		const response = await request(`${status.url}/ingest`, {
 			method: "POST",
 			body: ndjson,
-			headers: { "content-type": "application/x-ndjson" },
+			headers: {
+				"content-type": "application/x-ndjson",
+				"x-debug-session-id": status.sessionId ?? "",
+			},
 		})
 		const result = JSON.parse(response.body)
 
@@ -91,6 +95,29 @@ describe("CursorNdjsonIngestServer", () => {
 		expect(stored).to.contain("evt-raw-1")
 	})
 
+	it("rejects ingest requests without the debug session header", async () => {
+		const status = await server.start({ port: 0, bindAddress: "127.0.0.1" })
+		const ndjson = JSON.stringify({
+			id: "evt-raw-1",
+			type: "git.commit.created",
+		})
+
+		const response = await request(`${status.url}/ingest`, {
+			method: "POST",
+			body: ndjson,
+			headers: { "content-type": "application/x-ndjson" },
+		})
+
+		expect(response.statusCode).to.equal(401)
+		expect(JSON.parse(response.body)).to.deep.equal({ error: "unauthorized" })
+		try {
+			await fs.stat(resolveCursorAutomationIngestStorePath(storageDir))
+			throw new Error("expected store file to be missing")
+		} catch (error) {
+			expect((error as NodeJS.ErrnoException).code).to.equal("ENOENT")
+		}
+	})
+
 	it("keeps strict-invalid ingest preview-only", async () => {
 		const status = await server.start({ port: 0, bindAddress: "127.0.0.1" })
 		const ndjson = [
@@ -101,7 +128,10 @@ describe("CursorNdjsonIngestServer", () => {
 		const response = await request(`${status.url}/ingest?strict=true`, {
 			method: "POST",
 			body: ndjson,
-			headers: { "content-type": "application/x-ndjson" },
+			headers: {
+				"content-type": "application/x-ndjson",
+				"x-debug-session-id": status.sessionId ?? "",
+			},
 		})
 		const result = JSON.parse(response.body)
 
