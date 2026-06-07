@@ -349,6 +349,141 @@ describe("HubSessionClient", () => {
 		client.close();
 	});
 
+	it("advertises runtime tool executor capabilities when forking sessions", async () => {
+		vi.stubGlobal("WebSocket", MockWebSocket);
+		const browserAction = vi.fn(async () => ({
+			url: "https://example.test/",
+			title: "Forked",
+		}));
+		MockWebSocket.commandHandler = (frame) => {
+			if (frame.envelope?.command !== "session.fork") {
+				return undefined;
+			}
+			const payload = frame.envelope.payload ?? {};
+			return {
+				sourceSessionId: payload.sourceSessionId,
+				messageCount: 2,
+				session: {
+					sessionId: String(payload.newSessionId),
+					metadata: {
+						parentSessionId: payload.sourceSessionId,
+					},
+				},
+			};
+		};
+		const client = new HubSessionClient({
+			address: "ws://127.0.0.1:25463/hub",
+			clientId: "client-1",
+			capabilities: {
+				toolExecutors: {
+					browserAction,
+				},
+			} as never,
+		});
+
+		const forked = await client.fork({
+			sourceSessionId: "session-source",
+			prompt: "continue here",
+			config: {
+				workspaceRoot: "/tmp/project",
+				cwd: "/tmp/project",
+				provider: "cline",
+				model: "test-model",
+				enableTools: true,
+				toolExecutors: ["browserAction"],
+			},
+		});
+
+		const forkFrameIndex = MockWebSocket.sentFrames.findIndex(
+			(frame) => frame.envelope?.command === "session.fork",
+		);
+		const subscribeFrameIndex = MockWebSocket.sentFrames.findIndex(
+			(frame) => frame.kind === "stream.subscribe",
+		);
+		const forkFrame = MockWebSocket.sentFrames[forkFrameIndex];
+		const forkPayload = forkFrame?.envelope?.payload as
+			| {
+					sourceSessionId?: unknown;
+					newSessionId?: unknown;
+					prompt?: unknown;
+					runtimeOptions?: unknown;
+			  }
+			| undefined;
+
+		expect(subscribeFrameIndex).toBeGreaterThan(-1);
+		expect(subscribeFrameIndex).toBeLessThan(forkFrameIndex);
+		expect(forkPayload).toMatchObject({
+			sourceSessionId: "session-source",
+			prompt: "continue here",
+		});
+		expect(typeof forkPayload?.newSessionId).toBe("string");
+		expect(forkPayload?.runtimeOptions).toMatchObject({
+			toolExecutors: ["browserAction"],
+			clientContributions: [
+				{
+					kind: "toolExecutor",
+					executor: "browserAction",
+					capabilityName: "tool_executor.browserAction",
+				},
+			],
+		});
+		expect(forked).toMatchObject({
+			sourceSessionId: "session-source",
+			messageCount: 2,
+			session: {
+				sessionId: forkPayload?.newSessionId,
+			},
+		});
+		const forkedSessionId =
+			typeof forkPayload?.newSessionId === "string"
+				? forkPayload.newSessionId
+				: "";
+		const received: Array<{
+			sessionId: string;
+			eventType: string;
+			payload: Record<string, unknown>;
+		}> = [];
+		const unsubscribe = client.streamEvents(
+			{ sessionIds: [forkedSessionId] },
+			{
+				onEvent: (event) => {
+					received.push(event);
+				},
+			},
+		);
+		const socket = MockWebSocket.instances[0];
+		if (!socket) {
+			throw new Error("expected websocket");
+		}
+		socket.emitFrame({
+			kind: "event",
+			envelope: {
+				version: "v1",
+				eventId: "evt-fork",
+				event: "session.forked",
+				timestamp: Date.now(),
+				sessionId: forkedSessionId,
+				payload: {
+					sourceSessionId: "session-source",
+					messageCount: 2,
+				},
+			},
+		});
+		expect(received).toEqual([
+			{
+				sessionId: forkedSessionId,
+				eventType: "runtime.session.forked",
+				payload: {
+					sourceSessionId: "session-source",
+					messageCount: 2,
+				},
+			},
+		]);
+
+		unsubscribe();
+		client.close();
+	});
+
 	it("normalizes run.failed events to include a top-level error", async () => {
 		vi.stubGlobal("WebSocket", MockWebSocket);
 		const client = new HubSessionClient({

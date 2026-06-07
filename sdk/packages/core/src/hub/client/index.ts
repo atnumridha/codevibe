@@ -18,6 +18,8 @@ import {
 	type HubPromptCommandListRequest,
 	type HubPromptCommandListResponse,
 	type HubReplyEnvelope,
+	type HubSessionForkRequest,
+	type HubSessionForkResponse,
 	type HubTransportFrame,
 	resolveHubCommandTimeoutMs,
 } from "@cline/shared";
@@ -605,6 +607,22 @@ export class NodeHubClient {
 			kind: "workflow",
 			prompt: "",
 		}) as HubPromptCommandExecuteResponse;
+	}
+
+	async forkSession(
+		input: HubSessionForkRequest,
+		options?: { sessionId?: string; timeoutMs?: number | null },
+	): Promise<HubSessionForkResponse> {
+		const reply = await this.command(
+			"session.fork",
+			{ ...input },
+			options?.sessionId ?? input.sourceSessionId,
+			{ timeoutMs: options?.timeoutMs },
+		);
+		return (reply.payload ?? {
+			sourceSessionId: input.sourceSessionId ?? "",
+			messageCount: 0,
+		}) as HubSessionForkResponse;
 	}
 
 	async ingestCursorNdjson(

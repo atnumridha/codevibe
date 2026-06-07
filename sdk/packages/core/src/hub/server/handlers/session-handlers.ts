@@ -44,6 +44,39 @@ function getCapabilityOwnerClientId(
 	return typeof owner === "string" && owner.trim() ? owner.trim() : undefined;
 }
 
+function cloneRecord(value: unknown): Record<string, unknown> {
+	return value && typeof value === "object" && !Array.isArray(value)
+		? (JSON.parse(JSON.stringify(value)) as Record<string, unknown>)
+		: {};
+}
+
+function cloneArray<T>(value: T[]): T[] {
+	return JSON.parse(JSON.stringify(value)) as T[];
+}
+
+function asRuntimeMode(value: unknown): RuntimeSessionConfig["mode"] | undefined {
+	return value === "plan" || value === "act" || value === "yolo"
+		? value
+		: undefined;
+}
+
+function optionalBoolean(value: unknown): boolean | undefined {
+	return typeof value === "boolean" ? value : undefined;
+}
+
+function optionalString(value: unknown): string | undefined {
+	return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function positiveInteger(value: unknown): number | undefined {
+	return typeof value === "number" &&
+		Number.isFinite(value) &&
+		Number.isInteger(value) &&
+		value > 0
+		? value
+		: undefined;
+}
+
 export async function handleSessionCreate(
 	ctx: HubTransportContext,
 	envelope: HubCommandEnvelope,
@@ -572,6 +605,231 @@ export async function handleSessionRestore(
 			error instanceof Error ? error.message : String(error),
 		);
 	}
+}
+
+export async function handleSessionFork(
+	ctx: HubTransportContext,
+	envelope: HubCommandEnvelope,
+	requestToolApproval: (
+		request: ToolApprovalRequest,
+	) => Promise<{ approved: boolean; reason?: string }>,
+): Promise<HubReplyEnvelope> {
+	const payload =
+		envelope.payload && typeof envelope.payload === "object"
+			? envelope.payload
+			: {};
+	const sourceSessionId =
+		optionalString(payload.sourceSessionId) ??
+		optionalString(payload.parentSessionId) ??
+		optionalString(envelope.sessionId) ??
+		optionalString(payload.sessionId) ??
+		"";
+	if (!sourceSessionId) {
+		return errorReply(
+			envelope,
+			"invalid_session_fork",
+			"session.fork requires sourceSessionId or a session id",
+		);
+	}
+	const sourceSession = await ctx.sessionHost.getSession(sourceSessionId);
+	if (!sourceSession) {
+		return errorReply(
+			envelope,
+			"session_not_found",
+			`Unknown session: ${sourceSessionId}`,
+		);
+	}
+
+	const sessionConfig = cloneRecord(payload.sessionConfig) as Partial<
+		RuntimeSessionConfig & { sessionId?: string }
+	>;
+	const runtimeOptions = cloneRecord(payload.runtimeOptions);
+	const modelSelection = cloneRecord(payload.modelSelection);
+	const metadata = cloneRecord(payload.metadata);
+	const sourceMetadata = cloneRecord(sourceSession.metadata);
+	const clientId = envelope.clientId?.trim() || "hub-client";
+	const clientContributions = parseHubClientContributions(
+		runtimeOptions.clientContributions,
+	);
+	if (clientContributions.length > 0) {
+		setCapabilityOwner(metadata, clientId);
+	}
+
+	const requestedSessionId =
+		optionalString(sessionConfig.sessionId) ??
+		optionalString(payload.newSessionId) ??
+		optionalString(payload.forkSessionId) ??
+		"";
+	const sessionId = requestedSessionId || createSessionId();
+	const includeMessages = payload.includeMessages !== false;
+	const copiedMessages = includeMessages
+		? cloneArray(await ctx.sessionHost.readSessionMessages(sourceSessionId))
+		: [];
+	const messageLimit = positiveInteger(payload.messageLimit);
+	const initialMessages = messageLimit
+		? copiedMessages.slice(0, messageLimit)
+		: copiedMessages;
+	const configExtensions = parseRuntimeConfigExtensions(
+		runtimeOptions.configExtensions,
+	);
+	const clientContributionRuntime = createHubClientContributionRuntime({
+		sessionId,
+		targetClientId: clientId,
+		contributions: clientContributions,
+		sessionConfig,
+		requestCapability: ctx.requestCapability,
+	});
+	const mode =
+		asRuntimeMode(sessionConfig.mode) ??
+		asRuntimeMode(runtimeOptions.mode) ??
+		asRuntimeMode(sourceMetadata.mode) ??
+		"act";
+	const systemPrompt =
+		typeof sessionConfig.systemPrompt === "string"
+			? sessionConfig.systemPrompt
+			: typeof runtimeOptions.systemPrompt === "string"
+				? runtimeOptions.systemPrompt
+				: typeof sourceMetadata.systemPrompt === "string"
+					? sourceMetadata.systemPrompt
+					: "";
+	if (typeof sessionConfig.mode === "string") {
+		metadata.mode = sessionConfig.mode;
+	} else {
+		metadata.mode = mode;
+	}
+	metadata.systemPrompt = systemPrompt;
+	if (sessionConfig.checkpoint?.enabled === true) {
+		metadata.checkpointEnabled = true;
+	} else if (runtimeOptions.checkpointEnabled === true) {
+		metadata.checkpointEnabled = true;
+	} else if (sourceMetadata.checkpointEnabled === true) {
+		metadata.checkpointEnabled = true;
+	}
+	const workspaceRoot =
+		optionalString(payload.workspaceRoot) ??
+		optionalString(sessionConfig.workspaceRoot) ??
+		sourceSession.workspaceRoot ??
+		sourceSession.cwd;
+	const cwd =
+		optionalString(payload.cwd) ??
+		optionalString(sessionConfig.cwd) ??
+		sourceSession.cwd ??
+		workspaceRoot;
+	const prompt = typeof payload.prompt === "string" ? payload.prompt : undefined;
+	const interactive =
+		optionalBoolean(metadata.interactive) ??
+		optionalBoolean(sourceMetadata.interactive) ??
+		sourceSession.interactive ??
+		true;
+
+	const started = await ctx.sessionHost.startSession({
+		source: optionalString(metadata.source) ?? sourceSession.source,
+		interactive,
+		sessionMetadata: {
+			...metadata,
+			parentSessionId: sourceSessionId,
+			forkedFromSessionId: sourceSessionId,
+			forkedAt: new Date().toISOString(),
+		},
+		initialMessages,
+		...(prompt !== undefined ? { prompt } : {}),
+		localRuntime: {
+			modelCatalogDefaults: {
+				loadLatestOnInit: true,
+				loadPrivateOnAuth: true,
+			},
+			configExtensions,
+			...clientContributionRuntime.localRuntime,
+		},
+		capabilities: {
+			toolExecutors: clientContributionRuntime.toolExecutors,
+			requestToolApproval,
+		},
+		config: {
+			...(sessionConfig ?? {}),
+			sessionId,
+			providerId:
+				sessionConfig.providerId ??
+				(typeof modelSelection.provider === "string"
+					? modelSelection.provider
+					: sourceSession.provider),
+			modelId:
+				sessionConfig.modelId ??
+				(typeof modelSelection.model === "string"
+					? modelSelection.model
+					: sourceSession.model),
+			apiKey:
+				sessionConfig.apiKey ??
+				(typeof modelSelection.apiKey === "string"
+					? modelSelection.apiKey
+					: undefined),
+			cwd,
+			workspaceRoot,
+			systemPrompt,
+			mode,
+			maxIterations:
+				sessionConfig.maxIterations ??
+				(typeof runtimeOptions.maxIterations === "number"
+					? runtimeOptions.maxIterations
+					: undefined),
+			enableTools:
+				sessionConfig.enableTools ??
+				optionalBoolean(runtimeOptions.enableTools) ??
+				sourceSession.enableTools,
+			enableSpawnAgent:
+				sessionConfig.enableSpawnAgent ??
+				optionalBoolean(runtimeOptions.enableSpawn) ??
+				sourceSession.enableSpawn,
+			enableAgentTeams:
+				sessionConfig.enableAgentTeams ??
+				optionalBoolean(runtimeOptions.enableTeams) ??
+				sourceSession.enableTeams,
+			checkpoint:
+				sessionConfig.checkpoint ??
+				(runtimeOptions.checkpointEnabled === true
+					? { enabled: true }
+					: undefined),
+			teamName:
+				sessionConfig.teamName ??
+				(typeof metadata.teamName === "string"
+					? metadata.teamName
+					: sourceSession.teamName),
+		},
+		toolPolicies:
+			payload.toolPolicies &&
+			typeof payload.toolPolicies === "object" &&
+			!Array.isArray(payload.toolPolicies)
+				? (JSON.parse(JSON.stringify(payload.toolPolicies)) as Record<
+						string,
+						{ autoApprove?: boolean; enabled?: boolean }
+					>)
+				: runtimeOptions.autoApproveTools === true
+					? { "*": { autoApprove: true } }
+					: undefined,
+	});
+	ensureSessionState(ctx, started.sessionId, clientId, "creator", {
+		interactive,
+	});
+	const [session, snapshot] = await Promise.all([
+		readHubSessionRecord(ctx, started.sessionId),
+		readCoreSessionSnapshot(ctx, started.sessionId),
+	]);
+	if (session) {
+		const eventPayload = {
+			sourceSessionId,
+			session,
+			messageCount: initialMessages.length,
+			...(snapshot ? { snapshot } : {}),
+		};
+		ctx.publish(ctx.buildEvent("session.created", eventPayload, started.sessionId));
+		ctx.publish(ctx.buildEvent("session.forked", eventPayload, started.sessionId));
+	}
+	return okReply(envelope, {
+		sourceSessionId,
+		session,
+		messageCount: initialMessages.length,
+		...(snapshot ? { snapshot } : {}),
+	});
 }
 
 export async function handleSessionAttach(

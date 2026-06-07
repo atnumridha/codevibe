@@ -655,6 +655,207 @@ describe("HubServerTransport boundaries", () => {
 		await expect(answerPromise).resolves.toBe("Use hub");
 	});
 
+	it("forks sessions by copying messages into an idle child session", async () => {
+		let capturedStartInput: StartSessionInput | undefined;
+		const sourceMessages = [
+			{ role: "user" as const, content: "build a thing" },
+			{ role: "assistant" as const, content: "done" },
+		];
+		const startSession = vi.fn(
+			async (input: StartSessionInput): Promise<StartSessionResult> => {
+				capturedStartInput = input;
+				const sessionId = input.config.sessionId?.trim() || "fork-child";
+				return {
+					sessionId,
+					manifest: {
+						version: 1,
+						session_id: sessionId,
+						source: "vscode",
+						pid: 1,
+						started_at: new Date(1).toISOString(),
+						status: "completed",
+						interactive: true,
+						provider: input.config.providerId,
+						model: input.config.modelId,
+						cwd: input.config.cwd,
+						workspace_root: input.config.workspaceRoot,
+						enable_tools: input.config.enableTools,
+						enable_spawn: input.config.enableSpawnAgent,
+						enable_teams: input.config.enableAgentTeams,
+					},
+					manifestPath: "",
+					messagesPath: "",
+					result: undefined,
+				};
+			},
+		);
+		const readSessionMessages = vi.fn(async (sessionId: string) =>
+			sessionId === "source-1" ? sourceMessages : sourceMessages.slice(0, 1),
+		);
+		const getSession = vi.fn(async (sessionId: string) => {
+			if (sessionId === "source-1") {
+				return {
+					sessionId,
+					source: "vscode",
+					status: "completed",
+					startedAt: new Date(0).toISOString(),
+					updatedAt: new Date(0).toISOString(),
+					interactive: true,
+					provider: "openai-codex",
+					model: "gpt-5-codex",
+					cwd: "/tmp/project",
+					workspaceRoot: "/tmp/project",
+					enableTools: true,
+					enableSpawn: true,
+					enableTeams: false,
+					isSubagent: false,
+					metadata: {
+						mode: "plan",
+						systemPrompt: "source system",
+						checkpointEnabled: true,
+					},
+				};
+			}
+			if (sessionId === "child-1" && capturedStartInput) {
+				return {
+					sessionId,
+					source: "vscode",
+					status: "completed",
+					startedAt: new Date(1).toISOString(),
+					updatedAt: new Date(1).toISOString(),
+					interactive: true,
+					provider: capturedStartInput.config.providerId,
+					model: capturedStartInput.config.modelId,
+					cwd: capturedStartInput.config.cwd,
+					workspaceRoot: capturedStartInput.config.workspaceRoot,
+					enableTools: capturedStartInput.config.enableTools,
+					enableSpawn: capturedStartInput.config.enableSpawnAgent,
+					enableTeams: capturedStartInput.config.enableAgentTeams,
+					parentSessionId: "source-1",
+					isSubagent: false,
+					metadata: capturedStartInput.sessionMetadata,
+				};
+			}
+			return undefined;
+		});
+		const transport = createTransport({
+			sessionHost: {
+				subscribe: vi.fn(),
+				startSession,
+				stopSession: vi.fn(),
+				runTurn: vi.fn(),
+				abort: vi.fn(),
+				dispose: vi.fn(),
+				getSession,
+				listSessions: vi.fn(),
+				deleteSession: vi.fn(),
+				updateSession: vi.fn(),
+				dispatchHookEvent: vi.fn(),
+				readSessionMessages,
+			} as never,
+		});
+		const events: HubEventEnvelope[] = [];
+		transport.subscribe("client-1", (event) => events.push(event));
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-fork",
+			command: "session.fork",
+			clientId: "client-1",
+			sessionId: "source-1",
+			payload: {
+				sourceSessionId: "source-1",
+				newSessionId: "child-1",
+				messageLimit: 1,
+			},
+		});
+
+		expect(reply.ok).toBe(true);
+		expect(reply.payload).toMatchObject({
+			sourceSessionId: "source-1",
+			messageCount: 1,
+			session: {
+				sessionId: "child-1",
+				metadata: expect.objectContaining({
+					parentSessionId: "source-1",
+					forkedFromSessionId: "source-1",
+					mode: "plan",
+					systemPrompt: "source system",
+					checkpointEnabled: true,
+				}),
+			},
+		});
+		expect(startSession).toHaveBeenCalledWith(
+			expect.objectContaining({
+				source: "vscode",
+				interactive: true,
+				initialMessages: sourceMessages.slice(0, 1),
+				config: expect.objectContaining({
+					sessionId: "child-1",
+					providerId: "openai-codex",
+					modelId: "gpt-5-codex",
+					mode: "plan",
+					systemPrompt: "source system",
+					enableTools: true,
+					enableSpawnAgent: true,
+					enableAgentTeams: false,
+				}),
+				sessionMetadata: expect.objectContaining({
+					parentSessionId: "source-1",
+					forkedFromSessionId: "source-1",
+				}),
+			}),
+		);
+		expect(events.map((event) => event.event)).toEqual(
+			expect.arrayContaining(["session.created", "session.forked"]),
+		);
+		expect(
+			events.find((event) => event.event === "session.forked")?.payload,
+		).toMatchObject({
+			sourceSessionId: "source-1",
+			messageCount: 1,
+		});
+	});
+
+	it("rejects session forks when the source session is missing", async () => {
+		const startSession = vi.fn();
+		const transport = createTransport({
+			sessionHost: {
+				subscribe: vi.fn(),
+				startSession,
+				stopSession: vi.fn(),
+				runTurn: vi.fn(),
+				abort: vi.fn(),
+				dispose: vi.fn(),
+				getSession: vi.fn().mockResolvedValue(undefined),
+				listSessions: vi.fn(),
+				deleteSession: vi.fn(),
+				updateSession: vi.fn(),
+				dispatchHookEvent: vi.fn(),
+				readSessionMessages: vi.fn(),
+			} as never,
+		});
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			requestId: "req-fork-missing",
+			command: "session.fork",
+			clientId: "client-1",
+			payload: {
+				sourceSessionId: "missing-session",
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: false,
+			error: {
+				code: "session_not_found",
+				message: "Unknown session: missing-session",
+			},
+		});
+		expect(startSession).not.toHaveBeenCalled();
+	});
+
 	it("does not transfer capability ownership to attached clients", async () => {
 		let createdSessionId = "";
 		const startSession = vi.fn(async (input: StartSessionInput) => {

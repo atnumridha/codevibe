@@ -451,6 +451,30 @@ export interface HubPromptCommandExecuteResponse
 	prompt: string;
 }
 
+export interface HubSessionForkRequest extends Record<string, unknown> {
+	sourceSessionId?: string;
+	parentSessionId?: string;
+	newSessionId?: string;
+	forkSessionId?: string;
+	prompt?: string;
+	includeMessages?: boolean;
+	messageLimit?: number;
+	workspaceRoot?: string;
+	cwd?: string;
+	sessionConfig?: Record<string, unknown>;
+	runtimeOptions?: Record<string, unknown>;
+	modelSelection?: Record<string, unknown>;
+	metadata?: Record<string, unknown>;
+	toolPolicies?: Record<string, unknown>;
+}
+
+export interface HubSessionForkResponse extends Record<string, unknown> {
+	sourceSessionId: string;
+	session?: SessionRecord;
+	snapshot?: unknown;
+	messageCount: number;
+}
+
 export interface CursorNdjsonIngestRequest extends Record<string, unknown> {
 	ndjson?: string;
 	input?: string;

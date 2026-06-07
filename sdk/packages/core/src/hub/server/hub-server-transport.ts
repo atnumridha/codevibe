@@ -84,6 +84,7 @@ import {
 	handleSessionCreate,
 	handleSessionDelete,
 	handleSessionDetach,
+	handleSessionFork,
 	handleSessionGet,
 	handleSessionList,
 	handleSessionMessages,
@@ -1074,6 +1075,13 @@ export class HubServerTransport implements NativeHubTransport {
 				);
 			case "session.restore":
 				return await handleSessionRestore(
+					this.ctx,
+					envelope,
+					(request: ToolApprovalRequest) =>
+						requestToolApprovalHandler(this.ctx, request),
+				);
+			case "session.fork":
+				return await handleSessionFork(
 					this.ctx,
 					envelope,
 					(request: ToolApprovalRequest) =>

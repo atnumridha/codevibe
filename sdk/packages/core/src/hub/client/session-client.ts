@@ -8,6 +8,7 @@ import type {
 	CursorUriPreviewRequest,
 	CursorUriPreviewResponse,
 	HubEventEnvelope,
+	HubSessionForkResponse,
 	TeamProgressProjectionEvent,
 } from "@cline/shared";
 import type { CheckpointEntry } from "../../hooks/checkpoint-hooks";
@@ -69,6 +70,17 @@ export interface HubRestoreResponse {
 	};
 	messages?: LlmsProviders.Message[];
 	checkpoint: CheckpointEntry;
+}
+
+export interface HubForkRequest {
+	sourceSessionId: string;
+	newSessionId?: string;
+	forkSessionId?: string;
+	prompt?: string;
+	includeMessages?: boolean;
+	messageLimit?: number;
+	config?: ChatStartSessionRequest;
+	metadata?: Record<string, unknown>;
 }
 
 export interface HubEventStreamHandlers {
@@ -237,6 +249,12 @@ function mapHubEvent(event: HubEventEnvelope): HubStreamEvent | undefined {
 			return {
 				sessionId,
 				eventType: "approval.requested",
+				payload,
+			};
+		case "session.forked":
+			return {
+				sessionId,
+				eventType: "runtime.session.forked",
 				payload,
 			};
 		case "run.aborted":
@@ -802,6 +820,147 @@ export class HubSessionClient {
 				: undefined,
 			...(messages ? { messages } : {}),
 			checkpoint,
+		};
+	}
+
+	async fork(input: HubForkRequest): Promise<HubSessionForkResponse> {
+		const sourceSessionId = input.sourceSessionId.trim();
+		if (!sourceSessionId) {
+			throw new Error("sourceSessionId is required");
+		}
+		await this.ensureMetadataApplied();
+		const request = input.config;
+		const clientContributions = buildClientContributionRegistration(
+			undefined,
+			normalizeRuntimeCapabilities(this.options.capabilities) ?? {},
+		);
+		const plannedSessionId =
+			input.newSessionId?.trim() ||
+			input.forkSessionId?.trim() ||
+			request?.sessionId?.trim() ||
+			(clientContributions.handlers.size > 0 ? createSessionId() : undefined);
+		if (plannedSessionId && clientContributions.handlers.size > 0) {
+			this.registerSessionContributions(
+				plannedSessionId,
+				clientContributions.handlers,
+			);
+		}
+		let reply: Awaited<ReturnType<NodeHubClient["command"]>>;
+		try {
+			reply = await this.client.command(
+				"session.fork",
+				{
+					sourceSessionId,
+					...(plannedSessionId ? { newSessionId: plannedSessionId } : {}),
+					...(input.prompt !== undefined ? { prompt: input.prompt } : {}),
+					...(input.includeMessages !== undefined
+						? { includeMessages: input.includeMessages }
+						: {}),
+					...(input.messageLimit !== undefined
+						? { messageLimit: input.messageLimit }
+						: {}),
+					...(request
+						? {
+								workspaceRoot: request.workspaceRoot,
+								cwd: request.cwd,
+								sessionConfig: {
+									...(plannedSessionId
+										? { sessionId: plannedSessionId }
+										: {}),
+									providerId: request.provider,
+									modelId: request.model,
+									apiKey: request.apiKey,
+									cwd: request.cwd ?? request.workspaceRoot,
+									workspaceRoot: request.workspaceRoot,
+									systemPrompt: request.systemPrompt ?? "",
+									mode: request.mode ?? "act",
+									rules: request.rules,
+									maxIterations: request.maxIterations,
+									enableTools: request.enableTools,
+									enableSpawnAgent: request.enableSpawn !== false,
+									enableAgentTeams: request.enableTeams !== false,
+									disableMcpSettingsTools: request.disableMcpSettingsTools,
+									missionLogIntervalSteps: request.missionStepInterval,
+									missionLogIntervalMs: request.missionTimeIntervalMs,
+								},
+								runtimeOptions: {
+									mode: request.mode,
+									systemPrompt: request.systemPrompt,
+									maxIterations: request.maxIterations,
+									enableTools: request.enableTools,
+									enableSpawn: request.enableSpawn,
+									enableTeams: request.enableTeams,
+									autoApproveTools: request.autoApproveTools,
+									toolExecutors: request.toolExecutors,
+									configExtensions: request.configExtensions,
+									...(clientContributions.manifest.length > 0
+										? { clientContributions: clientContributions.manifest }
+										: {}),
+								},
+								modelSelection: {
+									provider: request.provider,
+									model: request.model,
+									apiKey: request.apiKey,
+								},
+								toolPolicies: request.toolPolicies,
+							}
+						: clientContributions.manifest.length > 0
+							? {
+									runtimeOptions: {
+										clientContributions: clientContributions.manifest,
+									},
+								}
+						: {}),
+					metadata: {
+						...(input.metadata ?? {}),
+						...(request
+							? {
+									source: request.source ?? "cli",
+									provider: request.provider,
+									model: request.model,
+									enableTools: request.enableTools,
+									enableSpawn: request.enableSpawn,
+									enableTeams: request.enableTeams,
+									interactive: request.interactive !== false,
+								}
+							: {}),
+					},
+				},
+				sourceSessionId,
+			);
+		} catch (error) {
+			if (plannedSessionId && clientContributions.handlers.size > 0) {
+				this.cleanupSessionContributions(plannedSessionId);
+			}
+			throw error;
+		}
+		const row = extractSessionRow(reply.payload);
+		if (!row?.sessionId) {
+			if (plannedSessionId && clientContributions.handlers.size > 0) {
+				this.cleanupSessionContributions(plannedSessionId);
+			}
+			throw new Error("hub session fork returned no session id");
+		}
+		if (
+			plannedSessionId &&
+			clientContributions.handlers.size > 0 &&
+			row.sessionId !== plannedSessionId
+		) {
+			this.cleanupSessionContributions(plannedSessionId);
+			this.registerSessionContributions(
+				row.sessionId,
+				clientContributions.handlers,
+			);
+		}
+		return {
+			...(reply.payload ?? {}),
+			sourceSessionId,
+			session: reply.payload?.session as HubSessionForkResponse["session"],
+			snapshot: reply.payload?.snapshot,
+			messageCount:
+				typeof reply.payload?.messageCount === "number"
+					? reply.payload.messageCount
+					: 0,
 		};
 	}
 
