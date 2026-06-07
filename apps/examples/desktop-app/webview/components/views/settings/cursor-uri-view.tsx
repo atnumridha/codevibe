@@ -70,6 +70,9 @@ export type CursorSettingsOpenRequest = {
 	sourceParam?: string;
 };
 
+type CursorLaunchMode = "plan" | "act";
+type CursorLaunchDelivery = "queue" | "steer";
+
 function previewString(
 	preview: CursorUriPreviewResponse | undefined,
 	key: string,
@@ -239,6 +242,11 @@ export function CursorUriView({
 	const [gitAction, setGitAction] = useState<
 		CursorGitActionResponse | undefined
 	>();
+	const [launchMode, setLaunchMode] = useState<CursorLaunchMode>("plan");
+	const [launchDelivery, setLaunchDelivery] =
+		useState<CursorLaunchDelivery>("queue");
+	const [launchToolsEnabled, setLaunchToolsEnabled] = useState(true);
+	const [launchAutoApproveTools, setLaunchAutoApproveTools] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [previewing, setPreviewing] = useState(false);
 	const [launching, setLaunching] = useState(false);
@@ -297,6 +305,20 @@ export function CursorUriView({
 		[preview],
 	);
 	const canLaunch = isLaunchablePreview(preview);
+	const backgroundLaunchPreview =
+		route === "background-agent" || path === "/background-agent";
+	const effectiveLaunchMode: CursorLaunchMode = backgroundLaunchPreview
+		? "plan"
+		: launchMode;
+	const effectiveLaunchDelivery: CursorLaunchDelivery = backgroundLaunchPreview
+		? "queue"
+		: launchDelivery;
+	const effectiveLaunchToolsEnabled = backgroundLaunchPreview
+		? true
+		: launchToolsEnabled;
+	const effectiveLaunchAutoApproveTools = backgroundLaunchPreview
+		? false
+		: launchAutoApproveTools;
 	const canIngest = isAutomationIngestPreview(preview);
 	const canInstallMcp = isMcpInstallPreview(preview);
 	const canOpenSettings = isSettingsPreview(preview) && Boolean(onOpenSettings);
@@ -422,7 +444,12 @@ export function CursorUriView({
 				confirmed: true,
 				provider: DEFAULT_CODEVIBE_PROVIDER_ID,
 				model: DEFAULT_CODEVIBE_MODEL_ID,
-				mode: "plan",
+				mode: effectiveLaunchMode,
+				delivery: effectiveLaunchDelivery,
+				enableTools: effectiveLaunchToolsEnabled,
+				enableSpawn: false,
+				enableTeams: false,
+				autoApproveTools: effectiveLaunchAutoApproveTools,
 			});
 			setLaunch(result);
 			if (result.preview) {
@@ -1036,6 +1063,71 @@ export function CursorUriView({
 							value={uri}
 						/>
 					</div>
+					{canLaunch ? (
+						<div className="flex flex-wrap items-center gap-2">
+							<div className="flex rounded-md border border-border/70 p-0.5">
+								{(["plan", "act"] as const).map((mode) => (
+									<Button
+										aria-pressed={effectiveLaunchMode === mode}
+										className="h-7 px-2 text-xs"
+										disabled={isBusy || backgroundLaunchPreview}
+										key={mode}
+										onClick={() => setLaunchMode(mode)}
+										size="sm"
+										type="button"
+										variant={
+											effectiveLaunchMode === mode ? "secondary" : "ghost"
+										}
+									>
+										{mode === "plan" ? "Plan" : "Act"}
+									</Button>
+								))}
+							</div>
+							<div className="flex rounded-md border border-border/70 p-0.5">
+								{(["queue", "steer"] as const).map((delivery) => (
+									<Button
+										aria-pressed={effectiveLaunchDelivery === delivery}
+										className="h-7 px-2 text-xs"
+										disabled={isBusy || backgroundLaunchPreview}
+										key={delivery}
+										onClick={() => setLaunchDelivery(delivery)}
+										size="sm"
+										type="button"
+										variant={
+											effectiveLaunchDelivery === delivery
+												? "secondary"
+												: "ghost"
+										}
+									>
+										{delivery === "queue" ? "Queue" : "Steer"}
+									</Button>
+								))}
+							</div>
+							<div className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5">
+								<Switch
+									aria-label="Enable launch tools"
+									checked={effectiveLaunchToolsEnabled}
+									disabled={isBusy || backgroundLaunchPreview}
+									onCheckedChange={setLaunchToolsEnabled}
+								/>
+								<span className="text-xs text-muted-foreground">Tools</span>
+							</div>
+							<div className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5">
+								<Switch
+									aria-label="Auto approve launch tools"
+									checked={effectiveLaunchAutoApproveTools}
+									disabled={isBusy || backgroundLaunchPreview}
+									onCheckedChange={setLaunchAutoApproveTools}
+								/>
+								<span className="text-xs text-muted-foreground">
+									Auto approve
+								</span>
+							</div>
+							{backgroundLaunchPreview ? (
+								<Badge variant="outline">Safe background defaults</Badge>
+							) : null}
+						</div>
+					) : null}
 					<div className="flex flex-wrap gap-2">
 						<Button
 							disabled={isBusy}
@@ -1156,11 +1248,13 @@ export function CursorUriView({
 					<Alert>
 						<CheckCircle2 className="size-4" />
 						<AlertTitle>
-							Queued {launch.backgroundAgent ? "background session" : "session"}{" "}
+							{launch.queued ? "Queued" : "Steered"}{" "}
+							{launch.backgroundAgent ? "background session" : "session"}{" "}
 							{launch.sessionId}
 						</AlertTitle>
 						<AlertDescription>
-							{launch.provider}/{launch.model} | {launch.mode}
+							{launch.provider}/{launch.model} | {launch.mode} |{" "}
+							{launch.queued ? "queue" : "steer"}
 							{launchContext ? ` | ${launchContext}` : ""}
 						</AlertDescription>
 					</Alert>

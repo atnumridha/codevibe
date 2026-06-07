@@ -79,6 +79,8 @@ type Theme = "dark" | "light";
 type GlobalSettingsResponse = {
 	telemetryOptOut: boolean;
 };
+type CursorLaunchMode = "plan" | "act";
+type CursorLaunchDelivery = "queue" | "steer";
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
 	return value && typeof value === "object" && !Array.isArray(value)
@@ -694,6 +696,11 @@ function CursorLinksContent({
 	const [pluginError, setPluginError] = useState<string | null>(null);
 	const [pluginLoading, setPluginLoading] = useState(false);
 	const [pluginForce, setPluginForce] = useState(false);
+	const [launchMode, setLaunchMode] = useState<CursorLaunchMode>("plan");
+	const [launchDelivery, setLaunchDelivery] =
+		useState<CursorLaunchDelivery>("queue");
+	const [launchToolsEnabled, setLaunchToolsEnabled] = useState(true);
+	const [launchAutoApproveTools, setLaunchAutoApproveTools] = useState(false);
 	const [gitResult, setGitResult] = useState<
 		CursorGitActionResponse | undefined
 	>();
@@ -720,6 +727,20 @@ function CursorLinksContent({
 			Boolean(path) &&
 			(CURSOR_LAUNCHABLE_AGENT_PATHS.has(path ?? "") ||
 				(route === "command-file" && path === "/command")));
+	const backgroundLaunchPreview =
+		route === "background-agent" || path === "/background-agent";
+	const effectiveLaunchMode: CursorLaunchMode = backgroundLaunchPreview
+		? "plan"
+		: launchMode;
+	const effectiveLaunchDelivery: CursorLaunchDelivery = backgroundLaunchPreview
+		? "queue"
+		: launchDelivery;
+	const effectiveLaunchToolsEnabled = backgroundLaunchPreview
+		? true
+		: launchToolsEnabled;
+	const effectiveLaunchAutoApproveTools = backgroundLaunchPreview
+		? false
+		: launchAutoApproveTools;
 	const canIngestAutomation =
 		route === "automation-ingest" &&
 		recordBoolean(previewRecord, "requiresConfirmation") === true &&
@@ -859,6 +880,12 @@ function CursorLinksContent({
 			const result = await desktopClient.launchCursorUri({
 				uri,
 				confirmed: true,
+				mode: effectiveLaunchMode,
+				delivery: effectiveLaunchDelivery,
+				enableTools: effectiveLaunchToolsEnabled,
+				enableSpawn: false,
+				enableTeams: false,
+				autoApproveTools: effectiveLaunchAutoApproveTools,
 				maxCommandFileBytes: 64 * 1024,
 				maxRuleFileBytes: 64 * 1024,
 			});
@@ -999,6 +1026,73 @@ function CursorLinksContent({
 							placeholder="vscode://cline.cline/createchat?prompt=..."
 							value={cursorUri}
 						/>
+						{canLaunchCursorUri ? (
+							<div className="flex flex-wrap items-center gap-2">
+								<div className="flex rounded-md border border-border/70 p-0.5">
+									{(["plan", "act"] as const).map((mode) => (
+										<Button
+											aria-pressed={effectiveLaunchMode === mode}
+											className="h-7 px-2 text-xs"
+											disabled={launchLoading || backgroundLaunchPreview}
+											key={mode}
+											onClick={() => setLaunchMode(mode)}
+											size="sm"
+											type="button"
+											variant={
+												effectiveLaunchMode === mode
+													? "secondary"
+													: "ghost"
+											}
+										>
+											{mode === "plan" ? "Plan" : "Act"}
+										</Button>
+									))}
+								</div>
+								<div className="flex rounded-md border border-border/70 p-0.5">
+									{(["queue", "steer"] as const).map((delivery) => (
+										<Button
+											aria-pressed={effectiveLaunchDelivery === delivery}
+											className="h-7 px-2 text-xs"
+											disabled={launchLoading || backgroundLaunchPreview}
+											key={delivery}
+											onClick={() => setLaunchDelivery(delivery)}
+											size="sm"
+											type="button"
+											variant={
+												effectiveLaunchDelivery === delivery
+													? "secondary"
+													: "ghost"
+											}
+										>
+											{delivery === "queue" ? "Queue" : "Steer"}
+										</Button>
+									))}
+								</div>
+								<div className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5">
+									<Switch
+										aria-label="Enable launch tools"
+										checked={effectiveLaunchToolsEnabled}
+										disabled={launchLoading || backgroundLaunchPreview}
+										onCheckedChange={setLaunchToolsEnabled}
+									/>
+									<span className="text-xs text-muted-foreground">Tools</span>
+								</div>
+								<div className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5">
+									<Switch
+										aria-label="Auto approve launch tools"
+										checked={effectiveLaunchAutoApproveTools}
+										disabled={launchLoading || backgroundLaunchPreview}
+										onCheckedChange={setLaunchAutoApproveTools}
+									/>
+									<span className="text-xs text-muted-foreground">
+										Auto approve
+									</span>
+								</div>
+								{backgroundLaunchPreview ? (
+									<Badge variant="outline">Safe background defaults</Badge>
+								) : null}
+							</div>
+						) : null}
 						<div className="flex flex-wrap gap-2">
 							<Button
 								disabled={previewLoading}
@@ -1156,7 +1250,8 @@ function CursorLinksContent({
 								launchResult.backgroundAgent ? "background" : "",
 								launchResult.glass ? "glass" : "",
 								`${launchResult.provider}/${launchResult.model}`,
-								launchResult.queued ? "queued" : "",
+								launchResult.mode,
+								launchResult.queued ? "queued" : "steered",
 							]
 								.filter(Boolean)
 								.join(" | ")}
