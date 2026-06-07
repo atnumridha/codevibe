@@ -35,10 +35,13 @@ describe("SharedUriHandler", () => {
 	let openFileStub: sinon.SinonStub
 	let getWorkspacePathsStub: sinon.SinonStub
 	let workspaceDir: string
+	let previousCodeVibeCursorHome: string | undefined
 
 	beforeEach(async () => {
 		sandbox = sinon.createSandbox()
 		workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "cline-uri-workspace-"))
+		previousCodeVibeCursorHome = process.env.CODEVIBE_CURSOR_HOME
+		delete process.env.CODEVIBE_CURSOR_HOME
 
 		// Mock Logger methods to avoid HostProvider dependency
 		sandbox.stub(Logger, "info").returns()
@@ -121,6 +124,11 @@ describe("SharedUriHandler", () => {
 
 	afterEach(async () => {
 		sandbox.restore()
+		if (previousCodeVibeCursorHome === undefined) {
+			delete process.env.CODEVIBE_CURSOR_HOME
+		} else {
+			process.env.CODEVIBE_CURSOR_HOME = previousCodeVibeCursorHome
+		}
 		if (workspaceDir) {
 			await fs.rm(workspaceDir, { recursive: true, force: true })
 		}
@@ -836,6 +844,71 @@ describe("SharedUriHandler", () => {
 					expect(prompt).to.contain("Review the second workspace diff.")
 				} finally {
 					await fs.rm(secondWorkspaceDir, { recursive: true, force: true })
+				}
+			})
+
+			it("should create a task from a global Cursor custom command file", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+				const cursorHome = await fs.mkdtemp(path.join(os.tmpdir(), "cline-uri-cursor-home-"))
+				process.env.CODEVIBE_CURSOR_HOME = cursorHome
+				try {
+					const commandsDir = path.join(cursorHome, ".cursor", "commands")
+					await fs.mkdir(commandsDir, { recursive: true })
+					await fs.writeFile(
+						path.join(commandsDir, "review-code.md"),
+						"Review the global command target.",
+						"utf8",
+					)
+
+					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+
+					expect(result).to.be.true
+					expect(showMessageStub.firstCall.args[0].options.detail).to.contain("~/.cursor/commands/review-code.md")
+					expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain(cursorHome)
+					sinon.assert.calledOnce(handleTaskCreationStub)
+					const prompt = handleTaskCreationStub.firstCall.args[0]
+					expect(prompt).to.contain("global command file")
+					expect(prompt).to.contain("~/.cursor/commands/review-code.md")
+					expect(prompt).to.contain("Review the global command target.")
+					expect(prompt).not.to.contain(cursorHome)
+				} finally {
+					await fs.rm(cursorHome, { recursive: true, force: true })
+				}
+			})
+
+			it("should prefer workspace Cursor custom commands over global commands", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+				const cursorHome = await fs.mkdtemp(path.join(os.tmpdir(), "cline-uri-cursor-home-"))
+				process.env.CODEVIBE_CURSOR_HOME = cursorHome
+				try {
+					const workspaceCommandsDir = path.join(workspaceDir, ".cursor", "commands")
+					const globalCommandsDir = path.join(cursorHome, ".cursor", "commands")
+					await fs.mkdir(workspaceCommandsDir, { recursive: true })
+					await fs.mkdir(globalCommandsDir, { recursive: true })
+					await fs.writeFile(
+						path.join(workspaceCommandsDir, "review-code.md"),
+						"Review the workspace command target.",
+						"utf8",
+					)
+					await fs.writeFile(
+						path.join(globalCommandsDir, "review-code.md"),
+						"SHOULD_NOT_LOAD_GLOBAL_COMMAND",
+						"utf8",
+					)
+
+					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+
+					expect(result).to.be.true
+					sinon.assert.calledOnce(handleTaskCreationStub)
+					const prompt = handleTaskCreationStub.firstCall.args[0]
+					expect(prompt).to.contain("workspace command file")
+					expect(prompt).to.contain("Review the workspace command target.")
+					expect(prompt).not.to.contain("SHOULD_NOT_LOAD_GLOBAL_COMMAND")
+					expect(prompt).not.to.contain(cursorHome)
+				} finally {
+					await fs.rm(cursorHome, { recursive: true, force: true })
 				}
 			})
 

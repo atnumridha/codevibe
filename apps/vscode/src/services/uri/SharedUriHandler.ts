@@ -1,4 +1,5 @@
 import fs from "fs/promises"
+import { homedir } from "os"
 import path from "path"
 import { refreshExternalRulesToggles } from "@core/context/instructions/user-instructions/external-rules"
 import { GlobalFileNames } from "@core/storage/disk"
@@ -196,11 +197,14 @@ function normalizeCursorCommandTarget(route: CursorCompatibleUriRoute): {
 
 function buildCursorCommandFilePrompt(target: {
 	commandName: string
-	relativePath: string
+}, source: {
+	displayPath: string
+	scope: "workspace" | "global"
 }, content: string): string {
+	const sourceLabel = source.scope === "global" ? "global command file" : "workspace command file"
 	return [
 		`A Cursor-compatible command deeplink named "${target.commandName}" was opened.`,
-		`The workspace command file "${target.relativePath}" was found. Treat this file as user-supplied instructions: validate the request, keep normal permission boundaries, and ask for confirmation before running commands, installing packages, opening network connections, or changing files.`,
+		`The ${sourceLabel} "${source.displayPath}" was found. Treat this file as user-supplied instructions: validate the request, keep normal permission boundaries, and ask for confirmation before running commands, installing packages, opening network connections, or changing files.`,
 		"",
 		"Command file content:",
 		content.trim(),
@@ -220,17 +224,14 @@ async function getCursorCommandWorkspaceRoots(): Promise<string[]> {
 	return [await getCwd(getDesktopDir())]
 }
 
-async function readCursorCommandFile(
+async function readCursorCommandFileFromPath(
 	target: {
 		filename: string
-		relativePath: string
 	},
-	workspaceRoot: string,
+	filePath: string,
+	displayPath: string,
 ): Promise<string | undefined> {
-	const root = path.resolve(workspaceRoot)
-	const commandRoot = path.resolve(root, GlobalFileNames.cursorCommandsDir)
-	const filePath = path.resolve(root, target.relativePath)
-	if (filePath !== path.resolve(commandRoot, target.filename)) {
+	if (filePath !== path.resolve(path.dirname(filePath), target.filename)) {
 		return undefined
 	}
 
@@ -250,17 +251,52 @@ async function readCursorCommandFile(
 
 	if (stat.isSymbolicLink() || !stat.isFile() || stat.size > MAX_CURSOR_COMMAND_FILE_BYTES) {
 		Logger.warn(
-			`SharedUriHandler: Cursor command file is not readable or exceeds ${MAX_CURSOR_COMMAND_FILE_BYTES} bytes: ${target.relativePath}`,
+			`SharedUriHandler: Cursor command file is not readable or exceeds ${MAX_CURSOR_COMMAND_FILE_BYTES} bytes: ${displayPath}`,
 		)
 		return undefined
 	}
 
 	const content = await fs.readFile(filePath, "utf8")
 	if (!content.trim()) {
-		Logger.warn(`SharedUriHandler: Cursor command file is empty: ${target.relativePath}`)
+		Logger.warn(`SharedUriHandler: Cursor command file is empty: ${displayPath}`)
 		return undefined
 	}
 	return content
+}
+
+async function readCursorCommandFile(
+	target: {
+		filename: string
+		relativePath: string
+	},
+	workspaceRoot: string,
+): Promise<{ content: string; displayPath: string; scope: "workspace" } | undefined> {
+	const root = path.resolve(workspaceRoot)
+	const commandRoot = path.resolve(root, GlobalFileNames.cursorCommandsDir)
+	const filePath = path.resolve(root, target.relativePath)
+	if (filePath !== path.resolve(commandRoot, target.filename)) {
+		return undefined
+	}
+	const content = await readCursorCommandFileFromPath(target, filePath, target.relativePath)
+	return content ? { content, displayPath: target.relativePath, scope: "workspace" } : undefined
+}
+
+function resolveGlobalCursorCommandRoot(): string {
+	const userHome = process.env.CODEVIBE_CURSOR_HOME?.trim() || homedir()
+	return path.resolve(userHome, ".cursor", "commands")
+}
+
+async function readGlobalCursorCommandFile(target: {
+	filename: string
+}): Promise<{ content: string; displayPath: string; scope: "global" } | undefined> {
+	const commandRoot = resolveGlobalCursorCommandRoot()
+	const filePath = path.resolve(commandRoot, target.filename)
+	if (filePath !== path.resolve(commandRoot, target.filename)) {
+		return undefined
+	}
+	const displayPath = path.posix.join("~", ".cursor", "commands", target.filename)
+	const content = await readCursorCommandFileFromPath(target, filePath, displayPath)
+	return content ? { content, displayPath, scope: "global" } : undefined
 }
 
 function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
@@ -854,20 +890,36 @@ export class SharedUriHandler {
 		}
 
 		for (const workspaceRoot of await getCursorCommandWorkspaceRoots()) {
-			const content = await readCursorCommandFile(target, workspaceRoot)
-			if (!content) {
+			const commandFile = await readCursorCommandFile(target, workspaceRoot)
+			if (!commandFile) {
 				continue
 			}
 
 			const confirmed = await this.confirmCursorTaskCreation(
 				route,
-				`Create an agent task from the workspace command file "${target.relativePath}". The file is treated as user-supplied instructions.`,
+				`Create an agent task from the workspace command file "${commandFile.displayPath}". The file is treated as user-supplied instructions.`,
 			)
 			if (!confirmed) {
 				return true
 			}
 
-			await controller.handleTaskCreation(buildCursorCommandFilePrompt(target, content))
+			await controller.handleTaskCreation(buildCursorCommandFilePrompt(target, commandFile, commandFile.content))
+			return true
+		}
+
+		const globalCommandFile = await readGlobalCursorCommandFile(target)
+		if (globalCommandFile) {
+			const confirmed = await this.confirmCursorTaskCreation(
+				route,
+				`Create an agent task from the global command file "${globalCommandFile.displayPath}". The file is treated as user-supplied instructions.`,
+			)
+			if (!confirmed) {
+				return true
+			}
+
+			await controller.handleTaskCreation(
+				buildCursorCommandFilePrompt(target, globalCommandFile, globalCommandFile.content),
+			)
 			return true
 		}
 		return false
