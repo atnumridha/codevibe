@@ -1,8 +1,58 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { ProviderSettings } from "@cline/core";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { isProviderSettingsUsable } from "./provider-readiness";
 
+const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
+
+function makeJwt(payload: Record<string, unknown>): string {
+	return [
+		Buffer.from(JSON.stringify({ alg: "none" })).toString("base64url"),
+		Buffer.from(JSON.stringify(payload)).toString("base64url"),
+		"signature",
+	].join(".");
+}
+
+function createCodexHomeAuth(): string {
+	const root = join(
+		tmpdir(),
+		`codevibe-cli-codex-home-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
+	mkdirSync(root, { recursive: true });
+	const accessToken = makeJwt({
+		exp: Math.floor(Date.now() / 1000) + 3600,
+		email: "codex@example.com",
+		"https://api.openai.com/auth": {
+			chatgpt_account_id: "acct_codex_home",
+		},
+	});
+	writeFileSync(
+		join(root, "auth.json"),
+		JSON.stringify({
+			tokens: {
+				access_token: accessToken,
+				refresh_token: "refresh-secret",
+			},
+		}),
+		"utf8",
+	);
+	return root;
+}
+
 describe("provider readiness", () => {
+	afterEach(() => {
+		if (process.env.CODEX_HOME?.includes("codevibe-cli-codex-home-")) {
+			rmSync(process.env.CODEX_HOME, { recursive: true, force: true });
+		}
+		if (ORIGINAL_CODEX_HOME === undefined) {
+			delete process.env.CODEX_HOME;
+		} else {
+			process.env.CODEX_HOME = ORIGINAL_CODEX_HOME;
+		}
+	});
+
 	it("rejects missing and mismatched provider settings", () => {
 		expect(isProviderSettingsUsable("anthropic", undefined)).toBe(false);
 		expect(
@@ -26,6 +76,27 @@ describe("provider readiness", () => {
 				auth: { accessToken: "token" },
 			} satisfies ProviderSettings),
 		).toBe(true);
+	});
+
+	it("accepts Codex Home auth for OpenAI Codex without saved provider settings", () => {
+		process.env.CODEX_HOME = createCodexHomeAuth();
+
+		expect(isProviderSettingsUsable("openai-codex", undefined)).toBe(true);
+		expect(
+			isProviderSettingsUsable("openai-codex", {
+				provider: "openai-codex",
+				model: "gpt-5.3-codex",
+			} satisfies ProviderSettings),
+		).toBe(true);
+	});
+
+	it("ignores malformed Codex Home auth when checking provider readiness", () => {
+		const root = join(tmpdir(), `codevibe-cli-codex-home-${Date.now()}-bad`);
+		mkdirSync(root, { recursive: true });
+		writeFileSync(join(root, "auth.json"), "{not json", "utf8");
+		process.env.CODEX_HOME = root;
+
+		expect(isProviderSettingsUsable("openai-codex", undefined)).toBe(false);
 	});
 
 	it("accepts manual API keys for API-key providers", () => {

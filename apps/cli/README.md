@@ -81,6 +81,8 @@ cline auth --provider anthropic --apikey sk-... --modelid claude-sonnet-4-6
 
 OAuth-supported providers (`cline`, `openai-codex`, `oca`) do not auto-launch a browser on normal startup. Authenticate explicitly first with `cline auth <provider>`. For non-interactive runs, if an OAuth provider is selected and no saved credentials are available, `cline` fails fast with an authentication message instead of launching a hidden browser flow.
 
+For `openai-codex`, the CLI also reuses Codex Home credentials from `~/.codex/auth.json` (or `CODEX_HOME`) when provider settings have not been saved yet.
+
 ## Modes
 
 Cline CLI runs in a few different shapes depending on what you need:

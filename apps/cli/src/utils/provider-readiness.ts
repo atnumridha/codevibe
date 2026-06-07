@@ -1,5 +1,6 @@
 import {
 	getProviderConfigFields,
+	loadOpenAICodexHomeCredentialsSync,
 	type ProviderConfig,
 	type ProviderSettings,
 } from "@cline/core";
@@ -11,6 +12,14 @@ import {
 
 function hasText(value: string | undefined): boolean {
 	return typeof value === "string" && value.trim().length > 0;
+}
+
+export function hasOpenAICodexHomeCredentials(): boolean {
+	try {
+		return Boolean(loadOpenAICodexHomeCredentialsSync());
+	} catch {
+		return false;
+	}
 }
 
 function hasAwsCredentials(settings: ProviderSettings): boolean {
@@ -55,10 +64,13 @@ export function isProviderSettingsUsable(
 	settings: ProviderSettings | undefined,
 	config?: Pick<ProviderConfig, "baseUrl" | "modelId">,
 ): boolean {
-	if (!settings) {
-		return false;
-	}
 	const normalizedProviderId = normalizeProviderId(providerId);
+	if (!settings) {
+		return (
+			normalizedProviderId === "openai-codex" &&
+			hasOpenAICodexHomeCredentials()
+		);
+	}
 	if (normalizeProviderId(settings.provider) !== normalizedProviderId) {
 		return false;
 	}
@@ -76,7 +88,10 @@ export function isProviderSettingsUsable(
 		return true;
 	}
 	if (isOAuthProvider(normalizedProviderId)) {
-		return false;
+		return (
+			normalizedProviderId === "openai-codex" &&
+			hasOpenAICodexHomeCredentials()
+		);
 	}
 	const fields = getProviderConfigFields(normalizedProviderId);
 	if (fields.authMethod === "local") {
