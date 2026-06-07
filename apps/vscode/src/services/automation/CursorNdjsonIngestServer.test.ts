@@ -95,6 +95,48 @@ describe("CursorNdjsonIngestServer", () => {
 		expect(stored).to.contain("evt-raw-1")
 	})
 
+	it("ingests JSON config bodies posted to the root endpoint", async () => {
+		const status = await server.start({ port: 0, bindAddress: "127.0.0.1" })
+		const ndjson = JSON.stringify({
+			id: "evt-config-1",
+			type: "git.commit.created",
+			payload: { branch: "main" },
+		})
+
+		const response = await request(`${status.url}/`, {
+			method: "POST",
+			body: JSON.stringify({
+				config: {
+					ndjson,
+					defaultSource: "github",
+					maxEvents: 1,
+				},
+			}),
+			headers: {
+				"content-type": "application/json",
+				"x-debug-session-id": status.sessionId ?? "",
+			},
+		})
+		const result = JSON.parse(response.body)
+
+		expect(response.statusCode).to.equal(200)
+		expect(result).to.deep.include({
+			accepted: 1,
+			rejected: 0,
+			stored: 1,
+			strictFailed: false,
+			defaultSource: "github",
+			maxEvents: 1,
+		})
+		expect(result.paramKeys).to.deep.equal([])
+		expect(result.configKeys).to.deep.equal(["defaultSource", "maxEvents", "ndjson"])
+		expect(result.events[0]).to.deep.include({
+			eventId: "evt-config-1",
+			eventType: "git.commit.created",
+			source: "github",
+		})
+	})
+
 	it("rejects ingest requests without the debug session header", async () => {
 		const status = await server.start({ port: 0, bindAddress: "127.0.0.1" })
 		const ndjson = JSON.stringify({
