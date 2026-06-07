@@ -204,7 +204,7 @@ const GLM_RULES_TEMPLATE = (context: SystemPromptContext) => `RULES
 - Before execute_command, consider SYSTEM INFORMATION and compatibility. If a command must run outside {{CWD}}, run it as a single command prefixed by cd <target> && <command> (e.g., cd /path && npm install).
 - Consider project type (Python/JS/web, etc.) when structuring files. Check manifests to infer dependencies relevant to generated code.
 - Make changes in context of the codebase; follow project standards and best practices.
-- To modify files, call replace_in_file directly; no need to preview diffs before using the tool.
+- When editing existing files, inspect the relevant context first, use replace_in_file with minimal SEARCH/REPLACE blocks, review the returned diff/result before continuing, and re-read the file before retrying stale or failed edits.
 - Use Markdown semantically only (e.g., inline code, code fences, lists, tables). Backtick file/dir/function/class names. Use for inline math and for block math.
 - ${context.yoloModeToggled !== true ? "Ask questions only via ask_followup_question when details are required to proceed; otherwise prefer using tools. Example: if a file may be on the Desktop, use list_files to find it rather than asking the user." : "Use tools and best judgment to complete the task without follow-up questions, making reasonable assumptions from context."}${context.yoloModeToggled !== true ? "\n- If the request is vague, use ask_followup_question to clarify. If intent can be inferred from context/tools, proceed without unnecessary questions." : ""}
 - If command output doesn't appear, assume success and continue.${context.yoloModeToggled !== true ? " If you must see output, use ask_followup_question to request a pasted log." : ""}
