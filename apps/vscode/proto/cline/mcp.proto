@@ -19,7 +19,7 @@ service McpService {
   rpc toggleToolAutoApprove(ToggleToolAutoApproveRequest) returns (McpServers);
   rpc refreshMcpMarketplace(EmptyRequest) returns (McpMarketplaceCatalog);
   rpc openMcpSettings(EmptyRequest) returns (Empty);
-  rpc authenticateMcpServer(StringRequest) returns (Empty);
+  rpc authenticateMcpServer(StringRequest) returns (McpServerAuthResponse);
 
   // Subscribe to MCP marketplace catalog updates
   rpc subscribeToMcpMarketplaceCatalog(EmptyRequest) returns (stream McpMarketplaceCatalog);
@@ -64,6 +64,15 @@ message CursorMcpServerInstallResponse {
   optional string oauth_auth_status = 7;
   optional string oauth_next_action = 8;
   optional string oauth_detail = 9;
+}
+
+message McpServerAuthResponse {
+  bool initiated = 1;
+  string server_name = 2;
+  optional bool oauth_required = 3;
+  optional string oauth_auth_status = 4;
+  optional string detail = 5;
+  optional string error = 6;
 }
 
 message ToggleToolAutoApproveRequest {
