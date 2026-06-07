@@ -658,6 +658,13 @@ describe("hub Cursor URI launch command", () => {
 				uri: `vscode://cline.cline/background-agent?task=Fix%20the%20queue&repo=owner%2Frepo&branch=feature%2Fsafe&baseBranch=main&config=${config}`,
 				workspaceRoot: "/workspace/repo",
 				confirmed: true,
+				mode: "act",
+				enableTools: false,
+				enableSpawn: true,
+				enableTeams: true,
+				autoApproveTools: true,
+				delivery: "steer",
+				timeoutMs: 5_000,
 			},
 		});
 
@@ -729,6 +736,66 @@ describe("hub Cursor URI launch command", () => {
 				prompt: expect.stringContaining("Fix the queue"),
 				mode: "plan",
 				delivery: "queue",
+				timeoutMs: 5_000,
+			}),
+		);
+	});
+
+	it("launches confirmed task deeplinks with explicit act steering options", async () => {
+		const { transport, startSession, runTurn } = createLaunchTransport();
+
+		const reply = await transport.handleCommand({
+			version: "v1",
+			command: "cursor.uri.launch",
+			requestId: "req-launch-createchat-act",
+			clientId: "client-one",
+			payload: {
+				uri: "vscode://cline.cline/createchat?prompt=Run%20the%20edit",
+				workspaceRoot: "/workspace/repo",
+				confirmed: true,
+				mode: "act",
+				enableTools: false,
+				enableSpawn: true,
+				enableTeams: true,
+				autoApproveTools: true,
+				delivery: "steer",
+				timeoutMs: 7_500,
+			},
+		});
+
+		expect(reply).toMatchObject({
+			ok: true,
+			payload: {
+				handled: true,
+				launched: true,
+				route: "createchat",
+				path: "/createchat",
+				mode: "act",
+				queued: false,
+				backgroundAgent: false,
+			},
+		});
+		expect(startSession).toHaveBeenCalledTimes(1);
+		expect(runTurn).toHaveBeenCalledTimes(1);
+
+		const startInput = startSession.mock.calls[0]?.[0] as Record<string, unknown>;
+		const startConfig = startInput.config as Record<string, unknown>;
+		expect(startConfig).toMatchObject({
+			mode: "act",
+			enableTools: false,
+			enableSpawnAgent: true,
+			enableAgentTeams: true,
+			workspaceRoot: "/workspace/repo",
+			cwd: "/workspace/repo",
+		});
+		expect(startInput.toolPolicies).toBeUndefined();
+		expect(runTurn).toHaveBeenCalledWith(
+			expect.objectContaining({
+				sessionId: startConfig.sessionId,
+				prompt: "Run the edit",
+				mode: "act",
+				delivery: "steer",
+				timeoutMs: 7_500,
 			}),
 		);
 	});

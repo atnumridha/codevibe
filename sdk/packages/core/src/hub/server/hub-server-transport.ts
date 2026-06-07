@@ -1988,9 +1988,16 @@ export class HubServerTransport implements NativeHubTransport {
 			}
 			const provider = input.provider ?? "openai-codex";
 			const model = input.model ?? "gpt-5.5";
-			const mode = input.mode ?? "plan";
 			const metadata = buildCursorLaunchMetadata(preview);
 			const backgroundAgent = metadata.backgroundAgent === true;
+			const mode = backgroundAgent ? "plan" : (input.mode ?? "plan");
+			const enableTools = backgroundAgent ? true : (input.enableTools ?? true);
+			const enableSpawn = backgroundAgent ? false : (input.enableSpawn ?? false);
+			const enableTeams = backgroundAgent ? false : (input.enableTeams ?? false);
+			const autoApproveTools = backgroundAgent
+				? false
+				: (input.autoApproveTools ?? false);
+			const delivery = backgroundAgent ? "queue" : (input.delivery ?? "queue");
 			const plannedSessionId = createSessionId();
 			const backgroundAgentDetails = backgroundAgent
 				? {
@@ -2023,23 +2030,22 @@ export class HubServerTransport implements NativeHubTransport {
 							workspaceRoot,
 							cwd: workspaceRoot,
 							mode,
-							enableTools: input.enableTools ?? true,
-							enableSpawnAgent: input.enableSpawn ?? false,
-							enableAgentTeams: input.enableTeams ?? false,
+							enableTools,
+							enableSpawnAgent: enableSpawn,
+							enableAgentTeams: enableTeams,
 						},
 						metadata: sessionMetadata,
 						runtimeOptions: {
 							mode,
-							enableTools: input.enableTools ?? true,
-							enableSpawn: input.enableSpawn ?? false,
-							enableTeams: input.enableTeams ?? false,
-							autoApproveTools: input.autoApproveTools ?? false,
+							enableTools,
+							enableSpawn,
+							enableTeams,
+							autoApproveTools,
 						},
 						modelSelection: { provider, model },
-						toolPolicies:
-							input.autoApproveTools === true
-								? undefined
-								: cursorLaunchToolPolicies(),
+						toolPolicies: autoApproveTools
+							? undefined
+							: cursorLaunchToolPolicies(),
 					},
 				},
 				(request) => requestToolApprovalHandler(this.ctx, request),
@@ -2060,7 +2066,7 @@ export class HubServerTransport implements NativeHubTransport {
 					sessionId,
 					prompt: taskPrompt,
 					mode,
-					delivery: input.delivery ?? "queue",
+					delivery,
 					...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
 				},
 			});
@@ -2076,7 +2082,7 @@ export class HubServerTransport implements NativeHubTransport {
 				provider,
 				model,
 				mode,
-				queued: (input.delivery ?? "queue") === "queue",
+				queued: delivery === "queue",
 				backgroundAgent,
 				...(backgroundAgent
 					? { backgroundAgentDetails }
