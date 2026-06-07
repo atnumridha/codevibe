@@ -37,6 +37,10 @@ on:
                 required: true
                 default: false
                 type: boolean
+            parity_evidence_url:
+                description: "HTTPS URL to the Cursor-parity release checklist or validation log"
+                required: true
+                type: string
 
 permissions:
     contents: write
@@ -81,6 +85,7 @@ jobs:
               working-directory: ${{ github.workspace }}
               env:
                   CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated }}
+                  CODEVIBE_PARITY_EVIDENCE_URL: ${{ github.event.inputs.parity_evidence_url }}
               run: |
                   node apps/vscode/scripts/assert-cursor-parity-release-gate.mjs --context "CodeVibe GitHub VSIX release"
                   if [[ "${{ github.event.inputs.run_tests }}" != "true" || "${{ github.event.inputs.run_e2e }}" != "true" ]]; then
@@ -159,6 +164,7 @@ jobs:
                   TELEMETRY_SERVICE_API_KEY: ${{ secrets.TELEMETRY_SERVICE_API_KEY }}
                   ERROR_SERVICE_API_KEY: ${{ secrets.ERROR_SERVICE_API_KEY }}
                   CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated }}
+                  CODEVIBE_PARITY_EVIDENCE_URL: ${{ github.event.inputs.parity_evidence_url }}
                   PRERELEASE: ${{ github.event.inputs.prerelease }}
               run: |
                   package_args=(--out-dir . --verify-install --require-release-gate)
@@ -191,6 +197,8 @@ jobs:
                   files: "apps/vscode/*.vsix"
                   body: |
                       ${{ steps.changelog.outputs.content }}
+
+                      **Cursor-Parity Evidence**: ${{ github.event.inputs.parity_evidence_url }}
 
                       **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.prev_tag }}...${{ steps.resolve_tag.outputs.tag }}
                   prerelease: ${{ github.event.inputs.prerelease == 'true' }}

@@ -710,6 +710,9 @@ async function main() {
 					releaseGateSatisfied: options.requireReleaseGate
 						? process.env.CODEVIBE_ALL_PARITY_VALIDATED === "true"
 						: undefined,
+					releaseGateEvidenceUrl: options.requireReleaseGate
+						? process.env.CODEVIBE_PARITY_EVIDENCE_URL
+						: undefined,
 				},
 				null,
 				2,

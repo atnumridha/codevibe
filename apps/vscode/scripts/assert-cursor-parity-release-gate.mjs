@@ -8,7 +8,7 @@ const allowedArgs = new Set(["--help", "-h", "--context"])
 function usage() {
 	console.error(`Usage: assert-cursor-parity-release-gate.mjs [--context <label>]
 
-Requires CODEVIBE_ALL_PARITY_VALIDATED=true before any CodeVibe release or marketplace publish path may proceed.`)
+Requires CODEVIBE_ALL_PARITY_VALIDATED=true and CODEVIBE_PARITY_EVIDENCE_URL=https://... before any CodeVibe release or marketplace publish path may proceed.`)
 }
 
 function parseArgs(argv) {
@@ -37,10 +37,29 @@ function parseArgs(argv) {
 	return options
 }
 
+function readParityEvidenceUrl() {
+	return (process.env.CODEVIBE_PARITY_EVIDENCE_URL ?? "").trim()
+}
+
+function isHttpsEvidenceUrl(value) {
+	try {
+		const url = new URL(value)
+		return url.protocol === "https:" && Boolean(url.hostname)
+	} catch {
+		return false
+	}
+}
+
 export function assertCursorParityReleaseGate(context = "CodeVibe release") {
 	if (process.env.CODEVIBE_ALL_PARITY_VALIDATED !== "true") {
 		throw new Error(
 			`${context} is blocked until local, CI, e2e, VSIX install, and installed-VS-Code Cursor-parity validation pass. Set CODEVIBE_ALL_PARITY_VALIDATED=true only after that gate is complete.`,
+		)
+	}
+	const evidenceUrl = readParityEvidenceUrl()
+	if (!isHttpsEvidenceUrl(evidenceUrl)) {
+		throw new Error(
+			`${context} requires CODEVIBE_PARITY_EVIDENCE_URL to be an https:// URL pointing to the Cursor-parity validation evidence.`,
 		)
 	}
 }

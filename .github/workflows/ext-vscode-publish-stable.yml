@@ -25,6 +25,10 @@ on:
                 required: true
                 default: false
                 type: boolean
+            parity_evidence_url:
+                description: "HTTPS URL to the Cursor-parity release checklist or validation log"
+                required: true
+                type: string
 
 permissions:
     contents: write
@@ -69,6 +73,7 @@ jobs:
               working-directory: ${{ github.workspace }}
               env:
                   CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated }}
+                  CODEVIBE_PARITY_EVIDENCE_URL: ${{ github.event.inputs.parity_evidence_url }}
               run: |
                   node apps/vscode/scripts/assert-cursor-parity-release-gate.mjs --context "CodeVibe stable publish"
 
@@ -194,6 +199,7 @@ jobs:
                   OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
                   RELEASE_TYPE: ${{ github.event.inputs.release-type }}
                   CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated }}
+                  CODEVIBE_PARITY_EVIDENCE_URL: ${{ github.event.inputs.parity_evidence_url }}
               run: |
                   # Swap README.marketplace.md into README.md so both the GitHub
                   # release artifact (vsce package below) and the marketplace
@@ -239,6 +245,8 @@ jobs:
                   files: "apps/vscode/*.vsix"
                   body: |
                       ${{ steps.changelog.outputs.content }}
+
+                      **Cursor-Parity Evidence**: ${{ github.event.inputs.parity_evidence_url }}
 
                       **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.prev_tag }}...${{ steps.resolve_tag.outputs.tag }}
                   prerelease: ${{ github.event.inputs.release-type == 'pre-release' }}
