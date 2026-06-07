@@ -125,6 +125,44 @@ function browserResultSummary(result: BrowserToolResult | undefined): string {
 	return [title, url, logs ? "logs" : ""].filter(Boolean).join(" | ");
 }
 
+function cursorSettingsSectionFromPreview(
+	previewRecord: Record<string, unknown> | undefined,
+): SettingsSection {
+	const sourceParam = recordString(previewRecord, "sourceParam").toLowerCase();
+	const query = recordString(previewRecord, "query").toLowerCase();
+	const target = `${sourceParam} ${query}`;
+	if (
+		/\b(provider|model|api|apikey|api-key|api_provider|api-provider)\b/.test(
+			target,
+		)
+	) {
+		return "Providers";
+	}
+	if (/\b(mcp|server|servers|tool)\b/.test(target)) {
+		return "MCP";
+	}
+	if (
+		/\b(rule|rules|custom|customization|customizations|hook|hooks|skill|skills)\b/.test(
+			target,
+		)
+	) {
+		return "Customizations";
+	}
+	if (/\b(cursor.?link|deeplink|deep-link|uri|url)\b/.test(target)) {
+		return "Cursor Links";
+	}
+	if (/\b(channel|connector|slack|outlook|sharepoint)\b/.test(target)) {
+		return "Channels";
+	}
+	if (/\b(schedule|schedules|routine|cron|automation)\b/.test(target)) {
+		return "Schedules";
+	}
+	if (/\b(account|auth|codex|login|sign.?in|oauth)\b/.test(target)) {
+		return "Account";
+	}
+	return "General";
+}
+
 const PROVIDER_CATALOG_CACHE_TTL_MS = 60_000;
 
 let providerCatalogCache: {
@@ -569,7 +607,7 @@ export function SettingsView({
 					) : activeNav === "MCP" ? (
 						<McpServersContent />
 					) : activeNav === "Cursor Links" ? (
-						<CursorLinksContent />
+						<CursorLinksContent onOpenSettings={selectSection} />
 					) : activeNav === "Channels" ? (
 						<ChannelsContent />
 					) : activeNav === "Schedules" ? (
@@ -610,13 +648,22 @@ const CURSOR_LAUNCHABLE_AGENT_PATHS = new Set([
 	"/git/commit",
 ]);
 
-function CursorLinksContent() {
+function CursorLinksContent({
+	onOpenSettings,
+}: {
+	onOpenSettings?: (section: SettingsSection) => void;
+}) {
 	const [cursorUri, setCursorUri] = useState(DEFAULT_CURSOR_URI);
 	const [preview, setPreview] = useState<
 		CursorUriPreviewResponse | undefined
 	>();
 	const [previewError, setPreviewError] = useState<string | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
+	const [settingsResult, setSettingsResult] = useState<{
+		query?: string;
+		section: SettingsSection;
+		sourceParam?: string;
+	} | null>(null);
 	const [launchResult, setLaunchResult] = useState<
 		CursorUriLaunchResponse | undefined
 	>();
@@ -658,6 +705,8 @@ function CursorLinksContent() {
 	);
 	const paramKeys = recordStringArray(previewRecord, "paramKeys");
 	const configKeys = recordStringArray(previewRecord, "configKeys");
+	const canOpenSettings = route === "settings" && Boolean(onOpenSettings);
+	const settingsSection = cursorSettingsSectionFromPreview(previewRecord);
 	const canLaunchCursorUri =
 		Boolean(taskPrompt) &&
 		Boolean(path) &&
@@ -684,6 +733,7 @@ function CursorLinksContent() {
 		if (!uri) {
 			setPreview(undefined);
 			setPreviewError("URI is required.");
+			setSettingsResult(null);
 			setLaunchResult(undefined);
 			setLaunchError(null);
 			setInstallResult(undefined);
@@ -701,6 +751,7 @@ function CursorLinksContent() {
 		setPreviewLoading(true);
 		setPreviewError(null);
 		setPreview(undefined);
+		setSettingsResult(null);
 		setLaunchResult(undefined);
 		setLaunchError(null);
 		setInstallResult(undefined);
@@ -731,6 +782,7 @@ function CursorLinksContent() {
 		setCursorUri(value);
 		setPreview(undefined);
 		setPreviewError(null);
+		setSettingsResult(null);
 		setLaunchResult(undefined);
 		setLaunchError(null);
 		setInstallResult(undefined);
@@ -766,6 +818,22 @@ function CursorLinksContent() {
 		} finally {
 			setInstallLoading(false);
 		}
+	};
+
+	const runOpenSettings = () => {
+		if (!canOpenSettings) {
+			return;
+		}
+		onOpenSettings?.(settingsSection);
+		setSettingsResult({
+			section: settingsSection,
+			...(recordString(previewRecord, "query")
+				? { query: recordString(previewRecord, "query") }
+				: {}),
+			...(recordString(previewRecord, "sourceParam")
+				? { sourceParam: recordString(previewRecord, "sourceParam") }
+				: {}),
+		});
 	};
 
 	const runCursorLaunch = async () => {
@@ -947,6 +1015,16 @@ function CursorLinksContent() {
 									Launch
 								</Button>
 							) : null}
+							{canOpenSettings ? (
+								<Button
+									onClick={runOpenSettings}
+									type="button"
+									variant="outline"
+								>
+									<CheckCircle2 className="size-4" />
+									Open Settings
+								</Button>
+							) : null}
 							{canInstallMcp ? (
 								<Button
 									disabled={installLoading}
@@ -1054,6 +1132,24 @@ function CursorLinksContent() {
 								launchResult.glass ? "glass" : "",
 								`${launchResult.provider}/${launchResult.model}`,
 								launchResult.queued ? "queued" : "",
+							]
+								.filter(Boolean)
+								.join(" | ")}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
+				{settingsResult ? (
+					<Alert className="mt-4">
+						<CheckCircle2 className="size-4" />
+						<AlertTitle>Settings opened</AlertTitle>
+						<AlertDescription>
+							{[
+								settingsResult.section,
+								settingsResult.sourceParam
+									? `from ${settingsResult.sourceParam}`
+									: "",
+								settingsResult.query,
 							]
 								.filter(Boolean)
 								.join(" | ")}
