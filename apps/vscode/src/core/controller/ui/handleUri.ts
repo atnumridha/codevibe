@@ -1,4 +1,5 @@
 import { BooleanResponse, type StringRequest } from "@shared/proto/cline/common"
+import * as vscode from "vscode"
 import { SharedUriHandler } from "@/services/uri/SharedUriHandler"
 import { Logger } from "@/shared/services/Logger"
 import type { Controller } from "../index"
@@ -13,7 +14,14 @@ export async function handleUri(_controller: Controller, request: StringRequest)
 	}
 
 	try {
-		return BooleanResponse.create({ value: await SharedUriHandler.handleUriWithController(_controller, value) })
+		const cursorDeepLinksEnabled = vscode.workspace
+			.getConfiguration("cline")
+			.get<boolean>("cursorCompatibility.deepLinks.enabled", true)
+		return BooleanResponse.create({
+			value: await SharedUriHandler.handleUriWithController(_controller, value, {
+				cursorCompatibleDeepLinksEnabled: cursorDeepLinksEnabled,
+			}),
+		})
 	} catch (error) {
 		Logger.error("Failed to handle URI:", error)
 		return BooleanResponse.create({ value: false })
