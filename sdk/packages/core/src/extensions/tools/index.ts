@@ -70,6 +70,10 @@ export {
 	type ToolCatalogEntry,
 } from "./runtime";
 export {
+	createStandaloneBrowserCdpAutomation,
+	type StandaloneBrowserCdpOptions,
+} from "./standalone-browser-cdp";
+export {
 	createStandaloneBrowserUnavailableResult,
 	getStandaloneBrowserAutomationStatus,
 	STANDALONE_BROWSER_ACTIONS,

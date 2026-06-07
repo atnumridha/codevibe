@@ -82,14 +82,17 @@ describe("Code sidecar runtime capabilities", () => {
 	let previousProviderSettingsPath: string | undefined;
 	let previousCodexHome: string | undefined;
 	let previousCodeVibeCursorHome: string | undefined;
+	let previousBrowserExecutable: string | undefined;
 
 	beforeEach(() => {
 		previousMcpSettingsPath = process.env.CLINE_MCP_SETTINGS_PATH;
 		previousProviderSettingsPath = process.env.CLINE_PROVIDER_SETTINGS_PATH;
 		previousCodexHome = process.env.CODEX_HOME;
 		previousCodeVibeCursorHome = process.env.CODEVIBE_CURSOR_HOME;
+		previousBrowserExecutable = process.env.CODEVIBE_BROWSER_EXECUTABLE;
 		delete process.env.CLINE_MCP_SETTINGS_PATH;
 		delete process.env.CODEVIBE_CURSOR_HOME;
+		delete process.env.CODEVIBE_BROWSER_EXECUTABLE;
 		createCoreMock.mockReset();
 		connectMock.mockReset();
 		subscribeMock.mockReset();
@@ -124,6 +127,11 @@ describe("Code sidecar runtime capabilities", () => {
 			delete process.env.CODEVIBE_CURSOR_HOME;
 		} else {
 			process.env.CODEVIBE_CURSOR_HOME = previousCodeVibeCursorHome;
+		}
+		if (previousBrowserExecutable === undefined) {
+			delete process.env.CODEVIBE_BROWSER_EXECUTABLE;
+		} else {
+			process.env.CODEVIBE_BROWSER_EXECUTABLE = previousBrowserExecutable;
 		}
 		await Promise.all(
 			tempDirs.map((dir) => rm(dir, { recursive: true, force: true })),
@@ -1596,6 +1604,8 @@ describe("Code sidecar runtime capabilities", () => {
 		const { handleCommand } = await import("./commands");
 
 		const ctx = createSidecarContext("/workspace/project");
+		process.env.CODEVIBE_BROWSER_EXECUTABLE =
+			"/workspace/project/missing-chrome";
 		const status = await handleCommand(ctx, "browser_automation_status");
 
 		expect(status).toMatchObject({
@@ -1631,7 +1641,7 @@ describe("Code sidecar runtime capabilities", () => {
 			success: false,
 		});
 		expect(JSON.stringify(snapshotResult)).toContain(
-			"Standalone browser automation executor is not configured",
+			"Configured Chrome executable does not exist",
 		);
 
 		const evaluateResult = await handleCommand(ctx, "browser_action", {

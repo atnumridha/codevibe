@@ -13,6 +13,7 @@ import {
 	type ToolApprovalResult,
 } from "@cline/core";
 import type { AgentEvent } from "@cline/shared";
+import { getSidecarBrowserAutomation } from "./browser-automation";
 import { sessionLogPath } from "./paths";
 import type {
 	LiveSession,
@@ -513,8 +514,20 @@ export function resolveSidecarAskQuestion(
 export function createSidecarRuntimeCapabilities(
 	ctx: SidecarContext,
 ): RuntimeCapabilities {
+	const browser = getSidecarBrowserAutomation(ctx);
+	const browserStatus = browser.getStatus();
 	return {
 		toolExecutors: {
+			...(browserStatus.available
+				? {
+						browserSnapshot: (input, context) =>
+							browser.browserSnapshot(input, context),
+						browserAction: (input, context) =>
+							browser.browserAction(input, context),
+						browserScreenshot: (input, context) =>
+							browser.browserScreenshot(input, context),
+					}
+				: {}),
 			askQuestion: (question, options, context) =>
 				requestSidecarAskQuestion(ctx, question, options, context),
 		},

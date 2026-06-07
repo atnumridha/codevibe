@@ -49,6 +49,8 @@ export type StandaloneBrowserAutomationStatusInput = {
 	hasBrowserActionExecutor?: boolean;
 	hasBrowserScreenshotExecutor?: boolean;
 	safeBrowserEvaluateEnabled?: boolean;
+	unavailableReason?: string;
+	nextStep?: string;
 };
 
 const STANDALONE_BROWSER_UNAVAILABLE_REASON =
@@ -104,8 +106,9 @@ export function getStandaloneBrowserAutomationStatus(
 		...(available
 			? {}
 			: {
-					reason: STANDALONE_BROWSER_UNAVAILABLE_REASON,
-					nextStep: STANDALONE_BROWSER_NEXT_STEP,
+					reason:
+						input.unavailableReason ?? STANDALONE_BROWSER_UNAVAILABLE_REASON,
+					nextStep: input.nextStep ?? STANDALONE_BROWSER_NEXT_STEP,
 				}),
 	};
 }
@@ -116,6 +119,8 @@ export function createStandaloneBrowserUnavailableResult(input: {
 	host: string;
 	action?: string;
 	safeBrowserEvaluateEnabled?: boolean;
+	reason?: string;
+	nextStep?: string;
 }): ToolOperationResult {
 	const query = input.query ?? input.toolName;
 	if (
@@ -134,7 +139,7 @@ export function createStandaloneBrowserUnavailableResult(input: {
 	return {
 		query,
 		result: "",
-		error: `${STANDALONE_BROWSER_UNAVAILABLE_REASON} Host: ${input.host}. ${STANDALONE_BROWSER_NEXT_STEP}`,
+		error: `${input.reason ?? STANDALONE_BROWSER_UNAVAILABLE_REASON} Host: ${input.host}. ${input.nextStep ?? STANDALONE_BROWSER_NEXT_STEP}`,
 		success: false,
 	};
 }

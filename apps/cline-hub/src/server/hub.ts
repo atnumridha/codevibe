@@ -12,6 +12,7 @@ import {
 	rejectAllPendingApprovals,
 	requestToolApprovalFromWebview,
 } from "./approvals";
+import { getHubBrowserAutomation } from "./browser-automation";
 import { workspaceRoot } from "./deps";
 import {
 	formatClientName,
@@ -93,11 +94,25 @@ export async function attachHub(ctx: HubContext): Promise<void> {
 	const hub = await ensureDetachedHubServer(workspaceRoot);
 	ctx.hubUrl = hub.url;
 	ctx.hubAuthToken = hub.authToken;
+	const browser = getHubBrowserAutomation();
+	const browserStatus = browser.getStatus();
 
 	ctx.cline = await ClineCore.create({
 		clientName: "cline-hub",
 		backendMode: "hub",
 		capabilities: {
+			toolExecutors: {
+				...(browserStatus.available
+					? {
+							browserSnapshot: (input, context) =>
+								browser.browserSnapshot(input, context),
+							browserAction: (input, context) =>
+								browser.browserAction(input, context),
+							browserScreenshot: (input, context) =>
+								browser.browserScreenshot(input, context),
+						}
+					: {}),
+			},
 			requestToolApproval: (request) =>
 				requestToolApprovalFromWebview(ctx, request),
 		},
