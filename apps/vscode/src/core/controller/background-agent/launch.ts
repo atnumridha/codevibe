@@ -1,5 +1,5 @@
 import * as path from "path"
-import { DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
+import { DEFAULT_AUTO_APPROVAL_SETTINGS, type AutoApprovalSettings } from "@shared/AutoApprovalSettings"
 import type { BackgroundAgentLifecycleStatus, BackgroundAgentTaskRecord } from "@shared/BackgroundAgent"
 import type { Settings } from "@shared/storage/state-keys"
 import { normalizeGitBranchName, normalizeGitCheckoutTarget } from "@utils/git-helper"
@@ -125,13 +125,38 @@ function resolveBaseRef(request: CursorBackgroundAgentLaunchRequest): {
 	}
 }
 
-export function createBackgroundAgentTaskSettings(): Partial<Settings> {
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+export function toVsCodeBackgroundAgentTaskSettings(coreSettings: Record<string, unknown>): Partial<Settings> {
+	const baseSettings = coreSettings as Partial<Settings>
+	const baseAutoApprovalSettings = isRecord(baseSettings.autoApprovalSettings)
+		? (baseSettings.autoApprovalSettings as Partial<AutoApprovalSettings>)
+		: {}
+	const baseActions = isRecord(baseAutoApprovalSettings.actions)
+		? (baseAutoApprovalSettings.actions as Partial<AutoApprovalSettings["actions"]>)
+		: {}
+
 	return {
+		...baseSettings,
 		mode: "plan",
 		autoApprovalSettings: {
 			...DEFAULT_AUTO_APPROVAL_SETTINGS,
+			...baseAutoApprovalSettings,
 			actions: {
 				...DEFAULT_AUTO_APPROVAL_SETTINGS.actions,
+				...baseActions,
+			},
+		},
+	}
+}
+
+export function createBackgroundAgentTaskSettings(): Partial<Settings> {
+	return toVsCodeBackgroundAgentTaskSettings({
+		mode: "plan",
+		autoApprovalSettings: {
+			actions: {
 				readFiles: true,
 				readFilesExternally: false,
 				editFiles: false,
@@ -142,7 +167,7 @@ export function createBackgroundAgentTaskSettings(): Partial<Settings> {
 				useMcp: false,
 			},
 		},
-	}
+	})
 }
 
 export function buildBackgroundAgentTaskPrompt(

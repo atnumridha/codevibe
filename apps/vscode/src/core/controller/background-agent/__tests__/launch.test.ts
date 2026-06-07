@@ -5,6 +5,7 @@ import {
 	type BackgroundAgentTaskRecord,
 	type CursorBackgroundAgentLaunchRequest,
 	launchCursorBackgroundAgent,
+	toVsCodeBackgroundAgentTaskSettings,
 } from "../launch"
 
 const baseRequest: CursorBackgroundAgentLaunchRequest = {
@@ -16,6 +17,30 @@ const baseRequest: CursorBackgroundAgentLaunchRequest = {
 }
 
 describe("launchCursorBackgroundAgent", () => {
+	it("expands SDK-style task settings into full VS Code auto-approval defaults", () => {
+		const settings = toVsCodeBackgroundAgentTaskSettings({
+			mode: "act",
+			autoApprovalSettings: {
+				actions: {
+					executeSafeCommands: false,
+					useMcp: false,
+				},
+			},
+		})
+
+		expect(settings.mode).to.equal("plan")
+		expect(settings.autoApprovalSettings?.version).to.equal(1)
+		expect(settings.autoApprovalSettings?.enabled).to.equal(true)
+		expect(settings.autoApprovalSettings?.favorites).to.deep.equal([])
+		expect(settings.autoApprovalSettings?.maxRequests).to.equal(20)
+		expect(settings.autoApprovalSettings?.enableNotifications).to.equal(false)
+		expect(settings.autoApprovalSettings?.actions.readFiles).to.equal(true)
+		expect(settings.autoApprovalSettings?.actions.executeSafeCommands).to.equal(false)
+		expect(settings.autoApprovalSettings?.actions.executeAllCommands).to.equal(false)
+		expect(settings.autoApprovalSettings?.actions.useBrowser).to.equal(false)
+		expect(settings.autoApprovalSettings?.actions.useMcp).to.equal(false)
+	})
+
 	it("creates a safe worktree record and starts a confirmation-safe task", async () => {
 		const records: BackgroundAgentTaskRecord[] = []
 		const createWorktreeCalls: Array<{
