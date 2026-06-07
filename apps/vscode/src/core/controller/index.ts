@@ -752,7 +752,7 @@ export class Controller {
 	}
 
 	getBackgroundAgentTaskRecords(): BackgroundAgentTaskRecord[] {
-		return Array.from(this.backgroundAgentTaskRecords.values()).sort((a, b) => a.createdAt - b.createdAt)
+		return normalizeBackgroundAgentTaskRecords([...this.backgroundAgentTaskRecords.values()])
 	}
 
 	private hydrateBackgroundAgentTaskRecords() {
