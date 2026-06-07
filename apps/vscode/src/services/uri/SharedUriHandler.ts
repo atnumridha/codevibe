@@ -406,6 +406,10 @@ function buildCursorAutomationIngestDetail(
 	].join("\n")
 }
 
+function isStrictInvalidAutomationIngest(request: CursorCompatibleAutomationIngestRequest): boolean {
+	return request.strict && request.validation.rejected.length > 0
+}
+
 function isCursorGitHelperRoute(route: CursorCompatibleUriRoute): boolean {
 	return route.kind === "git-checkout" || route.kind === "git-branch" || route.kind === "git-commit"
 }
@@ -597,6 +601,18 @@ export class SharedUriHandler {
 					}
 					if (cursorRoute.route.kind === "automation-ingest") {
 						const ingestRequest = buildCursorCompatibleAutomationIngestRequest(cursorRoute.route)
+						if (isStrictInvalidAutomationIngest(ingestRequest)) {
+							await HostProvider.window.showMessage({
+								type: ShowMessageType.WARNING,
+								message: "Cursor automation NDJSON failed strict validation.",
+								options: {
+									modal: true,
+									items: ["OK"],
+									detail: buildCursorAutomationIngestDetail(cursorRoute.route, ingestRequest),
+								},
+							})
+							return true
+						}
 						const choice = await HostProvider.window.showMessage({
 							type: ShowMessageType.WARNING,
 							message: "Ingest Cursor automation NDJSON?",

@@ -463,6 +463,37 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
+			it("should keep strict-invalid Cursor automation NDJSON preview-only", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "OK" })
+				const ndjson = encodeURIComponent(
+					[
+						JSON.stringify({
+							eventId: "evt-1",
+							eventType: "git.commit.created",
+							source: "cursor",
+						}),
+						"{bad-secret",
+					].join("\n"),
+				)
+
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/automation/ingest?ndjson=${ndjson}&strict=true`,
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal(
+					"Cursor automation NDJSON failed strict validation.",
+				)
+				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["OK"])
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Strict mode: yes")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Rejected lines: 1")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Strict mode will block storage")
+				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("{bad-secret")
+				expect(handleCursorAutomationIngestStub.called).to.be.false
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
 			it("should confirm Cursor git helper routes before creating a review task", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Create Review Task" })
