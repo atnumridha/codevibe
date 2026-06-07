@@ -329,5 +329,81 @@ describe("ClineIgnoreController", () => {
 			// Files that do not match "*.tmp" should be allowed
 			controller.validateAccess("file.log").should.be.true()
 		})
+
+		it("should ignore included files outside the workspace", async () => {
+			const outsideIgnoreName = `outside-ignore-${Date.now()}-${Math.random().toString(36).slice(2)}`
+			const outsideIgnorePath = path.join(path.dirname(tempDir), outsideIgnoreName)
+
+			try {
+				await fs.writeFile(outsideIgnorePath, "outside-only.secret\n")
+				await fs.writeFile(
+					path.join(tempDir, ".clineignore"),
+					[`!include ../${outsideIgnoreName}`, "workspace-only.secret"].join("\n"),
+				)
+
+				controller = new ClineIgnoreController(tempDir)
+				await controller.initialize()
+
+				controller.validateAccess("outside-only.secret").should.be.true()
+				controller.validateAccess("workspace-only.secret").should.be.false()
+			} finally {
+				await fs.rm(outsideIgnorePath, { force: true })
+			}
+		})
+
+		it("should ignore absolute include paths", async () => {
+			const outsideIgnorePath = path.join(
+				path.dirname(tempDir),
+				`absolute-ignore-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+			)
+
+			try {
+				await fs.writeFile(outsideIgnorePath, "absolute-only.secret\n")
+				await fs.writeFile(
+					path.join(tempDir, ".clineignore"),
+					[`!include ${outsideIgnorePath}`, "workspace-only.secret"].join("\n"),
+				)
+
+				controller = new ClineIgnoreController(tempDir)
+				await controller.initialize()
+
+				controller.validateAccess("absolute-only.secret").should.be.true()
+				controller.validateAccess("workspace-only.secret").should.be.false()
+			} finally {
+				await fs.rm(outsideIgnorePath, { force: true })
+			}
+		})
+
+		it("should ignore include symlinks that resolve outside the workspace", async function () {
+			const outsideIgnorePath = path.join(
+				path.dirname(tempDir),
+				`symlink-ignore-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+			)
+			const symlinkPath = path.join(tempDir, "linked-ignore")
+
+			try {
+				await fs.writeFile(outsideIgnorePath, "symlink-only.secret\n")
+				await fs.symlink(outsideIgnorePath, symlinkPath)
+				await fs.writeFile(
+					path.join(tempDir, ".clineignore"),
+					["!include linked-ignore", "workspace-only.secret"].join("\n"),
+				)
+
+				controller = new ClineIgnoreController(tempDir)
+				await controller.initialize()
+
+				controller.validateAccess("symlink-only.secret").should.be.true()
+				controller.validateAccess("workspace-only.secret").should.be.false()
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === "EPERM") {
+					this.skip()
+					return
+				}
+				throw error
+			} finally {
+				await fs.rm(symlinkPath, { force: true })
+				await fs.rm(outsideIgnorePath, { force: true })
+			}
+		})
 	})
 })

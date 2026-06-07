@@ -150,7 +150,11 @@ export class ClineIgnoreController {
 	 */
 	private async readIncludedFile(includeLine: string): Promise<string | null> {
 		const includePath = includeLine.substring("!include ".length).trim()
-		const resolvedIncludePath = path.join(this.cwd, includePath)
+		const resolvedIncludePath = await this.resolveIncludedFilePath(includePath)
+
+		if (!resolvedIncludePath) {
+			return null
+		}
 
 		if (!(await fileExistsAtPath(resolvedIncludePath))) {
 			Logger.debug(`[ClineIgnore] Included file not found: ${resolvedIncludePath}`)
@@ -158,6 +162,52 @@ export class ClineIgnoreController {
 		}
 
 		return await fs.readFile(resolvedIncludePath, "utf8")
+	}
+
+	private async resolveIncludedFilePath(includePath: string): Promise<string | null> {
+		if (!includePath) {
+			Logger.debug("[ClineIgnore] Ignoring empty include directive")
+			return null
+		}
+
+		if (path.isAbsolute(includePath) || path.win32.isAbsolute(includePath) || /^[a-zA-Z]:/.test(includePath)) {
+			Logger.warn(`[ClineIgnore] Ignoring absolute include path: ${includePath}`)
+			return null
+		}
+
+		const resolvedIncludePath = path.resolve(this.cwd, includePath)
+		if (!this.isPathWithinWorkspace(resolvedIncludePath, this.cwd)) {
+			Logger.warn(`[ClineIgnore] Ignoring include outside workspace: ${includePath}`)
+			return null
+		}
+
+		if (!(await fileExistsAtPath(resolvedIncludePath))) {
+			return resolvedIncludePath
+		}
+
+		try {
+			const [workspaceRoot, realIncludePath] = await Promise.all([fs.realpath(this.cwd), fs.realpath(resolvedIncludePath)])
+			if (!this.isPathWithinWorkspace(realIncludePath, workspaceRoot)) {
+				Logger.warn(`[ClineIgnore] Ignoring include outside workspace: ${includePath}`)
+				return null
+			}
+
+			const stat = await fs.stat(realIncludePath)
+			if (!stat.isFile()) {
+				Logger.warn(`[ClineIgnore] Ignoring include that is not a file: ${includePath}`)
+				return null
+			}
+
+			return realIncludePath
+		} catch (error) {
+			Logger.warn(`[ClineIgnore] Failed to resolve include path: ${includePath}`, error)
+			return null
+		}
+	}
+
+	private isPathWithinWorkspace(candidatePath: string, workspaceRoot: string): boolean {
+		const relativePath = path.relative(workspaceRoot, candidatePath)
+		return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath))
 	}
 
 	/**
