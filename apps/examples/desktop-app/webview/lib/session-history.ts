@@ -23,6 +23,7 @@ export interface SessionHistoryItem {
 	startedAt: string;
 	endedAt?: string;
 	metadata?: SessionMetadata;
+	backgroundAgent?: boolean;
 }
 
 export function getSessionMetadataTitle(metadata?: SessionMetadata): string {

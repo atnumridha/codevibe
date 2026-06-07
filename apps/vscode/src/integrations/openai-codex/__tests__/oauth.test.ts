@@ -8,6 +8,7 @@ import { StateManager } from "@/core/storage/StateManager"
 import { mockFetchForTesting } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
 import {
+	buildAuthorizationUrl,
 	exchangeCodeForTokens,
 	loadCodexHomeCredentials,
 	type OpenAiCodexAuthSource,
@@ -90,6 +91,19 @@ describe("OpenAI Codex OAuth local profile support", () => {
 			exp: 123,
 			email: "user@example.com",
 		})
+	})
+
+	it("builds the Codex OAuth authorization URL with organization claims enabled", () => {
+		const authorizationUrl = new URL(buildAuthorizationUrl("challenge-secret", "state-secret"))
+
+		expect(authorizationUrl.origin + authorizationUrl.pathname).to.equal(
+			"https://auth.openai.com/oauth/authorize",
+		)
+		expect(authorizationUrl.searchParams.get("codex_cli_simplified_flow")).to.equal("true")
+		expect(authorizationUrl.searchParams.get("id_token_add_organizations")).to.equal("true")
+		expect(authorizationUrl.searchParams.get("originator")).to.equal("cline")
+		expect(authorizationUrl.searchParams.get("code_challenge")).to.equal("challenge-secret")
+		expect(authorizationUrl.searchParams.get("state")).to.equal("state-secret")
 	})
 
 	it("loads credentials from a Codex home auth.json profile", async () => {

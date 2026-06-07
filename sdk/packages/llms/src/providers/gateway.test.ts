@@ -1775,6 +1775,9 @@ describe("sdk-gateway", () => {
 		expect(openaiFactorySpy).toHaveBeenCalledWith(
 			expect.objectContaining({
 				headers: expect.objectContaining({
+					originator: "cline",
+					session_id: expect.any(String),
+					"User-Agent": expect.stringMatching(/^Cline\//),
 					"ChatGPT-Account-Id": "acct_123",
 					"x-codex-installation-id": "install_123",
 				}),
@@ -1786,12 +1789,60 @@ describe("sdk-gateway", () => {
 			| undefined;
 		expect(openaiConfig?.headers).not.toHaveProperty("tokenSource");
 		expect(openaiConfig?.headers).not.toHaveProperty("authMode");
+		expect(openaiConfig?.headers?.session_id).not.toBe("");
 		await openaiConfig?.fetch?.(
 			"https://chatgpt.com/backend-api/codex/responses",
 		);
 		const fetchInput = codexFetch.mock.calls.at(-1)?.[0];
 		expect(String(fetchInput)).toBe(
 			"https://chatgpt.com/backend-api/codex/responses?client_version=0.136.0-test",
+		);
+	});
+
+	it("preserves explicit Codex backend header overrides in the OpenAI provider path", async () => {
+		streamTextSpy.mockReturnValue({
+			fullStream: makeStreamParts([
+				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
+			]),
+		});
+
+		const gateway = createGateway({
+			providerConfigs: [
+				{
+					providerId: "openai-codex",
+					headers: {
+						originator: "configured-originator",
+						session_id: "configured-session",
+						"User-Agent": "ConfiguredAgent/0",
+						"ChatGPT-Account-Id": "acct_configured",
+						"x-codex-installation-id": "install_configured",
+					},
+					options: {
+						accountId: "acct_option",
+						installationId: "install_option",
+					},
+				},
+			],
+		});
+
+		await collect(
+			await gateway.stream({
+				providerId: "openai-codex",
+				modelId: "gpt-5.4",
+				messages: baseMessages,
+			}),
+		);
+
+		expect(openaiFactorySpy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				headers: expect.objectContaining({
+					originator: "configured-originator",
+					session_id: "configured-session",
+					"User-Agent": "ConfiguredAgent/0",
+					"ChatGPT-Account-Id": "acct_configured",
+					"x-codex-installation-id": "install_configured",
+				}),
+			}),
 		);
 	});
 

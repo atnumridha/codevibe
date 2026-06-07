@@ -1,10 +1,13 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { randomUUID } from "crypto";
 import type {
 	GatewayProviderContext,
 	GatewayResolvedProviderConfig,
 } from "@cline/shared";
 import { resolveApiKey } from "../http";
 import type { ProviderFactoryResult } from "./types";
+
+const OPENAI_CODEX_USER_AGENT = `Cline/${process.env.npm_package_version || "1.0.0"}`;
 
 function readOptions(
 	config: GatewayResolvedProviderConfig,
@@ -20,6 +23,19 @@ function readStringOption(
 	return typeof value === "string" && value.trim().length > 0
 		? value.trim()
 		: undefined;
+}
+
+function readStringOptionAny(
+	options: Record<string, unknown>,
+	keys: string[],
+): string | undefined {
+	for (const key of keys) {
+		const value = readStringOption(options, key);
+		if (value) {
+			return value;
+		}
+	}
+	return undefined;
 }
 
 function hasHeader(headers: Record<string, string>, name: string): boolean {
@@ -93,6 +109,21 @@ function buildOpenAIHeaders(
 	const options = readOptions(config);
 	const accountId = readStringOption(options, "accountId");
 	const installationId = readStringOption(options, "installationId");
+	const originator = readStringOption(options, "originator") ?? "cline";
+	const sessionId =
+		readStringOptionAny(options, ["sessionId", "session_id"]) ?? randomUUID();
+	const userAgent =
+		readStringOptionAny(options, ["userAgent", "User-Agent", "user-agent"]) ??
+		OPENAI_CODEX_USER_AGENT;
+	if (!hasHeader(headers, "originator")) {
+		headers.originator = originator;
+	}
+	if (!hasHeader(headers, "session_id")) {
+		headers.session_id = sessionId;
+	}
+	if (!hasHeader(headers, "User-Agent")) {
+		headers["User-Agent"] = userAgent;
+	}
 	if (accountId && !hasHeader(headers, "ChatGPT-Account-Id")) {
 		headers["ChatGPT-Account-Id"] = accountId;
 	}

@@ -237,7 +237,9 @@ function toThread(session: SessionHistoryItem): Thread {
 		provider: session.provider || "",
 		model: session.model || "",
 		status: normalizeDiscoveredStatus(session.status, session.prompt),
-		backgroundAgent: isBackgroundAgentSession(session.metadata),
+		backgroundAgent:
+			session.backgroundAgent === true ||
+			isBackgroundAgentSession(session.metadata),
 	};
 }
 
@@ -334,6 +336,9 @@ function areSessionsEquivalent(
 			a.startedAt !== b.startedAt ||
 			a.endedAt !== b.endedAt ||
 			a.prompt !== b.prompt ||
+			a.backgroundAgent !== b.backgroundAgent ||
+			isBackgroundAgentSession(a.metadata) !==
+				isBackgroundAgentSession(b.metadata) ||
 			getSessionMetadataTitle(a.metadata) !==
 				getSessionMetadataTitle(b.metadata) ||
 			a.workspaceRoot !== b.workspaceRoot ||
@@ -365,7 +370,8 @@ function areThreadsEquivalent(current: Thread[], next: Thread[]): boolean {
 			a.outputTokens !== b.outputTokens ||
 			a.totalCostUsd !== b.totalCostUsd ||
 			a.status !== b.status ||
-			a.pinned !== b.pinned
+			a.pinned !== b.pinned ||
+			a.backgroundAgent !== b.backgroundAgent
 		) {
 			return false;
 		}
