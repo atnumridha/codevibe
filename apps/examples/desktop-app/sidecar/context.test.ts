@@ -1660,7 +1660,6 @@ describe("Code sidecar runtime capabilities", () => {
 		const result = await handleCommand(ctx, "cursor_uri_launch", {
 			uri: "vscode://cline.cline/createchat?prompt=Review%20the%20diff",
 			confirmed: true,
-			mode: "act",
 			cwd: "/tmp/outside-workspace",
 		});
 
@@ -1707,6 +1706,73 @@ describe("Code sidecar runtime capabilities", () => {
 			model: "gpt-5.5",
 			mode: "plan",
 			queued: true,
+		});
+	});
+
+	it("launches confirmed Cursor task deeplinks with explicit act steering options", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-uri-"));
+		tempDirs.push(workspace);
+		previewCursorUriMock.mockResolvedValueOnce({
+			handled: true,
+			route: "createchat",
+			path: "/createchat",
+			requiresConfirmation: true,
+			taskPrompt: "Run the requested edit now.",
+		});
+		const startMock = vi.fn(async () => ({ sessionId: "session-cursor-act" }));
+		const sendMock = vi.fn(async () => ({}));
+		const pendingListMock = vi.fn(async () => []);
+		const ctx = createSidecarContext(workspace);
+		ctx.hubClient = {
+			previewCursorUri: previewCursorUriMock,
+		} as never;
+		ctx.sessionManager = {
+			start: startMock,
+			send: sendMock,
+			pendingPrompts: { list: pendingListMock },
+		} as never;
+
+		const result = await handleCommand(ctx, "cursor_uri_launch", {
+			uri: "vscode://cline.cline/createchat?prompt=Run%20the%20edit",
+			confirmed: true,
+			mode: "act",
+			delivery: "steer",
+			enableTools: false,
+			enableSpawn: true,
+			enableTeams: true,
+			autoApproveTools: true,
+		});
+
+		expect(startMock).toHaveBeenCalledWith(
+			expect.objectContaining({
+				config: expect.objectContaining({
+					mode: "act",
+					enableTools: false,
+					enableSpawnAgent: true,
+					enableAgentTeams: true,
+				}),
+				toolPolicies: {
+					"*": { autoApprove: true },
+				},
+			}),
+		);
+		expect(sendMock).toHaveBeenCalledWith({
+			sessionId: "session-cursor-act",
+			prompt: "Run the requested edit now.",
+			delivery: "steer",
+			userImages: undefined,
+		});
+		expect(pendingListMock).not.toHaveBeenCalled();
+		expect(result).toMatchObject({
+			handled: true,
+			launched: true,
+			route: "createchat",
+			sessionId: "session-cursor-act",
+			mode: "act",
+			queued: false,
 		});
 	});
 

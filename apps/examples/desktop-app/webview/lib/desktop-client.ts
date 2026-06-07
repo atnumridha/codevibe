@@ -96,7 +96,12 @@ export type CursorUriLaunchInput = CursorUriPreviewInput & {
 	confirmed: true;
 	provider?: string;
 	model?: string;
-	mode?: "plan";
+	mode?: "plan" | "act";
+	enableTools?: boolean;
+	enableSpawn?: boolean;
+	enableTeams?: boolean;
+	autoApproveTools?: boolean;
+	delivery?: "queue" | "steer";
 	cwd?: string;
 };
 
@@ -111,8 +116,8 @@ export type CursorUriLaunchResponse = Record<string, unknown> & {
 	sessionId: string;
 	provider: string;
 	model: string;
-	mode: "plan";
-	queued: true;
+	mode: "plan" | "act";
+	queued: boolean;
 	metadata?: Record<string, unknown>;
 	preview?: CursorUriPreviewResponse;
 };
@@ -559,6 +564,19 @@ class DesktopClient {
 			...(input.provider ? { provider: input.provider } : {}),
 			...(input.model ? { model: input.model } : {}),
 			...(input.mode ? { mode: input.mode } : {}),
+			...(input.enableTools !== undefined
+				? { enableTools: input.enableTools }
+				: {}),
+			...(input.enableSpawn !== undefined
+				? { enableSpawn: input.enableSpawn }
+				: {}),
+			...(input.enableTeams !== undefined
+				? { enableTeams: input.enableTeams }
+				: {}),
+			...(input.autoApproveTools !== undefined
+				? { autoApproveTools: input.autoApproveTools }
+				: {}),
+			...(input.delivery ? { delivery: input.delivery } : {}),
 			...(input.cwd ? { cwd: input.cwd } : {}),
 		});
 	}

@@ -299,6 +299,91 @@ function getCursorQueuedAgentToolPolicies(): AgentConfig["toolPolicies"] {
 	};
 }
 
+type CursorLaunchMode = "act" | "plan";
+type CursorLaunchDelivery = "queue" | "steer";
+
+type CursorLaunchOptions = {
+	mode: CursorLaunchMode;
+	enableTools: boolean;
+	enableSpawn: boolean;
+	enableTeams: boolean;
+	autoApproveTools: boolean;
+	delivery: CursorLaunchDelivery;
+	timeoutMs?: number;
+	toolPolicies?: AgentConfig["toolPolicies"];
+};
+
+function readOptionalBoolean(
+	args: JsonRecord | undefined,
+	key: string,
+): boolean | undefined {
+	const value = args?.[key];
+	if (value === undefined) {
+		return undefined;
+	}
+	if (typeof value !== "boolean") {
+		throw new Error(`cursor_uri_launch ${key} must be a boolean`);
+	}
+	return value;
+}
+
+function readCursorLaunchMode(args: JsonRecord | undefined): CursorLaunchMode {
+	const mode = asTrimmedString(args?.mode);
+	if (!mode) {
+		return "plan";
+	}
+	if (mode !== "plan" && mode !== "act") {
+		throw new Error("cursor_uri_launch mode must be plan or act");
+	}
+	return mode;
+}
+
+function readCursorLaunchDelivery(
+	args: JsonRecord | undefined,
+): CursorLaunchDelivery {
+	const delivery = asTrimmedString(args?.delivery);
+	if (!delivery) {
+		return "queue";
+	}
+	if (delivery !== "queue" && delivery !== "steer") {
+		throw new Error("cursor_uri_launch delivery must be queue or steer");
+	}
+	return delivery;
+}
+
+function readCursorLaunchOptions(
+	args: JsonRecord | undefined,
+	backgroundAgent: boolean,
+): CursorLaunchOptions {
+	const timeoutMs = toPositiveInt(args?.timeoutMs);
+	if (backgroundAgent) {
+		return {
+			mode: "plan",
+			enableTools: true,
+			enableSpawn: false,
+			enableTeams: false,
+			autoApproveTools: false,
+			delivery: "queue",
+			...(timeoutMs ? { timeoutMs } : {}),
+			toolPolicies: getCursorQueuedAgentToolPolicies(),
+		};
+	}
+	const autoApproveTools =
+		readOptionalBoolean(args, "autoApproveTools") ?? false;
+	return {
+		mode: readCursorLaunchMode(args),
+		enableTools: readOptionalBoolean(args, "enableTools") ?? true,
+		enableSpawn: readOptionalBoolean(args, "enableSpawn") ?? false,
+		enableTeams: readOptionalBoolean(args, "enableTeams") ?? false,
+		autoApproveTools,
+		delivery: readCursorLaunchDelivery(args),
+		...(timeoutMs ? { timeoutMs } : {}),
+		...(autoApproveTools
+			? {}
+			: { toolPolicies: getCursorQueuedAgentToolPolicies() }),
+	};
+}
+
 function buildCursorLaunchMetadata(
 	preview: CursorUriPreviewResponse,
 	uri: string,
@@ -461,7 +546,6 @@ export async function launchCursorUri(
 	const provider =
 		asTrimmedString(args?.provider) ?? DEFAULT_HUB_PROVIDER_ID;
 	const model = asTrimmedString(args?.model) ?? DEFAULT_HUB_MODEL_ID;
-	const mode = "plan";
 	const launchWorkspaceRoot = input.workspaceRoot ?? workspaceRoot;
 	const context = resolveLaunchContext(ctx, {
 		provider,
@@ -473,6 +557,8 @@ export async function launchCursorUri(
 	const backgroundAgent = metadata.backgroundAgent === true;
 	const glass = Boolean(metadata.glass);
 	const backgroundAgentDetails = getJsonRecord(metadata.backgroundAgentDetails);
+	const launchOptions = readCursorLaunchOptions(args, backgroundAgent);
+	const mode = launchOptions.mode;
 	if (backgroundAgent) {
 		let launchedContext = context;
 		let launchedMetadata = metadata;
@@ -515,13 +601,13 @@ export async function launchCursorUri(
 					const started = await ctx.cline!.start(
 						buildSessionStartInput(launchedContext, {
 							mode,
-							enableTools: true,
-							enableSpawn: false,
-							enableTeams: false,
-							autoApproveTools: false,
+							enableTools: launchOptions.enableTools,
+							enableSpawn: launchOptions.enableSpawn,
+							enableTeams: launchOptions.enableTeams,
+							autoApproveTools: launchOptions.autoApproveTools,
 							source: SessionSource.WEB,
 							sessionMetadata: launchedMetadata,
-							toolPolicies: getCursorQueuedAgentToolPolicies(),
+							toolPolicies: launchOptions.toolPolicies,
 						}),
 					);
 					const sessionId = started.sessionId.trim();
@@ -554,7 +640,10 @@ export async function launchCursorUri(
 						sessionId,
 						prompt: safePrompt,
 						mode,
-						delivery: "queue",
+						delivery: launchOptions.delivery,
+						...(launchOptions.timeoutMs
+							? { timeoutMs: launchOptions.timeoutMs }
+							: {}),
 					});
 					return sessionId;
 				},
@@ -594,7 +683,7 @@ export async function launchCursorUri(
 			provider: launchedContext.providerId,
 			model: launchedContext.modelId,
 			mode,
-			queued: true,
+			queued: launchOptions.delivery === "queue",
 			backgroundAgentDetails: finalDetails,
 			metadata: finalMetadata,
 			preview,
@@ -603,13 +692,13 @@ export async function launchCursorUri(
 	const started = await ctx.cline.start(
 		buildSessionStartInput(context, {
 			mode,
-			enableTools: true,
-			enableSpawn: false,
-			enableTeams: false,
-			autoApproveTools: false,
+			enableTools: launchOptions.enableTools,
+			enableSpawn: launchOptions.enableSpawn,
+			enableTeams: launchOptions.enableTeams,
+			autoApproveTools: launchOptions.autoApproveTools,
 			source: SessionSource.WEB,
 			sessionMetadata: metadata,
-			toolPolicies: getCursorQueuedAgentToolPolicies(),
+			toolPolicies: launchOptions.toolPolicies,
 		}),
 	);
 	const sessionId = started.sessionId.trim();
@@ -637,11 +726,12 @@ export async function launchCursorUri(
 		sessionId,
 		prompt: taskPrompt,
 		mode,
-		delivery: "queue",
+		delivery: launchOptions.delivery,
+		...(launchOptions.timeoutMs ? { timeoutMs: launchOptions.timeoutMs } : {}),
 	});
 	ctx.pushEvent(
 		"Cursor URI launched",
-		`${route} queued in session ${sessionId}`,
+		`${route} ${launchOptions.delivery === "queue" ? "queued" : "steered"} in session ${sessionId}`,
 		"success",
 	);
 	broadcastHubState(ctx);
@@ -660,7 +750,7 @@ export async function launchCursorUri(
 		provider: context.providerId,
 		model: context.modelId,
 		mode,
-		queued: true,
+		queued: launchOptions.delivery === "queue",
 		metadata,
 		preview,
 	};

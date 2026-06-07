@@ -1761,6 +1761,89 @@ function getCursorQueuedAgentToolPolicies(): JsonRecord {
 	};
 }
 
+type CursorLaunchMode = "act" | "plan";
+type CursorLaunchDelivery = "queue" | "steer";
+
+type CursorLaunchOptions = {
+	mode: CursorLaunchMode;
+	enableTools: boolean;
+	enableSpawn: boolean;
+	enableTeams: boolean;
+	autoApproveTools: boolean;
+	delivery: CursorLaunchDelivery;
+	toolPolicies?: JsonRecord;
+};
+
+function readOptionalCursorLaunchBoolean(
+	args: Record<string, unknown> | undefined,
+	key: string,
+): boolean | undefined {
+	const value = args?.[key];
+	if (value === undefined) {
+		return undefined;
+	}
+	if (typeof value !== "boolean") {
+		throw new Error(`cursor_uri_launch ${key} must be a boolean`);
+	}
+	return value;
+}
+
+function readCursorLaunchMode(
+	args: Record<string, unknown> | undefined,
+): CursorLaunchMode {
+	const mode = asTrimmedString(args?.mode);
+	if (!mode) {
+		return "plan";
+	}
+	if (mode !== "plan" && mode !== "act") {
+		throw new Error("cursor_uri_launch mode must be plan or act");
+	}
+	return mode;
+}
+
+function readCursorLaunchDelivery(
+	args: Record<string, unknown> | undefined,
+): CursorLaunchDelivery {
+	const delivery = asTrimmedString(args?.delivery);
+	if (!delivery) {
+		return "queue";
+	}
+	if (delivery !== "queue" && delivery !== "steer") {
+		throw new Error("cursor_uri_launch delivery must be queue or steer");
+	}
+	return delivery;
+}
+
+function readCursorLaunchOptions(
+	args: Record<string, unknown> | undefined,
+	backgroundAgent: boolean,
+): CursorLaunchOptions {
+	if (backgroundAgent) {
+		return {
+			mode: "plan",
+			enableTools: true,
+			enableSpawn: false,
+			enableTeams: false,
+			autoApproveTools: false,
+			delivery: "queue",
+			toolPolicies: getCursorQueuedAgentToolPolicies(),
+		};
+	}
+	const autoApproveTools =
+		readOptionalCursorLaunchBoolean(args, "autoApproveTools") ?? false;
+	return {
+		mode: readCursorLaunchMode(args),
+		enableTools: readOptionalCursorLaunchBoolean(args, "enableTools") ?? true,
+		enableSpawn: readOptionalCursorLaunchBoolean(args, "enableSpawn") ?? false,
+		enableTeams: readOptionalCursorLaunchBoolean(args, "enableTeams") ?? false,
+		autoApproveTools,
+		delivery: readCursorLaunchDelivery(args),
+		...(autoApproveTools
+			? {}
+			: { toolPolicies: getCursorQueuedAgentToolPolicies() }),
+	};
+}
+
 function buildCursorLaunchMetadata(
 	preview: CursorUriPreviewResponse,
 	uri: string,
@@ -1866,7 +1949,6 @@ async function handleCursorUriLaunchCommand(
 
 	const provider = asTrimmedString(args?.provider) ?? DEFAULT_CODEVIBE_PROVIDER_ID;
 	const model = asTrimmedString(args?.model) ?? DEFAULT_CODEVIBE_MODEL_ID;
-	const mode = "plan";
 	const workspaceRoot = input.workspaceRoot ?? ctx.workspaceRoot;
 	const cwd = workspaceRoot;
 	const metadata = buildCursorLaunchMetadata(preview, input.uri);
@@ -1878,6 +1960,8 @@ async function handleCursorUriLaunchCommand(
 		!Array.isArray(metadata.backgroundAgentDetails)
 			? (metadata.backgroundAgentDetails as JsonRecord)
 			: undefined;
+	const launchOptions = readCursorLaunchOptions(args, backgroundAgent);
+	const mode = launchOptions.mode;
 	const { handleChatSessionCommand } = await import("./chat-session");
 	if (backgroundAgent) {
 		const record = await launchCursorBackgroundAgent(
@@ -1932,11 +2016,11 @@ async function handleCursorUriLaunchCommand(
 							mode,
 							workspaceRoot: taskWorkspaceRoot,
 							cwd: taskWorkspaceRoot,
-							enableTools: true,
-							enableSpawn: false,
-							enableTeams: false,
-							autoApproveTools: false,
-							toolPolicies: getCursorQueuedAgentToolPolicies(),
+							enableTools: launchOptions.enableTools,
+							enableSpawn: launchOptions.enableSpawn,
+							enableTeams: launchOptions.enableTeams,
+							autoApproveTools: launchOptions.autoApproveTools,
+							toolPolicies: launchOptions.toolPolicies,
 							sessionMetadata: taskMetadata,
 						},
 					})) as { sessionId?: unknown };
@@ -1953,7 +2037,7 @@ async function handleCursorUriLaunchCommand(
 						action: "send",
 						sessionId: startedSessionId,
 						prompt: safePrompt,
-						delivery: "queue",
+						delivery: launchOptions.delivery,
 					});
 					return startedSessionId;
 				},
@@ -1977,7 +2061,7 @@ async function handleCursorUriLaunchCommand(
 			provider,
 			model,
 			mode,
-			queued: true,
+			queued: launchOptions.delivery === "queue",
 			metadata: {
 				...metadata,
 				backgroundAgentDetails: finalDetails,
@@ -1993,11 +2077,11 @@ async function handleCursorUriLaunchCommand(
 			mode,
 			workspaceRoot,
 			cwd,
-			enableTools: true,
-			enableSpawn: false,
-			enableTeams: false,
-			autoApproveTools: false,
-			toolPolicies: getCursorQueuedAgentToolPolicies(),
+			enableTools: launchOptions.enableTools,
+			enableSpawn: launchOptions.enableSpawn,
+			enableTeams: launchOptions.enableTeams,
+			autoApproveTools: launchOptions.autoApproveTools,
+			toolPolicies: launchOptions.toolPolicies,
 			sessionMetadata: metadata,
 		},
 	})) as { sessionId?: unknown };
@@ -2010,7 +2094,7 @@ async function handleCursorUriLaunchCommand(
 		action: "send",
 		sessionId,
 		prompt: taskPrompt,
-		delivery: "queue",
+		delivery: launchOptions.delivery,
 	});
 
 	return {
@@ -2027,7 +2111,7 @@ async function handleCursorUriLaunchCommand(
 		provider,
 		model,
 		mode,
-		queued: true,
+		queued: launchOptions.delivery === "queue",
 		metadata,
 		preview,
 	};
