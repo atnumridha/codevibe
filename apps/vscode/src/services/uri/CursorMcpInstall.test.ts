@@ -106,7 +106,9 @@ describe("CursorMcpInstall", () => {
 			expect((request.serverConfig as any).headers).to.deep.equal({
 				Authorization: "Bearer secret-token",
 			})
-			expect(formatCursorMcpInstallDetail(request)).to.not.contain("secret-token")
+			const detail = formatCursorMcpInstallDetail(request)
+			expect(detail).to.contain("Header keys: Authorization")
+			expect(detail).to.not.contain("secret-token")
 		} finally {
 			if (originalHost === undefined) {
 				delete process.env.CURSOR_MCP_HOST

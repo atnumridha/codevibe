@@ -71,6 +71,9 @@ export function formatCursorMcpInstallDetail(request: CursorMcpInstallRequest): 
 	if (config.env && typeof config.env === "object") {
 		lines.push(`Environment keys: ${Object.keys(config.env).sort().join(", ") || "(none)"}`)
 	}
+	if (config.headers && typeof config.headers === "object") {
+		lines.push(`Header keys: ${Object.keys(config.headers).sort().join(", ") || "(none)"}`)
+	}
 	return lines.join("\n")
 }
 

@@ -331,6 +331,37 @@ describe("SharedUriHandler", () => {
 				})
 			})
 
+			it("should show MCP header keys without values in Cursor install confirmation text", async () => {
+				const config = encodeConfig({
+					mcpServers: {
+						docs: {
+							type: "streamableHttp",
+							url: "https://mcp.example.com/context",
+							headers: {
+								Authorization: "Bearer secret-header-token",
+								"X-Workspace": "docs",
+							},
+						},
+					},
+				})
+
+				const result = await SharedUriHandler.handleUri(
+					`vscode://cline.cline/mcp/install?name=docs&config=${config}`,
+				)
+
+				expect(result).to.be.true
+				const modal = showMessageStub.firstCall.args[0]
+				expect(modal.options.detail).to.contain("Header keys: Authorization, X-Workspace")
+				expect(modal.options.detail).not.to.contain("secret-header-token")
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				expect(addServerFromConfigStub.firstCall.args[1]).to.deep.include({
+					headers: {
+						Authorization: "Bearer secret-header-token",
+						"X-Workspace": "docs",
+					},
+				})
+			})
+
 			it("should install a Cursor MCP route with a bare named-server config map", async () => {
 				const config = encodeConfig({
 					postgres: {
