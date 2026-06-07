@@ -1,5 +1,5 @@
 import { EmptyRequest } from "@shared/proto/cline/common"
-import { NewTaskRequest } from "@shared/proto/cline/task"
+import { NewTaskRequest, type BackgroundAgentSession } from "@shared/proto/cline/task"
 import type { MergeWorktreeResult, Worktree as WorktreeProto } from "@shared/proto/cline/worktree"
 import {
 	CreateWorktreeIncludeRequest,
@@ -8,7 +8,7 @@ import {
 	SwitchWorktreeRequest,
 } from "@shared/proto/cline/worktree"
 import { VSCodeButton, VSCodeCheckbox } from "@vscode/webview-ui-toolkit/react"
-import { AlertCircle, Check, ExternalLink, FolderOpen, GitBranch, GitMerge, Loader2, Plus, Trash2, X } from "lucide-react"
+import { AlertCircle, Bot, Check, Clock, ExternalLink, FolderOpen, GitBranch, GitMerge, Loader2, Plus, Trash2, X } from "lucide-react"
 import { memo, useCallback, useEffect, useState } from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useExtensionState } from "@/context/ExtensionStateContext"
@@ -21,9 +21,32 @@ type WorktreesViewProps = {
 	onDone: () => void
 }
 
+function formatBackgroundAgentTime(value: number | string | bigint | undefined): string {
+	const timestamp = typeof value === "bigint" ? Number(value) : typeof value === "string" ? Number(value) : value
+	if (!timestamp || !Number.isFinite(timestamp)) {
+		return ""
+	}
+	return new Date(timestamp).toLocaleString(undefined, {
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	})
+}
+
+function summarizeBackgroundAgentPrompt(prompt: string | undefined): string {
+	const trimmed = prompt?.trim()
+	if (!trimmed) {
+		return "(no prompt)"
+	}
+	return trimmed.length > 140 ? `${trimmed.slice(0, 137)}...` : trimmed
+}
+
 const WorktreesView = ({ onDone }: WorktreesViewProps) => {
 	const { environment } = useExtensionState()
 	const [worktrees, setWorktrees] = useState<WorktreeProto[]>([])
+	const [backgroundAgentSessions, setBackgroundAgentSessions] = useState<BackgroundAgentSession[]>([])
+	const [backgroundAgentError, setBackgroundAgentError] = useState<string | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
 	const [error, setError] = useState<string | null>(null)
 	const [isGitRepo, setIsGitRepo] = useState(true)
@@ -79,6 +102,19 @@ const WorktreesView = ({ onDone }: WorktreesViewProps) => {
 		}
 	}, [])
 
+	const loadBackgroundAgentSessions = useCallback(async () => {
+		try {
+			const response = await TaskServiceClient.getBackgroundAgentSessions(EmptyRequest.create({}))
+			setBackgroundAgentSessions((prev) => {
+				const nextSessions = response.sessions ?? []
+				return JSON.stringify(prev) === JSON.stringify(nextSessions) ? prev : nextSessions
+			})
+			setBackgroundAgentError(null)
+		} catch (err) {
+			setBackgroundAgentError(err instanceof Error ? err.message : "Failed to load background agents")
+		}
+	}, [])
+
 	// Load .worktreeinclude status
 	const loadWorktreeIncludeStatus = useCallback(async () => {
 		try {
@@ -117,14 +153,18 @@ const WorktreesView = ({ onDone }: WorktreesViewProps) => {
 	// Initial load
 	useEffect(() => {
 		loadWorktrees()
+		loadBackgroundAgentSessions()
 		loadWorktreeIncludeStatus()
-	}, [loadWorktrees, loadWorktreeIncludeStatus])
+	}, [loadWorktrees, loadBackgroundAgentSessions, loadWorktreeIncludeStatus])
 
 	// Poll for updates every 3 seconds while the view is open
 	useEffect(() => {
-		const interval = setInterval(loadWorktrees, 3000)
+		const interval = setInterval(() => {
+			loadWorktrees()
+			loadBackgroundAgentSessions()
+		}, 3000)
 		return () => clearInterval(interval)
-	}, [loadWorktrees])
+	}, [loadWorktrees, loadBackgroundAgentSessions])
 
 	const handleDeleteWorktree = useCallback(
 		async (path: string, deleteBranch: boolean, branchName: string) => {
@@ -319,6 +359,70 @@ Please help me resolve these merge conflicts, then complete the merge, and delet
 										)}
 									</VSCodeButton>
 								)}
+							</div>
+						)}
+					</div>
+				)}
+
+				{(backgroundAgentSessions.length > 0 || backgroundAgentError) && (
+					<div
+						className="mt-4 p-3 rounded-md"
+						style={{
+							border: "1px solid var(--vscode-widget-border)",
+							backgroundColor: "var(--vscode-editorWidget-background)",
+						}}>
+						<div className="flex items-center justify-between gap-2 mb-2">
+							<div className="flex items-center gap-2 text-sm font-medium text-[var(--vscode-foreground)]">
+								<Bot className="w-4 h-4 text-[var(--vscode-button-background)]" />
+								<span>Background agents</span>
+							</div>
+							<span className="text-xs text-[var(--vscode-descriptionForeground)]">
+								{backgroundAgentSessions.length} current launch record
+								{backgroundAgentSessions.length === 1 ? "" : "s"}
+							</span>
+						</div>
+						{backgroundAgentError ? (
+							<p className="m-0 text-xs text-[var(--vscode-errorForeground)]">{backgroundAgentError}</p>
+						) : (
+							<div className="flex flex-col gap-2">
+								{backgroundAgentSessions.map((session) => (
+									<div
+										className="rounded border border-[var(--vscode-panel-border)] p-2"
+										key={session.id}>
+										<div className="flex flex-wrap items-center justify-between gap-2">
+											<div className="flex flex-wrap items-center gap-2">
+												<span className="text-xs px-1.5 py-0.5 rounded bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)]">
+													{session.status || "unknown"}
+												</span>
+												{session.launchMode && (
+													<span className="text-xs text-[var(--vscode-descriptionForeground)]">
+														{session.launchMode}
+													</span>
+												)}
+											</div>
+											{formatBackgroundAgentTime(session.updatedAt) && (
+												<span className="inline-flex items-center gap-1 text-xs text-[var(--vscode-descriptionForeground)]">
+													<Clock className="w-3 h-3" />
+													{formatBackgroundAgentTime(session.updatedAt)}
+												</span>
+											)}
+										</div>
+										<p className="m-0 mt-1 text-sm text-[var(--vscode-foreground)]">
+											{summarizeBackgroundAgentPrompt(session.prompt)}
+										</p>
+										{(session.worktreePath || session.workspaceRoot || session.taskId) && (
+											<div className="mt-1 flex flex-col gap-0.5 text-xs text-[var(--vscode-descriptionForeground)]">
+												{session.worktreePath && (
+													<span className="break-all">Worktree: {session.worktreePath}</span>
+												)}
+												{!session.worktreePath && session.workspaceRoot && (
+													<span className="break-all">Workspace: {session.workspaceRoot}</span>
+												)}
+												{session.taskId && <span>Task: {session.taskId}</span>}
+											</div>
+										)}
+									</div>
+								))}
 							</div>
 						)}
 					</div>
