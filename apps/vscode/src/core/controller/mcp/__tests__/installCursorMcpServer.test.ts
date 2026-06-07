@@ -48,7 +48,15 @@ describe("installCursorMcpServer", () => {
 	})
 
 	it("installs a Cursor MCP server after explicit confirmation", async () => {
-		const addServerFromConfig = sinon.stub().resolves([])
+		const addServerFromConfig = sinon.stub().resolves([
+			{
+				name: "linear",
+				config: "{}",
+				status: "connected",
+				oauthRequired: false,
+				oauthAuthStatus: "authenticated",
+			},
+		])
 		const response = await installCursorMcpServer(
 			createController(addServerFromConfig),
 			CursorMcpServerInstallRequest.create({
@@ -66,6 +74,38 @@ describe("installCursorMcpServer", () => {
 			command: "npx",
 		})
 		expect(addServerFromConfig.firstCall.args[1].args).to.deep.equal(["-y", "@modelcontextprotocol/server-linear"])
+		expect(response.oauthRequired).to.equal(false)
+		expect(response.oauthAuthStatus).to.equal("authenticated")
+		expect(response.oauthNextAction).to.equal("none")
+	})
+
+	it("summarizes OAuth action after installing a Cursor MCP server that requires authentication", async () => {
+		const addServerFromConfig = sinon.stub().resolves([
+			{
+				name: "linear",
+				config: '{"type":"streamableHttp","url":"https://mcp.linear.app"}',
+				status: "disconnected",
+				error: "This MCP server requires authentication to get started.",
+				oauthRequired: true,
+				oauthAuthStatus: "unauthenticated",
+			},
+		])
+		const response = await installCursorMcpServer(
+			createController(addServerFromConfig),
+			CursorMcpServerInstallRequest.create({
+				uri: "cursor://mcp/install?name=linear&url=https%3A%2F%2Fmcp.linear.app",
+				confirmed: true,
+			}),
+		)
+
+		expect(response.installed).to.equal(true)
+		expect(response.serverName).to.equal("linear")
+		expect(response.oauthRequired).to.equal(true)
+		expect(response.oauthAuthStatus).to.equal("unauthenticated")
+		expect(response.oauthNextAction).to.equal("authenticate")
+		expect(response.oauthDetail).to.contain("requires authentication")
+		expect(response.mcpServers?.mcpServers[0]?.oauthRequired).to.equal(true)
+		expect(response.mcpServers?.mcpServers[0]?.oauthAuthStatus).to.equal("unauthenticated")
 	})
 
 	it("returns a structured error for non-MCP routes", async () => {

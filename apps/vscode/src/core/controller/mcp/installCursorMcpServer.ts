@@ -1,5 +1,6 @@
 import type { CursorMcpServerInstallRequest } from "@shared/proto/cline/mcp"
 import { CursorMcpServerInstallResponse, McpServers } from "@shared/proto/cline/mcp"
+import type { McpServer } from "@/shared/mcp"
 import { convertMcpServersToProtoMcpServers } from "@/shared/proto-conversions/mcp/mcp-server-conversion"
 import { Logger } from "@/shared/services/Logger"
 import {
@@ -34,6 +35,35 @@ function parseCursorMcpInstallRoute(uri: string) {
 	return parsedRoute.route
 }
 
+type CursorMcpOAuthNextAction = "none" | "authenticate"
+
+function getInstalledServerOAuthSummary(server: McpServer | undefined) {
+	if (!server) {
+		return {}
+	}
+
+	const oauthAuthStatus = server.oauthAuthStatus
+	const authStatusRequiresAuth = oauthAuthStatus === "unauthenticated" || oauthAuthStatus === "pending"
+	const oauthRequired = server.oauthRequired ?? authStatusRequiresAuth
+
+	if (!oauthRequired && !oauthAuthStatus) {
+		return {}
+	}
+
+	const oauthNextAction: CursorMcpOAuthNextAction =
+		oauthRequired && oauthAuthStatus !== "authenticated" ? "authenticate" : "none"
+
+	return {
+		oauthRequired,
+		oauthAuthStatus,
+		oauthNextAction,
+		oauthDetail:
+			oauthNextAction === "authenticate"
+				? server.error || "This MCP server requires authentication to get started."
+				: undefined,
+	}
+}
+
 export async function installCursorMcpServer(
 	controller: Controller,
 	request: CursorMcpServerInstallRequest,
@@ -59,12 +89,15 @@ export async function installCursorMcpServer(
 			installRequest.serverName,
 			installRequest.serverConfig,
 		)
+		const installedServer = servers.find((server) => server.name === installRequest.serverName)
+		const oauthSummary = getInstalledServerOAuthSummary(installedServer)
 
 		return CursorMcpServerInstallResponse.create({
 			installed: true,
 			serverName: installRequest.serverName,
 			detail,
 			mcpServers: McpServers.create({ mcpServers: convertMcpServersToProtoMcpServers(servers) }),
+			...oauthSummary,
 		})
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)

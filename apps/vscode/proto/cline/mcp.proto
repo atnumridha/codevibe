@@ -60,6 +60,10 @@ message CursorMcpServerInstallResponse {
   string detail = 3;
   optional string error = 4;
   McpServers mcp_servers = 5;
+  optional bool oauth_required = 6;
+  optional string oauth_auth_status = 7;
+  optional string oauth_next_action = 8;
+  optional string oauth_detail = 9;
 }
 
 message ToggleToolAutoApproveRequest {
