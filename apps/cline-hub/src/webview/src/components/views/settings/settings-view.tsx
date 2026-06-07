@@ -28,6 +28,7 @@ import {
 	desktopClient,
 	type BrowserAutomationStatus,
 	type BrowserToolResult,
+	type CursorGitActionResponse,
 	type CursorMcpInstallResponse,
 	type CursorPluginAddResponse,
 	type CursorRuleOpenResponse,
@@ -618,6 +619,11 @@ function CursorLinksContent() {
 	>();
 	const [pluginError, setPluginError] = useState<string | null>(null);
 	const [pluginLoading, setPluginLoading] = useState(false);
+	const [gitResult, setGitResult] = useState<
+		CursorGitActionResponse | undefined
+	>();
+	const [gitError, setGitError] = useState<string | null>(null);
+	const [gitLoading, setGitLoading] = useState(false);
 
 	const previewRecord = asRecord(preview);
 	const route = recordString(previewRecord, "route");
@@ -636,6 +642,10 @@ function CursorLinksContent() {
 		route === "plugin-add" &&
 		recordBoolean(previewRecord, "requiresReview") !== true &&
 		Boolean(recordString(previewRecord, "source"));
+	const canRunGit =
+		route === "git-checkout" ||
+		route === "git-branch" ||
+		route === "git-commit";
 
 	const runPreview = async () => {
 		const uri = cursorUri.trim();
@@ -648,6 +658,8 @@ function CursorLinksContent() {
 			setRuleError(null);
 			setPluginResult(undefined);
 			setPluginError(null);
+			setGitResult(undefined);
+			setGitError(null);
 			return;
 		}
 		setPreviewLoading(true);
@@ -659,6 +671,8 @@ function CursorLinksContent() {
 		setRuleError(null);
 		setPluginResult(undefined);
 		setPluginError(null);
+		setGitResult(undefined);
+		setGitError(null);
 		try {
 			const result = await desktopClient.previewCursorUri({
 				uri,
@@ -683,6 +697,8 @@ function CursorLinksContent() {
 		setRuleError(null);
 		setPluginResult(undefined);
 		setPluginError(null);
+		setGitResult(undefined);
+		setGitError(null);
 	};
 
 	const runMcpInstall = async () => {
@@ -752,6 +768,29 @@ function CursorLinksContent() {
 			setPluginError(error instanceof Error ? error.message : String(error));
 		} finally {
 			setPluginLoading(false);
+		}
+	};
+
+	const runGitAction = async () => {
+		const uri = cursorUri.trim();
+		if (!uri || !canRunGit) {
+			return;
+		}
+		setGitLoading(true);
+		setGitError(null);
+		setGitResult(undefined);
+		try {
+			const result = await desktopClient.runCursorGitAction({
+				uri,
+				confirmed: true,
+				maxCommandFileBytes: 64 * 1024,
+				maxRuleFileBytes: 64 * 1024,
+			});
+			setGitResult(result);
+		} catch (error) {
+			setGitError(error instanceof Error ? error.message : String(error));
+		} finally {
+			setGitLoading(false);
 		}
 	};
 
@@ -846,6 +885,21 @@ function CursorLinksContent() {
 										<CheckCircle2 className="size-4" />
 									)}
 									Add Plugin
+								</Button>
+							) : null}
+							{canRunGit ? (
+								<Button
+									disabled={gitLoading}
+									onClick={() => void runGitAction()}
+									type="button"
+									variant="outline"
+								>
+									{gitLoading ? (
+										<Loader2 className="size-4 animate-spin" />
+									) : (
+										<CheckCircle2 className="size-4" />
+									)}
+									Run Git
 								</Button>
 							) : null}
 						</div>
@@ -959,6 +1013,39 @@ function CursorLinksContent() {
 								: (pluginResult.reason ??
 									pluginResult.detail ??
 									"Review required.")}
+						</AlertDescription>
+					</Alert>
+				) : null}
+
+				{gitError ? (
+					<Alert className="mt-4" variant="destructive">
+						<AlertTriangle className="size-4" />
+						<AlertTitle>Git action failed</AlertTitle>
+						<AlertDescription>{gitError}</AlertDescription>
+					</Alert>
+				) : null}
+
+				{gitResult ? (
+					<Alert
+						className="mt-4"
+						variant={gitResult.executed ? "default" : "destructive"}
+					>
+						{gitResult.executed ? (
+							<CheckCircle2 className="size-4" />
+						) : (
+							<AlertTriangle className="size-4" />
+						)}
+						<AlertTitle>
+							{gitResult.executed ? `Ran ${gitResult.kind}` : "Git action blocked"}
+						</AlertTitle>
+						<AlertDescription>
+							{gitResult.executed
+								? (gitResult.commitHash ??
+									gitResult.currentBranch ??
+									gitResult.target ??
+									gitResult.branch ??
+									"done")
+								: (gitResult.reason ?? "Review repository state first.")}
 						</AlertDescription>
 					</Alert>
 				) : null}

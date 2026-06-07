@@ -37,6 +37,7 @@ import {
 	startConnectorChannel,
 	stopConnectorChannel,
 } from "./connectors";
+import { runCursorGitAction } from "./cursor-git";
 import { addCursorPlugin } from "./cursor-plugins";
 import { openCursorRule } from "./cursor-rules";
 import { providerSettingsManager, workspaceRoot } from "./deps";
@@ -303,6 +304,11 @@ export async function handleDesktopCommand(
 		const input =
 			args && typeof args === "object" ? (args as JsonRecord) : undefined;
 		return await addCursorPlugin(input);
+	}
+	if (command === "cursor_git_action") {
+		const input =
+			args && typeof args === "object" ? (args as JsonRecord) : undefined;
+		return runCursorGitAction(input);
 	}
 	if (command === "set_mcp_server_disabled") {
 		return setMcpServerDisabled(
