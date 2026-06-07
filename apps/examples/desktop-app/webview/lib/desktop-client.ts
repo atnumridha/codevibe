@@ -299,6 +299,13 @@ export type CursorGitActionResponse = Record<string, unknown> & {
 	reason?: string;
 };
 
+export type WorkspaceContextResponse = {
+	workspaceRoot: string;
+	cwd: string;
+	changed?: boolean;
+	previousWorkspaceRoot?: string;
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 const RECONNECT_BASE_DELAY_MS = 400;
 const RECONNECT_MAX_DELAY_MS = 4_000;
@@ -492,6 +499,14 @@ class DesktopClient {
 				timeoutId,
 			});
 			socket.send(JSON.stringify(request));
+		});
+	}
+
+	async setWorkspaceRoot(
+		workspaceRoot: string,
+	): Promise<WorkspaceContextResponse> {
+		return await this.invoke<WorkspaceContextResponse>("set_workspace_root", {
+			workspaceRoot,
 		});
 	}
 

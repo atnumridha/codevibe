@@ -1,5 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+	mkdir,
+	mkdtemp,
+	readFile,
+	realpath,
+	rm,
+	writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { RuntimeCapabilities } from "@cline/core";
@@ -433,6 +440,49 @@ describe("Code sidecar runtime capabilities", () => {
 				query: "secret",
 			}),
 		).rejects.toThrow("inside the active workspace");
+	});
+
+	it("updates active workspace context before searching the selected root", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const initialWorkspace = await mkdtemp(
+			join(tmpdir(), "codevibe-workspace-initial-"),
+		);
+		const selectedWorkspace = await mkdtemp(
+			join(tmpdir(), "codevibe-workspace-selected-"),
+		);
+		tempDirs.push(initialWorkspace, selectedWorkspace);
+		await mkdir(join(selectedWorkspace, "src"), { recursive: true });
+		await writeFile(join(selectedWorkspace, "src", "alpha-guide.md"), "alpha\n");
+		const ctx = createSidecarContext(initialWorkspace);
+		ctx.wsClients.add({ send: vi.fn() });
+
+		const switched = await handleCommand(ctx, "set_workspace_root", {
+			workspaceRoot: selectedWorkspace,
+		});
+		const selectedRealPath = await realpath(selectedWorkspace);
+
+		expect(switched).toMatchObject({
+			workspaceRoot: selectedRealPath,
+			cwd: selectedRealPath,
+			changed: true,
+			previousWorkspaceRoot: initialWorkspace,
+		});
+		expect(await handleCommand(ctx, "get_process_context")).toEqual({
+			workspaceRoot: selectedRealPath,
+			cwd: selectedRealPath,
+		});
+		expect(readEvents(ctx).map((entry) => entry.event.name)).toContain(
+			"workspace_context_changed",
+		);
+		await expect(
+			handleCommand(ctx, "search_workspace_files", {
+				workspaceRoot: selectedRealPath,
+				query: "alpha",
+				ttlMs: 0,
+			}),
+		).resolves.toEqual(["src/alpha-guide.md"]);
 	});
 
 	it("previews Cursor MCP installs without mutating settings", async () => {

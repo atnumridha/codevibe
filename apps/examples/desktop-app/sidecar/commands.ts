@@ -4,7 +4,9 @@ import {
 	mkdirSync,
 	readdirSync,
 	readFileSync,
+	realpathSync,
 	rmSync,
+	statSync,
 	writeFileSync,
 } from "node:fs";
 import { homedir } from "node:os";
@@ -227,6 +229,13 @@ type CursorGitActionResponse = {
 	dirty: boolean;
 	statusEntryCount: number;
 	reason?: string;
+};
+
+type WorkspaceContextResponse = {
+	workspaceRoot: string;
+	cwd: string;
+	changed?: boolean;
+	previousWorkspaceRoot?: string;
 };
 
 type GitStatusEntry = {
@@ -1178,6 +1187,46 @@ function asTrimmedStringArray(value: unknown): string[] | undefined {
 	});
 	const roots = entries.filter(Boolean);
 	return roots.length > 0 ? roots : undefined;
+}
+
+function resolveExistingWorkspaceRoot(value: unknown): string {
+	const workspaceRoot = asTrimmedString(value);
+	if (!workspaceRoot) {
+		throw new Error("workspaceRoot is required");
+	}
+	const resolved = resolve(workspaceRoot);
+	let stat: ReturnType<typeof statSync>;
+	try {
+		stat = statSync(resolved);
+	} catch {
+		throw new Error(`workspaceRoot does not exist: ${resolved}`);
+	}
+	if (!stat.isDirectory()) {
+		throw new Error(`workspaceRoot must be a directory: ${resolved}`);
+	}
+	return realpathSync(resolved);
+}
+
+function setActiveWorkspaceRoot(
+	ctx: SidecarContext,
+	workspaceRoot: string,
+): WorkspaceContextResponse {
+	const previousWorkspaceRoot = ctx.workspaceRoot;
+	ctx.workspaceRoot = workspaceRoot;
+	const changed = previousWorkspaceRoot !== workspaceRoot;
+	if (changed) {
+		broadcastEvent(ctx, "workspace_context_changed", {
+			workspaceRoot,
+			cwd: workspaceRoot,
+			previousWorkspaceRoot,
+		});
+	}
+	return {
+		workspaceRoot,
+		cwd: workspaceRoot,
+		changed,
+		...(changed ? { previousWorkspaceRoot } : {}),
+	};
 }
 
 function readCursorUriPreviewRequest(
@@ -2418,6 +2467,10 @@ export async function handleCommand(
 	// ── Process context ───────────────────────────────────────────────
 	if (command === "get_process_context") {
 		return { workspaceRoot: ctx.workspaceRoot, cwd: ctx.workspaceRoot };
+	}
+	if (command === "set_workspace_root") {
+		const workspaceRoot = resolveExistingWorkspaceRoot(args?.workspaceRoot);
+		return setActiveWorkspaceRoot(ctx, workspaceRoot);
 	}
 	if (command === "cursor_uri_preview") {
 		return await handleCursorUriPreviewCommand(ctx, args);

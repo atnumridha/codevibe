@@ -701,7 +701,14 @@ function ChatThreadPane({
 			if (!nextWorkspace) {
 				return false;
 			}
-			const normalizedNext = normalizeWorkspacePath(nextWorkspace);
+			let activeWorkspace = nextWorkspace;
+			try {
+				const context = await desktopClient.setWorkspaceRoot(nextWorkspace);
+				activeWorkspace = context.workspaceRoot || nextWorkspace;
+			} catch {
+				return false;
+			}
+			const normalizedNext = normalizeWorkspacePath(activeWorkspace);
 			const normalizedCurrent = normalizeWorkspacePath(
 				workspaceRef.current.workspaceRoot || workspaceRef.current.cwd || "",
 			);
@@ -711,19 +718,19 @@ function ChatThreadPane({
 
 			setConfig((prev) => ({
 				...prev,
-				workspaceRoot: nextWorkspace,
-				cwd: nextWorkspace,
+				workspaceRoot: activeWorkspace,
+				cwd: activeWorkspace,
 			}));
 			setWorkspaces((prev) => {
 				const next = new Set(prev);
-				next.add(nextWorkspace);
+				next.add(activeWorkspace);
 				return [...next].sort((a, b) => a.localeCompare(b));
 			});
 
 			// Fire git branch + workspace list refresh in the background
 			desktopClient
 				.invoke<{ branch?: string }>("get_git_branch", {
-					cwd: nextWorkspace,
+					cwd: activeWorkspace,
 				})
 				.then((payload) => {
 					const branch = payload?.branch?.trim();
@@ -734,7 +741,7 @@ function ChatThreadPane({
 				});
 
 			// Re-fetch workspace list so the new root appears
-			void refreshWorkspaces(nextWorkspace);
+			void refreshWorkspaces(activeWorkspace);
 
 			return true;
 		},
