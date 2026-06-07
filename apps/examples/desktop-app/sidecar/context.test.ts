@@ -398,9 +398,23 @@ describe("Code sidecar runtime capabilities", () => {
 		const result = await handleCommand(ctx, "search_workspace_files", {
 			query: "secret",
 			limit: 10,
+			ttlMs: 0,
 		});
 
 		expect(result).toEqual(["src/secret-guide.md"]);
+
+		const unrestricted = await handleCommand(ctx, "search_workspace_files", {
+			query: "secret",
+			limit: 10,
+			ttlMs: 0,
+			cursorRetrievalIndexingPrivacyGate: false,
+		});
+
+		expect(unrestricted).toEqual([
+			"private/secret.md",
+			"src/secret-guide.md",
+			"src/token.secret",
+		]);
 	});
 
 	it("rejects workspace file search outside the active workspace", async () => {

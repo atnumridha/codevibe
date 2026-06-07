@@ -35,6 +35,22 @@ export function searchWorkspaceFiles(
 		typeof args?.limit === "number" && Number.isFinite(args.limit)
 			? Math.max(1, Math.min(50, Math.trunc(args.limit)))
 			: 10;
+	const ttlMs =
+		typeof args?.ttlMs === "number" &&
+		Number.isFinite(args.ttlMs) &&
+		args.ttlMs >= 0
+			? args.ttlMs
+			: undefined;
+	const cursorRetrievalIndexingPrivacyGate =
+		typeof args?.cursorRetrievalIndexingPrivacyGate === "boolean"
+			? args.cursorRetrievalIndexingPrivacyGate
+			: undefined;
+	const indexOptions = {
+		...(ttlMs !== undefined ? { ttlMs } : {}),
+		...(cursorRetrievalIndexingPrivacyGate !== undefined
+			? { cursorRetrievalIndexingPrivacyGate }
+			: {}),
+	};
 	const rankPath = (path: string) => {
 		if (!query) {
 			return 3;
@@ -51,7 +67,7 @@ export function searchWorkspaceFiles(
 		}
 		return Number.POSITIVE_INFINITY;
 	};
-	return getFileIndex(root).then((index) =>
+	return getFileIndex(root, indexOptions).then((index) =>
 		Array.from(index)
 			.sort((a, b) => a.localeCompare(b))
 			.map((path) => ({ path, rank: rankPath(path) }))
