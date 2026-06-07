@@ -1,3 +1,4 @@
+import { isAbsolute, relative, resolve } from "node:path";
 import {
 	addLocalProvider,
 	type ClineAccountActionRequest,
@@ -23,6 +24,7 @@ import {
 import {
 	getClineEnvironmentConfig,
 	type CursorUriPreviewRequest,
+	type HubMentionFileSearchRequest,
 } from "@cline/shared";
 import {
 	getHubBrowserAutomationStatus,
@@ -92,6 +94,41 @@ function readCursorUriPreviewRequest(
 		...(workspaceRoots?.length ? { workspaceRoots } : {}),
 		...(maxCommandFileBytes ? { maxCommandFileBytes } : {}),
 		...(maxRuleFileBytes ? { maxRuleFileBytes } : {}),
+	};
+}
+
+function isInsideOrSame(parent: string, candidate: string): boolean {
+	const rel = relative(parent, candidate);
+	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+function readWorkspaceFileSearchRequest(
+	args: Record<string, unknown> | undefined,
+): HubMentionFileSearchRequest {
+	const activeRoot = resolve(workspaceRoot);
+	const requestedRoot = resolve(
+		asTrimmedString(args?.workspaceRoot) ??
+			asTrimmedString(args?.cwd) ??
+			activeRoot,
+	);
+	if (!isInsideOrSame(activeRoot, requestedRoot)) {
+		throw new Error(
+			"search_workspace_files workspaceRoot must be inside the active workspace",
+		);
+	}
+	const query = asTrimmedString(args?.query) ?? "";
+	const limit = toPositiveInt(args?.limit);
+	const cursorRetrievalIndexingPrivacyGate =
+		typeof args?.cursorRetrievalIndexingPrivacyGate === "boolean"
+			? args.cursorRetrievalIndexingPrivacyGate
+			: undefined;
+	return {
+		workspaceRoot: requestedRoot,
+		query,
+		...(limit ? { limit } : {}),
+		...(cursorRetrievalIndexingPrivacyGate !== undefined
+			? { cursorRetrievalIndexingPrivacyGate }
+			: {}),
 	};
 }
 
@@ -207,6 +244,15 @@ export async function handleDesktopCommand(
 		return await ctx.uiClient.previewCursorUri(
 			readCursorUriPreviewRequest(args),
 		);
+	}
+	if (command === "search_workspace_files") {
+		if (!ctx.uiClient) {
+			throw new Error("Hub is not connected.");
+		}
+		const response = await ctx.uiClient.searchMentionFiles(
+			readWorkspaceFileSearchRequest(args),
+		);
+		return response.results.map((result) => result.path);
 	}
 	if (command === "get_global_settings") {
 		return readGlobalSettings();

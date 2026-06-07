@@ -80,6 +80,14 @@ export type CursorUriPreviewResponse = Record<string, unknown> & {
 	configKeys?: string[];
 };
 
+export type WorkspaceFileSearchInput = {
+	workspaceRoot?: string;
+	cwd?: string;
+	query?: string;
+	limit?: number;
+	cursorRetrievalIndexingPrivacyGate?: boolean;
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 
 class HubDesktopClient {
@@ -167,6 +175,12 @@ class HubDesktopClient {
 			"cursor_uri_preview",
 			input,
 		);
+	}
+
+	async searchWorkspaceFiles(
+		input: WorkspaceFileSearchInput = {},
+	): Promise<string[]> {
+		return await this.invoke<string[]>("search_workspace_files", input);
 	}
 }
 
