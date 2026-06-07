@@ -1,14 +1,18 @@
 "use client";
 
 import {
+	ArrowDown,
+	ArrowUp,
 	AlertTriangle,
 	Camera,
 	CheckCircle2,
 	ChevronDown,
 	ChevronRight,
 	Globe2,
+	Keyboard,
 	Link2,
 	Loader2,
+	MousePointerClick,
 	Moon,
 	Play,
 	RefreshCw,
@@ -1416,6 +1420,8 @@ function GeneralSettingsContent({
 	);
 	const [browserStatusLoading, setBrowserStatusLoading] = useState(false);
 	const [browserUrl, setBrowserUrl] = useState("http://127.0.0.1:3000");
+	const [browserCoordinate, setBrowserCoordinate] = useState("200,200");
+	const [browserText, setBrowserText] = useState("");
 	const [browserRunning, setBrowserRunning] = useState(false);
 	const [browserResult, setBrowserResult] = useState<
 		BrowserToolResult | undefined
@@ -1522,6 +1528,26 @@ function GeneralSettingsContent({
 		}
 	};
 
+	const runBrowserSnapshot = async () => {
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserSnapshot({
+				include_logs: true,
+				include_screenshot: true,
+			});
+			setBrowserResult(result);
+		} catch (error) {
+			setBrowserResult({
+				query: "browser_snapshot",
+				result: "",
+				error: error instanceof Error ? error.message : String(error),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
 	const runBrowserScreenshot = async () => {
 		setBrowserRunning(true);
 		try {
@@ -1530,6 +1556,82 @@ function GeneralSettingsContent({
 		} catch (error) {
 			setBrowserResult({
 				query: "browser_screenshot",
+				result: "",
+				error: error instanceof Error ? error.message : String(error),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserClick = async () => {
+		const coordinate = browserCoordinate.trim();
+		if (!coordinate) {
+			setBrowserResult({
+				query: "browser_action:click",
+				result: "",
+				error: "Coordinate is required.",
+				success: false,
+			});
+			return;
+		}
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({
+				action: "click",
+				coordinate,
+			});
+			setBrowserResult(result);
+		} catch (error) {
+			setBrowserResult({
+				query: "browser_action:click",
+				result: "",
+				error: error instanceof Error ? error.message : String(error),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserType = async () => {
+		if (!browserText) {
+			setBrowserResult({
+				query: "browser_action:type",
+				result: "",
+				error: "Text is required.",
+				success: false,
+			});
+			return;
+		}
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({
+				action: "type",
+				text: browserText,
+			});
+			setBrowserResult(result);
+		} catch (error) {
+			setBrowserResult({
+				query: "browser_action:type",
+				result: "",
+				error: error instanceof Error ? error.message : String(error),
+				success: false,
+			});
+		} finally {
+			setBrowserRunning(false);
+		}
+	};
+
+	const runBrowserScroll = async (action: "scroll_down" | "scroll_up") => {
+		setBrowserRunning(true);
+		try {
+			const result = await desktopClient.browserAction({ action });
+			setBrowserResult(result);
+		} catch (error) {
+			setBrowserResult({
+				query: `browser_action:${action}`,
 				result: "",
 				error: error instanceof Error ? error.message : String(error),
 				success: false,
@@ -1681,12 +1783,39 @@ function GeneralSettingsContent({
 								</Button>
 								<Button
 									disabled={!browserAvailable || browserRunning}
+									onClick={() => void runBrowserSnapshot()}
+									type="button"
+									variant="outline"
+								>
+									<Globe2 className="size-4" />
+									Snapshot
+								</Button>
+								<Button
+									disabled={!browserAvailable || browserRunning}
 									onClick={() => void runBrowserScreenshot()}
 									type="button"
 									variant="outline"
 								>
 									<Camera className="size-4" />
 									Screenshot
+								</Button>
+								<Button
+									disabled={!browserAvailable || browserRunning}
+									onClick={() => void runBrowserScroll("scroll_up")}
+									type="button"
+									variant="outline"
+								>
+									<ArrowUp className="size-4" />
+									Scroll Up
+								</Button>
+								<Button
+									disabled={!browserAvailable || browserRunning}
+									onClick={() => void runBrowserScroll("scroll_down")}
+									type="button"
+									variant="outline"
+								>
+									<ArrowDown className="size-4" />
+									Scroll Down
 								</Button>
 								<Button
 									disabled={browserRunning}
@@ -1698,6 +1827,38 @@ function GeneralSettingsContent({
 									Close
 								</Button>
 							</div>
+						</div>
+						<div className="grid gap-2 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto_auto]">
+							<Input
+								aria-label="Browser click coordinate"
+								onChange={(event) => setBrowserCoordinate(event.target.value)}
+								placeholder="x,y"
+								value={browserCoordinate}
+							/>
+							<Input
+								aria-label="Browser text input"
+								onChange={(event) => setBrowserText(event.target.value)}
+								placeholder="Text to type"
+								value={browserText}
+							/>
+							<Button
+								disabled={!browserAvailable || browserRunning}
+								onClick={() => void runBrowserClick()}
+								type="button"
+								variant="outline"
+							>
+								<MousePointerClick className="size-4" />
+								Click
+							</Button>
+							<Button
+								disabled={!browserAvailable || browserRunning}
+								onClick={() => void runBrowserType()}
+								type="button"
+								variant="outline"
+							>
+								<Keyboard className="size-4" />
+								Type
+							</Button>
 						</div>
 						{browserResult ? (
 							<Alert variant={browserResult.success ? "default" : "destructive"}>
