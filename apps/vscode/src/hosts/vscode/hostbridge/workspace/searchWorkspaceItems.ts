@@ -29,6 +29,18 @@ function matchesSelectedType(
 	return true
 }
 
+function getCursorRetrievalIndexingPrivacyGate(): boolean {
+	const config = vscode.workspace.getConfiguration("cline")
+	return (
+		config.get<boolean>("cursorCompatibility.enabled", true) &&
+		config.get<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
+	)
+}
+
+function shouldIncludeIgnored(request: SearchWorkspaceItemsRequest): boolean {
+	return request.includeIgnored === true && !getCursorRetrievalIndexingPrivacyGate()
+}
+
 async function rankItems(query: string, items: WorkspaceSearchItem[], limit: number): Promise<WorkspaceSearchItem[]> {
 	if (!query.trim()) {
 		return items.slice(0, limit)
@@ -50,7 +62,7 @@ export async function searchWorkspaceItems(request: SearchWorkspaceItemsRequest)
 
 	const limit = request.limit && request.limit > 0 ? request.limit : DEFAULT_SEARCH_LIMIT
 	const selectedType = request.selectedType
-	const items = (await getWorkspaceSearchItems(workspacePath, { includeIgnored: request.includeIgnored === true }))
+	const items = (await getWorkspaceSearchItems(workspacePath, { includeIgnored: shouldIncludeIgnored(request) }))
 		.filter((item) => matchesSelectedType(item, selectedType))
 		.sort((a, b) => a.path.localeCompare(b.path))
 	const rankedItems = await rankItems(request.query ?? "", items, limit)
