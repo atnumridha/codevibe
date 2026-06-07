@@ -81,6 +81,26 @@ describe("CursorUriRoutes", () => {
 		expect(buildCursorCompatibleTaskPrompt(result.route)).to.equal("Fix the tests")
 	})
 
+	it("preserves prompt route model, workspace, and config context without leaking config values", () => {
+		const config = base64UrlJson({ mode: "fast", token: "secret-value" })
+		const result = parseCursorCompatibleUri(
+			"/createchat",
+			new URLSearchParams(`prompt=Fix%20the%20tests&model=gpt-5.3-codex&workspace=/repo&config=${config}`),
+		)
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected createchat route to parse")
+		}
+		const prompt = buildCursorCompatibleTaskPrompt(result.route)
+		expect(prompt).to.contain("Fix the tests")
+		expect(prompt).to.contain("Cursor route context:")
+		expect(prompt).to.contain("- model: gpt-5.3-codex")
+		expect(prompt).to.contain("- workspace: /repo")
+		expect(prompt).to.contain("config keys: mode, token")
+		expect(prompt).not.to.contain("secret-value")
+	})
+
 	it("parses base64url JSON configs for install-style routes", () => {
 		const config = base64UrlJson({
 			mcpServers: {

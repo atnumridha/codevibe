@@ -547,11 +547,30 @@ function formatRouteDetails(route: CursorCompatibleUriRoute, skipKeys: string[] 
 	return lines.length > 0 ? lines.join("\n") : "- No additional route parameters."
 }
 
+function hasRouteDetails(route: CursorCompatibleUriRoute, skipKeys: string[] = []): boolean {
+	const skipped = new Set(skipKeys)
+	return Object.keys(route.params).some((key) => !skipped.has(key))
+}
+
+function buildPromptLikeTaskPrompt(route: CursorCompatibleUriRoute): string {
+	const prompt = getPromptText(route) || "Open the Cursor-compatible Glass route and ask me what to do next."
+	const promptKeys = ["prompt", "task", "text", "message"]
+	if (!hasRouteDetails(route, promptKeys)) {
+		return prompt
+	}
+	return [
+		prompt,
+		"",
+		"Cursor route context:",
+		formatRouteDetails(route, promptKeys),
+	].join("\n")
+}
+
 export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute): string {
 	const prompt = getPromptText(route)
 
 	if (route.kind === "createchat" || route.kind === "prompt" || route.kind === "glass") {
-		return prompt || "Open the Cursor-compatible Glass route and ask me what to do next."
+		return buildPromptLikeTaskPrompt(route)
 	}
 
 	if (route.kind === "command") {
