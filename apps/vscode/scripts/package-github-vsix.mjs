@@ -56,6 +56,30 @@ const packagedMarkdownAssetPaths = [
 const upstreamLicenseNotice = "[Apache 2.0 \u00a9 2026 Cline Bot Inc.](./LICENSE)"
 const upstreamLicensePlaceholder = "__CODEVIBE_UPSTREAM_CLINE_LICENSE_NOTICE__"
 
+const disallowedPackagedMarkdownFragments = [
+	"docs.cline.bot",
+	"app.cline.bot",
+	"api.cline.bot",
+	"cline.bot",
+	"github.com/cline/cline",
+	"discord.gg/cline",
+	"reddit.com/r/cline",
+	"saoudrizwan.claude-dev",
+]
+
+const disallowedVsixEntryPrefixes = [
+	"extension/testing-platform/",
+	"extension/tests/",
+	"extension/webview-ui/.storybook/",
+	"extension/scripts/",
+]
+
+const disallowedVsixEntries = new Set([
+	"extension/.env.example",
+	"extension/knip.json",
+	"extension/skills-lock.json",
+])
+
 const githubVsixManifestOverrides = {
 	name: "codevibe",
 	displayName: "CodeVibe",
@@ -706,8 +730,15 @@ function stripAllowedMarkdownClineReferences(value) {
 }
 
 function assertPackagedMarkdownTextBranded(value, label) {
-	if (/\bCline\b/.test(stripAllowedMarkdownClineReferences(value))) {
+	const normalized = stripAllowedMarkdownClineReferences(value)
+	if (/\bCline\b/.test(normalized)) {
 		throw new Error(`${label} must use CodeVibe branding for visible markdown copy`)
+	}
+	const lower = normalized.toLowerCase()
+	for (const fragment of disallowedPackagedMarkdownFragments) {
+		if (lower.includes(fragment)) {
+			throw new Error(`${label} must not include upstream Cline URL or package id: ${fragment}`)
+		}
 	}
 }
 
@@ -881,6 +912,16 @@ function assertPackagedVsix(outPath) {
 	}
 	if (![...zip.entries.keys()].some((entryName) => entryName.startsWith("extension/webview-ui/build/"))) {
 		throw new Error("VSIX artifact is missing extension/webview-ui/build assets")
+	}
+	for (const entryName of zip.entries.keys()) {
+		if (disallowedVsixEntries.has(entryName)) {
+			throw new Error(`VSIX artifact must not include dev/test artifact ${entryName}`)
+		}
+		for (const prefix of disallowedVsixEntryPrefixes) {
+			if (entryName.startsWith(prefix)) {
+				throw new Error(`VSIX artifact must not include dev/test artifact ${entryName}`)
+			}
+		}
 	}
 	const packagedPackageJson = JSON.parse(readZipEntry(zip, "extension/package.json").toString("utf8"))
 	assertCursorParityManifest(packagedPackageJson, "packaged VSIX manifest")

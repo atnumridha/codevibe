@@ -21,7 +21,7 @@ export const CURSOR_COMPATIBILITY_SURFACES = [
 	"MCP install",
 	"Browser",
 	"Retrieval",
-	"Background agents",
+	"Background workstreams",
 	"Rules",
 	"Sandbox",
 	"Git helpers",

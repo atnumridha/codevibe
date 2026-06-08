@@ -6,7 +6,6 @@ import {
 	SubagentStatusItem,
 } from "@shared/ExtensionMessage"
 import {
-	BotIcon,
 	CheckIcon,
 	ChevronDownIcon,
 	ChevronRightIcon,
@@ -49,7 +48,7 @@ const statusIcon = (status: DisplayStatus) => {
 		case "cancelled":
 			return <CircleSlashIcon className="size-2 text-foreground shrink-0 mt-[1px]" />
 		default:
-			return <BotIcon className="size-2 text-foreground/70 shrink-0 mt-[1px]" />
+			return <NetworkIcon className="size-2 text-foreground/70 shrink-0 mt-[1px]" />
 	}
 }
 
@@ -183,7 +182,7 @@ export default function SubagentStatusRow({ message, isLast, lastModifiedMessage
 	const data = useMemo(() => parseSubagentRowData(message), [message])
 
 	if (!data) {
-		return <div className="text-foreground opacity-80">Subagent status update unavailable.</div>
+		return <div className="text-foreground opacity-80">Parallel lane status update unavailable.</div>
 	}
 
 	const resumedBeforeNextVisibleMessage =
@@ -197,7 +196,7 @@ export default function SubagentStatusRow({ message, isLast, lastModifiedMessage
 			resumedBeforeNextVisibleMessage)
 
 	const singular = data.items.length === 1
-	const title = singular ? "CodeVibe wants to use a subagent:" : "CodeVibe wants to use subagents:"
+	const title = singular ? "CodeVibe wants to open a focus lane:" : "CodeVibe wants to open parallel focus lanes:"
 	const isPromptConstructionRow = message.ask === "use_subagents" || message.say === "use_subagents"
 	const toggleItem = (index: number) => {
 		setExpandedItems((prev) => ({
@@ -253,7 +252,7 @@ export default function SubagentStatusRow({ message, isLast, lastModifiedMessage
 							)}
 							{shouldShowStats && hasDetails && (
 								<button
-									aria-label={isExpanded ? "Hide subagent output" : "Show subagent output"}
+									aria-label={isExpanded ? "Hide lane output" : "Show lane output"}
 									className="mt-1 text-[11px] opacity-80 flex items-center gap-1 bg-transparent border-0 p-0 cursor-pointer text-left text-foreground w-full"
 									onClick={() => toggleItem(entry.index)}
 									type="button">

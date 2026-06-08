@@ -32,6 +32,7 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 					const errorMessage = clineError?._error?.message || clineError?.message || rawApiError
 					const requestId = clineError?._error?.request_id
 					const providerId = clineError?.providerId || clineError?._error?.providerId
+					const providerLabel = providerId === "cline" ? "CodeVibe" : providerId
 					const isClineProvider = providerId === "cline"
 					const errorCode = clineError?._error?.code
 
@@ -80,7 +81,7 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 							// User is using Cline provider and is not logged in
 							<div className="flex flex-col gap-3">
 								<div className="flex items-center justify-center rounded border border-neutral-500/30 bg-vscode-editor-background p-6 text-center text-vscode-foreground">
-									Whoops looks like you're logged out – click below to sign in
+									You are signed out. Sign in to continue.
 								</div>
 								<Button className="w-full" disabled={isLoginLoading} onClick={handleSignIn}>
 									Sign in to CodeVibe
@@ -104,7 +105,7 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 							{/* Display the well-formatted error extracted from the ClineError instance */}
 
 							<header>
-								{providerId && <span className="uppercase">[{providerId}] </span>}
+								{providerLabel && <span className="uppercase">[{providerLabel}] </span>}
 								{errorCode && <span>{errorCode}</span>}
 								{errorMessage}
 								{requestId && <div>Request ID: {requestId}</div>}

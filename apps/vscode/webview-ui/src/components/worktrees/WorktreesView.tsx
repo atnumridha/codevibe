@@ -8,7 +8,20 @@ import {
 	SwitchWorktreeRequest,
 } from "@shared/proto/cline/worktree"
 import { VSCodeButton, VSCodeCheckbox } from "@vscode/webview-ui-toolkit/react"
-import { AlertCircle, Bot, Check, Clock, ExternalLink, FolderOpen, GitBranch, GitMerge, Loader2, Plus, Trash2, X } from "lucide-react"
+import {
+	AlertCircle,
+	Check,
+	Clock,
+	ExternalLink,
+	FolderOpen,
+	GitBranch,
+	GitMerge,
+	Loader2,
+	Network,
+	Plus,
+	Trash2,
+	X,
+} from "lucide-react"
 import { memo, useCallback, useEffect, useState } from "react"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useExtensionState } from "@/context/ExtensionStateContext"
@@ -111,7 +124,7 @@ const WorktreesView = ({ onDone }: WorktreesViewProps) => {
 			})
 			setBackgroundAgentError(null)
 		} catch (err) {
-			setBackgroundAgentError(err instanceof Error ? err.message : "Failed to load background agents")
+			setBackgroundAgentError(err instanceof Error ? err.message : "Failed to load background workstreams")
 		}
 	}, [])
 
@@ -373,8 +386,8 @@ Please help me resolve these merge conflicts, then complete the merge, and delet
 						}}>
 						<div className="flex items-center justify-between gap-2 mb-2">
 							<div className="flex items-center gap-2 text-sm font-medium text-[var(--vscode-foreground)]">
-								<Bot className="w-4 h-4 text-[var(--vscode-button-background)]" />
-								<span>Background agents</span>
+								<Network className="w-4 h-4 text-[var(--vscode-button-background)]" />
+								<span>Background workstreams</span>
 							</div>
 							<span className="text-xs text-[var(--vscode-descriptionForeground)]">
 								{backgroundAgentSessions.length} current launch record

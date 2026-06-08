@@ -25,6 +25,13 @@ eslint-rules/**
 .github/**
 .husky/**
 .env
+.env.example
+knip.json
+skills-lock.json
+testing-platform/**
+tests/**
+scripts/**
+dist/*.local.md
 
 # sdk (separate monorepo with its own build/release pipeline)
 sdk/**
@@ -53,6 +60,7 @@ buf.yaml
 # Ignore all webview-ui files except the build directory (https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/frameworks/hello-world-react-cra/.vscodeignore)
 webview-ui/src/**
 webview-ui/public/**
+webview-ui/.storybook/**
 webview-ui/index.html
 webview-ui/README.md
 webview-ui/package.json

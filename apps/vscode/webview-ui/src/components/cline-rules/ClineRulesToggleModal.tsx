@@ -437,14 +437,14 @@ const ClineRulesToggleModal: React.FC = () => {
 		<div className="inline-flex min-w-0 max-w-full items-center" ref={modalRef}>
 			<div className="inline-flex w-full items-center" ref={buttonRef}>
 				<Tooltip>
-					{!isVisible && <TooltipContent>Manage CodeVibe Rules & Workflows</TooltipContent>}
+					{!isVisible && <TooltipContent>Manage CodeVibe Guidance</TooltipContent>}
 					<TooltipTrigger>
 						<VSCodeButton
 							appearance="icon"
-							aria-label={isVisible ? "Hide CodeVibe Rules & Workflows" : "Show CodeVibe Rules & Workflows"}
+							aria-label={isVisible ? "Hide CodeVibe Guidance" : "Show CodeVibe Guidance"}
 							className="p-0 m-0 flex items-center"
 							onClick={() => setIsVisible(!isVisible)}>
-							<i className="codicon codicon-law" style={{ fontSize: "12.5px" }} />
+							<i className="codicon codicon-compass" style={{ fontSize: "12.5px" }} />
 						</VSCodeButton>
 					</TooltipTrigger>
 				</Tooltip>

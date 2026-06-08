@@ -35,8 +35,8 @@ interface FeatureToggle {
 const agentFeatures: FeatureToggle[] = [
 	{
 		id: "subagents",
-		label: "Subagents",
-		description: "Let CodeVibe run focused subagents in parallel to explore the codebase for you.",
+		label: "Parallel Focus Lanes",
+		description: "Let CodeVibe open focused lanes in parallel to explore the codebase for you.",
 		stateKey: "subagentsEnabled",
 		settingKey: "subagentsEnabled",
 	},
@@ -119,7 +119,7 @@ const editorFeatures: FeatureToggle[] = [
 const experimentalFeatures: FeatureToggle[] = [
 	{
 		id: "yolo",
-		label: "Yolo Mode",
+		label: "Autonomous Execution",
 		description:
 			"Execute tasks without user's confirmation. Auto-switches from Plan to Act mode and disables the ask question tool. Use with extreme caution.",
 		stateKey: "yoloModeToggled",
@@ -135,8 +135,8 @@ const experimentalFeatures: FeatureToggle[] = [
 	},
 	{
 		id: "lazy-teammate",
-		label: "Lazy Teammate Mode",
-		description: "Sometimes CodeVibe just isn't feeling it today. For entertainment purposes only.",
+		label: "Low-Effort Simulation",
+		description: "Internal experiment for deliberately constrained task execution. For entertainment purposes only.",
 		stateKey: "lazyTeammateModeEnabled",
 		settingKey: "lazyTeammateModeEnabled",
 	},

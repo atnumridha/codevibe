@@ -23,7 +23,7 @@ describe("CursorCompatibilitySection", () => {
 		}
 
 		expect(screen.getByText("Codex auth")).toBeInTheDocument()
-		expect(screen.getByText("Background agents")).toBeInTheDocument()
+		expect(screen.getByText("Background workstreams")).toBeInTheDocument()
 		expect(screen.getByText("NDJSON ingest")).toBeInTheDocument()
 	})
 

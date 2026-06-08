@@ -66,7 +66,7 @@ const AutoApproveBar = ({ style }: AutoApproveBarProps) => {
 	const borderGradient = `linear-gradient(to bottom, ${borderColor} 0%, transparent 50%)`
 	const bgGradient = `linear-gradient(to bottom, color-mix(in srgb, var(--vscode-sideBar-background) 96%, white) 0%, transparent 80%)`
 
-	// If YOLO mode is enabled, show disabled message
+	// If autonomous execution is enabled, show disabled message
 	if (yoloModeToggled) {
 		return (
 			<div
@@ -100,9 +100,9 @@ const AutoApproveBar = ({ style }: AutoApproveBarProps) => {
 				/>
 
 				<div className="pt-4 pb-3.5 px-3.5">
-					<div className="text-sm mb-1">Auto-approve: YOLO</div>
+					<div className="text-sm mb-1">Auto-approve: Autonomous Execution</div>
 					<div className="text-muted-foreground text-xs">
-						YOLO mode is enabled.{" "}
+						Autonomous execution is enabled.{" "}
 						<span className="underline cursor-pointer hover:text-foreground" onClick={handleNavigateToFeatures}>
 							Disable it in Settings
 						</span>

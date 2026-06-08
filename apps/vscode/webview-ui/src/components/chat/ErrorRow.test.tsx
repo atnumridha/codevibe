@@ -142,7 +142,7 @@ describe("ErrorRow", () => {
 			render(<ErrorRow apiRequestFailedMessage="Authentication failed" errorType="error" message={mockMessage} />)
 
 			expect(screen.queryByText("Authentication failed")).not.toBeInTheDocument()
-			expect(screen.getByText(/Whoops looks like you're logged out/)).toBeInTheDocument()
+			expect(screen.getByText("You are signed out. Sign in to continue.")).toBeInTheDocument()
 			expect(screen.getByText("Sign in to CodeVibe")).toBeInTheDocument()
 		})
 
