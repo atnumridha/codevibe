@@ -21,84 +21,65 @@ type McpOAuthStatus =
 	| "error";
 
 type AuthorizeMcpServerOAuthFn = typeof authorizeMcpServerOAuth;
+type McpSettingsSource = "cline" | "cursor-workspace" | "cursor-global";
 
 interface AuthorizeMcpServerOAuthForHubDeps {
 	authorize?: AuthorizeMcpServerOAuthFn;
 	openUrl?: (url: string) => void | Promise<void>;
 }
 
-export function readMcpServersResponse(): JsonRecord {
+interface ReadMcpServersResponseOptions {
+	workspaceRoot?: string;
+	userHome?: string;
+}
+
+interface McpServerSource {
+	settingsPath: string;
+	settingsSource: McpSettingsSource;
+	sourceLabel: string;
+	servers: JsonRecord;
+}
+
+interface McpServerWriteTarget {
+	settingsPath: string;
+	settingsSource: McpSettingsSource;
+	servers: JsonRecord;
+}
+
+export function readMcpServersResponse(
+	options: ReadMcpServersResponseOptions = {},
+): JsonRecord {
 	const settingsPath = resolveMcpSettingsPath();
-	if (!existsSync(settingsPath)) {
-		return { settingsPath, hasSettingsFile: false, servers: [] };
+	const hasSettingsFile = existsSync(settingsPath);
+	const sourceErrors: JsonRecord[] = [];
+	const skippedServers: JsonRecord[] = [];
+	const entries: JsonRecord[] = [];
+	const seenServers = new Map<string, McpSettingsSource>();
+
+	for (const source of getReadableMcpServerSources(options, sourceErrors)) {
+		for (const [name, body] of Object.entries(source.servers)) {
+			if (seenServers.has(name)) {
+				skippedServers.push({
+					name,
+					settingsSource: source.settingsSource,
+					settingsPath: source.settingsPath,
+					shadowedBy: seenServers.get(name),
+				});
+				continue;
+			}
+			seenServers.set(name, source.settingsSource);
+			entries.push(buildMcpServerResponseEntry(name, body, source));
+		}
 	}
-	const parsed = JSON.parse(readFileSync(settingsPath, "utf8")) as JsonRecord;
-	const servers = parsed.mcpServers as JsonRecord | undefined;
-	const entries = Object.entries(servers ?? {}).map(([name, body]) => {
-		const record = body as JsonRecord;
-		const transport =
-			record.transport && typeof record.transport === "object"
-				? (record.transport as JsonRecord)
-				: undefined;
-		const transportType = String(
-			transport?.type ?? record.transportType ?? record.type ?? "stdio",
-		).trim();
-		const disabled = record.disabled === true;
-		const oauth = getRecordValue(record.oauth);
-		const oauthStatus = inferMcpOAuthStatus({
-			transportType,
-			disabled,
-			oauth,
-		});
-		return {
-			name,
-			transportType,
-			disabled,
-			command:
-				typeof transport?.command === "string"
-					? transport.command
-					: typeof record.command === "string"
-						? record.command
-						: undefined,
-			args: Array.isArray(transport?.args)
-				? transport.args
-				: Array.isArray(record.args)
-					? record.args
-					: undefined,
-			cwd:
-				typeof transport?.cwd === "string"
-					? transport.cwd
-					: typeof record.cwd === "string"
-						? record.cwd
-						: undefined,
-			env:
-				transport?.env && typeof transport.env === "object"
-					? transport.env
-					: record.env && typeof record.env === "object"
-						? record.env
-						: undefined,
-			url:
-				typeof transport?.url === "string"
-					? transport.url
-					: typeof record.url === "string"
-						? record.url
-						: undefined,
-			headers:
-				transport?.headers && typeof transport.headers === "object"
-					? transport.headers
-					: record.headers && typeof record.headers === "object"
-						? record.headers
-						: undefined,
-			oauthSupported: transportType !== "stdio",
-			oauthConfigured: hasMcpOAuthAccessToken(oauth),
-			oauthStatus,
-			oauthLastError:
-				typeof oauth?.lastError === "string" ? oauth.lastError : undefined,
-			oauthLastAuthenticatedAt: getNumericValue(oauth?.lastAuthenticatedAt),
-			metadata: record.metadata,
-		};
-	});
-	return { settingsPath, hasSettingsFile: true, servers: entries };
+
+	return {
+		settingsPath,
+		hasSettingsFile,
+		servers: entries,
+		sources: getReadableMcpSourceSummaries(options),
+		...(skippedServers.length > 0 ? { skippedServers } : {}),
+		...(sourceErrors.length > 0 ? { sourceErrors } : {}),
+	};
 }
 
 export function writeMcpServersMap(servers: JsonRecord): void {
@@ -127,6 +108,251 @@ function getRecordValue(value: unknown): JsonRecord | undefined {
 	return value && typeof value === "object" && !Array.isArray(value)
 		? (value as JsonRecord)
 		: undefined;
+}
+
+function getMcpSourceLabel(source: McpSettingsSource): string {
+	switch (source) {
+		case "cursor-workspace":
+			return "Workspace Cursor";
+		case "cursor-global":
+			return "Global Cursor";
+		default:
+			return "CodeVibe";
+	}
+}
+
+function readMcpServersMapFromPath(settingsPath: string): JsonRecord {
+	const parsed = JSON.parse(readFileSync(settingsPath, "utf8")) as JsonRecord;
+	return getRecordValue(parsed.mcpServers) ?? {};
+}
+
+function readRawMcpSettingsFile(settingsPath: string): JsonRecord {
+	const parsed = JSON.parse(readFileSync(settingsPath, "utf8")) as JsonRecord;
+	const servers = getRecordValue(parsed.mcpServers);
+	if (!servers) {
+		throw new Error(
+			`Invalid MCP settings at ${settingsPath}: mcpServers must be an object`,
+		);
+	}
+	return parsed;
+}
+
+function writeRawMcpSettingsFile(
+	settingsPath: string,
+	settings: JsonRecord,
+): void {
+	mkdirSync(dirname(settingsPath), { recursive: true });
+	writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+}
+
+function getCursorMcpUserHome(
+	options: ReadMcpServersResponseOptions = {},
+): string | undefined {
+	return (
+		options.userHome?.trim() ||
+		process.env.CODEVIBE_CURSOR_HOME?.trim() ||
+		undefined
+	);
+}
+
+function getCursorMcpSourcePath(input: {
+	source: CursorMcpImportSource;
+	workspaceRoot: string;
+	userHome?: string;
+}): string {
+	return input.source === "global"
+		? resolveGlobalCursorMcpSettingsPath(input.userHome)
+		: resolveCursorMcpSettingsPath(input.workspaceRoot);
+}
+
+function readOptionalCursorMcpSource(input: {
+	settingsPath: string;
+	settingsSource: Extract<
+		McpSettingsSource,
+		"cursor-workspace" | "cursor-global"
+	>;
+	workspaceRoot?: string;
+	userHome?: string;
+	sourceErrors: JsonRecord[];
+}): McpServerSource | undefined {
+	if (!existsSync(input.settingsPath)) {
+		return undefined;
+	}
+	try {
+		const parsed = JSON.parse(
+			readFileSync(input.settingsPath, "utf8"),
+		) as JsonRecord;
+		const normalized = normalizeCursorMcpSettingsObject(parsed, {
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.userHome ? { userHome: input.userHome } : {}),
+		}) as JsonRecord;
+		return {
+			settingsPath: input.settingsPath,
+			settingsSource: input.settingsSource,
+			sourceLabel: getMcpSourceLabel(input.settingsSource),
+			servers: getRecordValue(normalized.mcpServers) ?? {},
+		};
+	} catch (error) {
+		input.sourceErrors.push({
+			settingsPath: input.settingsPath,
+			settingsSource: input.settingsSource,
+			message: error instanceof Error ? error.message : String(error),
+		});
+		return undefined;
+	}
+}
+
+function getReadableMcpSourceSummaries(
+	options: ReadMcpServersResponseOptions = {},
+): JsonRecord[] {
+	const root = options.workspaceRoot?.trim() || workspaceRoot;
+	const userHome = getCursorMcpUserHome(options);
+	return [
+		{
+			settingsSource: "cline",
+			sourceLabel: getMcpSourceLabel("cline"),
+			settingsPath: resolveMcpSettingsPath(),
+			exists: existsSync(resolveMcpSettingsPath()),
+			writable: true,
+		},
+		{
+			settingsSource: "cursor-workspace",
+			sourceLabel: getMcpSourceLabel("cursor-workspace"),
+			settingsPath: resolveCursorMcpSettingsPath(root),
+			exists: existsSync(resolveCursorMcpSettingsPath(root)),
+			writable: true,
+		},
+		{
+			settingsSource: "cursor-global",
+			sourceLabel: getMcpSourceLabel("cursor-global"),
+			settingsPath: resolveGlobalCursorMcpSettingsPath(userHome),
+			exists: existsSync(resolveGlobalCursorMcpSettingsPath(userHome)),
+			writable: true,
+		},
+	];
+}
+
+function getReadableMcpServerSources(
+	options: ReadMcpServersResponseOptions = {},
+	sourceErrors: JsonRecord[] = [],
+): McpServerSource[] {
+	const sources: McpServerSource[] = [];
+	const nativeSettingsPath = resolveMcpSettingsPath();
+	if (existsSync(nativeSettingsPath)) {
+		sources.push({
+			settingsPath: nativeSettingsPath,
+			settingsSource: "cline",
+			sourceLabel: getMcpSourceLabel("cline"),
+			servers: readMcpServersMapFromPath(nativeSettingsPath),
+		});
+	}
+
+	const root = options.workspaceRoot?.trim() || workspaceRoot;
+	const userHome = getCursorMcpUserHome(options);
+	const workspaceCursorPath = getCursorMcpSourcePath({
+		source: "workspace",
+		workspaceRoot: root,
+		userHome,
+	});
+	const workspaceCursorSource = readOptionalCursorMcpSource({
+		settingsPath: workspaceCursorPath,
+		settingsSource: "cursor-workspace",
+		workspaceRoot: root,
+		userHome,
+		sourceErrors,
+	});
+	if (workspaceCursorSource) {
+		sources.push(workspaceCursorSource);
+	}
+
+	const globalCursorPath = getCursorMcpSourcePath({
+		source: "global",
+		workspaceRoot: root,
+		userHome,
+	});
+	const globalCursorSource = readOptionalCursorMcpSource({
+		settingsPath: globalCursorPath,
+		settingsSource: "cursor-global",
+		userHome,
+		sourceErrors,
+	});
+	if (globalCursorSource) {
+		sources.push(globalCursorSource);
+	}
+
+	return sources;
+}
+
+function buildMcpServerResponseEntry(
+	name: string,
+	body: unknown,
+	source: McpServerSource,
+): JsonRecord {
+	const record = getRecordValue(body) ?? {};
+	const transport = getRecordValue(record.transport);
+	const transportType = String(
+		transport?.type ?? record.transportType ?? record.type ?? "stdio",
+	).trim();
+	const disabled = record.disabled === true;
+	const oauth = getRecordValue(record.oauth);
+	const oauthStatus = inferMcpOAuthStatus({
+		transportType,
+		disabled,
+		oauth,
+	});
+	return {
+		name,
+		transportType,
+		disabled,
+		command:
+			typeof transport?.command === "string"
+				? transport.command
+				: typeof record.command === "string"
+					? record.command
+					: undefined,
+		args: Array.isArray(transport?.args)
+			? transport.args
+			: Array.isArray(record.args)
+				? record.args
+				: undefined,
+		cwd:
+			typeof transport?.cwd === "string"
+				? transport.cwd
+				: typeof record.cwd === "string"
+					? record.cwd
+					: undefined,
+		env:
+			transport?.env && typeof transport.env === "object"
+				? transport.env
+				: record.env && typeof record.env === "object"
+					? record.env
+					: undefined,
+		url:
+			typeof transport?.url === "string"
+				? transport.url
+				: typeof record.url === "string"
+					? record.url
+					: undefined,
+		headers:
+			transport?.headers && typeof transport.headers === "object"
+				? transport.headers
+				: record.headers && typeof record.headers === "object"
+					? record.headers
+					: undefined,
+		settingsPath: source.settingsPath,
+		settingsSource: source.settingsSource,
+		sourceLabel: source.sourceLabel,
+		writable: true,
+		canEdit: source.settingsSource === "cline",
+		canDelete: source.settingsSource === "cline",
+		oauthSupported: transportType !== "stdio",
+		oauthConfigured: hasMcpOAuthAccessToken(oauth),
+		oauthStatus,
+		oauthLastError:
+			typeof oauth?.lastError === "string" ? oauth.lastError : undefined,
+		oauthLastAuthenticatedAt: getNumericValue(oauth?.lastAuthenticatedAt),
+		metadata: record.metadata,
+	};
 }
 
 function getNumericValue(value: unknown): number | undefined {
@@ -190,10 +416,7 @@ function readCursorMcpServers(input: {
 	sourcePath: string;
 	servers: JsonRecord;
 } {
-	const sourcePath =
-		input.source === "global"
-			? resolveGlobalCursorMcpSettingsPath(input.userHome)
-			: resolveCursorMcpSettingsPath(input.workspaceRoot);
+	const sourcePath = getCursorMcpSourcePath(input);
 	if (!existsSync(sourcePath)) {
 		throw new Error(
 			input.source === "global"
@@ -215,6 +438,58 @@ function readCursorMcpServers(input: {
 		throw new Error(".cursor/mcp.json does not contain any MCP servers");
 	}
 	return { sourcePath, servers };
+}
+
+function resolveMcpServerWriteTarget(name: string): McpServerWriteTarget {
+	const target = findMcpServerWriteTarget(name);
+	if (!target) {
+		throw new Error(`unknown MCP server: ${name}`);
+	}
+	return target;
+}
+
+function findMcpServerWriteTarget(
+	name: string,
+): McpServerWriteTarget | undefined {
+	const sourceErrors: JsonRecord[] = [];
+	for (const source of getReadableMcpServerSources({}, sourceErrors)) {
+		if (Object.hasOwn(source.servers, name)) {
+			return {
+				settingsPath: source.settingsPath,
+				settingsSource: source.settingsSource,
+				servers: source.servers,
+			};
+		}
+	}
+	return undefined;
+}
+
+function updateServerInSettingsFile(
+	target: McpServerWriteTarget,
+	name: string,
+	updater: (current: JsonRecord) => JsonRecord | undefined,
+): void {
+	const settings =
+		target.settingsSource === "cline" && !existsSync(target.settingsPath)
+			? { mcpServers: {} }
+			: readRawMcpSettingsFile(target.settingsPath);
+	const servers = getRecordValue(settings.mcpServers);
+	if (!servers) {
+		throw new Error(
+			`Invalid MCP settings at ${target.settingsPath}: mcpServers must be an object`,
+		);
+	}
+	const current = getRecordValue(servers[name]);
+	if (!current) {
+		throw new Error(`unknown MCP server: ${name}`);
+	}
+	const next = updater(current);
+	if (next) {
+		servers[name] = next;
+	} else {
+		delete servers[name];
+	}
+	writeRawMcpSettingsFile(target.settingsPath, settings);
 }
 
 function buildCursorMcpImportResponse(input: {
@@ -415,7 +690,8 @@ export async function authorizeMcpServerOAuthForHub(
 	if (!serverName) {
 		throw new Error("authorize_mcp_server_oauth requires a server name");
 	}
-	const settingsPath = ensureMcpSettingsFile();
+	const target = resolveMcpServerWriteTarget(serverName);
+	const settingsPath = target.settingsPath;
 	const serverListening: JsonRecord[] = [];
 	const serverClosed: JsonRecord[] = [];
 	const authorize = deps.authorize ?? authorizeMcpServerOAuth;
@@ -459,13 +735,11 @@ export function setMcpServerDisabled(
 	name: string,
 	disabled: boolean,
 ): JsonRecord {
-	const { servers } = readServersMap();
-	const current = servers[name];
-	if (!current || typeof current !== "object") {
-		throw new Error(`unknown MCP server: ${name}`);
-	}
-	servers[name] = { ...(current as JsonRecord), disabled };
-	writeMcpServersMap(servers);
+	const target = resolveMcpServerWriteTarget(name);
+	updateServerInSettingsFile(target, name, (current) => ({
+		...current,
+		disabled,
+	}));
 	return readMcpServersResponse();
 }
 
@@ -478,6 +752,26 @@ export function upsertMcpServer(input: JsonRecord): JsonRecord {
 	const transportType = String(
 		input.transportType ?? input.transport_type ?? "",
 	).trim();
+	const existingNameOwner = findMcpServerWriteTarget(name);
+	const previousOwner = previousName
+		? findMcpServerWriteTarget(previousName)
+		: undefined;
+	if (previousName) {
+		if (!previousOwner || previousOwner.settingsSource !== "cline") {
+			throw new Error(
+				"Only CodeVibe MCP servers can be edited from the hub editor.",
+			);
+		}
+		if (previousName !== name && existingNameOwner) {
+			throw new Error(
+				`MCP server "${name}" already exists in ${existingNameOwner.settingsSource} settings.`,
+			);
+		}
+	} else if (existingNameOwner) {
+		throw new Error(
+			`MCP server "${name}" already exists in ${existingNameOwner.settingsSource} settings.`,
+		);
+	}
 	const next: JsonRecord =
 		transportType === "stdio"
 			? {
@@ -517,8 +811,7 @@ export function upsertMcpServer(input: JsonRecord): JsonRecord {
 
 export function deleteMcpServer(name: string): JsonRecord {
 	if (!name) throw new Error("server name is required");
-	const { servers } = readServersMap();
-	delete servers[name];
-	writeMcpServersMap(servers);
+	const target = resolveMcpServerWriteTarget(name);
+	updateServerInSettingsFile(target, name, () => undefined);
 	return readMcpServersResponse();
 }

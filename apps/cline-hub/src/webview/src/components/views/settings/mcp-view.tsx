@@ -58,6 +58,12 @@ interface McpServer {
 	env?: Record<string, string>;
 	url?: string;
 	headers?: Record<string, string>;
+	settingsPath?: string;
+	settingsSource?: "cline" | "cursor-workspace" | "cursor-global";
+	sourceLabel?: string;
+	writable?: boolean;
+	canEdit?: boolean;
+	canDelete?: boolean;
 	oauthSupported?: boolean;
 	oauthConfigured?: boolean;
 	oauthStatus?:
@@ -618,6 +624,11 @@ export function McpServersContent() {
 										<span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
 											{server.transportType}
 										</span>
+										{server.sourceLabel && (
+											<span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
+												{server.sourceLabel}
+											</span>
+										)}
 										<div className="flex-1" />
 										<div className="flex items-center gap-1">
 											{server.oauthSupported && (
@@ -626,7 +637,11 @@ export function McpServersContent() {
 													size="icon-sm"
 													aria-label={`${server.oauthConfigured ? "Reauthorize" : "Authorize"} ${server.name}`}
 													onClick={() => void authorizeServerOAuth(server)}
-													disabled={isBusy || server.disabled}
+													disabled={
+														isBusy ||
+														server.disabled ||
+														server.writable === false
+													}
 												>
 													<KeyRound className="h-3.5 w-3.5" />
 												</Button>
@@ -636,7 +651,7 @@ export function McpServersContent() {
 												size="icon-sm"
 												aria-label={`Edit ${server.name}`}
 												onClick={() => openEditDialog(server)}
-												disabled={isBusy}
+												disabled={isBusy || server.canEdit === false}
 											>
 												<Pencil className="h-3.5 w-3.5" />
 											</Button>
@@ -645,7 +660,7 @@ export function McpServersContent() {
 												size="icon-sm"
 												aria-label={`Delete ${server.name}`}
 												onClick={() => setDeleteTarget(server)}
-												disabled={isBusy}
+												disabled={isBusy || server.canDelete === false}
 											>
 												<Trash2 className="h-3.5 w-3.5" />
 											</Button>
@@ -654,13 +669,21 @@ export function McpServersContent() {
 												onCheckedChange={(enabled) =>
 													toggleServer(server, !enabled)
 												}
-												disabled={isBusy}
+												disabled={isBusy || server.writable === false}
 												aria-label={`Enable ${server.name}`}
 											/>
 										</div>
 									</div>
 
 									<div className="mt-2.5 ml-5.5 flex flex-col gap-1 text-xs text-muted-foreground">
+										{server.settingsPath && (
+											<p>
+												<span className="text-muted-foreground/70">
+													Source:
+												</span>{" "}
+												{server.settingsPath}
+											</p>
+										)}
 										{server.oauthSupported && (
 											<p>
 												<span className="text-muted-foreground/70">OAuth:</span>{" "}
