@@ -883,7 +883,7 @@ export function RoutineSchedulesContent() {
 							Schedules
 						</h2>
 						<span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-							cline schedule
+							CodeVibe schedules
 						</span>
 					</div>
 					<div className="flex items-center gap-2">

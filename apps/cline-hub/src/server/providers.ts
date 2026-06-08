@@ -27,8 +27,10 @@ export function resolveBrowserDefaults(ctx: HubContext): {
 	cwd: string;
 } {
 	const lastUsed = providerSettingsManager.getLastUsedProviderSettings();
-	const envProvider = process.env.CLINE_PROVIDER?.trim();
-	const envModel = process.env.CLINE_MODEL?.trim();
+	const envProvider =
+		process.env.CODEVIBE_PROVIDER?.trim() || process.env.CLINE_PROVIDER?.trim();
+	const envModel =
+		process.env.CODEVIBE_MODEL?.trim() || process.env.CLINE_MODEL?.trim();
 	return {
 		provider:
 			lastUsed?.provider ??

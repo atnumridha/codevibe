@@ -49,8 +49,10 @@ export function resolveLaunchContext(
 	ctx: HubContext,
 	override?: Partial<SessionContext> & WebviewConfig,
 ): SessionContext {
-	const envProvider = process.env.CLINE_PROVIDER?.trim();
-	const envModel = process.env.CLINE_MODEL?.trim();
+	const envProvider =
+		process.env.CODEVIBE_PROVIDER?.trim() || process.env.CLINE_PROVIDER?.trim();
+	const envModel =
+		process.env.CODEVIBE_MODEL?.trim() || process.env.CLINE_MODEL?.trim();
 	const providerId =
 		override?.provider ??
 		override?.providerId ??

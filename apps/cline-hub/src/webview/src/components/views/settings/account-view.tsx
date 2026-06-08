@@ -16,7 +16,6 @@ import {
 	ExternalLink,
 	Loader2,
 	LogOut,
-	Plus,
 	Receipt,
 	RefreshCw,
 } from "lucide-react";
@@ -24,6 +23,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { desktopClient } from "@/lib/desktop-client";
 import { cn } from "@/lib/utils";
+
+const CODEVIBE_HOME_URL = "https://github.com/atnumridha/codevibe";
 
 function normalizeAccountViewError(error: unknown): Error {
 	const message = error instanceof Error ? error.message : String(error);
@@ -365,7 +366,7 @@ export function AccountView() {
 											</p>
 										</div>
 										<a
-											href="https://app.cline.bot/dashboard"
+											href={CODEVIBE_HOME_URL}
 											target="_blank"
 											rel="noopener noreferrer"
 											className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -387,15 +388,6 @@ export function AccountView() {
 														: "Credits Balance"}
 												</h3>
 											</div>
-											<a
-												href="https://app.cline.bot/dashboard/organization?tab=credits&redirect=true"
-												target="_blank"
-												rel="noopener noreferrer"
-												className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-											>
-												<Plus className="h-3.5 w-3.5" />
-												Credit
-											</a>
 										</div>
 										<div className="flex items-baseline gap-2">
 											<span className="text-3xl font-bold text-foreground">
@@ -420,15 +412,6 @@ export function AccountView() {
 												Organizations
 											</h3>
 										</div>
-										<a
-											href="https://app.cline.bot/onboarding?step=1"
-											target="_blank"
-											rel="noopener noreferrer"
-											className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-										>
-											<Plus className="h-3.5 w-3.5" />
-											Create
-										</a>
 									</div>
 									{organizations.length === 0 ? (
 										<p className="text-sm text-muted-foreground">

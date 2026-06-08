@@ -12,6 +12,7 @@ const serverDir = dirname(fileURLToPath(import.meta.url));
 /** server.ts lives one level up from this module, so resolve relative to it. */
 export const appSrcDir = join(serverDir, "..");
 export const webviewDistDir =
+	process.env.CODEVIBE_HUB_WEBVIEW_DIST_DIR?.trim() ||
 	process.env.CLINE_HUB_WEBVIEW_DIST_DIR?.trim() ||
 	join(appSrcDir, "../dist/webview");
 export const cliIndexPath = normalize(

@@ -348,6 +348,112 @@ function verifyInstalledExtension(listOutput, expectedExtension) {
 	}
 }
 
+function resolveVsCodeUserStorageDir() {
+	if (process.env.VSCODE_PORTABLE) {
+		return path.join(process.env.VSCODE_PORTABLE, "user-data", "User")
+	}
+	if (process.platform === "darwin") {
+		return path.join(os.homedir(), "Library", "Application Support", "Code", "User")
+	}
+	if (process.platform === "win32") {
+		const appData = process.env.APPDATA
+		return appData ? path.join(appData, "Code", "User") : undefined
+	}
+	const configHome = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config")
+	return path.join(configHome, "Code", "User")
+}
+
+function runSqlite(databasePath, sql) {
+	return spawnSync("sqlite3", [databasePath, sql], {
+		cwd: projectRoot,
+		encoding: "utf8",
+		stdio: "pipe",
+		shell: false,
+	})
+}
+
+function filterJsonArrayByIdSql(key, legacyIds) {
+	const quotedIds = legacyIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ")
+	const escapedKey = key.replace(/'/g, "''")
+	return `
+		update ItemTable
+		set value = coalesce((
+			select json_group_array(json(value))
+			from json_each(ItemTable.value)
+			where coalesce(json_extract(value, '$.id'), '') not in (${quotedIds})
+		), '[]')
+		where key = '${escapedKey}' and value like '%codevibe-ActivityBar%';
+	`
+}
+
+function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
+	const legacyActivityViewIds = ["workbench.view.extension.codevibe-ActivityBar"]
+	const sql = [
+		filterJsonArrayByIdSql("workbench.activity.pinnedViewlets2", legacyActivityViewIds),
+		filterJsonArrayByIdSql("workbench.activity.placeholderViewlets", legacyActivityViewIds),
+		filterJsonArrayByIdSql("workbench.activity.viewletsWorkspaceState", legacyActivityViewIds),
+		`
+		delete from ItemTable
+		where key in (
+			'workbench.view.extension.codevibe-ActivityBar.state',
+			'workbench.view.extension.codevibe-ActivityBar.state.hidden',
+			'workbench.view.extension.codevibe-ActivityBar.numberOfVisibleViews',
+			'memento/webviewView.codevibe.SidebarProvider'
+		);
+		`,
+		`
+		update ItemTable
+		set value = 'workbench.view.explorer'
+		where key = 'workbench.sidebar.activeviewletid'
+			and value = 'workbench.view.extension.codevibe-ActivityBar';
+		`,
+	].join("\n")
+	const result = runSqlite(databasePath, sql)
+	if (result.error?.code === "ENOENT") {
+		throw new Error("sqlite3 is required to clean legacy VS Code view state")
+	}
+	if (result.error) {
+		throw result.error
+	}
+	if (result.status !== 0) {
+		const output = [result.stdout, result.stderr].filter(Boolean).join("\n").trim()
+		throw new Error(output || `sqlite3 failed for ${databasePath}`)
+	}
+}
+
+function cleanLegacyCodeVibeViewState() {
+	const userStorageDir = resolveVsCodeUserStorageDir()
+	if (!userStorageDir || !fs.existsSync(userStorageDir)) {
+		return
+	}
+	const databasePaths = []
+	const globalState = path.join(userStorageDir, "globalStorage", "state.vscdb")
+	if (fs.existsSync(globalState)) {
+		databasePaths.push(globalState)
+	}
+	const workspaceStorageDir = path.join(userStorageDir, "workspaceStorage")
+	if (fs.existsSync(workspaceStorageDir)) {
+		for (const entry of fs.readdirSync(workspaceStorageDir, { withFileTypes: true })) {
+			if (!entry.isDirectory()) {
+				continue
+			}
+			const stateDb = path.join(workspaceStorageDir, entry.name, "state.vscdb")
+			if (fs.existsSync(stateDb)) {
+				databasePaths.push(stateDb)
+			}
+		}
+	}
+	if (databasePaths.length === 0) {
+		return
+	}
+	let cleaned = 0
+	for (const databasePath of databasePaths) {
+		cleanLegacyCodeVibeViewStateDatabase(databasePath)
+		cleaned++
+	}
+	console.log(`Cleaned legacy CodeVibe sidebar view state in ${cleaned} VS Code storage database(s)`)
+}
+
 function assertFileExists(filePath, label, options = {}) {
 	if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) {
 		throw new Error(`Missing ${label}: ${path.relative(projectRoot, filePath)}`)
@@ -845,6 +951,15 @@ async function main() {
 
 		if (options.install) {
 			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
+			try {
+				cleanLegacyCodeVibeViewState()
+			} catch (error) {
+				console.warn(
+					`package-github-vsix: installed VSIX but could not clean legacy CodeVibe sidebar state: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				)
+			}
 			console.log(`VSIX installed into VS Code from ${outPath}`)
 		}
 		if (options.verifyInstall) {

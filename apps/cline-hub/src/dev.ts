@@ -2,8 +2,13 @@ import { join } from "node:path";
 import process from "node:process";
 
 const webviewHost =
-	process.env.CLINE_HUB_WEBVIEW_DEV_HOST?.trim() || "127.0.0.1";
-const webviewPort = process.env.CLINE_HUB_WEBVIEW_DEV_PORT?.trim() || "5173";
+	process.env.CODEVIBE_HUB_WEBVIEW_DEV_HOST?.trim() ||
+	process.env.CLINE_HUB_WEBVIEW_DEV_HOST?.trim() ||
+	"127.0.0.1";
+const webviewPort =
+	process.env.CODEVIBE_HUB_WEBVIEW_DEV_PORT?.trim() ||
+	process.env.CLINE_HUB_WEBVIEW_DEV_PORT?.trim() ||
+	"5173";
 const webviewDevServerUrl =
 	process.env.VITE_DEV_SERVER_URL?.trim() ||
 	`http://${webviewHost}:${webviewPort}`;
@@ -30,7 +35,7 @@ function spawn(
 	children.push(child);
 	void child.exited.then((code) => {
 		if (!shuttingDown) {
-			console.error(`[cline-hub:dev] ${name} exited with code ${code}`);
+			console.error(`[codevibe-hub:dev] ${name} exited with code ${code}`);
 			shutdown(code === 0 ? 0 : 1);
 		}
 	});
@@ -53,8 +58,8 @@ function shutdown(exitCode = 0): void {
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
 
-console.log(`[cline-hub:dev] Vite webview: ${webviewDevServerUrl}`);
-console.log("[cline-hub:dev] Hub dashboard: http://127.0.0.1:8787/");
+console.log(`[codevibe-hub:dev] Vite webview: ${webviewDevServerUrl}`);
+console.log("[codevibe-hub:dev] Hub dashboard: http://127.0.0.1:8787/");
 
 spawn(
 	"webview",

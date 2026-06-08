@@ -8,7 +8,8 @@ export interface ClineHubServerOptions {
 
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_PORT = 8787;
-const DASHBOARD_PORT_ENV = "CLINE_HUB_DASHBOARD_PORT";
+const DASHBOARD_PORT_ENV = "CODEVIBE_HUB_DASHBOARD_PORT";
+const LEGACY_DASHBOARD_PORT_ENV = "CLINE_HUB_DASHBOARD_PORT";
 
 function parsePort(value: string | undefined): number {
 	if (!value?.trim()) return DEFAULT_PORT;
@@ -68,7 +69,9 @@ export function resolveClineHubServerOptions(
 	env: NodeJS.ProcessEnv = process.env,
 ): ClineHubServerOptions {
 	const host = normalizeHost(env.HOST);
-	const port = parsePort(env[DASHBOARD_PORT_ENV]);
+	const port = parsePort(
+		env[DASHBOARD_PORT_ENV] || env[LEGACY_DASHBOARD_PORT_ENV],
+	);
 	const publicUrl = normalizePublicUrl(env.PUBLIC_URL, host, port);
 	const roomSecret = normalizeRoomSecret(env.ROOM_SECRET);
 	if (isNonLocalBindHost(host) && !roomSecret) {
