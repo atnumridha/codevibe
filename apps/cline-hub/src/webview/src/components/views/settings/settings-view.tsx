@@ -981,6 +981,8 @@ function CursorLinksContent({
 		useState<CursorLaunchDelivery>("queue");
 	const [launchToolsEnabled, setLaunchToolsEnabled] = useState(true);
 	const [launchAutoApproveTools, setLaunchAutoApproveTools] = useState(false);
+	const [backgroundWorktreesEnabled, setBackgroundWorktreesEnabled] =
+		useState(true);
 	const [gitResult, setGitResult] = useState<
 		CursorGitActionResponse | undefined
 	>();
@@ -1025,6 +1027,9 @@ function CursorLinksContent({
 	const effectiveLaunchAutoApproveTools = backgroundLaunchPreview
 		? false
 		: launchAutoApproveTools;
+	const effectiveBackgroundWorktreesEnabled = backgroundLaunchPreview
+		? backgroundWorktreesEnabled
+		: false;
 	const canIngestAutomation =
 		route === "automation-ingest" &&
 		recordBoolean(previewRecord, "requiresConfirmation") === true &&
@@ -1043,6 +1048,7 @@ function CursorLinksContent({
 		route === "git-checkout" ||
 		route === "git-branch" ||
 		route === "git-commit";
+	const launchBackgroundDetails = asRecord(launchResult?.backgroundAgentDetails);
 
 	const runPreview = async (inputUri = cursorUri) => {
 		const uri = inputUri.trim();
@@ -1181,6 +1187,7 @@ function CursorLinksContent({
 				enableSpawn: false,
 				enableTeams: false,
 				autoApproveTools: effectiveLaunchAutoApproveTools,
+				enableWorktrees: effectiveBackgroundWorktreesEnabled,
 				maxCommandFileBytes: 64 * 1024,
 				maxRuleFileBytes: 64 * 1024,
 			});
@@ -1418,6 +1425,19 @@ function CursorLinksContent({
 									</span>
 								</div>
 								{backgroundLaunchPreview ? (
+									<div className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5">
+										<Switch
+											aria-label="Create background-agent worktree"
+											checked={effectiveBackgroundWorktreesEnabled}
+											disabled={launchLoading}
+											onCheckedChange={setBackgroundWorktreesEnabled}
+										/>
+										<span className="text-xs text-muted-foreground">
+											Worktree
+										</span>
+									</div>
+								) : null}
+								{backgroundLaunchPreview ? (
 									<Badge variant="outline">Safe background defaults</Badge>
 								) : null}
 							</div>
@@ -1581,6 +1601,9 @@ function CursorLinksContent({
 								`${launchResult.provider}/${launchResult.model}`,
 								launchResult.mode,
 								launchResult.queued ? "queued" : "steered",
+								recordString(launchBackgroundDetails, "launchMode"),
+								recordString(launchBackgroundDetails, "worktreeBranch"),
+								recordString(launchBackgroundDetails, "fallbackReason"),
 							]
 								.filter(Boolean)
 								.join(" | ")}

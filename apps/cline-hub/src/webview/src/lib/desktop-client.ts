@@ -114,6 +114,7 @@ export type CursorUriLaunchInput = CursorUriPreviewInput & {
 	enableTeams?: boolean;
 	autoApproveTools?: boolean;
 	delivery?: "queue" | "steer";
+	enableWorktrees?: boolean;
 	timeoutMs?: number;
 };
 
@@ -364,6 +365,9 @@ class HubDesktopClient {
 				? { autoApproveTools: input.autoApproveTools }
 				: {}),
 			...(input.delivery ? { delivery: input.delivery } : {}),
+			...(input.enableWorktrees !== undefined
+				? { enableWorktrees: input.enableWorktrees }
+				: {}),
 			...(input.timeoutMs !== undefined ? { timeoutMs: input.timeoutMs } : {}),
 			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
 			...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),

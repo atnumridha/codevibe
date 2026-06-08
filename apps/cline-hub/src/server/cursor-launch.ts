@@ -2,6 +2,7 @@ import {
 	type BackgroundAgentTaskRecord,
 	buildCursorAgentTaskRouteRequest,
 	buildCursorRuleRouteRequest,
+	createBackgroundAgentWorktree,
 	type CursorBackgroundAgentLaunchRequest,
 	DefaultToolNames,
 	launchCursorBackgroundAgent,
@@ -309,6 +310,7 @@ type CursorLaunchOptions = {
 	enableTeams: boolean;
 	autoApproveTools: boolean;
 	delivery: CursorLaunchDelivery;
+	enableWorktrees: boolean;
 	timeoutMs?: number;
 	toolPolicies?: AgentConfig["toolPolicies"];
 };
@@ -357,6 +359,7 @@ function readCursorLaunchOptions(
 ): CursorLaunchOptions {
 	const timeoutMs = toPositiveInt(args?.timeoutMs);
 	if (backgroundAgent) {
+		const enableWorktrees = readOptionalBoolean(args, "enableWorktrees") ?? true;
 		return {
 			mode: "plan",
 			enableTools: true,
@@ -364,6 +367,7 @@ function readCursorLaunchOptions(
 			enableTeams: false,
 			autoApproveTools: false,
 			delivery: "queue",
+			enableWorktrees,
 			...(timeoutMs ? { timeoutMs } : {}),
 			toolPolicies: getCursorQueuedAgentToolPolicies(),
 		};
@@ -377,6 +381,7 @@ function readCursorLaunchOptions(
 		enableTeams: readOptionalBoolean(args, "enableTeams") ?? false,
 		autoApproveTools,
 		delivery: readCursorLaunchDelivery(args),
+		enableWorktrees: false,
 		...(timeoutMs ? { timeoutMs } : {}),
 		...(autoApproveTools
 			? {}
@@ -570,11 +575,8 @@ export async function launchCursorUri(
 			),
 			{
 				getWorkspaceRoot: async () => launchWorkspaceRoot,
-				areWorktreesEnabled: () => false,
-				createWorktree: async () => ({
-					success: false,
-					message: "Hub background-agent worktrees are disabled",
-				}),
+				areWorktreesEnabled: () => launchOptions.enableWorktrees,
+				createWorktree: createBackgroundAgentWorktree,
 				onRecordChange: (nextRecord) => {
 					upsertBackgroundAgentTaskRecordFile(
 						backgroundAgentRecordsPath(),
@@ -583,7 +585,9 @@ export async function launchCursorUri(
 				},
 				startTask: async (safePrompt, _taskSettings, recordAtStart) => {
 					const taskWorkspaceRoot =
-						recordAtStart.workspaceRoot ?? launchWorkspaceRoot;
+						recordAtStart.worktreePath ??
+						recordAtStart.workspaceRoot ??
+						launchWorkspaceRoot;
 					launchedContext = resolveLaunchContext(ctx, {
 						provider,
 						model,
