@@ -1900,7 +1900,8 @@ function GeneralSettingsContent({
 		return () => window.clearTimeout(timeoutId);
 	}, [loadBrowserStatus]);
 
-	const updateTelemetryOptOut = async (nextValue: boolean) => {
+	const updateTelemetryEnabled = async (enabled: boolean) => {
+		const nextValue = !enabled;
 		const previousValue = telemetryOptOut;
 		setTelemetryOptOut(nextValue);
 		setTelemetrySaving(true);
@@ -2170,10 +2171,10 @@ function GeneralSettingsContent({
 							) : null}
 						</div>
 						<Switch
-							aria-label="Telemetry opt-out"
-							checked={!telemetryOptOut} // If opt-out is true, the switch should be off (unchecked)
+							aria-label="Enable telemetry"
+							checked={!telemetryOptOut}
 							disabled={telemetryLoading || telemetrySaving}
-							onCheckedChange={(checked) => void updateTelemetryOptOut(checked)}
+							onCheckedChange={(checked) => void updateTelemetryEnabled(checked)}
 						/>
 					</div>
 				</section>
