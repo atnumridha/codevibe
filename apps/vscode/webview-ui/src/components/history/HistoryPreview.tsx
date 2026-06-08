@@ -28,19 +28,21 @@ const HistoryPreview = ({ showHistoryView }: HistoryPreviewProps) => {
 			<style>
 				{`
 					.history-preview-item {
-						background-color: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 65%, transparent);
-						border-radius: 4px;
+						background-color: color-mix(in srgb, var(--vscode-editorWidget-background) 72%, transparent);
+						border: 1px solid color-mix(in srgb, var(--vscode-panel-border) 82%, transparent);
+						border-left: 3px solid var(--vscode-textLink-foreground);
+						border-radius: 7px;
 						position: relative;
 						overflow: hidden;
 						cursor: pointer;
-						margin-bottom: 8px;
-						padding: 10px 12px;
+						margin-bottom: 10px;
+						padding: 12px 12px 12px 14px;
 						display: flex;
 						align-items: flex-start;
 						gap: 12px;
 					}
 					.history-preview-item:hover {
-						background-color: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 100%, transparent);
+						background-color: color-mix(in srgb, var(--vscode-list-hoverBackground) 88%, transparent);
 						pointer-events: auto;
 					}
 					.history-task-content {
@@ -58,7 +60,8 @@ const HistoryPreview = ({ showHistoryView }: HistoryPreviewProps) => {
 						-webkit-box-orient: vertical;
 						color: var(--vscode-foreground);
 						font-size: var(--vscode-font-size);
-						line-height: 1.4;
+						font-weight: 500;
+						line-height: 1.35;
 					}
 					.history-meta-stack {
 						display: flex;
@@ -69,15 +72,16 @@ const HistoryPreview = ({ showHistoryView }: HistoryPreviewProps) => {
 					}
 					.history-date {
 						color: var(--vscode-descriptionForeground);
-						font-size: 0.85em;
+						font-size: 0.78em;
+						text-transform: uppercase;
 						white-space: nowrap;
 					}
 					.history-cost-chip {
-						background-color: var(--vscode-badge-background);
-						color: var(--vscode-badge-foreground);
-						padding: 2px 8px;
-						border-radius: 12px;
-						font-size: 0.85em;
+						background-color: color-mix(in srgb, var(--vscode-badge-background) 65%, transparent);
+						color: var(--vscode-foreground);
+						padding: 2px 7px;
+						border-radius: 6px;
+						font-size: 0.8em;
 						font-weight: 500;
 						white-space: nowrap;
 					}
@@ -125,7 +129,7 @@ const HistoryPreview = ({ showHistoryView }: HistoryPreviewProps) => {
 							fontSize: "0.85em",
 							textTransform: "uppercase",
 						}}>
-						Recent
+						Latest runs
 					</span>
 				</div>
 				{taskHistory.filter((item) => item.ts && item.task).length > 0 && (

@@ -1,14 +1,14 @@
 import { BooleanRequest, EmptyRequest } from "@shared/proto/cline/common"
 import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react"
 import { memo, useEffect, useState } from "react"
-import ClineLogoWhite from "@/assets/ClineLogoWhite"
+import CodeVibeMark from "@/assets/CodeVibeMark"
 import ApiOptions from "@/components/settings/ApiOptions"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { AccountServiceClient, StateServiceClient } from "@/services/grpc-client"
 import { validateApiConfiguration } from "@/utils/validate"
 
 const WelcomeView = memo(() => {
-	const { apiConfiguration, mode } = useExtensionState()
+	const { apiConfiguration, environment, mode } = useExtensionState()
 	const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
 	const [showApiOptions, setShowApiOptions] = useState(false)
 	const [isLoading, setIsLoading] = useState(false)
@@ -39,27 +39,25 @@ const WelcomeView = memo(() => {
 	return (
 		<div className="fixed inset-0 p-0 flex flex-col">
 			<div className="h-full px-5 overflow-auto flex flex-col gap-2.5">
-				<h2 className="text-lg font-semibold">Hi, I'm Cline</h2>
+				<h2 className="text-lg font-semibold">CodeVibe is ready</h2>
 				<div className="flex justify-center my-5">
-					<ClineLogoWhite className="size-16" />
+					<CodeVibeMark className="size-20" environment={environment} />
 				</div>
 				<p>
-					I can do all kinds of tasks thanks to breakthroughs in{" "}
+					CodeVibe can plan code changes, edit files, run terminal checks, use browser automation, and connect MCP tools
+					with your approval. It is tuned for a Codex-first workflow while still supporting models like{" "}
 					<VSCodeLink className="inline" href="https://www.anthropic.com/claude/sonnet">
-						Claude 4.6 Sonnet's
+						Claude Sonnet
 					</VSCodeLink>
-					agentic coding capabilities and access to tools that let me create & edit files, explore complex projects, use
-					a browser, and execute terminal commands <i>(with your permission, of course)</i>. I can even use MCP to
-					create new tools and extend my own capabilities.
+					.
 				</p>
 
 				<p className="text-(--vscode-descriptionForeground)">
-					Sign up for an account to get started for free, or use an API key that provides access to models like Claude
-					Sonnet.
+					Use Codex auth from your local setup, sign in, or connect any supported provider.
 				</p>
 
 				<VSCodeButton appearance="primary" className="w-full mt-1" disabled={isLoading} onClick={handleLogin}>
-					Get Started for Free
+					Continue with account
 					{isLoading && (
 						<span className="ml-1 animate-spin">
 							<span className="codicon codicon-refresh" />
@@ -72,7 +70,7 @@ const WelcomeView = memo(() => {
 						appearance="secondary"
 						className="mt-2.5 w-full"
 						onClick={() => setShowApiOptions(!showApiOptions)}>
-						Use your own API key
+						Configure provider manually
 					</VSCodeButton>
 				)}
 
