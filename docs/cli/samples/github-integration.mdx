@@ -1,27 +1,27 @@
 ---
 title: "GitHub Actions Integration"
-description: "Automatically respond to GitHub issues by mentioning @cline in comments using Cline CLI in GitHub Actions."
+description: "Automatically respond to GitHub issues by mentioning @codevibe in comments using CodeVibe CLI in GitHub Actions."
 ---
 
-Automate GitHub issue analysis with AI. Mention `@cline` in any issue comment to trigger an autonomous investigation that reads files, analyzes code, and provides actionable insights - all running automatically in GitHub Actions.
+Automate GitHub issue analysis with AI. Mention `@codevibe` in any issue comment to trigger an autonomous investigation that reads files, analyzes code, and provides actionable insights - all running automatically in GitHub Actions.
 
 
 <Note>
-**New to Cline CLI?** This sample assumes you understand Cline CLI basics and have completed the [Installation Guide](https://docs.cline.bot/getting-started/installing-cline). If you're new to Cline CLI, we recommend starting with the [GitHub RCA sample](./github-issue-rca) first, as it's simpler and will help you understand the fundamentals before setting up GitHub Actions.
+**New to CodeVibe CLI?** This sample assumes you understand CodeVibe CLI basics and have completed the [Installation Guide](/getting-started/installing-cline). If you're new to CodeVibe CLI, we recommend starting with the [GitHub RCA sample](./github-issue-rca) first, as it's simpler and will help you understand the fundamentals before setting up GitHub Actions.
 </Note>
 
 ## The Workflow
 
-Trigger Cline by mentioning `@cline` in any issue comment:
+Trigger CodeVibe by mentioning `@codevibe` in any issue comment:
 
 <Frame>
-  <img src="https://storage.googleapis.com/cline_public_images/ss0a-comment.png" alt="Issue comment with @cline mention" width="600" />
+  <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss0a-comment.png" alt="Issue comment with @codevibe mention" width="600" />
 </Frame>
 
-Cline's automated analysis appears as a new comment, with insights drawn from your actual codebase:
+CodeVibe's automated analysis appears as a new comment, with insights drawn from your actual codebase:
 
 <Frame>
-  <img src="https://storage.googleapis.com/cline_public_images/ss0b-final.png" alt="Automated analysis response from Cline" width="600" />
+  <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss0b-final.png" alt="Automated analysis response from CodeVibe" width="600" />
 </Frame>
 
 The entire investigation runs autonomously in GitHub Actions - from file exploration to posting results.
@@ -32,7 +32,7 @@ Let's configure your repository.
 
 Before you begin, you'll need:
 
-- **Cline CLI knowledge** - Completed the [Installation Guide](https://docs.cline.bot/getting-started/installing-cline) and understand basic usage
+- **CodeVibe CLI knowledge** - Completed the [Installation Guide](/getting-started/installing-cline) and understand basic usage
 - **GitHub repository** - With admin access to configure Actions and secrets
 - **GitHub Actions familiarity** - Basic understanding of workflows and CI/CD
 - **API provider account** - OpenRouter, Anthropic, or similar with API key
@@ -43,19 +43,19 @@ Before you begin, you'll need:
 
 
 
-Copy the workflow file from this sample to your repository. The workflow file must be placed in the `.github/workflows/` directory in your repository root for GitHub Actions to detect and run it. In this case, we'll name it `cline-responder.yml`.
+Copy the workflow file from this sample to your repository. The workflow file must be placed in the `.github/workflows/` directory in your repository root for GitHub Actions to detect and run it. In this case, we'll name it `codevibe-responder.yml`.
 
 ```bash
 # In your repository root
 mkdir -p .github/workflows
-curl -o .github/workflows/cline-responder.yml https://raw.githubusercontent.com/cline/cline/main/src/samples/cli/github-integration/cline-responder.yml
+curl -o .github/workflows/codevibe-responder.yml https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/cline-responder.yml
 ```
 
-Alternatively, you can copy the full workflow file directly into `.github/workflows/cline-responder.yml`:
+Alternatively, you can copy the full workflow file directly into `.github/workflows/codevibe-responder.yml`:
 
-<Accordion title="Click to view the complete cline-responder.yml workflow">
+<Accordion title="Click to view the complete codevibe-responder.yml workflow">
 ```yaml
-name: Cline Issue Assistant
+name: CodeVibe Issue Assistant
 
 on:
   issue_comment:
@@ -67,16 +67,16 @@ permissions:
 jobs:
   respond:
     runs-on: ubuntu-latest
-    environment: cline-actions
+    environment: codevibe-actions
     steps:
-      - name: Check for @cline mention
+      - name: Check for @codevibe mention
         id: detect
         uses: actions/github-script@v7
         with:
           script: |
             const body = context.payload.comment?.body || "";
             const isPR = !!context.payload.issue?.pull_request;
-            const hit = body.toLowerCase().includes("@cline");
+            const hit = body.toLowerCase().includes("@codevibe");
             core.setOutput("hit", (!isPR && hit) ? "true" : "false");
             core.setOutput("issue_number", String(context.payload.issue?.number || ""));
             core.setOutput("issue_url", context.payload.issue?.html_url || "");
@@ -86,24 +86,24 @@ jobs:
         if: steps.detect.outputs.hit == 'true'
         uses: actions/checkout@v4
 
-      # Node v20+ is needed for Cline CLI on GitHub Actions Linux
+      # Node v20+ is needed for CodeVibe CLI on GitHub Actions Linux
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install Cline CLI
+      - name: Install CodeVibe CLI
         if: steps.detect.outputs.hit == 'true'
-        run: npm install -g cline
+        run: npm install -g codevibe
 
-      - name: Configure Cline Authentication
+      - name: Configure CodeVibe Authentication
         if: steps.detect.outputs.hit == 'true'
         env:
-          CLINE_DIR: ${{ runner.temp }}/cline
+          CODEVIBE_DATA_DIR: ${{ runner.temp }}/codevibe-data
         run: |
           # Configure API key using the auth command
-          cline auth --provider openrouter --apikey "${{ secrets.OPENROUTER_API_KEY }}"
+          codevibe auth --provider openrouter --apikey "${{ secrets.OPENROUTER_API_KEY }}"
 
       - name: Download analyze script
         if: steps.detect.outputs.hit == 'true'
@@ -151,7 +151,7 @@ jobs:
 <Warning>
 **You MUST edit the workflow file before committing!**
 
-Open `.github/workflows/cline-responder.yml` and update the "Download analyze script" step within the workflow to specify your GitHub organization and repository where the analysis script is stored:
+Open `.github/workflows/codevibe-responder.yml` and update the "Download analyze script" step within the workflow to specify your GitHub organization and repository where the analysis script is stored:
 
 ```yaml
 export GITORG="YOUR-GITHUB-ORG"      # Change this!
@@ -167,8 +167,8 @@ export GITREPO="myproject"
 This tells the workflow where to download the analysis script from your repository after you commit it in step 3.
 </Warning>
 
-The workflow will look for new or updated issues, check for `@cline` mentions, and then
-start up the Cline CLI to dig into the issue, providing feedback as a reply to the issue.
+The workflow will look for new or updated issues, check for `@codevibe` mentions, and then
+start up the CodeVibe CLI to dig into the issue, providing feedback as a reply to the issue.
 
 ### 2. Configure API Keys
 
@@ -178,27 +178,27 @@ Add your AI provider API keys as repository secrets:
 2. Navigate to **Settings** → **Environment** and Add a new environment.
 
    <Frame>
-     <img src="https://storage.googleapis.com/cline_public_images/ss01-environment.png" alt="Navigate to Actions secrets" width="600" />
+     <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss01-environment.png" alt="Navigate to Actions secrets" width="600" />
    </Frame>
 
-   Make sure to name it "cline-actions" so that it matches the `environment`
-   value at the top of the `cline-responder.yml` file.
+   Make sure to name it "codevibe-actions" so that it matches the `environment`
+   value at the top of the `codevibe-responder.yml` file.
 
 3. Click **New repository secret**
 4. Add a secret for the `OPENROUTER_API_KEY` with a value of an API key from
    [openrouter.com](https://openrouter.com).
 
    <Frame>
-     <img src="https://storage.googleapis.com/cline_public_images/ss02-api-key.png" alt="Add API key secret" width="600" />
+     <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss02-api-key.png" alt="Add API key secret" width="600" />
    </Frame>
 
 5. Verify your secret is configured:
 
    <Frame>
-     <img src="https://storage.googleapis.com/cline_public_images/ss03-ready.png" alt="API key configured" width="600" />
+     <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss03-ready.png" alt="API key configured" width="600" />
    </Frame>
 
-Now you're ready to supply Cline with the credentials it needs in a GitHub Action.
+Now you're ready to supply CodeVibe with the credentials it needs in a GitHub Action.
 
 ### 3. Add Analysis Script
 
@@ -209,7 +209,7 @@ Add the analysis script from the `github-issue-rca` sample to your repository. *
 ```bash
 # In your repository root, create the directory and download the script
 mkdir -p git-scripts
-curl -o git-scripts/analyze-issue.sh https://raw.githubusercontent.com/cline/cline/main/src/samples/cli/github-issue-rca/analyze-issue.sh
+curl -o git-scripts/analyze-issue.sh https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-issue-rca/analyze-issue.sh
 chmod +x git-scripts/analyze-issue.sh
 ```
 
@@ -227,7 +227,7 @@ nano git-scripts/analyze-issue.sh  # or use vim, code, etc.
 <Accordion title="Click to view the complete analyze-issue.sh script">
 ```bash
 #!/bin/bash
-# Analyze a GitHub issue using Cline CLI
+# Analyze a GitHub issue using CodeVibe CLI
 
 if [ -z "$1" ]; then
     echo "Usage: $0 <github-issue-url> [prompt]"
@@ -240,8 +240,8 @@ fi
 ISSUE_URL="$1"
 PROMPT="${2:-What is the root cause of this issue?}"
 
-# Ask Cline for its analysis, showing only the summary
-cline --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
+# Ask CodeVibe for its analysis, showing only the summary
+codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
     jq -r 'select(.type == "agent_event" and .event.type == "done") | .event.text' | \
     sed 's/\\n/\n/g'
 ```
@@ -252,51 +252,51 @@ chmod +x git-scripts/analyze-issue.sh
 ```
 </Accordion>
 
-This analysis script calls Cline to execute a prompt on a GitHub issue,
+This analysis script calls CodeVibe to execute a prompt on a GitHub issue,
 summarizing the output to populate the reply to the issue.
 
 ### 4. Commit and Push
 
 ```bash
-git add .github/workflows/cline-responder.yml
+git add .github/workflows/codevibe-responder.yml
 git add git-scripts/analyze-issue.sh
-git commit -m "Add Cline issue assistant workflow"
+git commit -m "Add CodeVibe issue assistant workflow"
 git push
 ```
 
 ## Usage
 
-Once set up, simply mention `@cline` in any issue comment:
+Once set up, simply mention `@codevibe` in any issue comment:
 
 ```text
-@cline what's causing this error?
+@codevibe what's causing this error?
 
-@cline analyze the root cause
+@codevibe analyze the root cause
 
-@cline what are the security implications?
+@codevibe what are the security implications?
 ```
 
 GitHub Actions will:
-1. Detect the `@cline` mention
-2. Start a Cline CLI instance
+1. Detect the `@codevibe` mention
+2. Start a CodeVibe CLI instance
 3. Download the analysis script
 4. Analyze the issue using Act mode with auto-approval enabled
-5. Post Cline's analysis as a new comment
+5. Post CodeVibe's analysis as a new comment
 
 **Note**: The workflow only triggers on issue comments, not pull request
 comments.
 
 ## How It Works
 
-The workflow (`cline-responder.yml`):
+The workflow (`codevibe-responder.yml`):
 
 1. **Triggers** on issue comments (created or edited)
-2. **Detects** `@cline` mentions (case-insensitive)
-3. **Installs** Cline CLI globally using npm
-4. **Configures** authentication using `cline auth --provider openrouter --apikey ...`
+2. **Detects** `@codevibe` mentions (case-insensitive)
+3. **Installs** CodeVibe CLI globally using npm
+4. **Configures** authentication using `codevibe auth --provider openrouter --apikey ...`
 6. **Downloads** the reusable `analyze-issue.sh` script from the
    `github-issue-rca` sample
-7. **Runs** analysis in Cline CLI
+7. **Runs** analysis in CodeVibe CLI
 8. **Posts** the analysis result as a comment
 
 ## Related Samples

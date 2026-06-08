@@ -23,7 +23,7 @@ describe("OpenAiCodexHandler", () => {
 			"x-codex-installation-id": "install_123",
 		})
 		expect(headers.session_id).to.be.a("string").and.not.equal("")
-		expect(headers["User-Agent"]).to.match(/^Cline\//)
+		expect(headers["User-Agent"]).to.match(/^CodeVibe\//)
 	})
 
 	it("adds client_version to Codex responses endpoints", () => {

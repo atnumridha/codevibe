@@ -55,16 +55,12 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 
 	public async show(preserveEditorFocus = false): Promise<void> {
 		if (this.panel) {
+			await closeCompetingAgentSurfaces()
 			this.panel.reveal(this.panel.viewColumn, preserveEditorFocus)
 			return
 		}
 
-		if (this.webview?.visible) {
-			await vscode.commands.executeCommand("workbench.action.closeSidebar").then(
-				() => undefined,
-				() => undefined,
-			)
-		}
+		await closeCompetingAgentSurfaces(this.webview?.visible)
 
 		const viewColumn = vscode.window.activeTextEditor ? vscode.ViewColumn.Beside : vscode.ViewColumn.One
 		this.panel = vscode.window.createWebviewPanel("codevibe.agentPanel", "CodeVibe", viewColumn, {
@@ -258,5 +254,19 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 			this.panelDisposables.pop()?.dispose()
 		}
 		super.dispose()
+	}
+}
+
+async function closeCompetingAgentSurfaces(closeSidebar = false): Promise<void> {
+	const commands = ["workbench.action.closeAuxiliaryBar"]
+	if (closeSidebar) {
+		commands.push("workbench.action.closeSidebar")
+	}
+
+	for (const command of commands) {
+		await vscode.commands.executeCommand(command).then(
+			() => undefined,
+			() => undefined,
+		)
 	}
 }

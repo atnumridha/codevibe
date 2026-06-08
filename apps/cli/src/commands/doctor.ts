@@ -416,7 +416,7 @@ export async function runDoctorCommand(
 			before.staleSidecarPids.length > 0
 		) {
 			io.writeln(
-				"\nRun `cline doctor fix` to kill all stale local processes, including stale sidecars.",
+				"\nRun `codevibe doctor fix` to kill all stale local processes, including stale sidecars.",
 			);
 		}
 		return 0;

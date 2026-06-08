@@ -1,20 +1,20 @@
 {
 	"$schema": "https://mintlify.com/docs.json",
 	"theme": "mint",
-	"name": "Cline",
-	"description": "AI-powered coding agent for complex work",
+	"name": "CodeVibe",
+	"description": "Cursor-parity coding agent for VS Code, terminal, and standalone workflows",
 	"colors": {
 		"primary": "#9D4EDD",
 		"light": "#F0E6FF",
 		"dark": "#000000"
 	},
 	"logo": {
-		"light": "/assets/Cline_Logo-complete_black.png",
-		"dark": "/assets/Cline_Logo-complete_white.png"
+		"light": "/assets/codevibe-icon.png",
+		"dark": "/assets/codevibe-icon.png"
 	},
 	"favicon": {
-		"light": "/assets/robot_panel_light.png",
-		"dark": "/assets/robot_panel_dark.png"
+		"light": "/assets/codevibe-icon.png",
+		"dark": "/assets/codevibe-icon.png"
 	},
 	"background": {
 		"color": {
@@ -39,25 +39,25 @@
 			{
 				"label": "GitHub",
 				"icon": "github",
-				"href": "https://github.com/cline/cline"
+				"href": "https://github.com/atnumridha/codevibe"
 			},
 			{
-				"label": "Discord",
-				"icon": "discord",
-				"href": "https://discord.gg/cline"
+				"label": "Issues",
+				"icon": "circle-question",
+				"href": "https://github.com/atnumridha/codevibe/issues"
 			}
 		],
 		"primary": {
 			"type": "button",
-			"label": "Install Cline",
-			"href": "https://cline.bot/install?utm_source=website&utm_medium=header"
+			"label": "Install CodeVibe",
+			"href": "https://github.com/atnumridha/codevibe/releases/latest"
 		}
 	},
 	"navigation": {
 		"tabs": [
 			{
-				"tab": "Cline",
-				"icon": "robot",
+				"tab": "CodeVibe",
+				"icon": "sparkles",
 				"groups": [
 					{
 						"group": "Getting Started",
@@ -242,117 +242,12 @@
 						]
 					}
 				]
-			},
-			{
-				"tab": "Enterprise",
-				"icon": "building",
-				"groups": [
-					{
-						"group": "Enterprise Solutions",
-						"pages": [
-							"enterprise-solutions/overview",
-							"enterprise-solutions/onboarding",
-							"enterprise-solutions/sso-setup",
-							"enterprise-solutions/team-management/managing-members",
-							{
-								"group": "Remote Provider Configuration",
-								"pages": [
-									"enterprise-solutions/configuration/remote-configuration/overview",
-									{
-										"group": "AWS Bedrock",
-										"pages": [
-											"enterprise-solutions/configuration/remote-configuration/aws-bedrock/admin-configuration",
-											"enterprise-solutions/configuration/remote-configuration/aws-bedrock/member-configuration"
-										]
-									},
-									{
-										"group": "Google Vertex AI",
-										"pages": [
-											"enterprise-solutions/configuration/remote-configuration/google-vertex/admin-configuration",
-											"enterprise-solutions/configuration/remote-configuration/google-vertex/member-configuration"
-										]
-									},
-									{
-										"group": "OpenAI Compatible",
-										"pages": [
-											"enterprise-solutions/configuration/remote-configuration/openai-compatible/admin-configuration",
-											"enterprise-solutions/configuration/remote-configuration/openai-compatible/member-configuration"
-										]
-									},
-									{
-										"group": "Anthropic",
-										"pages": [
-											"enterprise-solutions/configuration/remote-configuration/anthropic/admin-configuration",
-											"enterprise-solutions/configuration/remote-configuration/anthropic/member-configuration"
-										]
-									},
-									{
-										"group": "LiteLLM",
-										"pages": [
-											"enterprise-solutions/configuration/remote-configuration/litellm/admin-configuration",
-											"enterprise-solutions/configuration/remote-configuration/litellm/member-configuration"
-										]
-									}
-								]
-							},
-							{
-								"group": "Control Other Cline Features",
-								"pages": [
-									"enterprise-solutions/configuration/infrastructure-configuration/control-other-cline-features/yolo-mode",
-									"enterprise-solutions/configuration/infrastructure-configuration/control-other-cline-features/mcp-marketplace"
-								]
-							},
-							{
-								"group": "Monitoring",
-								"pages": [
-									"enterprise-solutions/monitoring/overview",
-									"enterprise-solutions/monitoring/telemetry",
-									"enterprise-solutions/monitoring/prompt-storage",
-									"enterprise-solutions/monitoring/opentelemetry",
-									"enterprise-solutions/monitoring/opentelemetry-events",
-									"enterprise-solutions/monitoring/opentelemetry_override"
-								]
-							},
-							"enterprise-solutions/api-reference"
-						]
-					}
-				]
-			},
-			{
-				"tab": "API",
-				"icon": "code",
-				"groups": [
-					{
-						"group": "Cline API",
-						"pages": [
-							"api/overview",
-							"api/getting-started",
-							"api/authentication"
-						]
-					},
-					{
-						"group": "Endpoints",
-						"pages": [
-							"api/chat-completions"
-						]
-					},
-					{
-						"group": "Reference",
-						"pages": [
-							"api/models",
-							"api/errors",
-							"api/sdk-examples"
-						]
-					}
-				]
 			}
 		]
 	},
 	"footer": {
 		"socials": {
-			"x": "https://x.com/cline",
-			"github": "https://github.com/cline/cline",
-			"discord": "https://discord.gg/cline"
+			"github": "https://github.com/atnumridha/codevibe"
 		}
 	},
 	"anchors": [
@@ -1117,6 +1012,6 @@
 		}
 	],
 	"search": {
-		"prompt": "Search Cline documentation..."
+		"prompt": "Search CodeVibe documentation..."
 	}
 }

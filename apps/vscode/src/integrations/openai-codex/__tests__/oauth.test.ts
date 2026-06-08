@@ -491,7 +491,7 @@ describe("OpenAI Codex OAuth local profile support", () => {
 			"x-codex-installation-id": "install_abc",
 		})
 		expect((seenHeaders as Record<string, string>)?.session_id).to.be.a("string").and.not.equal("")
-		expect((seenHeaders as Record<string, string>)?.["User-Agent"]).to.match(/^Cline\//)
+		expect((seenHeaders as Record<string, string>)?.["User-Agent"]).to.match(/^CodeVibe\//)
 		expect(models).to.deep.equal([
 			{
 				id: "gpt-5.5",

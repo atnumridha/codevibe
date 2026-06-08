@@ -1,25 +1,25 @@
 ---
 title: "CLI Reference"
-description: "Complete command reference for Cline CLI including all commands, flags, and configuration options."
+description: "Complete command reference for CodeVibe CLI including all commands, flags, and configuration options."
 ---
 
 ```bash
-cline --help           # Show all commands
-cline <command> --help # Show help for a specific command
+codevibe --help           # Show all commands
+codevibe <command> --help # Show help for a specific command
 ```
 
 ## Synopsis
 
 ```bash
-cline [options] [command] [prompt]
+codevibe [options] [command] [prompt]
 ```
 
 ## Help Menu (Source of Truth)
 
 ```text
-Usage: cline [options] [command] [prompt]
+Usage: codevibe [options] [command] [prompt]
 
-Cline CLI - AI coding assistant in your terminal
+CodeVibe CLI - Cursor-parity coding agent in your terminal
 
 Arguments:
   prompt                       Your prompt. Default to start in act mode with auto-approve enabled.
@@ -33,16 +33,16 @@ Options:
   -m, --model <model-id>       Model to use for the session with the selected provider
   -v, --verbose                Show verbose output
   -c, --cwd <path>             Working directory
-  --config <path>              Configuration directory (default: ~/.cline/data/settings)
-  --data-dir <path>            Use isolated local state at this directory path (default: ~/.cline)
+  --config <path>              Configuration directory
+  --data-dir <path>            Use isolated local state at this directory path
   --thinking <level>           Set reasoning effort level between none|low|medium|high|xhigh (default: medium)
   --retries <count>            Maximum consecutive mistakes (retries) before halting
-  --hooks-dir <path>           Directory path to additional hooks for runtime hook injection (default: ~/.cline/hooks)
+  --hooks-dir <path>           Directory path to additional hooks for runtime hook injection
   --acp                        Run in Agent Client Protocol (ACP) mode for editor integration
   -i, --tui                    Open the terminal user interface (TUI) for interactive sessions
   --id <session-id>            Resume an existing session by ID
   -k, --key <api-key>          API key override for this run
-  -P, --provider <id>          Provider id (default: cline)
+  -P, --provider <id>          Provider id (default: openai-codex when Codex auth is available)
   -s, --system <system-prompt> Override the default system prompt
   -z, --zen                    Start a session that runs in the background hub
   -h, --help                   display help for command
@@ -56,11 +56,11 @@ Commands:
   doctor                       Diagnose and fix configuration issues
   history|h [options]          List session history or manage saved sessions
   hook                         Handle a hook payload from stdin
-  plugin                       Manage Cline Plugins
+  plugin                       Manage CodeVibe plugins
   schedule                     Manage scheduled tasks
   hub                          Manage the local hub daemon
   update [options]             Check for updates and install if available
-  version                      Show Cline CLI version number
+  version                      Show CodeVibe CLI version number
   kanban                       Launch the kanban app and exit
 ```
 
@@ -76,31 +76,31 @@ Commands:
 | `-m, --model <model-id>` | Model to use for the session with the selected provider |
 | `-v, --verbose` | Show verbose output |
 | `-c, --cwd <path>` | Working directory |
-| `--config <path>` | Configuration directory (default: `~/.cline/data/settings`) |
-| `--data-dir <path>` | Use isolated local state at this directory path (default: `~/.cline`) |
+| `--config <path>` | Configuration directory |
+| `--data-dir <path>` | Use isolated local state at this directory path |
 | `--thinking <level>` | Set reasoning effort: `none\|low\|medium\|high\|xhigh` (default `medium`) |
 | `--retries <count>` | Maximum consecutive mistakes (retries) before halting |
-| `--hooks-dir <path>` | Directory path to additional hooks for runtime hook injection (default: `~/.cline/hooks`) |
+| `--hooks-dir <path>` | Directory path to additional hooks for runtime hook injection |
 | `--acp` | Run in Agent Client Protocol (ACP) mode for editor integration |
 | `-i, --tui` | Open the terminal user interface (TUI) for interactive sessions |
 | `--id <session-id>` | Resume an existing session by ID |
 | `-k, --key <api-key>` | API key override for this run |
-| `-P, --provider <id>` | Provider id (default: `cline`) |
+| `-P, --provider <id>` | Provider id (default: `openai-codex` when Codex auth is available) |
 | `-s, --system <system-prompt>` | Override the default system prompt |
 | `-z, --zen` | Start a session that runs in the background hub |
 | `-h, --help` | Display help for command |
 
 ## Commands
 
-### `cline` (default)
+### `codevibe` (default)
 
 Start a task or enter interactive mode.
 
 ```bash
-cline
-cline "your prompt here"
-cline "Run tests and fix failures"
-echo "prompt" | cline
+codevibe
+codevibe "your prompt here"
+codevibe "Run tests and fix failures"
+echo "prompt" | codevibe
 ```
 
 ### `auth [options] [provider]`
@@ -108,7 +108,7 @@ echo "prompt" | cline
 Configure authentication with an AI provider.
 
 ```bash
-cline auth
+codevibe auth
 ```
 
 ### `config [options]`
@@ -116,7 +116,7 @@ cline auth
 Show current configuration.
 
 ```bash
-cline config
+codevibe config
 ```
 
 ### `connect [options] [adapter]`
@@ -124,8 +124,8 @@ cline config
 Connect to messaging platforms. See [Connectors](/cli/connectors).
 
 ```bash
-cline connect
-cline connect [adapter]
+codevibe connect
+codevibe connect [adapter]
 ```
 
 ### `mcp`
@@ -133,7 +133,7 @@ cline connect [adapter]
 Manage MCP servers. See [MCP](/mcp/mcp-overview).
 
 ```bash
-cline mcp
+codevibe mcp
 ```
 
 ### `dev`
@@ -141,7 +141,7 @@ cline mcp
 Developer tools and utilities.
 
 ```bash
-cline dev
+codevibe dev
 ```
 
 ### `doctor`
@@ -149,7 +149,7 @@ cline dev
 Diagnose and fix configuration issues.
 
 ```bash
-cline doctor
+codevibe doctor
 ```
 
 ### `history|h [options]`
@@ -157,8 +157,8 @@ cline doctor
 List session history or manage saved sessions.
 
 ```bash
-cline history
-cline h
+codevibe history
+codevibe h
 ```
 
 ### `hook`
@@ -166,16 +166,16 @@ cline h
 Handle a hook payload from stdin.
 
 ```bash
-cat payload.json | cline hook
+cat payload.json | codevibe hook
 ```
 
 ### `plugin`
 
-Manage Cline plugins. Install plugins from file URLs, npm, git repositories, or local paths. See [Plugins](/customization/plugins) for full details and the plugin manifest format.
+Manage CodeVibe plugins. Install plugins from file URLs, npm, git repositories, or local paths. See [Plugins](/customization/plugins) for full details and the plugin manifest format.
 
 ```bash
-cline plugin install <source>  # Install a plugin
-cline plugin i <source>        # Shorthand alias
+codevibe plugin install <source>  # Install a plugin
+codevibe plugin i <source>        # Shorthand alias
 ```
 
 | Option | Description |
@@ -184,12 +184,12 @@ cline plugin i <source>        # Shorthand alias
 | `--git` | Treat source as a git repository |
 | `--force` | Replace an existing install for the same source |
 | `--json` | Output result as JSON |
-| `--cwd <path>` | Install to `<path>/.cline/plugins` instead of the global directory |
+| `--cwd <path>` | Install to the project plugin directory instead of the global directory |
 
-Try it with the [TypeScript Navigation Plugin](https://github.com/cline/typescript-lsp-plugin):
+Try it with a local or Git-based plugin source:
 
 ```bash
-cline plugin install https://github.com/cline/typescript-lsp-plugin.git
+codevibe plugin install ./path/to/plugin
 ```
 
 ### `schedule`
@@ -197,7 +197,7 @@ cline plugin install https://github.com/cline/typescript-lsp-plugin.git
 Manage scheduled agents. See [Scheduling](/cli/scheduling).
 
 ```bash
-cline schedule
+codevibe schedule
 ```
 
 ### `hub`
@@ -205,7 +205,7 @@ cline schedule
 Manage the local hub daemon.
 
 ```bash
-cline hub
+codevibe hub
 ```
 
 ### `update [options]`
@@ -213,16 +213,16 @@ cline hub
 Check for updates and install if available.
 
 ```bash
-cline update
+codevibe update
 ```
 
 ### `version`
 
-Show Cline CLI version number.
+Show CodeVibe CLI version number.
 
 ```bash
-cline version
-cline -V
+codevibe version
+codevibe -V
 ```
 
 ### `kanban`
@@ -230,29 +230,31 @@ cline -V
 Launch the kanban app and exit.
 
 ```bash
-cline kanban
+codevibe kanban
 ```
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `CLINE_DATA_DIR` | Custom configuration directory (replaces `~/.cline/data/`) |
-| `CLINE_HUB_ADDRESS` | Override hub address (default: `127.0.0.1:25463`) |
-| `CLINE_SESSION_BACKEND_MODE` | Force backend mode (`local`, `hub`, `remote`, `auto`) |
-| `CLINE_SANDBOX_DATA_DIR` | Sandbox session storage directory |
-| `CLINE_SANDBOX` | Enable sandbox mode |
-| `CLINE_HOOKS_DIR` | Additional hooks directory |
-| `CLINE_BUILD_ENV` | Set to `development` for debug features |
-| `CLINE_DEBUG_PORT_BASE` | Base port for Node.js inspector |
-| `CLINE_COMMAND_PERMISSIONS` | JSON policy restricting shell commands (see below) |
+| `CODEVIBE_DATA_DIR` | Custom configuration directory |
+| `CODEVIBE_HUB_ADDRESS` | Override hub address (default: `127.0.0.1:25463`) |
+| `CODEVIBE_SESSION_BACKEND_MODE` | Force backend mode (`local`, `hub`, `remote`, `auto`) |
+| `CODEVIBE_SANDBOX_DATA_DIR` | Sandbox session storage directory |
+| `CODEVIBE_SANDBOX` | Enable sandbox mode |
+| `CODEVIBE_HOOKS_DIR` | Additional hooks directory |
+| `CODEVIBE_BUILD_ENV` | Set to `development` for debug features |
+| `CODEVIBE_DEBUG_PORT_BASE` | Base port for Node.js inspector |
+| `CODEVIBE_COMMAND_PERMISSIONS` | JSON policy restricting shell commands (see below) |
 
-### CLINE_COMMAND_PERMISSIONS
+Legacy `CLINE_*` environment variables remain accepted as compatibility aliases so existing automation keeps working while CodeVibe tracks upstream changes.
+
+### CODEVIBE_COMMAND_PERMISSIONS
 
 Restrict which shell commands the agent can execute:
 
 ```bash
-export CLINE_COMMAND_PERMISSIONS='{"allow": ["npm *", "git *"], "deny": ["rm -rf *", "sudo *"]}'
+export CODEVIBE_COMMAND_PERMISSIONS='{"allow": ["npm *", "git *"], "deny": ["rm -rf *", "sudo *"]}'
 ```
 
 | Field | Type | Description |
@@ -282,7 +284,7 @@ When using `--json`, each message is a JSON object on its own line:
 ## Configuration Files
 
 ```
-~/.cline/
+~/.codevibe/
   data/
     settings/
       providers.json             # API keys and provider config
@@ -293,9 +295,9 @@ When using `--json`, each message is a JSON object on its own line:
     logs/
       hub-daemon.log             # Hub logs
   plugins/                       # Global plugins
-    _installed/                  # Managed by `cline plugin install`
+    _installed/                  # Managed by `codevibe plugin install`
 
-.cline/                          # Project root
+.codevibe/                       # Project root
   rules/                         # Project rules
   skills/                        # Project skills
   hooks/                         # Lifecycle hooks
@@ -303,3 +305,5 @@ When using `--json`, each message is a JSON object on its own line:
   mcp.json                       # MCP server config
   agents.yaml                    # Agent definitions
 ```
+
+CodeVibe also reads selected `.cline/` and `~/.cline/` paths for upstream compatibility and migration.

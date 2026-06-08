@@ -229,8 +229,8 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          echo "Published cline@${VERSION} to npm with dist-tag 'latest'"
-          echo "Install with: npm install -g cline"
+          echo "Published codevibe@${VERSION} to npm with dist-tag 'latest'"
+          echo "Install with: npm install -g codevibe"
 
       - name: Post release to Slack
         uses: slackapi/slack-github-action@v3.0.1
@@ -239,12 +239,12 @@ jobs:
           token: ${{ secrets.SLACK_RELEASE_BOT_TOKEN }}
           payload: |
             channel: "C0APVKGGZFC"
-            text: "Cline CLI v${{ steps.version.outputs.version }}"
+            text: "CodeVibe CLI v${{ steps.version.outputs.version }}"
             blocks:
               - type: "section"
                 text:
                   type: "mrkdwn"
-                  text: "Cline CLI v${{ steps.version.outputs.version }}"
+                  text: "CodeVibe CLI v${{ steps.version.outputs.version }}"
               - type: "section"
                 text:
                   type: "mrkdwn"
@@ -431,5 +431,5 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          echo "Published cline@${VERSION} to npm with dist-tag 'nightly'"
-          echo "Install with: npm install -g cline@nightly"
+          echo "Published codevibe@${VERSION} to npm with dist-tag 'nightly'"
+          echo "Install with: npm install -g codevibe@nightly"

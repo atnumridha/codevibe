@@ -1,4 +1,4 @@
-# Copilot Instructions for Cline
+# Copilot Instructions for CodeVibe
 
 This is a VS Code extension. Read `.clinerules/general.md` for tribal knowledge and nuanced patterns.
 

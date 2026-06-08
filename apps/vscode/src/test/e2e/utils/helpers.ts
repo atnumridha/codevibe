@@ -285,7 +285,7 @@ export class E2ETestHelper {
 	}
 
 	public static async openClineSidebar(page: Page): Promise<void> {
-		await E2ETestHelper.runCommandPalette(page, "CodeVibe: Open Legacy CodeVibe Webview")
+		await E2ETestHelper.runCommandPalette(page, "CodeVibe: Open CodeVibe")
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {

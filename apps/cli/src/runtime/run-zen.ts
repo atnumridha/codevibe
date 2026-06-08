@@ -17,7 +17,7 @@ const ZEN_DISPATCH_ACK_TIMEOUT_MS = 5_000;
  * hub continues to execute the agent loop in the background and, on
  * completion, already publishes a `ui.notify` event which the menubar app
  * (if installed) surfaces as a system notification. If the menubar app is not
- * running, users can still find the result later via `cline history`.
+ * running, users can still find the result later via `codevibe history`.
  *
  * Because no human is available to approve tool calls once the CLI exits,
  * zen mode forces full tool auto-approval (same semantics as yolo) and only
@@ -41,7 +41,7 @@ export async function runZen(
 		process.env.CLINE_SESSION_BACKEND_MODE?.trim().toLowerCase() === "local"
 	) {
 		writeErr(
-			"--zen requires the hub backend but CLINE_SESSION_BACKEND_MODE=local is set.",
+			"--zen requires the hub backend but CODEVIBE_SESSION_BACKEND_MODE/CLINE_SESSION_BACKEND_MODE is set to local.",
 		);
 		process.exitCode = 1;
 		return;

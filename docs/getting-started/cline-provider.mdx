@@ -1,32 +1,31 @@
 ---
-title: "Cline provider"
-description: "Use the Cline provider for the fastest setup with built-in authentication and unified billing."
+title: "CodeVibe provider"
+description: "Use CodeVibe provider settings for Codex auth, hosted auth, and unified model selection."
 ---
 
-The **Cline provider** is the simplest way to get started with Cline.
+The **CodeVibe provider** path is the simplest way to get started with CodeVibe.
 
-Instead of managing separate API keys across multiple vendors, you sign in once and select from available models directly in Cline.
+By default, CodeVibe reads your local Codex auth from `~/.codex/auth.json`. If a hosted CodeVibe account backend is configured, you can also sign in once and select from available models directly in CodeVibe.
 
-## Why use Cline provider
+## Why use CodeVibe provider settings
 
-- **Fastest setup**: no manual API key copy/paste
-- **One account**: sign in once with Google, GitHub, or email
-- **Unified billing**: one balance across supported models
-- **Free options**: look for models tagged **FREE** in the selector
+- **Fastest setup**: reuse Codex auth without manual API key copy/paste
+- **One model picker**: choose Codex, OpenAI-compatible, Anthropic, Gemini, or local models from one place
+- **Compatibility**: legacy provider IDs can remain internally so existing profiles and upstream patches keep working
 
 ## Setup
 
 <Steps>
-  <Step title="Open Cline Settings">
-    Click the settings icon in the Cline panel.
+  <Step title="Open CodeVibe Settings">
+    Click the settings icon in the CodeVibe panel.
   </Step>
 
   <Step title="Choose Provider">
-    Set **API Provider** to **Cline**.
+    Set **API Provider** to **OpenAI Codex** for the default Codex auth path, or choose another configured provider.
   </Step>
 
-  <Step title="Sign In">
-    Click **Sign In** and complete authentication in your browser.
+  <Step title="Verify Auth">
+    Confirm `~/.codex/auth.json` exists, or click **Sign In** for a hosted provider flow.
   </Step>
 
   <Step title="Select a Model">
@@ -34,15 +33,15 @@ Instead of managing separate API keys across multiple vendors, you sign in once 
   </Step>
 
   <Step title="Verify">
-    Send a test message. If Cline responds, setup is complete.
+    Send a test message. If CodeVibe responds, setup is complete.
   </Step>
 </Steps>
 
 ## Credits and usage
 
-- Add credits from your [Cline dashboard](https://app.cline.bot/dashboard)
-- View usage in Cline Settings → **View Usage**
-- Switch organizations in Cline Settings → **Switch Organization**
+- Codex auth uses your local Codex account/session.
+- View configured account and usage surfaces in CodeVibe Settings when available.
+- Switch organizations from the provider account menu when the active backend supports it.
 
 ## Related
 

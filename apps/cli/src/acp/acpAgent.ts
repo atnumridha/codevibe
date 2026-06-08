@@ -318,7 +318,7 @@ export class AcpAgent implements Agent {
 				if (process.env.CLINE_PROVIDER) {
 					throw RequestError.invalidParams(
 						undefined,
-						"Cannot change provider: CLINE_PROVIDER environment variable is set",
+						"Cannot change provider: CODEVIBE_PROVIDER/CLINE_PROVIDER environment variable is set",
 					);
 				}
 				if (!isAcpAuthMethodId(value)) {

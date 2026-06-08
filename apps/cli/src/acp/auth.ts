@@ -17,7 +17,7 @@ import { writeDiagnostic } from "../utils/output";
  */
 export const ACP_AUTH_METHODS = [
 	{ id: "openai-codex", name: "Sign in with ChatGPT Subscription" },
-	{ id: "cline", name: "Sign in with Cline" },
+	{ id: "cline", name: "Sign in with CodeVibe Account" },
 ] as const;
 
 export type AcpAuthMethodId = (typeof ACP_AUTH_METHODS)[number]["id"];

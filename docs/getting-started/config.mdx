@@ -1,25 +1,25 @@
 ---
 title: "Config"
 sidebarTitle: "Config"
-description: "Understand where Cline stores configuration and how global and project config work together."
+description: "Understand where CodeVibe stores configuration and how global and project config work together."
 ---
 
-Cline configuration lives in two scopes:
+CodeVibe configuration lives in two scopes:
 
-- **Global configuration** in `~/.cline/` (applies globally across all Cline applications, including IDE, CLI, and SDK)
-- **Project configuration** in `.cline/` (applies only to the current workspace)
+- **Global configuration** in `~/.codevibe/` (applies globally across CodeVibe applications, including IDE, CLI, and SDK)
+- **Project configuration** in `.codevibe/` (applies only to the current workspace)
 
 ## Configuration Directory Layout
 
-Cline stores shared configuration across a few well-known locations. The primary root is `~/.cline/`, with structured app state under `~/.cline/data/`:
+CodeVibe stores shared configuration across a few well-known locations. The primary root is `~/.codevibe/`, with structured app state under `~/.codevibe/data/`:
 
 ```text
-~/.cline/
+~/.codevibe/
   data/
     settings/
       providers.json           # API keys and provider configuration
       global-settings.json     # Global settings
-      cline_mcp_settings.json  # MCP settings
+      codevibe_mcp_settings.json  # MCP settings
     teams/                     # Team state
     sessions/                  # Session data
     db/                        # SQLite databases (for example cron.db)
@@ -32,7 +32,7 @@ Cline stores shared configuration across a few well-known locations. The primary
   cron/                        # Global cron specs
 ```
 
-Additional global search paths supported by the code:
+Additional legacy global search paths supported for compatibility:
 
 ```text
 ~/Documents/Cline/
@@ -42,10 +42,10 @@ Additional global search paths supported by the code:
   Workflows/                   # Additional global workflows
 ```
 
-Project-level configuration lives in `.cline/` at your repository root:
+Project-level configuration lives in `.codevibe/` at your repository root:
 
 ```text
-.cline/
+.codevibe/
   rules/                       # Project rules
   skills/                      # Project skills
   hooks/                       # Lifecycle hooks
@@ -56,24 +56,24 @@ Project-level configuration lives in `.cline/` at your repository root:
 
 Notes:
 
-- Global provider settings, global settings, and MCP settings are stored under `~/.cline/data/settings/`.
-- Global workflows resolve from `~/.cline/data/workflows/`.
-- Global rules, hooks, skills, agents, plugins, and cron specs resolve directly under `~/.cline/`.
-- Rules, hooks, plugins, and workflows may also be discovered from `~/Documents/Cline/` for compatibility.
+- Global provider settings, global settings, and MCP settings are stored under `~/.codevibe/data/settings/`.
+- Global workflows resolve from `~/.codevibe/data/workflows/` or the configured CodeVibe data directory.
+- Global rules, hooks, skills, agents, plugins, and cron specs resolve directly under `~/.codevibe/`.
+- Legacy `~/.cline/` and `~/Documents/Cline/` locations may still be discovered for compatibility.
 
 ## What Goes Where?
 
-- Use **global (`~/.cline/`)** for defaults shared across all Cline applications (IDE, CLI, SDK) on your machine.
-- Use **project (`.cline/`)** for team-shared behavior that should travel with the repo.
+- Use **global (`~/.codevibe/`)** for defaults shared across all CodeVibe applications (IDE, CLI, SDK) on your machine.
+- Use **project (`.codevibe/`)** for team-shared behavior that should travel with the repo.
 
-Commit `.cline/` files you want to share with your team. Keep secrets out of the repo.
+Commit `.codevibe/` files you want to share with your team. Keep secrets out of the repo. Legacy `.cline/` files remain supported for compatibility.
 
 ## Configure Through the CLI
 
 Use the interactive config UI:
 
 ```bash
-cline config
+codevibe config
 ```
 
 From there, you can view/edit:
@@ -88,47 +88,49 @@ From there, you can view/edit:
 Use a custom configuration directory:
 
 ```bash
-cline --config /path/to/custom/config "your task"
+codevibe --config /path/to/custom/config "your task"
 ```
 
 Or via environment variable:
 
 ```bash
-export CLINE_DATA_DIR=/custom/path/to/cline
-cline "your task"
+export CODEVIBE_DATA_DIR=/custom/path/to/codevibe
+codevibe "your task"
 ```
 
 View CLI logs when troubleshooting:
 
 ```bash
-cline dev log
+codevibe dev log
 ```
 
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
-| `CLINE_DATA_DIR` | Custom data directory (replaces `~/.cline/data/`) |
-| `CLINE_HUB_ADDRESS` | Override hub address (default: `127.0.0.1:25463`) |
-| `CLINE_SESSION_BACKEND_MODE` | Force backend mode (`local`, `hub`, `remote`, `auto`) |
-| `CLINE_SANDBOX` | Enable sandbox mode |
-| `CLINE_SANDBOX_DATA_DIR` | Sandbox session storage directory |
-| `CLINE_HOOKS_DIR` | Additional hooks directory |
-| `CLINE_COMMAND_PERMISSIONS` | JSON policy restricting shell commands |
+| `CODEVIBE_DATA_DIR` | Custom data directory |
+| `CODEVIBE_HUB_ADDRESS` | Override hub address (default: `127.0.0.1:25463`) |
+| `CODEVIBE_SESSION_BACKEND_MODE` | Force backend mode (`local`, `hub`, `remote`, `auto`) |
+| `CODEVIBE_SANDBOX` | Enable sandbox mode |
+| `CODEVIBE_SANDBOX_DATA_DIR` | Sandbox session storage directory |
+| `CODEVIBE_HOOKS_DIR` | Additional hooks directory |
+| `CODEVIBE_COMMAND_PERMISSIONS` | JSON policy restricting shell commands |
 
-### CLINE_DATA_DIR
+Legacy `CLINE_*` variables are accepted as compatibility aliases when the matching `CODEVIBE_*` value is not set.
+
+### CODEVIBE_DATA_DIR
 
 ```bash
-export CLINE_DATA_DIR=/custom/path/to/cline
-cline "your task"
+export CODEVIBE_DATA_DIR=/custom/path/to/codevibe
+codevibe "your task"
 ```
 
-### CLINE_COMMAND_PERMISSIONS
+### CODEVIBE_COMMAND_PERMISSIONS
 
-Restrict which shell commands Cline can execute:
+Restrict which shell commands CodeVibe can execute:
 
 ```bash
-export CLINE_COMMAND_PERMISSIONS='{"allow": ["npm *", "git *"], "deny": ["rm -rf *"]}'
+export CODEVIBE_COMMAND_PERMISSIONS='{"allow": ["npm *", "git *"], "deny": ["rm -rf *"]}'
 ```
 
 Format:

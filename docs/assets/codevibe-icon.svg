@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="92" height="96" viewBox="0 0 92 96" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CodeVibe">
+	<g fill="none" stroke="#24292F" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M46 5.5 81.5 25.75v44.5L46 90.5 10.5 70.25v-44.5Z" stroke-width="7.5"/>
+		<path d="M25 33.5 46 65.5 67 33.5" stroke-width="9"/>
+		<path d="M29 26.5h34" stroke-width="7"/>
+		<path d="M20 47.5H8.5M83.5 47.5H72" stroke-width="6"/>
+	</g>
+	<g fill="#24292F">
+		<circle cx="46" cy="65.5" r="6.5"/>
+		<circle cx="25" cy="33.5" r="5.5"/>
+		<circle cx="67" cy="33.5" r="5.5"/>
+	</g>
+</svg>

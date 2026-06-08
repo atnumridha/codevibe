@@ -194,7 +194,7 @@
 			},
 			{
 				"command": "codevibe.openLegacyWebview",
-				"title": "Open Legacy CodeVibe Webview",
+				"title": "Show CodeVibe Panel",
 				"category": "CodeVibe"
 			},
 			{
@@ -365,6 +365,10 @@
 				{
 					"command": "codevibe.abortGitCommitMessage",
 					"when": "config.git.enabled && codevibe.isGeneratingCommit"
+				},
+				{
+					"command": "codevibe.openLegacyWebview",
+					"when": "false"
 				},
 				{
 					"command": "codevibe.reviewComment.reply",

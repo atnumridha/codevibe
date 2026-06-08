@@ -72,12 +72,24 @@ const disallowedVsixEntryPrefixes = [
 	"extension/tests/",
 	"extension/webview-ui/.storybook/",
 	"extension/scripts/",
+	"extension/proto/",
+	"extension/assets/icons/robot_panel_",
 ]
 
 const disallowedVsixEntries = new Set([
+	"extension/.nycrc.unit.json",
 	"extension/.env.example",
+	"extension/biome.jsonc",
+	"extension/esbuild.mjs",
 	"extension/knip.json",
 	"extension/skills-lock.json",
+	"extension/test-setup.js",
+	"extension/assets/icons/sleepy-codevibe.svg",
+	"extension/webview-ui/components.json",
+	"extension/webview-ui/tailwind.config.mjs",
+	"extension/webview-ui/tsconfig.app.json",
+	"extension/webview-ui/tsconfig.json",
+	"extension/webview-ui/tsconfig.node.json",
 ])
 
 const githubVsixManifestOverrides = {
@@ -428,23 +440,79 @@ function filterJsonObjectKeysContainingSql(key, legacyFragments) {
 	`
 }
 
+function hideJsonArrayEntriesByIdSql(key, targetIds) {
+	const quotedIds = targetIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ")
+	const escapedKey = key.replace(/'/g, "''")
+	const valueClauses = targetIds.map((id) => `value like '%${id.replace(/'/g, "''")}%'`).join(" or ")
+	return `
+		update ItemTable
+		set value = coalesce((
+			select json_group_array(json_set(json_each.value, '$.visible', json('false')))
+			from json_each(ItemTable.value)
+		), '[]')
+		where key = '${escapedKey}'
+			and (${valueClauses})
+			and exists (
+				select 1
+				from json_each(ItemTable.value)
+				where coalesce(json_extract(json_each.value, '$.id'), '') in (${quotedIds})
+			);
+	`
+}
+
+function hideAuxiliaryBarForViewIdsSql(targetIds) {
+	const quotedIds = targetIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ")
+	const stateValueClauses = targetIds.map((id) => `state.value like '%${id.replace(/'/g, "''")}%'`).join(" or ")
+	return `
+		update ItemTable
+		set value = 'true'
+		where key = 'workbench.auxiliaryBar.hidden'
+			and (
+				exists (
+					select 1
+					from ItemTable active
+					where active.key = 'workbench.auxiliarybar.activepanelid'
+						and active.value in (${quotedIds})
+				)
+				or exists (
+					select 1
+					from ItemTable state, json_each(state.value)
+					where state.key = 'workbench.auxiliarybar.viewContainersWorkspaceState'
+						and (${stateValueClauses})
+						and coalesce(json_extract(json_each.value, '$.id'), '') in (${quotedIds})
+						and coalesce(json_extract(json_each.value, '$.visible'), 0) = 1
+				)
+			);
+	`
+}
+
 function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 	const legacyActivityViewIds = [
 		"workbench.view.extension.claude-dev-ActivityBar",
 		"workbench.view.extension.codevibe-ActivityBar",
 		"workbench.view.extension.vibecodeAgentSidebar",
+		"workbench.view.extension.vibecodex-agent-extension-container",
 	]
 	const legacyWebviewViewIds = [
 		"claude-dev.SidebarProvider",
 		"codevibe.SidebarProvider",
 		"vibecode.agent",
 		"vibecode.agentPanel",
+		"vibecodex-agent-extension-view",
+	]
+	const competingAuxiliaryViewIds = [
+		"workbench.view.extension.codexSecondaryViewContainer",
+		"workbench.panel.chat",
+		"workbench.viewContainer.agentSessions",
 	]
 	const sql = [
 		filterJsonArrayByIdSql("workbench.activity.pinnedViewlets2", legacyActivityViewIds),
 		filterJsonArrayByIdSql("workbench.activity.placeholderViewlets", legacyActivityViewIds),
 		filterJsonArrayByIdSql("workbench.activity.viewletsWorkspaceState", legacyActivityViewIds),
 		filterJsonObjectKeysContainingSql("memento/webviewViews.origins", legacyWebviewViewIds),
+		hideAuxiliaryBarForViewIdsSql(competingAuxiliaryViewIds),
+		hideJsonArrayEntriesByIdSql("workbench.auxiliarybar.viewContainersWorkspaceState", competingAuxiliaryViewIds),
+		hideJsonArrayEntriesByIdSql("workbench.auxiliarybar.pinnedPanels", competingAuxiliaryViewIds),
 		`
 		delete from ItemTable
 		where key in (
@@ -457,10 +525,14 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 			'workbench.view.extension.vibecodeAgentSidebar.state',
 			'workbench.view.extension.vibecodeAgentSidebar.state.hidden',
 			'workbench.view.extension.vibecodeAgentSidebar.numberOfVisibleViews',
+			'workbench.view.extension.vibecodex-agent-extension-container.state',
+			'workbench.view.extension.vibecodex-agent-extension-container.state.hidden',
+			'workbench.view.extension.vibecodex-agent-extension-container.numberOfVisibleViews',
 			'memento/webviewView.claude-dev.SidebarProvider',
 			'memento/webviewView.codevibe.SidebarProvider',
 			'memento/webviewView.vibecode.agent',
-			'memento/webviewView.vibecode.agentPanel'
+			'memento/webviewView.vibecode.agentPanel',
+			'memento/webviewView.vibecodex-agent-extension-view'
 		);
 		`,
 		`
@@ -470,7 +542,17 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 			and value in (
 				'workbench.view.extension.claude-dev-ActivityBar',
 				'workbench.view.extension.codevibe-ActivityBar',
-				'workbench.view.extension.vibecodeAgentSidebar'
+				'workbench.view.extension.vibecodeAgentSidebar',
+				'workbench.view.extension.vibecodex-agent-extension-container'
+			);
+		`,
+		`
+		delete from ItemTable
+		where key = 'workbench.auxiliarybar.activepanelid'
+			and value in (
+				'workbench.view.extension.codexSecondaryViewContainer',
+				'workbench.panel.chat',
+				'workbench.viewContainer.agentSessions'
 			);
 		`,
 	].join("\n")
@@ -914,6 +996,9 @@ function assertPackagedVsix(outPath) {
 		throw new Error("VSIX artifact is missing extension/webview-ui/build assets")
 	}
 	for (const entryName of zip.entries.keys()) {
+		if (entryName.endsWith(".vsix")) {
+			throw new Error(`VSIX artifact must not include nested VSIX artifact ${entryName}`)
+		}
 		if (disallowedVsixEntries.has(entryName)) {
 			throw new Error(`VSIX artifact must not include dev/test artifact ${entryName}`)
 		}

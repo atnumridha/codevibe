@@ -16,8 +16,8 @@ if [ -n "$3" ]; then
     ADDRESS="--address $3"
 fi
 
-# Ask Cline for its analysis, showing only the summary
-cline -y "$PROMPT: $ISSUE_URL" --mode act $ADDRESS -F json | \
+# Ask CodeVibe for its analysis, showing only the summary
+codevibe -y "$PROMPT: $ISSUE_URL" --mode act $ADDRESS -F json | \
     sed -n '/^{/,$p' | \
     jq -r 'select(.say == "completion_result") | .text' | \
     sed 's/\\n/\n/g'

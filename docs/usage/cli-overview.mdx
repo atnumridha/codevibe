@@ -1,25 +1,25 @@
 ---
 title: "CLI Overview"
 sidebarTitle: "CLI Overview"
-description: "Use Cline CLI for interactive terminal sessions and automated headless workflows."
+description: "Use CodeVibe CLI for interactive terminal sessions and automated headless workflows."
 ---
 
 ## Prerequisites
 
-- Cline CLI installed (install via `npm i -g cline`)
-- Provider authenticated (`cline auth`) ([Authorization Guide](/getting-started/authorizing-with-cline#cli-setup))
+- CodeVibe CLI installed (install via `npm i -g codevibe`)
+- Provider authenticated (`codevibe auth`) ([Authorization Guide](/getting-started/authorizing-with-cline#cli-setup))
 
 ## Quick Start
 
 ```bash
 # Interactive session
-cline
+codevibe
 
 # Run one task immediately
-cline "refactor this module to use async/await"
+codevibe "refactor this module to use async/await"
 
 # Structured output for scripts
-cline --json "list TODO comments"
+codevibe --json "list TODO comments"
 ```
 
 ## Headless mode
@@ -32,16 +32,16 @@ Headless is triggered when using flags like `--json`, when stdin is piped, or wh
 
 | Invocation | Reason |
 |---|---|
-| `cline --json "task"` | JSON output mode |
-| `cat file \| cline "task"` | stdin is piped |
-| `cline "task" > output.txt` | stdout is redirected |
+| `codevibe --json "task"` | JSON output mode |
+| `cat file \| codevibe "task"` | stdin is piped |
+| `codevibe "task" > output.txt` | stdout is redirected |
 
 ```bash
 # CI/script style execution
-git diff | cline "review these changes"
+git diff | codevibe "review these changes"
 
 # JSON for parsing
-cline --json "summarize this changelog" | jq -r '.text'
+codevibe --json "summarize this changelog" | jq -r '.text'
 ```
 
 See: [Headless Mode](#headless-mode)
@@ -51,17 +51,17 @@ See: [Headless Mode](#headless-mode)
 For fully unattended runs, use auto-approval:
 
 ```bash
-cline --auto-approve true "run tests and fix failures"
+codevibe --auto-approve true "run tests and fix failures"
 ```
 
 Mode selection also works in headless runs:
 
 ```bash
 # plan-first
-cline -p "design migration plan"
+codevibe -p "design migration plan"
 
 # act immediately (default)
-cline "apply migration"
+codevibe "apply migration"
 ```
 
 <Warning>
@@ -71,21 +71,21 @@ Autonomous execution can modify files and run commands without further prompts. 
 ## High-Value Commands
 
 ```bash
-cline --help
-cline <command> --help
+codevibe --help
+codevibe <command> --help
 ```
 
 | Command | Purpose |
 |---|---|
-| `cline` | Start interactive mode or run a prompt |
-| `cline auth` | Authenticate and set provider/model |
-| `cline config` | Open the interactive config view |
-| `cline mcp` | Manage MCP servers |
-| `cline doctor` | Diagnose/fix configuration issues |
-| `cline history` | Show and manage task history |
-| `cline schedule` | Manage scheduled tasks |
-| `cline hub` | Manage local hub daemon |
-| `cline kanban` | Launch Kanban app |
+| `codevibe` | Start interactive mode or run a prompt |
+| `codevibe auth` | Authenticate and set provider/model |
+| `codevibe config` | Open the interactive config view |
+| `codevibe mcp` | Manage MCP servers |
+| `codevibe doctor` | Diagnose/fix configuration issues |
+| `codevibe history` | Show and manage task history |
+| `codevibe schedule` | Manage scheduled tasks |
+| `codevibe hub` | Manage local hub daemon |
+| `codevibe kanban` | Launch Kanban app |
 
 ## Most-Used Global Flags
 
@@ -109,35 +109,35 @@ Source of truth: [CLI Reference](/cli/cli-reference)
 ### Pipe context in
 
 ```bash
-cat README.md | cline "summarize key setup steps"
-git diff | cline "review for potential regressions"
+cat README.md | codevibe "summarize key setup steps"
+git diff | codevibe "review for potential regressions"
 ```
 
 ### Chain tasks
 
 ```bash
-git diff | cline "explain these changes" | cline "write a commit message"
+git diff | codevibe "explain these changes" | codevibe "write a commit message"
 ```
 
 ### Restrict command execution
 
 ```bash
-export CLINE_COMMAND_PERMISSIONS='{"allow": ["npm *", "git *"], "deny": ["rm -rf *", "sudo *"]}'
+export CODEVIBE_COMMAND_PERMISSIONS='{"allow": ["npm *", "git *"], "deny": ["rm -rf *", "sudo *"]}'
 ```
 
 ### Include images in tasks
 
 ```bash
-cline -i "fix the layout issue shown in @./screenshot.png"
+codevibe -i "fix the layout issue shown in @./screenshot.png"
 
 # or reference inline
-cline "fix the UI shown in @./design-mockup.png"
+codevibe "fix the UI shown in @./design-mockup.png"
 ```
 
 ### Set execution timeout
 
 ```bash
-cline --timeout 600 "run full test suite"
+codevibe --timeout 600 "run full test suite"
 ```
 
 ## JSON Output Schema

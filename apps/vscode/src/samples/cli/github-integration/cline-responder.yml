@@ -10,16 +10,16 @@ permissions:
 jobs:
   respond:
     runs-on: ubuntu-latest
-    environment: cline-actions
+    environment: codevibe-actions
     steps:
-      - name: Check for @cline mention
+      - name: Check for @codevibe mention
         id: detect
         uses: actions/github-script@v7
         with:
           script: |
             const body = context.payload.comment?.body || "";
             const isPR = !!context.payload.issue?.pull_request;
-            const hit = body.toLowerCase().includes("@cline");
+            const hit = body.toLowerCase().includes("@codevibe");
             core.setOutput("hit", (!isPR && hit) ? "true" : "false");
             core.setOutput("issue_number", String(context.payload.issue?.number || ""));
             core.setOutput("issue_url", context.payload.issue?.html_url || "");
@@ -39,23 +39,23 @@ jobs:
         if: steps.detect.outputs.hit == 'true'
         run: |
           # Install the CodeVibe CLI
-          sudo npm install -g cline
+          sudo npm install -g codevibe
 
-      - name: Create Cline Instance
+      - name: Create CodeVibe Instance
         if: steps.detect.outputs.hit == 'true'
         env:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          CLINE_DIR: ${{ runner.temp }}/cline
+          CODEVIBE_DATA_DIR: ${{ runner.temp }}/codevibe-data
         run: |
           # Create instance and capture output
-          INSTANCE_OUTPUT=$(cline instance new 2>&1)
+          INSTANCE_OUTPUT=$(codevibe instance new 2>&1)
           
           # Parse address from output (format: "  Address: 127.0.0.1:36733")
-          CLINE_ADDRESS=$(echo "$INSTANCE_OUTPUT" | grep "Address:" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]+')
-          echo "CLINE_ADDRESS=$CLINE_ADDRESS" >> $GITHUB_ENV
+          CODEVIBE_ADDRESS=$(echo "$INSTANCE_OUTPUT" | grep "Address:" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]+')
+          echo "CODEVIBE_ADDRESS=$CODEVIBE_ADDRESS" >> $GITHUB_ENV
           
           # Configure API key
-          cline config set open-router-api-key=$OPENROUTER_API_KEY --address $CLINE_ADDRESS -v
+          codevibe config set open-router-api-key=$OPENROUTER_API_KEY --address $CODEVIBE_ADDRESS -v
 
       - name: Download analyze script
         if: steps.detect.outputs.hit == 'true'
@@ -72,11 +72,11 @@ jobs:
         env:
           ISSUE_URL: ${{ steps.detect.outputs.issue_url }}
           COMMENT: ${{ steps.detect.outputs.comment_body }}
-          CLINE_ADDRESS: ${{ env.CLINE_ADDRESS }}
+          CODEVIBE_ADDRESS: ${{ env.CODEVIBE_ADDRESS }}
         run: |
           set -euo pipefail
           
-          RESULT=$(./analyze-issue.sh "${ISSUE_URL}" "Analyze this issue. The user asked: ${COMMENT}" "$CLINE_ADDRESS")
+          RESULT=$(./analyze-issue.sh "${ISSUE_URL}" "Analyze this issue. The user asked: ${COMMENT}" "$CODEVIBE_ADDRESS")
           
           {
             echo 'result<<EOF'

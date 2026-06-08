@@ -6,13 +6,13 @@ import { Logger } from "@/shared/services/Logger"
 import { Controller } from ".."
 
 /**
- * Handles the installation of the Cline CLI tool
+ * Handles the installation of the CodeVibe CLI tool.
  * @param controller The controller instance
  * @param _request The empty request
  * @returns Empty response
  */
 export async function installClineCli(_controller: Controller, _request: EmptyRequest): Promise<Empty> {
-	const installCommand = "npm install -g cline"
+	const installCommand = "npm install -g codevibe"
 
 	try {
 		// Use the HostProvider to execute the command in a terminal

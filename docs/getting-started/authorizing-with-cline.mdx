@@ -1,11 +1,12 @@
 ---
 title: "Authorization"
-description: "Authenticate with Cline and choose your first AI model"
+description: "Authenticate with CodeVibe and choose your first AI model"
 ---
 
-Cline connects to AI models through a **provider**. You have two paths:
+CodeVibe connects to AI models through a **provider**. You have three paths:
 
-- **Cline Provider** (recommended): sign in with Google/GitHub/email, no API key setup.
+- **Codex auth** (default): reuse your local `~/.codex/auth.json` session.
+- **CodeVibe account provider**: sign in with a supported hosted account flow when configured.
 - **Bring Your Own Key (BYOK)**: use your own provider credentials (cloud or local runtimes).
 
 ## Menu
@@ -16,8 +17,8 @@ Cline connects to AI models through a **provider**. You have two paths:
 ## IDE Setup
 
 <Steps>
-  <Step title="Open Cline Settings">
-    Click the settings icon (⚙️) in the Cline panel.
+  <Step title="Open CodeVibe Settings">
+    Click the settings icon in the CodeVibe panel.
   </Step>
 
   <Step title="Select Provider">
@@ -25,25 +26,30 @@ Cline connects to AI models through a **provider**. You have two paths:
   </Step>
 
   <Step title="Authenticate">
-    - **Cline Provider:** Click **Sign In** and complete OAuth.
+    - **Codex auth:** keep `~/.codex/auth.json` populated; CodeVibe loads it by default.
+    - **CodeVibe account provider:** click **Sign In** and complete OAuth.
     - **BYOK cloud provider:** Paste your API key into the **API Key** field.
     - **Local runtime (Ollama/LM Studio):** no key needed; ensure runtime is running.
   </Step>
 
   <Step title="Select Model">
-    Choose your desired Claude model from the **Model** dropdown.
+    Choose your desired Codex, OpenAI, Claude, Gemini, or compatible model from the **Model** dropdown.
   </Step>
 </Steps>
 
 ## Provider Options
 
-### Cline Provider
+### Codex Auth
 
-- One sign-in, no key management
-- Built-in billing and free model options
-- Access to multiple providers from one account
+- Reads `~/.codex/auth.json`, `~/.codex/installation_id`, and local Codex model cache when present
+- Uses `openai-codex` as the default Plan and Act provider
+- Preserves Codex session headers and refresh behavior without logging token contents
 
-Add credits in Cline settings or at [app.cline.bot/dashboard](https://app.cline.bot/dashboard).
+### CodeVibe Account Provider
+
+- One sign-in when a hosted account backend is configured
+- Unified model selection from the CodeVibe settings UI
+- Legacy provider IDs may remain internally so existing profiles continue to load
 
 ### BYOK (cloud + local)
 
@@ -74,10 +80,10 @@ Local models require sufficient hardware (especially GPU memory). See [Running M
 
 ```bash
 # Authenticate from the terminal
-cline auth
+codevibe auth
 
 # Shorthand
-cline a
+codevibe a
 ```
 
 Runs the same auth flow as IDE setup.
@@ -87,6 +93,6 @@ Runs the same auth flow as IDE setup.
 | Issue | Fix |
 |-------|-----|
 | "Unauthorized: Please sign in" | Session expired. Click **Sign In** to re-authenticate. |
-| Browser doesn't open | Check default browser settings. Copy the URL from the Cline output panel manually. |
+| Browser doesn't open | Check default browser settings. Copy the URL from the CodeVibe output panel manually. |
 | Frequent re-authentication | Check org security policies. Ensure you're not clearing IDE secrets. Try a full sign-out/sign-in. |
-| Can't access organization | Verify membership at [app.cline.bot](https://app.cline.bot). Ask your admin about permissions. Sign out and back in. |
+| Can't access organization | Ask your workspace admin about permissions. Sign out and back in. |

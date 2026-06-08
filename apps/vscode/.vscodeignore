@@ -14,6 +14,10 @@ src/**
 standalone/**
 .gitignore
 .yarnrc
+test-setup.js
+esbuild.mjs
+biome.jsonc
+.nycrc.unit.json
 esbuild.js
 vsc-extension-quickstart.md
 tsconfig*.json
@@ -31,6 +35,9 @@ skills-lock.json
 testing-platform/**
 tests/**
 scripts/**
+proto/**
+*.vsix
+dist/*.vsix
 dist/*.local.md
 
 # sdk (separate monorepo with its own build/release pipeline)
@@ -65,6 +72,9 @@ webview-ui/index.html
 webview-ui/README.md
 webview-ui/package.json
 webview-ui/package-lock.json
+webview-ui/tsconfig*.json
+webview-ui/tailwind.config.mjs
+webview-ui/components.json
 webview-ui/node_modules/**
 **/.gitignore
 
@@ -79,8 +89,13 @@ old_docs/**
 # Include default themes JSON files used in getTheme
 !src/integrations/theme/default-themes/**
 
-# Include icons
-!assets/icons/**
+# Include only runtime CodeVibe icons
+assets/icons/**
+!assets/icons/icon.png
+!assets/icons/icon.svg
+!assets/icons/codevibe-glyph.woff
+!assets/icons/codevibe-glyph.ttf
+!assets/icons/codevibe-glyph.svg
 
 # Ignore E2E build files
 e2e-build.mjs

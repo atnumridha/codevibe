@@ -119,7 +119,7 @@ export class ReportBugHandler implements IToolHandler, IPartialBlockHandler {
 				const params = new Map<string, string>()
 				params.set("title", title)
 				params.set("operating-system", operatingSystem)
-				params.set("cline-version", clineVersion)
+				params.set("codevibe-version", clineVersion)
 				params.set("system-info", systemInfo)
 				params.set("additional-context", additional_context)
 				params.set("what-happened", what_happened)
@@ -129,7 +129,7 @@ export class ReportBugHandler implements IToolHandler, IPartialBlockHandler {
 
 				// Use our utility function to create and open the GitHub issue URL
 				// This bypasses VS Code's URI handling issues with special characters
-				await createAndOpenGitHubIssue("cline", "cline", "bug_report.yml", params)
+				await createAndOpenGitHubIssue("atnumridha", "codevibe", "bug_report.yml", params)
 			} catch (error) {
 				Logger.error(`An error occurred while attempting to report the bug: ${error}`)
 			}

@@ -66,19 +66,19 @@ export function addRootOptions(cmd: Command): Command {
 			)
 			.option(
 				"--config <path>",
-				"Configuration directory (default: ~/.cline/data/settings)",
+				"Configuration directory (CodeVibe data/settings path; legacy ~/.cline paths remain accepted)",
 			)
 			.option(
 				"--data-dir <path>",
-				"Use isolated local state at this directory path (default: ~/.cline)",
+				"Use isolated local state at this directory path",
 			)
 			.option(
 				"--hooks-dir <path>",
-				"Directory path to additional hooks for runtime hook injection (default: ~/.cline/hooks)",
+				"Directory path to additional hooks for runtime hook injection",
 			)
 			.option(
 				"--worktree",
-				"Auto-create a detached git worktree under ~/.cline/worktrees/ and run the task there",
+				"Auto-create a detached git worktree under the CodeVibe worktrees directory and run the task there",
 			)
 			.option("--update", "Check for updates and install if available")
 			.option("--kanban", "Run the kanban app")
@@ -109,7 +109,7 @@ export function addRootOptions(cmd: Command): Command {
 
 export function createProgram(): Command {
 	const program = new Command("codevibe")
-		.description("CodeVibe CLI - AI coding assistant in your terminal")
+		.description("CodeVibe CLI - Cursor-parity coding agent in your terminal")
 		.version(version, "-V, --version", "Output the version number")
 		.exitOverride() // don't call process.exit
 		.configureOutput({
