@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
+	authorizeMcpServerOAuth,
 	buildCursorMcpInstallRequest,
 	type CursorMcpInstallRequest,
 	normalizeCursorMcpSettingsObject,
@@ -9,6 +10,22 @@ import {
 import { resolveMcpSettingsPath } from "@cline/shared/storage";
 import { workspaceRoot } from "./deps";
 import type { JsonRecord } from "./types";
+import { openExternalUrl, toPositiveInt } from "./utils";
+
+type McpOAuthStatus =
+	| "unsupported"
+	| "disabled"
+	| "available"
+	| "needs_auth"
+	| "authenticated"
+	| "error";
+
+type AuthorizeMcpServerOAuthFn = typeof authorizeMcpServerOAuth;
+
+interface AuthorizeMcpServerOAuthForHubDeps {
+	authorize?: AuthorizeMcpServerOAuthFn;
+	openUrl?: (url: string) => void | Promise<void>;
+}
 
 export function readMcpServersResponse(): JsonRecord {
 	const settingsPath = resolveMcpSettingsPath();
@@ -26,10 +43,17 @@ export function readMcpServersResponse(): JsonRecord {
 		const transportType = String(
 			transport?.type ?? record.transportType ?? record.type ?? "stdio",
 		).trim();
+		const disabled = record.disabled === true;
+		const oauth = getRecordValue(record.oauth);
+		const oauthStatus = inferMcpOAuthStatus({
+			transportType,
+			disabled,
+			oauth,
+		});
 		return {
 			name,
 			transportType,
-			disabled: record.disabled === true,
+			disabled,
 			command:
 				typeof transport?.command === "string"
 					? transport.command
@@ -65,6 +89,12 @@ export function readMcpServersResponse(): JsonRecord {
 					: record.headers && typeof record.headers === "object"
 						? record.headers
 						: undefined,
+			oauthSupported: transportType !== "stdio",
+			oauthConfigured: hasMcpOAuthAccessToken(oauth),
+			oauthStatus,
+			oauthLastError:
+				typeof oauth?.lastError === "string" ? oauth.lastError : undefined,
+			oauthLastAuthenticatedAt: getNumericValue(oauth?.lastAuthenticatedAt),
 			metadata: record.metadata,
 		};
 	});
@@ -97,6 +127,44 @@ function getRecordValue(value: unknown): JsonRecord | undefined {
 	return value && typeof value === "object" && !Array.isArray(value)
 		? (value as JsonRecord)
 		: undefined;
+}
+
+function getNumericValue(value: unknown): number | undefined {
+	return typeof value === "number" && Number.isFinite(value)
+		? value
+		: undefined;
+}
+
+function hasMcpOAuthAccessToken(oauth: JsonRecord | undefined): boolean {
+	const tokens = getRecordValue(oauth?.tokens);
+	return (
+		typeof tokens?.access_token === "string" &&
+		tokens.access_token.trim().length > 0
+	);
+}
+
+function inferMcpOAuthStatus(input: {
+	transportType: string;
+	disabled: boolean;
+	oauth?: JsonRecord;
+}): McpOAuthStatus {
+	if (input.transportType === "stdio") {
+		return "unsupported";
+	}
+	if (input.disabled) {
+		return "disabled";
+	}
+	if (hasMcpOAuthAccessToken(input.oauth)) {
+		return "authenticated";
+	}
+	const lastError =
+		typeof input.oauth?.lastError === "string" ? input.oauth.lastError : "";
+	if (!lastError.trim()) {
+		return "available";
+	}
+	return /requires?\s+OAuth|authorization|unauthorized|401/i.test(lastError)
+		? "needs_auth"
+		: "error";
 }
 
 function resolveCursorMcpSettingsPath(root: string): string {
@@ -239,6 +307,40 @@ function safeUrlOrigin(value: string): string | undefined {
 	}
 }
 
+function readServerTransportType(server: JsonRecord | undefined): string {
+	const transport = getRecordValue(server?.transport);
+	return String(
+		transport?.type ?? server?.transportType ?? server?.type ?? "stdio",
+	).trim();
+}
+
+function readServerTransportUrl(
+	server: JsonRecord | undefined,
+): string | undefined {
+	const transport = getRecordValue(server?.transport);
+	const url = transport?.url ?? server?.url;
+	return typeof url === "string" && url.trim() ? url.trim() : undefined;
+}
+
+function getPreservedOAuthState(
+	current: JsonRecord | undefined,
+	next: JsonRecord,
+): JsonRecord | undefined {
+	const oauth = getRecordValue(current?.oauth);
+	if (!oauth) {
+		return undefined;
+	}
+	const currentType = readServerTransportType(current);
+	const nextType = readServerTransportType(next);
+	if (currentType !== nextType || nextType === "stdio") {
+		return undefined;
+	}
+	if (readServerTransportUrl(current) !== readServerTransportUrl(next)) {
+		return undefined;
+	}
+	return oauth;
+}
+
 function buildCursorMcpInstallResponse(
 	request: CursorMcpInstallRequest,
 	input: {
@@ -268,7 +370,9 @@ function buildCursorMcpInstallResponse(
 		replaced: input.replaced,
 		...(url ? { urlOrigin: safeUrlOrigin(url) ?? "[provided]" } : {}),
 		...(commandLabel ? { command: commandLabel } : {}),
-		...(Array.isArray(transport.args) ? { argCount: transport.args.length } : {}),
+		...(Array.isArray(transport.args)
+			? { argCount: transport.args.length }
+			: {}),
 		...(env ? { envKeys: Object.keys(env).sort() } : {}),
 		...(headers ? { headerKeys: Object.keys(headers).sort() } : {}),
 		...readMcpServersResponse(),
@@ -301,6 +405,54 @@ export function installCursorMcpServer(args?: JsonRecord): JsonRecord {
 		settingsPath: path,
 		replaced,
 	});
+}
+
+export async function authorizeMcpServerOAuthForHub(
+	args?: JsonRecord,
+	deps: AuthorizeMcpServerOAuthForHubDeps = {},
+): Promise<JsonRecord> {
+	const serverName = String(args?.name ?? args?.serverName ?? "").trim();
+	if (!serverName) {
+		throw new Error("authorize_mcp_server_oauth requires a server name");
+	}
+	const settingsPath = ensureMcpSettingsFile();
+	const serverListening: JsonRecord[] = [];
+	const serverClosed: JsonRecord[] = [];
+	const authorize = deps.authorize ?? authorizeMcpServerOAuth;
+	const result = await authorize({
+		serverName,
+		filePath: settingsPath,
+		clientName: "cline-hub",
+		clientVersion: "0.0.0",
+		timeoutMs: toPositiveInt(args?.timeoutMs) ?? 110_000,
+		successHtml:
+			"<html><body><h1>MCP authorization complete</h1><p>You can return to CodeVibe.</p></body></html>",
+		openUrl: deps.openUrl ?? openExternalUrl,
+		onServerListening: (info) => {
+			serverListening.push({
+				host: info.host,
+				port: info.port,
+				callbackOrigin: safeUrlOrigin(info.callbackUrl) ?? "loopback",
+			});
+		},
+		onServerClose: (info) => {
+			serverClosed.push({
+				host: info.host,
+				port: info.port,
+			});
+		},
+	});
+	return {
+		handled: true,
+		route: "mcp-oauth",
+		serverName: result.serverName,
+		authorized: result.authorized,
+		message: result.message,
+		settingsPath,
+		serverListening,
+		serverClosed,
+		...readMcpServersResponse(),
+	};
 }
 
 export function setMcpServerDisabled(
@@ -349,6 +501,14 @@ export function upsertMcpServer(input: JsonRecord): JsonRecord {
 	const { servers } = readServersMap();
 	if (previousName && previousName !== name) {
 		delete servers[previousName];
+	}
+	const currentServer =
+		!previousName || previousName === name
+			? getRecordValue(servers[name])
+			: undefined;
+	const preservedOAuth = getPreservedOAuthState(currentServer, next);
+	if (preservedOAuth) {
+		next.oauth = preservedOAuth;
 	}
 	servers[name] = next;
 	writeMcpServersMap(servers);

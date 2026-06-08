@@ -48,6 +48,7 @@ import { addCursorPlugin } from "./cursor-plugins";
 import { openCursorRule } from "./cursor-rules";
 import { providerSettingsManager, workspaceRoot } from "./deps";
 import {
+	authorizeMcpServerOAuthForHub,
 	deleteMcpServer,
 	ensureMcpSettingsFile,
 	importCursorMcpServers,
@@ -102,7 +103,9 @@ function readCursorUriPreviewRequest(
 	const maxRuleFileBytes = toPositiveInt(args?.maxRuleFileBytes);
 	return {
 		uri,
-		...(requestedWorkspaceRoot ? { workspaceRoot: requestedWorkspaceRoot } : {}),
+		...(requestedWorkspaceRoot
+			? { workspaceRoot: requestedWorkspaceRoot }
+			: {}),
 		...(workspaceRoots?.length ? { workspaceRoots } : {}),
 		...(maxCommandFileBytes ? { maxCommandFileBytes } : {}),
 		...(maxRuleFileBytes ? { maxRuleFileBytes } : {}),
@@ -335,6 +338,14 @@ export async function handleDesktopCommand(
 		const input =
 			args && typeof args === "object" ? (args as JsonRecord) : undefined;
 		return installCursorMcpServer(input);
+	}
+	if (
+		command === "authorize_mcp_server_oauth" ||
+		command === "authenticate_mcp_server"
+	) {
+		const input =
+			args && typeof args === "object" ? (args as JsonRecord) : undefined;
+		return await authorizeMcpServerOAuthForHub(input);
 	}
 	if (command === "cursor_rule_open") {
 		const input =

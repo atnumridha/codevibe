@@ -3,6 +3,7 @@
 import {
 	Circle,
 	Download,
+	KeyRound,
 	Minus,
 	Pencil,
 	Plus,
@@ -57,6 +58,17 @@ interface McpServer {
 	env?: Record<string, string>;
 	url?: string;
 	headers?: Record<string, string>;
+	oauthSupported?: boolean;
+	oauthConfigured?: boolean;
+	oauthStatus?:
+		| "unsupported"
+		| "disabled"
+		| "available"
+		| "needs_auth"
+		| "authenticated"
+		| "error";
+	oauthLastError?: string;
+	oauthLastAuthenticatedAt?: number;
 	metadata?: unknown;
 }
 
@@ -142,6 +154,27 @@ function stringifyRedactedKeyValuePairs(
 		.join(", ");
 }
 
+function formatOAuthStatus(server: McpServer): string {
+	switch (server.oauthStatus) {
+		case "authenticated":
+			return "authenticated";
+		case "needs_auth":
+			return "needs authorization";
+		case "error":
+			return "authorization error";
+		case "disabled":
+			return "disabled";
+		case "available":
+			return "available";
+		default:
+			return "not supported";
+	}
+}
+
+function formatOAuthTimestamp(value: number | undefined): string | undefined {
+	return value ? new Date(value).toLocaleString() : undefined;
+}
+
 function createEnvEntries(
 	input?: Record<string, string>,
 ): Array<{ id: string; key: string; value: string }> {
@@ -182,6 +215,7 @@ export function McpServersContent() {
 	const [isOpeningSettingsFile, setIsOpeningSettingsFile] = useState(false);
 	const [isImportingCursorMcp, setIsImportingCursorMcp] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+	const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 	const [busyServerName, setBusyServerName] = useState<string | null>(null);
 	const [editorOpen, setEditorOpen] = useState(false);
 	const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
@@ -200,6 +234,7 @@ export function McpServersContent() {
 	const refreshServers = useCallback(async () => {
 		setIsLoading(true);
 		setErrorMessage(null);
+		setNoticeMessage(null);
 		try {
 			const response =
 				await desktopClient.invoke<McpServersResponse>("list_mcp_servers");
@@ -222,6 +257,7 @@ export function McpServersContent() {
 	const toggleServer = async (server: McpServer, disabled: boolean) => {
 		setBusyServerName(server.name);
 		setErrorMessage(null);
+		setNoticeMessage(null);
 		try {
 			const response = await desktopClient.invoke<McpServersResponse>(
 				"set_mcp_server_disabled",
@@ -242,6 +278,7 @@ export function McpServersContent() {
 	const upsertServer = async (input: McpServerUpsertInput) => {
 		setBusyServerName(input.previousName ?? input.name);
 		setErrorMessage(null);
+		setNoticeMessage(null);
 		try {
 			const response = await desktopClient.invoke<McpServersResponse>(
 				"upsert_mcp_server",
@@ -262,6 +299,7 @@ export function McpServersContent() {
 	const deleteServer = async (serverName: string) => {
 		setBusyServerName(serverName);
 		setErrorMessage(null);
+		setNoticeMessage(null);
 		try {
 			const response = await desktopClient.invoke<McpServersResponse>(
 				"delete_mcp_server",
@@ -278,11 +316,34 @@ export function McpServersContent() {
 		}
 	};
 
+	const authorizeServerOAuth = async (server: McpServer) => {
+		setBusyServerName(server.name);
+		setErrorMessage(null);
+		setNoticeMessage(null);
+		try {
+			const response = await desktopClient.invoke<
+				McpServersResponse & { message?: string }
+			>("authenticate_mcp_server", {
+				name: server.name,
+			});
+			applyResponse(response);
+			setNoticeMessage(
+				response.message || `OAuth authorization completed for ${server.name}.`,
+			);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			setErrorMessage(message);
+		} finally {
+			setBusyServerName(null);
+		}
+	};
+
 	const importCursorMcpServers = async (
 		source: CursorMcpImportSource = "workspace",
 	) => {
 		setIsImportingCursorMcp(true);
 		setErrorMessage(null);
+		setNoticeMessage(null);
 		try {
 			const response = await desktopClient.invoke<McpServersResponse>(
 				"import_cursor_mcp_servers",
@@ -516,6 +577,11 @@ export function McpServersContent() {
 						{errorMessage}
 					</div>
 				)}
+				{noticeMessage && (
+					<div className="mb-4 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-foreground">
+						{noticeMessage}
+					</div>
+				)}
 
 				{isLoading ? (
 					<div className="rounded-lg border border-border px-5 py-4 text-sm text-muted-foreground">
@@ -529,6 +595,9 @@ export function McpServersContent() {
 					<div className="flex flex-col gap-3">
 						{sortedServers.map((server) => {
 							const isBusy = busyServerName === server.name;
+							const oauthTimestamp = formatOAuthTimestamp(
+								server.oauthLastAuthenticatedAt,
+							);
 							return (
 								<div
 									key={server.name}
@@ -551,6 +620,17 @@ export function McpServersContent() {
 										</span>
 										<div className="flex-1" />
 										<div className="flex items-center gap-1">
+											{server.oauthSupported && (
+												<Button
+													variant="ghost"
+													size="icon-sm"
+													aria-label={`${server.oauthConfigured ? "Reauthorize" : "Authorize"} ${server.name}`}
+													onClick={() => void authorizeServerOAuth(server)}
+													disabled={isBusy || server.disabled}
+												>
+													<KeyRound className="h-3.5 w-3.5" />
+												</Button>
+											)}
 											<Button
 												variant="ghost"
 												size="icon-sm"
@@ -581,6 +661,21 @@ export function McpServersContent() {
 									</div>
 
 									<div className="mt-2.5 ml-5.5 flex flex-col gap-1 text-xs text-muted-foreground">
+										{server.oauthSupported && (
+											<p>
+												<span className="text-muted-foreground/70">OAuth:</span>{" "}
+												{formatOAuthStatus(server)}
+												{oauthTimestamp ? `, ${oauthTimestamp}` : ""}
+											</p>
+										)}
+										{server.oauthLastError && (
+											<p className="text-destructive">
+												<span className="text-destructive/80">
+													OAuth error:
+												</span>{" "}
+												{server.oauthLastError}
+											</p>
+										)}
 										{server.command && (
 											<p>
 												<span className="text-muted-foreground/70">
