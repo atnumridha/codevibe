@@ -86,6 +86,8 @@ export function buildSessionStartInput(
 		enableSpawn?: boolean;
 		enableTeams?: boolean;
 		autoApproveTools?: boolean;
+		enableBrowserAutomation?: boolean;
+		enableSafeBrowserEvaluate?: boolean;
 		teamName?: string;
 		source?: SessionSource;
 		sessionMetadata?: Record<string, unknown>;
@@ -110,6 +112,10 @@ export function buildSessionStartInput(
 			enableTools: options?.enableTools !== false,
 			enableSpawnAgent: options?.enableSpawn !== false,
 			enableAgentTeams: options?.enableTeams === true,
+			enableBrowserAutomation: options?.enableBrowserAutomation === true,
+			enableSafeBrowserEvaluate:
+				options?.enableSafeBrowserEvaluate === true &&
+				options?.enableBrowserAutomation === true,
 			teamName: options?.teamName ?? "cline-hub",
 			missionLogIntervalSteps: 3,
 			missionLogIntervalMs: 120000,
@@ -122,6 +128,10 @@ export function buildSessionStartInput(
 			maxIterations: options?.maxIterations,
 			reasonLevel: options?.reasonLevel,
 			autoApproveTools: options?.autoApproveTools,
+			enableBrowserAutomation: options?.enableBrowserAutomation,
+			enableSafeBrowserEvaluate:
+				options?.enableSafeBrowserEvaluate === true &&
+				options?.enableBrowserAutomation === true,
 			...(options?.sessionMetadata ?? {}),
 		},
 		...(options?.initialMessages
@@ -165,6 +175,14 @@ function buildStartInputFromSession(
 			autoApproveTools:
 				typeof metadata.autoApproveTools === "boolean"
 					? metadata.autoApproveTools
+					: undefined,
+			enableBrowserAutomation:
+				typeof metadata.enableBrowserAutomation === "boolean"
+					? metadata.enableBrowserAutomation
+					: undefined,
+			enableSafeBrowserEvaluate:
+				typeof metadata.enableSafeBrowserEvaluate === "boolean"
+					? metadata.enableSafeBrowserEvaluate
 					: undefined,
 			teamName: session.teamName,
 			source: session.source,
@@ -226,6 +244,8 @@ export async function createSession(
 			enableSpawn: config?.enableSpawn,
 			enableTeams: config?.enableTeams,
 			autoApproveTools: config?.autoApproveTools,
+			enableBrowserAutomation: config?.enableBrowserAutomation,
+			enableSafeBrowserEvaluate: config?.enableSafeBrowserEvaluate,
 		}),
 	);
 	peer.selectedSessionId = result.sessionId;

@@ -22,7 +22,7 @@ const MAX_BROWSER_SNAPSHOT_TEXT_LENGTH = 12_000
 const MAX_BROWSER_SNAPSHOT_HTML_LENGTH = 12_000
 const REDACTED_VALUE = "[REDACTED]"
 
-interface BrowserClickCoordinateValidation {
+export interface BrowserClickCoordinateValidation {
 	ok: boolean
 	error?: string
 }
@@ -97,7 +97,10 @@ function sanitizeBrowserSnapshotAttributes(
 	return Object.fromEntries(redactedAttributes)
 }
 
-function validateBrowserClickCoordinate(coordinate: string, config: TaskConfig): BrowserClickCoordinateValidation {
+export function validateBrowserClickCoordinate(
+	coordinate: string,
+	viewport = DEFAULT_BROWSER_SETTINGS.viewport,
+): BrowserClickCoordinateValidation {
 	const parts = coordinate.split(",").map((part) => part.trim())
 	if (parts.length !== 2 || parts.some((part) => part.length === 0)) {
 		return {
@@ -120,7 +123,6 @@ function validateBrowserClickCoordinate(coordinate: string, config: TaskConfig):
 		}
 	}
 
-	const viewport = config.browserSettings.viewport ?? DEFAULT_BROWSER_SETTINGS.viewport
 	if (x > viewport.width || y > viewport.height) {
 		return {
 			ok: false,
@@ -270,7 +272,10 @@ export class BrowserToolHandler implements IFullyManagedTool {
 						await config.services.browserSession.closeBrowser()
 						return errorResult
 					}
-					const coordinateValidation = validateBrowserClickCoordinate(coordinate, config)
+					const coordinateValidation = validateBrowserClickCoordinate(
+						coordinate,
+						config.browserSettings.viewport ?? DEFAULT_BROWSER_SETTINGS.viewport,
+					)
 					if (!coordinateValidation.ok) {
 						config.taskState.consecutiveMistakeCount++
 						return formatResponse.toolError(coordinateValidation.error ?? "Browser click coordinate is invalid.")

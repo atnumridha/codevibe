@@ -732,6 +732,9 @@ export default function Chat({
 	const [enableSpawn, setEnableSpawn] = useState(false);
 	const [enableTeams, setEnableTeams] = useState(true);
 	const [autoApproveTools, setAutoApproveTools] = useState(true);
+	const [enableBrowserAutomation, setEnableBrowserAutomation] = useState(false);
+	const [enableSafeBrowserEvaluate, setEnableSafeBrowserEvaluate] =
+		useState(false);
 	const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>(
 		[],
 	);
@@ -1373,6 +1376,8 @@ export default function Chat({
 					disabled={isHydrating}
 					enableSpawn={enableSpawn}
 					enableTeams={enableTeams}
+					enableBrowserAutomation={enableBrowserAutomation}
+					enableSafeBrowserEvaluate={enableSafeBrowserEvaluate}
 					enableTools={enableTools}
 					maxIterations={maxIterations}
 					model={model}
@@ -1386,6 +1391,8 @@ export default function Chat({
 					onAutoApproveToolsChange={setAutoApproveTools}
 					onEnableSpawnChange={setEnableSpawn}
 					onEnableTeamsChange={setEnableTeams}
+					onEnableBrowserAutomationChange={setEnableBrowserAutomation}
+					onEnableSafeBrowserEvaluateChange={setEnableSafeBrowserEvaluate}
 					onEnableToolsChange={setEnableTools}
 					onModeChange={setMode}
 					onMaxIterationsChange={setMaxIterations}
@@ -1426,7 +1433,10 @@ export default function Chat({
 							attachments,
 							config: {
 								autoApproveTools,
+								enableBrowserAutomation,
 								enableSpawn,
+								enableSafeBrowserEvaluate:
+									enableBrowserAutomation && enableSafeBrowserEvaluate,
 								enableTeams,
 								enableTools,
 								maxIterations: parseMaxIterations(maxIterations),

@@ -79,6 +79,8 @@ export type WebviewConfig = {
 	enableSpawn?: boolean;
 	enableTeams?: boolean;
 	autoApproveTools?: boolean;
+	enableBrowserAutomation?: boolean;
+	enableSafeBrowserEvaluate?: boolean;
 };
 
 export type WebviewChatAttachments = {

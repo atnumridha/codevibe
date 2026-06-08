@@ -544,6 +544,10 @@ export class HubSessionClient {
 					enableTools: request.enableTools,
 					enableSpawnAgent: request.enableSpawn !== false,
 					enableAgentTeams: request.enableTeams !== false,
+					enableBrowserAutomation: request.enableBrowserAutomation === true,
+					enableSafeBrowserEvaluate:
+						request.enableSafeBrowserEvaluate === true &&
+						request.enableBrowserAutomation === true,
 					disableMcpSettingsTools: request.disableMcpSettingsTools,
 					missionLogIntervalSteps: request.missionStepInterval,
 					missionLogIntervalMs: request.missionTimeIntervalMs,
@@ -555,6 +559,10 @@ export class HubSessionClient {
 					enableTools: request.enableTools,
 					enableSpawn: request.enableSpawn,
 					enableTeams: request.enableTeams,
+					enableBrowserAutomation: request.enableBrowserAutomation,
+					enableSafeBrowserEvaluate:
+						request.enableSafeBrowserEvaluate === true &&
+						request.enableBrowserAutomation === true,
 					prompt: undefined,
 					interactive: request.interactive !== false,
 				},
@@ -566,6 +574,10 @@ export class HubSessionClient {
 					enableTools: request.enableTools,
 					enableSpawn: request.enableSpawn,
 					enableTeams: request.enableTeams,
+					enableBrowserAutomation: request.enableBrowserAutomation,
+					enableSafeBrowserEvaluate:
+						request.enableSafeBrowserEvaluate === true &&
+						request.enableBrowserAutomation === true,
 					autoApproveTools: request.autoApproveTools,
 					toolExecutors: request.toolExecutors,
 					configExtensions: request.configExtensions,

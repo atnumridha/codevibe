@@ -133,6 +133,8 @@ describe("HubSessionClient", () => {
 			provider: "cline",
 			model: "test-model",
 			enableTools: true,
+			enableBrowserAutomation: true,
+			enableSafeBrowserEvaluate: true,
 		});
 		const createFrameIndex = MockWebSocket.sentFrames.findIndex(
 			(frame) => frame.envelope?.command === "session.create",
@@ -142,14 +144,28 @@ describe("HubSessionClient", () => {
 		);
 		const createFrame = MockWebSocket.sentFrames[createFrameIndex];
 		const createPayload = createFrame?.envelope?.payload as
-			| { sessionConfig?: { sessionId?: unknown }; runtimeOptions?: unknown }
+			| {
+					sessionConfig?: Record<string, unknown>;
+					metadata?: Record<string, unknown>;
+					runtimeOptions?: Record<string, unknown>;
+			  }
 			| undefined;
 
 		expect(subscribeFrameIndex).toBeGreaterThan(-1);
 		expect(subscribeFrameIndex).toBeLessThan(createFrameIndex);
 		expect(typeof createPayload?.sessionConfig?.sessionId).toBe("string");
 		expect(started.sessionId).toBe(createPayload?.sessionConfig?.sessionId);
+		expect(createPayload?.sessionConfig).toMatchObject({
+			enableBrowserAutomation: true,
+			enableSafeBrowserEvaluate: true,
+		});
+		expect(createPayload?.metadata).toMatchObject({
+			enableBrowserAutomation: true,
+			enableSafeBrowserEvaluate: true,
+		});
 		expect(createPayload?.runtimeOptions).toMatchObject({
+			enableBrowserAutomation: true,
+			enableSafeBrowserEvaluate: true,
 			clientContributions: [
 				{
 					kind: "toolExecutor",

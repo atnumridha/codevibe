@@ -14,6 +14,10 @@ service BrowserService {
   rpc discoverBrowser(EmptyRequest) returns (BrowserConnection);
   rpc getDetectedChromePath(EmptyRequest) returns (ChromePath);
   rpc relaunchChromeDebugMode(EmptyRequest) returns (String);
+  rpc listBrowserTabs(EmptyRequest) returns (BrowserTabs);
+  rpc browserSnapshot(BrowserSnapshotRequest) returns (BrowserPageResult);
+  rpc browserAction(BrowserActionRequest) returns (BrowserPageResult);
+  rpc browserScreenshot(BrowserScreenshotRequest) returns (BrowserPageResult);
 }
 
 message BrowserConnectionInfo {
@@ -31,6 +35,61 @@ message BrowserConnection {
 message ChromePath {
   string path = 1;
   bool is_bundled = 2;
+}
+
+message BrowserTab {
+  string id = 1;
+  bool active = 2;
+  bool is_remote = 3;
+  optional string host = 4;
+  optional string title = 5;
+  optional string url = 6;
+}
+
+message BrowserTabs {
+  repeated BrowserTab tabs = 1;
+}
+
+message BrowserSnapshotRequest {
+  optional string tab_id = 1;
+  optional bool include_screenshot = 2;
+  optional bool include_logs = 3;
+}
+
+message BrowserScreenshotRequest {
+  optional string tab_id = 1;
+  optional bool full_page = 2;
+}
+
+message BrowserActionRequest {
+  string action = 1;
+  optional string url = 2;
+  optional string coordinate = 3;
+  optional string text = 4;
+  optional string tab_id = 5;
+}
+
+message BrowserSnapshotNode {
+  optional string ref = 1;
+  optional string role = 2;
+  optional string name = 3;
+  optional string text = 4;
+  optional string value = 5;
+  map<string, string> attributes = 6;
+  repeated BrowserSnapshotNode children = 7;
+}
+
+message BrowserPageResult {
+  optional string screenshot = 1;
+  optional string logs = 2;
+  optional string evaluation_result = 3;
+  optional string current_url = 4;
+  optional string current_mouse_position = 5;
+  optional string tab_id = 6;
+  optional string title = 7;
+  optional string text = 8;
+  optional string html = 9;
+  repeated BrowserSnapshotNode nodes = 10;
 }
 
 message Viewport {

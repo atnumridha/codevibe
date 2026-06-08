@@ -674,6 +674,8 @@ describe("HubServerTransport boundaries", () => {
 				},
 				metadata: { source: "cli", interactive: true },
 				runtimeOptions: {
+					enableBrowserAutomation: true,
+					enableSafeBrowserEvaluate: true,
 					clientContributions: [
 						{
 							kind: "toolExecutor",
@@ -688,6 +690,14 @@ describe("HubServerTransport boundaries", () => {
 		expect(reply.ok).toBe(true);
 		const sessionId = capturedStartInput?.config.sessionId?.trim() || "";
 		expect(sessionId).toMatch(/^[0-9]/);
+		expect(capturedStartInput?.config).toMatchObject({
+			enableBrowserAutomation: true,
+			enableSafeBrowserEvaluate: true,
+		});
+		expect(capturedStartInput?.sessionMetadata).toMatchObject({
+			enableBrowserAutomation: true,
+			enableSafeBrowserEvaluate: true,
+		});
 		const askQuestion =
 			capturedStartInput?.capabilities?.toolExecutors?.askQuestion;
 		if (!askQuestion) {
@@ -793,6 +803,8 @@ describe("HubServerTransport boundaries", () => {
 						mode: "plan",
 						systemPrompt: "source system",
 						checkpointEnabled: true,
+						enableBrowserAutomation: true,
+						enableSafeBrowserEvaluate: true,
 					},
 				};
 			}
@@ -862,6 +874,8 @@ describe("HubServerTransport boundaries", () => {
 					mode: "plan",
 					systemPrompt: "source system",
 					checkpointEnabled: true,
+					enableBrowserAutomation: true,
+					enableSafeBrowserEvaluate: true,
 				}),
 			},
 		});
@@ -879,10 +893,14 @@ describe("HubServerTransport boundaries", () => {
 					enableTools: true,
 					enableSpawnAgent: true,
 					enableAgentTeams: false,
+					enableBrowserAutomation: true,
+					enableSafeBrowserEvaluate: true,
 				}),
 				sessionMetadata: expect.objectContaining({
 					parentSessionId: "source-1",
 					forkedFromSessionId: "source-1",
+					enableBrowserAutomation: true,
+					enableSafeBrowserEvaluate: true,
 				}),
 			}),
 		);

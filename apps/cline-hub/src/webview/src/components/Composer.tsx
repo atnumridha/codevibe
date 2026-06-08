@@ -127,13 +127,17 @@ function PromptAttachmentsDisplay() {
 
 function ComposerSettings({
 	autoApproveTools,
+	enableBrowserAutomation,
 	enableSpawn,
+	enableSafeBrowserEvaluate,
 	enableTeams,
 	model,
 	modelSelectorOpen,
 	models,
 	onAutoApproveToolsChange,
+	onEnableBrowserAutomationChange,
 	onEnableSpawnChange,
+	onEnableSafeBrowserEvaluateChange,
 	onEnableTeamsChange,
 	onModelChange,
 	onModelSelectorOpenChange,
@@ -143,7 +147,9 @@ function ComposerSettings({
 	workspaceRoot,
 }: {
 	autoApproveTools: boolean;
+	enableBrowserAutomation: boolean;
 	enableSpawn: boolean;
+	enableSafeBrowserEvaluate: boolean;
 	enableTeams: boolean;
 	enableTools: boolean;
 	maxIterations: string;
@@ -151,7 +157,9 @@ function ComposerSettings({
 	modelSelectorOpen: boolean;
 	models: WebviewProviderModel[];
 	onAutoApproveToolsChange: (value: boolean) => void;
+	onEnableBrowserAutomationChange: (value: boolean) => void;
 	onEnableSpawnChange: (value: boolean) => void;
+	onEnableSafeBrowserEvaluateChange: (value: boolean) => void;
 	onEnableTeamsChange: (value: boolean) => void;
 	onEnableToolsChange: (value: boolean) => void;
 	onMaxIterationsChange: (value: string) => void;
@@ -277,6 +285,17 @@ function ComposerSettings({
 					onChange={onEnableTeamsChange}
 				/>
 				<Toggle
+					checked={enableBrowserAutomation}
+					label="Browser Tools"
+					onChange={onEnableBrowserAutomationChange}
+				/>
+				<Toggle
+					checked={enableSafeBrowserEvaluate && enableBrowserAutomation}
+					disabled={!enableBrowserAutomation}
+					label="Safe Eval"
+					onChange={onEnableSafeBrowserEvaluateChange}
+				/>
+				<Toggle
 					checked={autoApproveTools}
 					label="Auto-approves"
 					onChange={onAutoApproveToolsChange}
@@ -335,7 +354,9 @@ const reasonLevels = [
 export function Composer({
 	autoApproveTools,
 	disabled = false,
+	enableBrowserAutomation,
 	enableSpawn,
+	enableSafeBrowserEvaluate,
 	enableTeams,
 	enableTools,
 	maxIterations,
@@ -345,7 +366,9 @@ export function Composer({
 	models,
 	onAbort,
 	onAutoApproveToolsChange,
+	onEnableBrowserAutomationChange,
 	onEnableSpawnChange,
+	onEnableSafeBrowserEvaluateChange,
 	onEnableTeamsChange,
 	onEnableToolsChange,
 	onModeChange,
@@ -366,7 +389,9 @@ export function Composer({
 }: {
 	autoApproveTools: boolean;
 	disabled?: boolean;
+	enableBrowserAutomation: boolean;
 	enableSpawn: boolean;
+	enableSafeBrowserEvaluate: boolean;
 	enableTeams: boolean;
 	enableTools: boolean;
 	maxIterations: string;
@@ -376,7 +401,9 @@ export function Composer({
 	models: WebviewProviderModel[];
 	onAbort: () => void;
 	onAutoApproveToolsChange: (value: boolean) => void;
+	onEnableBrowserAutomationChange: (value: boolean) => void;
 	onEnableSpawnChange: (value: boolean) => void;
+	onEnableSafeBrowserEvaluateChange: (value: boolean) => void;
 	onEnableTeamsChange: (value: boolean) => void;
 	onEnableToolsChange: (value: boolean) => void;
 	onModeChange: (value: "act" | "plan") => void;
@@ -662,7 +689,9 @@ export function Composer({
 					{settingsOpen ? (
 						<ComposerSettings
 							autoApproveTools={autoApproveTools}
+							enableBrowserAutomation={enableBrowserAutomation}
 							enableSpawn={enableSpawn}
+							enableSafeBrowserEvaluate={enableSafeBrowserEvaluate}
 							enableTeams={enableTeams}
 							enableTools={enableTools}
 							maxIterations={maxIterations}
@@ -670,7 +699,13 @@ export function Composer({
 							modelSelectorOpen={modelSelectorOpen}
 							models={models}
 							onAutoApproveToolsChange={onAutoApproveToolsChange}
+							onEnableBrowserAutomationChange={
+								onEnableBrowserAutomationChange
+							}
 							onEnableSpawnChange={onEnableSpawnChange}
+							onEnableSafeBrowserEvaluateChange={
+								onEnableSafeBrowserEvaluateChange
+							}
 							onEnableTeamsChange={onEnableTeamsChange}
 							onEnableToolsChange={onEnableToolsChange}
 							onMaxIterationsChange={onMaxIterationsChange}

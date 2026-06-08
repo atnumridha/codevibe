@@ -277,6 +277,28 @@ describe("DefaultRuntimeBuilder", () => {
 		expect(names).not.toContain("editor");
 	});
 
+	it("includes browser automation tools when explicitly enabled by the host", async () => {
+		const runtime = await new DefaultRuntimeBuilder().build({
+			config: makeBaseConfig({
+				mode: "act",
+				enableBrowserAutomation: true,
+				enableSafeBrowserEvaluate: true,
+			}),
+			toolExecutors: {
+				browserSnapshot: async () => ({ title: "Dashboard" }),
+				browserAction: async () => ({ title: "Clicked" }),
+				browserScreenshot: async () => ({
+					screenshot: "data:image/png;base64,abc",
+				}),
+			},
+		});
+
+		const names = runtime.tools.map((tool) => tool.name);
+		expect(names).toContain("browser_snapshot");
+		expect(names).toContain("browser_action");
+		expect(names).toContain("browser_screenshot");
+	});
+
 	it("omits builtin tools when disabled", async () => {
 		const runtime = await new DefaultRuntimeBuilder().build({
 			config: makeBaseConfig({

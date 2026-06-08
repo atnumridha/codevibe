@@ -92,6 +92,8 @@ function createBuiltinToolsList(
 	toolRoutingRules: ToolRoutingRule[] | undefined,
 	toolPolicies: CoreSessionConfig["toolPolicies"],
 	cursorRetrievalIndexingPrivacyGate: boolean | undefined,
+	enableBrowserAutomation: boolean | undefined,
+	enableSafeBrowserEvaluate: boolean | undefined,
 	skillsExecutor?: SkillsExecutorWithMetadata,
 	executorOverrides?: Partial<ToolExecutors>,
 ): AgentTool[] {
@@ -110,6 +112,12 @@ function createBuiltinToolsList(
 			enableSkills: !!skillsExecutor,
 			cursorRetrievalIndexingPrivacyGate,
 			...toolRoutingConfig,
+			...(typeof enableBrowserAutomation === "boolean"
+				? { enableBrowserAutomation }
+				: {}),
+			...(typeof enableSafeBrowserEvaluate === "boolean"
+				? { enableSafeBrowserEvaluate }
+				: {}),
 			executors: {
 				...(skillsExecutor
 					? {
@@ -131,6 +139,8 @@ function isSkillsToolEnabledForSession(input: {
 	toolRoutingRules?: ToolRoutingRule[];
 	toolPolicies?: CoreSessionConfig["toolPolicies"];
 	cursorRetrievalIndexingPrivacyGate?: boolean;
+	enableBrowserAutomation?: boolean;
+	enableSafeBrowserEvaluate?: boolean;
 	toolExecutors?: Partial<ToolExecutors>;
 }): boolean {
 	return createBuiltinToolsList(
@@ -141,6 +151,8 @@ function isSkillsToolEnabledForSession(input: {
 		input.toolRoutingRules,
 		input.toolPolicies,
 		input.cursorRetrievalIndexingPrivacyGate,
+		input.enableBrowserAutomation,
+		input.enableSafeBrowserEvaluate,
 		SKILLS_PROBE_EXECUTOR,
 		input.toolExecutors,
 	).some((tool) => tool.name === "skills");
@@ -381,6 +393,8 @@ export class DefaultRuntimeBuilder implements RuntimeBuilder {
 				toolPolicies: config.toolPolicies,
 				cursorRetrievalIndexingPrivacyGate:
 					config.cursorRetrievalIndexingPrivacyGate,
+				enableBrowserAutomation: config.enableBrowserAutomation,
+				enableSafeBrowserEvaluate: config.enableSafeBrowserEvaluate,
 				toolExecutors,
 			});
 
@@ -408,6 +422,8 @@ export class DefaultRuntimeBuilder implements RuntimeBuilder {
 					config.toolRoutingRules,
 					config.toolPolicies,
 					config.cursorRetrievalIndexingPrivacyGate,
+					config.enableBrowserAutomation,
+					config.enableSafeBrowserEvaluate,
 					undefined,
 					toolExecutors,
 				),
@@ -546,6 +562,8 @@ export class DefaultRuntimeBuilder implements RuntimeBuilder {
 									config.toolRoutingRules,
 									config.toolPolicies,
 									config.cursorRetrievalIndexingPrivacyGate,
+									config.enableBrowserAutomation,
+									config.enableSafeBrowserEvaluate,
 									undefined,
 									toolExecutors,
 								)

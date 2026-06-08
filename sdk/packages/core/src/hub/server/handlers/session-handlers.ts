@@ -64,6 +64,43 @@ function optionalBoolean(value: unknown): boolean | undefined {
 	return typeof value === "boolean" ? value : undefined;
 }
 
+function resolveBrowserAutomationFlags(
+	...sources: Array<
+		| {
+				enableBrowserAutomation?: unknown;
+				enableSafeBrowserEvaluate?: unknown;
+		  }
+		| undefined
+	>
+): {
+	enableBrowserAutomation: boolean;
+	enableSafeBrowserEvaluate: boolean;
+	hasBrowserAutomationRequest: boolean;
+} {
+	let requestedBrowserAutomation: boolean | undefined;
+	let requestedSafeEvaluate: boolean | undefined;
+	for (const source of sources) {
+		if (!source) {
+			continue;
+		}
+		requestedBrowserAutomation ??= optionalBoolean(
+			source.enableBrowserAutomation,
+		);
+		requestedSafeEvaluate ??= optionalBoolean(
+			source.enableSafeBrowserEvaluate,
+		);
+	}
+	const enableBrowserAutomation = requestedBrowserAutomation === true;
+	return {
+		enableBrowserAutomation,
+		enableSafeBrowserEvaluate:
+			requestedSafeEvaluate === true && enableBrowserAutomation,
+		hasBrowserAutomationRequest:
+			requestedBrowserAutomation !== undefined ||
+			requestedSafeEvaluate !== undefined,
+	};
+}
+
 function optionalString(value: unknown): string | undefined {
 	return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -180,6 +217,19 @@ export async function handleSessionCreate(
 		sessionConfig,
 		requestCapability: ctx.requestCapability,
 	});
+	const {
+		enableBrowserAutomation,
+		enableSafeBrowserEvaluate,
+		hasBrowserAutomationRequest,
+	} = resolveBrowserAutomationFlags(
+		sessionConfig,
+		runtimeOptions,
+		metadata as Record<string, unknown>,
+	);
+	if (hasBrowserAutomationRequest) {
+		metadata.enableBrowserAutomation = enableBrowserAutomation;
+		metadata.enableSafeBrowserEvaluate = enableSafeBrowserEvaluate;
+	}
 	logHubMessage("info", "session.create.start_session.begin", {
 		...baseLogContext,
 		sessionId,
@@ -269,6 +319,8 @@ export async function handleSessionCreate(
 				sessionConfig?.enableSpawnAgent ?? runtimeOptions.enableSpawn !== false,
 			enableAgentTeams:
 				sessionConfig?.enableAgentTeams ?? runtimeOptions.enableTeams !== false,
+			enableBrowserAutomation,
+			enableSafeBrowserEvaluate,
 			checkpoint:
 				sessionConfig?.checkpoint ??
 				(runtimeOptions.checkpointEnabled === true
@@ -679,6 +731,20 @@ export async function handleSessionFork(
 		sessionConfig,
 		requestCapability: ctx.requestCapability,
 	});
+	const {
+		enableBrowserAutomation,
+		enableSafeBrowserEvaluate,
+		hasBrowserAutomationRequest,
+	} = resolveBrowserAutomationFlags(
+		sessionConfig,
+		runtimeOptions,
+		metadata,
+		sourceMetadata,
+	);
+	if (hasBrowserAutomationRequest) {
+		metadata.enableBrowserAutomation = enableBrowserAutomation;
+		metadata.enableSafeBrowserEvaluate = enableSafeBrowserEvaluate;
+	}
 	const mode =
 		asRuntimeMode(sessionConfig.mode) ??
 		asRuntimeMode(runtimeOptions.mode) ??
@@ -784,6 +850,8 @@ export async function handleSessionFork(
 				sessionConfig.enableAgentTeams ??
 				optionalBoolean(runtimeOptions.enableTeams) ??
 				sourceSession.enableTeams,
+			enableBrowserAutomation,
+			enableSafeBrowserEvaluate,
 			checkpoint:
 				sessionConfig.checkpoint ??
 				(runtimeOptions.checkpointEnabled === true
