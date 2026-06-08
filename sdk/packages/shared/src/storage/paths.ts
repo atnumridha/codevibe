@@ -12,6 +12,7 @@ import { dirname, join, resolve } from "node:path";
 import type { PluginManifest } from "..";
 
 const DEPRECATED_CONFIG_DIR = ".clinerules";
+const CODEVIBE_CONFIG_DIR = ".codevibe";
 const CLINE_CONFIG_DIR = ".cline";
 const CURSOR_CONFIG_DIR = ".cursor";
 const CURSOR_RULES_FILE_NAME = ".cursorrules";
@@ -25,6 +26,7 @@ export const WORKFLOWS_CONFIG_DIRECTORY_NAME = "workflows";
 export const PLUGINS_DIRECTORY_NAME = "plugins";
 export const AGENTS_RULES_FILE_NAME = "AGENTS.md";
 
+export const CODEVIBE_MCP_SETTINGS_FILE_NAME = "codevibe_mcp_settings.json";
 export const CLINE_MCP_SETTINGS_FILE_NAME = "cline_mcp_settings.json";
 
 function resolveDefaultHomeDir(): string {
@@ -71,38 +73,74 @@ export function setHomeDirIfUnset(dir: string) {
 	HOME_DIR = trimmed;
 }
 
-let CLINE_DIR: string | undefined;
-let CLINE_DIR_SET_EXPLICITLY = false;
+function readEnv(primary: string, legacy?: string): string | undefined {
+	const primaryValue = process.env[primary]?.trim();
+	if (primaryValue) {
+		return primaryValue;
+	}
+	if (!legacy) {
+		return undefined;
+	}
+	const legacyValue = process.env[legacy]?.trim();
+	return legacyValue || undefined;
+}
 
-export function setClineDir(dir: string): void {
+let CODEVIBE_DIR: string | undefined;
+let CODEVIBE_DIR_SET_EXPLICITLY = false;
+
+export function setCodeVibeDir(dir: string): void {
 	const trimmed = dir.trim();
 	if (!trimmed) {
 		return;
 	}
-	CLINE_DIR = trimmed;
-	CLINE_DIR_SET_EXPLICITLY = true;
+	CODEVIBE_DIR = trimmed;
+	CODEVIBE_DIR_SET_EXPLICITLY = true;
+}
+
+export function setCodeVibeDirIfUnset(dir: string): void {
+	if (CODEVIBE_DIR_SET_EXPLICITLY) {
+		return;
+	}
+	const trimmed = dir.trim();
+	if (!trimmed) {
+		return;
+	}
+	CODEVIBE_DIR = trimmed;
+}
+
+export function setClineDir(dir: string): void {
+	setCodeVibeDir(dir);
 }
 
 export function setClineDirIfUnset(dir: string): void {
-	if (CLINE_DIR_SET_EXPLICITLY) {
-		return;
+	setCodeVibeDirIfUnset(dir);
+}
+
+export function resolveCodeVibeDir(): string {
+	if (CODEVIBE_DIR) {
+		return CODEVIBE_DIR;
 	}
-	const trimmed = dir.trim();
-	if (!trimmed) {
-		return;
+	const envDir = readEnv("CODEVIBE_DIR", "CLINE_DIR");
+	if (envDir) {
+		return envDir;
 	}
-	CLINE_DIR = trimmed;
+	return join(HOME_DIR, CODEVIBE_CONFIG_DIR);
 }
 
 export function resolveClineDir(): string {
-	if (CLINE_DIR) {
-		return CLINE_DIR;
-	}
+	return resolveCodeVibeDir();
+}
+
+function resolveLegacyClineDir(): string {
 	const envDir = process.env.CLINE_DIR?.trim();
 	if (envDir) {
 		return envDir;
 	}
-	return join(HOME_DIR, ".cline");
+	return join(HOME_DIR, CLINE_CONFIG_DIR);
+}
+
+export function resolveDocumentsCodeVibeDirectoryPath(): string {
+	return join(HOME_DIR, "Documents", "CodeVibe");
 }
 
 export function resolveDocumentsClineDirectoryPath(): string {
@@ -119,39 +157,52 @@ type DocumentsExtensionName =
 export function resolveDocumentsExtensionPath(
 	name: DocumentsExtensionName,
 ): string {
+	return join(resolveDocumentsCodeVibeDirectoryPath(), name);
+}
+
+function resolveDocumentsClineExtensionPath(
+	name: DocumentsExtensionName,
+): string {
 	return join(resolveDocumentsClineDirectoryPath(), name);
 }
 
-export function resolveClineDataDir(): string {
-	const explicitDir = process.env.CLINE_DATA_DIR?.trim();
+export function resolveCodeVibeDataDir(): string {
+	const explicitDir = readEnv("CODEVIBE_DATA_DIR", "CLINE_DATA_DIR");
 	if (explicitDir) {
 		return explicitDir;
 	}
-	return join(resolveClineDir(), "data");
+	return join(resolveCodeVibeDir(), "data");
+}
+
+export function resolveClineDataDir(): string {
+	return resolveCodeVibeDataDir();
 }
 
 export function resolveSessionDataDir(): string {
-	const explicitDir = process.env.CLINE_SESSION_DATA_DIR?.trim();
+	const explicitDir = readEnv(
+		"CODEVIBE_SESSION_DATA_DIR",
+		"CLINE_SESSION_DATA_DIR",
+	);
 	if (explicitDir) {
 		return explicitDir;
 	}
-	return join(resolveClineDataDir(), "sessions");
+	return join(resolveCodeVibeDataDir(), "sessions");
 }
 
 export function resolveTeamDataDir(): string {
-	const explicitDir = process.env.CLINE_TEAM_DATA_DIR?.trim();
+	const explicitDir = readEnv("CODEVIBE_TEAM_DATA_DIR", "CLINE_TEAM_DATA_DIR");
 	if (explicitDir) {
 		return explicitDir;
 	}
-	return join(resolveClineDataDir(), "teams");
+	return join(resolveCodeVibeDataDir(), "teams");
 }
 
 export function resolveDbDataDir(): string {
-	const explicitDir = process.env.CLINE_DB_DATA_DIR?.trim();
+	const explicitDir = readEnv("CODEVIBE_DB_DATA_DIR", "CLINE_DB_DATA_DIR");
 	if (explicitDir) {
 		return explicitDir;
 	}
-	return join(resolveClineDataDir(), "db");
+	return join(resolveCodeVibeDataDir(), "db");
 }
 
 /**
@@ -160,7 +211,7 @@ export function resolveDbDataDir(): string {
  * retention, and query patterns stay decoupled from session storage.
  */
 export function resolveCronDbPath(): string {
-	const explicitPath = process.env.CLINE_CRON_DB_PATH?.trim();
+	const explicitPath = readEnv("CODEVIBE_CRON_DB_PATH", "CLINE_CRON_DB_PATH");
 	if (explicitPath) {
 		return explicitPath;
 	}
@@ -175,7 +226,7 @@ export interface ResolveCronSpecsDirOptions {
 	 * to provide their own merged/global/workspace cron source root.
 	 */
 	cronSpecsDir?: string;
-	/** Defaults to `global`, i.e. `~/.cline/cron`. */
+	/** Defaults to `global`, i.e. `~/.codevibe/cron`. */
 	scope?: CronSpecsScope;
 	/** Required when `scope` is `workspace`. */
 	workspaceRoot?: string;
@@ -183,25 +234,25 @@ export interface ResolveCronSpecsDirOptions {
 
 /**
  * Global file-based cron spec authoring directory:
- *   `~/.cline/cron/`
+ *   `~/.codevibe/cron/`
  */
 export function resolveGlobalCronSpecsDir(): string {
-	return join(resolveClineDir(), "cron");
+	return join(resolveCodeVibeDir(), "cron");
 }
 
 /**
  * Workspace file-based cron spec authoring directory reserved for future
  * workspace-scoped automation support:
- *   `${workspaceRoot}/.cline/cron/`
+ *   `${workspaceRoot}/.codevibe/cron/`
  */
 export function resolveWorkspaceCronSpecsDir(workspaceRoot: string): string {
-	return join(workspaceRoot, ".cline", "cron");
+	return join(workspaceRoot, CODEVIBE_CONFIG_DIR, "cron");
 }
 
 /**
  * Directory containing file-based cron spec authoring.
  *
- * Default: global `~/.cline/cron/`.
+ * Default: global `~/.codevibe/cron/`.
  * One-off: `*.md`
  * Recurring: `*.cron.md`
  * Event-driven: `events/*.event.md`
@@ -262,27 +313,40 @@ export function resolveCronEventsDir(
 }
 
 export function resolveProviderSettingsPath(): string {
-	const explicitPath = process.env.CLINE_PROVIDER_SETTINGS_PATH?.trim();
+	const explicitPath = readEnv(
+		"CODEVIBE_PROVIDER_SETTINGS_PATH",
+		"CLINE_PROVIDER_SETTINGS_PATH",
+	);
 	if (explicitPath) {
 		return explicitPath;
 	}
-	return join(resolveClineDataDir(), "settings", "providers.json");
+	return join(resolveCodeVibeDataDir(), "settings", "providers.json");
 }
 
 export function resolveGlobalSettingsPath(): string {
-	const explicitPath = process.env.CLINE_GLOBAL_SETTINGS_PATH?.trim();
+	const explicitPath = readEnv(
+		"CODEVIBE_GLOBAL_SETTINGS_PATH",
+		"CLINE_GLOBAL_SETTINGS_PATH",
+	);
 	if (explicitPath) {
 		return explicitPath;
 	}
-	return join(resolveClineDataDir(), "settings", "global-settings.json");
+	return join(resolveCodeVibeDataDir(), "settings", "global-settings.json");
 }
 
 export function resolveMcpSettingsPath(): string {
-	const explicitPath = process.env.CLINE_MCP_SETTINGS_PATH?.trim();
+	const explicitPath = readEnv(
+		"CODEVIBE_MCP_SETTINGS_PATH",
+		"CLINE_MCP_SETTINGS_PATH",
+	);
 	if (explicitPath) {
 		return explicitPath;
 	}
-	return join(resolveClineDataDir(), "settings", CLINE_MCP_SETTINGS_FILE_NAME);
+	return join(
+		resolveCodeVibeDataDir(),
+		"settings",
+		CODEVIBE_MCP_SETTINGS_FILE_NAME,
+	);
 }
 
 function dedupePaths(paths: ReadonlyArray<string>): string[] {
@@ -306,11 +370,12 @@ function getWorkspaceSkillDirectories(workspacePath?: string): string[] {
 		DEPRECATED_CONFIG_DIR,
 		CLINE_CONFIG_DIR,
 		LEGACY_AGENT_SKILLS_CONFIG_DIR,
+		CODEVIBE_CONFIG_DIR,
 	].map((dir) => join(workspacePath, dir, SKILLS_CONFIG_DIRECTORY_NAME));
 }
 
 export function resolveAgentsConfigDirPath(): string {
-	return join(resolveClineDir(), AGENT_CONFIG_DIRECTORY_NAME);
+	return join(resolveCodeVibeDir(), AGENT_CONFIG_DIRECTORY_NAME);
 }
 
 export function resolveAgentConfigSearchPaths(
@@ -319,6 +384,9 @@ export function resolveAgentConfigSearchPaths(
 	return dedupePaths([
 		workspacePath
 			? join(workspacePath, CLINE_CONFIG_DIR, AGENT_CONFIG_DIRECTORY_NAME)
+			: "",
+		workspacePath
+			? join(workspacePath, CODEVIBE_CONFIG_DIR, AGENT_CONFIG_DIRECTORY_NAME)
 			: "",
 		resolveAgentsConfigDirPath(),
 	]);
@@ -329,12 +397,15 @@ export function resolveHooksConfigSearchPaths(
 ): string[] {
 	const hooks = [
 		resolveDocumentsExtensionPath("Hooks"),
-		join(resolveClineDir(), HOOKS_CONFIG_DIRECTORY_NAME),
+		resolveDocumentsClineExtensionPath("Hooks"),
+		join(resolveLegacyClineDir(), HOOKS_CONFIG_DIRECTORY_NAME),
+		join(resolveCodeVibeDir(), HOOKS_CONFIG_DIRECTORY_NAME),
 	];
 	if (workspacePath) {
 		hooks.push(
 			join(workspacePath, DEPRECATED_CONFIG_DIR, HOOKS_CONFIG_DIRECTORY_NAME),
 			join(workspacePath, CLINE_CONFIG_DIR, HOOKS_CONFIG_DIRECTORY_NAME),
+			join(workspacePath, CODEVIBE_CONFIG_DIR, HOOKS_CONFIG_DIRECTORY_NAME),
 		);
 	}
 	return dedupePaths(hooks);
@@ -345,12 +416,13 @@ export function resolveSkillsConfigSearchPaths(
 ): string[] {
 	return dedupePaths([
 		...getWorkspaceSkillDirectories(workspacePath),
-		join(resolveClineDir(), SKILLS_CONFIG_DIRECTORY_NAME),
 		join(
 			HOME_DIR,
 			LEGACY_AGENT_SKILLS_CONFIG_DIR,
 			SKILLS_CONFIG_DIRECTORY_NAME,
 		),
+		join(resolveLegacyClineDir(), SKILLS_CONFIG_DIRECTORY_NAME),
+		join(resolveCodeVibeDir(), SKILLS_CONFIG_DIRECTORY_NAME),
 	]);
 }
 
@@ -366,6 +438,7 @@ export function resolveRulesConfigSearchPaths(
 				join(workspacePath, DEPRECATED_CONFIG_DIR),
 				join(workspacePath, CLINE_CONFIG_DIR, RULES_CONFIG_DIRECTORY_NAME),
 				join(workspacePath, CURSOR_CONFIG_DIR, RULES_CONFIG_DIRECTORY_NAME),
+				join(workspacePath, CODEVIBE_CONFIG_DIR, RULES_CONFIG_DIRECTORY_NAME),
 			]
 		: [];
 	const workspaceAgentsFile = workspacePath
@@ -378,8 +451,10 @@ export function resolveRulesConfigSearchPaths(
 		...workspaceAgentsFile,
 		...wsPaths,
 		resolveGlobalAgentsRulesPath(),
-		join(resolveClineDir(), RULES_CONFIG_DIRECTORY_NAME),
+		join(resolveLegacyClineDir(), RULES_CONFIG_DIRECTORY_NAME),
+		resolveDocumentsClineExtensionPath("Rules"),
 		resolveDocumentsExtensionPath("Rules"),
+		join(resolveCodeVibeDir(), RULES_CONFIG_DIRECTORY_NAME),
 	]);
 }
 
@@ -390,10 +465,15 @@ export function resolveWorkflowsConfigSearchPaths(
 		workspacePath
 			? join(workspacePath, ".clinerules", WORKFLOWS_CONFIG_DIRECTORY_NAME)
 			: "",
-		resolveDocumentsExtensionPath("Workflows"),
-		join(resolveClineDir(), WORKFLOWS_CONFIG_DIRECTORY_NAME),
 		workspacePath
 			? join(workspacePath, ".cline", WORKFLOWS_CONFIG_DIRECTORY_NAME)
+			: "",
+		resolveDocumentsClineExtensionPath("Workflows"),
+		join(resolveLegacyClineDir(), WORKFLOWS_CONFIG_DIRECTORY_NAME),
+		resolveDocumentsExtensionPath("Workflows"),
+		join(resolveCodeVibeDir(), WORKFLOWS_CONFIG_DIRECTORY_NAME),
+		workspacePath
+			? join(workspacePath, ".codevibe", WORKFLOWS_CONFIG_DIRECTORY_NAME)
 			: "",
 	]);
 }
@@ -403,8 +483,13 @@ export function resolvePluginConfigSearchPaths(
 ): string[] {
 	return dedupePaths([
 		workspacePath ? join(workspacePath, ".cline", PLUGINS_DIRECTORY_NAME) : "",
-		join(resolveClineDir(), PLUGINS_DIRECTORY_NAME),
+		join(resolveLegacyClineDir(), PLUGINS_DIRECTORY_NAME),
+		resolveDocumentsClineExtensionPath("Plugins"),
 		resolveDocumentsExtensionPath("Plugins"),
+		join(resolveCodeVibeDir(), PLUGINS_DIRECTORY_NAME),
+		workspacePath
+			? join(workspacePath, ".codevibe", PLUGINS_DIRECTORY_NAME)
+			: "",
 	]);
 }
 
@@ -429,8 +514,12 @@ function readPluginPackageManifest(
 ): PluginPackageManifest | null {
 	try {
 		const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+			codevibe?: PluginPackageManifest;
 			cline?: PluginPackageManifest;
 		};
+		if (packageJson.codevibe && typeof packageJson.codevibe === "object") {
+			return packageJson.codevibe;
+		}
 		if (!packageJson.cline || typeof packageJson.cline !== "object") {
 			return null;
 		}
