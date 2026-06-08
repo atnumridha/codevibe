@@ -390,7 +390,7 @@ export function SettingsView({
 		try {
 			const result = await desktopClient.invoke<{
 				provider: string;
-				accessToken: string;
+				accessTokenPresent: boolean;
 			}>("run_provider_oauth_login", {
 				provider: id,
 			});
@@ -400,7 +400,7 @@ export function SettingsView({
 						? {
 								...provider,
 								enabled: true,
-								oauthAccessTokenPresent: result.accessToken.trim().length > 0,
+								oauthAccessTokenPresent: result.accessTokenPresent,
 							}
 						: provider,
 				),
@@ -2182,7 +2182,7 @@ function GeneralSettingsContent({
 						<div>
 							<p className="text-sm font-medium text-foreground">Theme</p>
 							<p className="mt-1 text-xs text-muted-foreground">
-								Use the light or dark Cline Hub interface.
+								Use the light or dark CodeVibe Hub interface.
 							</p>
 						</div>
 						<div className="flex items-center gap-2 max-[720px]:justify-start">

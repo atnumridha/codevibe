@@ -36,10 +36,11 @@ function contentTypeFor(path: string): string {
 	}
 }
 
-const CURSOR_COMPATIBLE_WEBVIEW_ROUTES = new Set([
+export const CURSOR_COMPATIBLE_WEBVIEW_ROUTES = [
 	"/createchat",
 	"/mcp/install",
 	"/background-agent",
+	"/settings",
 	"/prompt",
 	"/command",
 	"/rule",
@@ -50,7 +51,11 @@ const CURSOR_COMPATIBLE_WEBVIEW_ROUTES = new Set([
 	"/git/checkout",
 	"/git/branch",
 	"/git/commit",
-]);
+] as const;
+
+const CURSOR_COMPATIBLE_WEBVIEW_ROUTE_SET = new Set<string>(
+	CURSOR_COMPATIBLE_WEBVIEW_ROUTES,
+);
 
 function normalizeWebviewRoute(pathname: string): string {
 	if (pathname.length > 1 && pathname.endsWith("/")) {
@@ -67,7 +72,7 @@ export function isWebviewRoute(pathname: string): boolean {
 		route === "/chat" ||
 		route === "/settings" ||
 		route.startsWith("/settings/") ||
-		CURSOR_COMPATIBLE_WEBVIEW_ROUTES.has(route)
+		CURSOR_COMPATIBLE_WEBVIEW_ROUTE_SET.has(route)
 	);
 }
 
@@ -86,7 +91,7 @@ function renderDevIndexHtml(devServerUrl: string): string {
   </script>
   <script type="module" src="${devServerUrl}/@vite/client"></script>
   <link rel="icon" type="image/svg+xml" href="${devServerUrl}/favicon.svg" />
-  <title>Cline Hub</title>
+  <title>CodeVibe Hub</title>
 </head>
 <body>
   <div id="root"></div>
@@ -119,7 +124,7 @@ export class WebviewAssets {
 			});
 		}
 		return createTextResponse(
-			"Cline Hub webview is not built. Run `bun run build:webview` from apps/cline-hub.",
+			"CodeVibe Hub webview is not built. Run `npm --prefix apps/cline-hub/src/webview run build`.",
 			503,
 		);
 	}

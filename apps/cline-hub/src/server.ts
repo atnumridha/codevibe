@@ -40,7 +40,12 @@ import {
 	sendMessage,
 } from "./server/sessions";
 import { HubContext } from "./server/state";
-import { broadcastHubState, hubStatusPayload } from "./server/state-payloads";
+import {
+	broadcastHubState,
+	broadcastHubStatus,
+	hubStatusPayload,
+} from "./server/state-payloads";
+import { standaloneReadinessPayload } from "./server/standalone-readiness";
 import type { BrowserFrame, BrowserPeer } from "./server/types";
 
 export interface ClineHubDashboardServer {
@@ -75,7 +80,7 @@ export async function startClineHubDashboardServer(): Promise<ClineHubDashboardS
 	const healthInterval = setInterval(() => {
 		void (async () => {
 			await syncHubHealth(ctx);
-			broadcastHubState(ctx);
+			broadcastHubStatus(ctx);
 		})();
 	}, 5_000);
 
@@ -90,6 +95,9 @@ export async function startClineHubDashboardServer(): Promise<ClineHubDashboardS
 			if (url.pathname === "/health") {
 				await syncHubHealth(ctx);
 				return createJsonResponse(hubStatusPayload(ctx));
+			}
+			if (url.pathname === "/api/standalone-readiness") {
+				return createJsonResponse(standaloneReadinessPayload(CORE_BUILD_VERSION));
 			}
 			if (url.pathname === "/browser") {
 				if (!isAuthorizedBrowserRequest(url)) {
@@ -244,11 +252,11 @@ export async function startClineHubDashboardServer(): Promise<ClineHubDashboardS
 export function printClineHubDashboardServerInfo(
 	server: ClineHubDashboardServer,
 ): void {
-	console.log(`Cline Hub dashboard listening: ${server.listenUrl}`);
-	console.log(`Cline Hub public URL: ${server.publicUrl}`);
+	console.log(`CodeVibe Hub dashboard listening: ${server.listenUrl}`);
+	console.log(`CodeVibe Hub public URL: ${server.publicUrl}`);
 	console.log(`hub endpoint: ${server.hubUrl}`);
 	if (server.inviteRequired) {
-		console.log(`Cline Hub invite URL: ${server.inviteUrl}`);
+		console.log(`CodeVibe Hub invite URL: ${server.inviteUrl}`);
 	} else if (isNonLocalBindHost(server.bindHost)) {
 		console.warn("WARNING: non-local bind without ROOM_SECRET is not allowed.");
 	} else {

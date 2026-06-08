@@ -125,12 +125,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		},
 	)
 
-	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(VscodeWebviewProvider.SIDEBAR_ID, webview, {
-			webviewOptions: { retainContextWhenHidden: true },
-		}),
-	)
-
 	// NOTE: Commands must be added to the internal registry before registering them with VSCode
 	const { commands } = ExtensionRegistryInfo
 	const cursorNdjsonIngestServer = new CursorNdjsonIngestServer(context.globalStorageUri.fsPath)
@@ -758,7 +752,14 @@ async function openClineSidebarForTaskUri(): Promise<void> {
 	const sidebarWaitTimeoutMs = 3000
 	const sidebarWaitIntervalMs = 50
 
-	await vscode.commands.executeCommand(`${ExtensionRegistryInfo.views.Sidebar}.focus`)
+	try {
+		await vscode.commands.executeCommand(`${ExtensionRegistryInfo.views.Sidebar}.focus`)
+	} catch (error) {
+		Logger.log(
+			`CodeVibe legacy sidebar focus is unavailable; routing URI through the initialized controller. ${String(error)}`,
+		)
+		return
+	}
 
 	const startedAt = Date.now()
 	while (Date.now() - startedAt < sidebarWaitTimeoutMs) {

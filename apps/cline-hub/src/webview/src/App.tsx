@@ -402,7 +402,7 @@ function Shell({
 							onClick={() => onNavigate("home")}
 							type="button"
 						>
-							Cline Hub
+							CodeVibe Hub
 						</button>
 					</h1>
 				</div>
@@ -571,7 +571,7 @@ function HomeView({
 						disabled={!hubState.connected || restartPending}
 						onClick={() => setRestartDialogOpen(true)}
 						size="sm"
-						title="Restart Cline Hub"
+						title="Restart CodeVibe Hub"
 						type="button"
 						variant="outline"
 					>
@@ -592,7 +592,7 @@ function HomeView({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Restart Cline Hub</AlertDialogTitle>
+						<AlertDialogTitle>Restart CodeVibe Hub</AlertDialogTitle>
 						<AlertDialogDescription>
 							This will shut down the current hub process and start it again.
 							Connected clients and active sessions may disconnect while the hub

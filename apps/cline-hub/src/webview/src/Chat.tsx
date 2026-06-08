@@ -1132,7 +1132,7 @@ export default function Chat({
 			type: "approval_response",
 			approvalId,
 			approved,
-			reason: approved ? "Approved in Cline Hub." : "Rejected in Cline Hub.",
+			reason: approved ? "Approved in CodeVibe Hub." : "Rejected in CodeVibe Hub.",
 		});
 		setStatus(approved ? "Approval sent." : "Rejection sent.");
 	};

@@ -13,7 +13,7 @@ import type {
 } from "./types";
 
 /**
- * Shared mutable runtime state for the Cline Hub server. A single instance is
+ * Shared mutable runtime state for the CodeVibe Hub server. A single instance is
  * created in `server.ts` and threaded through the feature modules, replacing
  * what used to be a wall of module-level `let`s in the monolithic file.
  */

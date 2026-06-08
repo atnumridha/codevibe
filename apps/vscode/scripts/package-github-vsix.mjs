@@ -37,7 +37,6 @@ const requiredCursorParityCommands = [
 const expectedManifestAssetPaths = [
 	"assets/icons/icon.png",
 	"assets/icons/cline-bot.woff",
-	"assets/icons/icon.svg",
 	"walkthrough/step1.md",
 	"walkthrough/step2.md",
 	"walkthrough/step3.md",
@@ -403,20 +402,28 @@ function assertVisibleManifestStringsBranded(value, label, pathParts = []) {
 function assertNativeCodeVibeContributionIds(packageJson, label) {
 	const activityBarContainers = packageJson.contributes?.viewsContainers?.activitybar ?? []
 	const activityBarIds = activityBarContainers.map((container) => container?.id).filter(Boolean)
-	assertArrayIncludes(activityBarIds, "codevibe-ActivityBar", `${label} viewsContainers.activitybar ids`)
+	if (activityBarIds.includes("codevibe-ActivityBar")) {
+		throw new Error(`${label} must not contribute the legacy CodeVibe activity bar container`)
+	}
 	if (activityBarIds.includes("claude-dev-ActivityBar")) {
 		throw new Error(`${label} must not contribute the legacy claude-dev activity bar container`)
 	}
 
 	const views = packageJson.contributes?.views ?? {}
+	if ("codevibe-ActivityBar" in views) {
+		throw new Error(`${label} must not contribute views under legacy codevibe-ActivityBar`)
+	}
 	if ("claude-dev-ActivityBar" in views) {
 		throw new Error(`${label} must not contribute views under legacy claude-dev-ActivityBar`)
 	}
-	const codevibeViews = Array.isArray(views["codevibe-ActivityBar"]) ? views["codevibe-ActivityBar"] : []
-	const viewIds = codevibeViews.map((view) => view?.id).filter(Boolean)
-	assertArrayIncludes(viewIds, "codevibe.SidebarProvider", `${label} codevibe-ActivityBar views`)
-	if (viewIds.includes("claude-dev.SidebarProvider")) {
-		throw new Error(`${label} must not contribute the legacy claude-dev.SidebarProvider view`)
+	for (const [viewGroup, groupViews] of Object.entries(views)) {
+		const viewIds = (Array.isArray(groupViews) ? groupViews : []).map((view) => view?.id).filter(Boolean)
+		if (viewIds.includes("codevibe.SidebarProvider")) {
+			throw new Error(`${label} ${viewGroup} must not contribute the legacy codevibe.SidebarProvider view`)
+		}
+		if (viewIds.includes("claude-dev.SidebarProvider")) {
+			throw new Error(`${label} ${viewGroup} must not contribute the legacy claude-dev.SidebarProvider view`)
+		}
 	}
 
 	const commands = Array.isArray(packageJson.contributes?.commands) ? packageJson.contributes.commands : []

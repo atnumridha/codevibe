@@ -1,27 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { isWebviewRoute } = (await import(
+const { CURSOR_COMPATIBLE_WEBVIEW_ROUTES, isWebviewRoute } = (await import(
 	new URL("./http.ts", import.meta.url).href
 )) as typeof import("./http");
 
 test("Cursor-compatible standalone routes are served by the SPA", () => {
-	for (const pathname of [
-		"/createchat",
-		"/mcp/install",
-		"/background-agent",
-		"/settings",
-		"/prompt",
-		"/command",
-		"/rule",
-		"/pr-review",
-		"/plugin/add",
-		"/glass",
-		"/automation/ingest",
-		"/git/checkout",
-		"/git/branch",
-		"/git/commit",
-	]) {
+	for (const pathname of CURSOR_COMPATIBLE_WEBVIEW_ROUTES) {
 		assert.equal(isWebviewRoute(pathname), true, pathname);
 	}
 });

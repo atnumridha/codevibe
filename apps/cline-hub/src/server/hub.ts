@@ -120,7 +120,7 @@ export async function attachHub(ctx: HubContext): Promise<void> {
 			endpoint: ctx.hubUrl,
 			authToken: ctx.hubAuthToken,
 			clientType: "cline-hub-chat",
-			displayName: "Cline Hub Chat",
+			displayName: "CodeVibe Hub Chat",
 			workspaceRoot,
 		},
 	});
@@ -129,7 +129,7 @@ export async function attachHub(ctx: HubContext): Promise<void> {
 		address: ctx.hubUrl,
 		authToken: ctx.hubAuthToken,
 		clientType: "cline-hub-server",
-		displayName: "Cline Hub Server",
+		displayName: "CodeVibe Hub Server",
 	});
 	await ctx.uiClient.connect();
 

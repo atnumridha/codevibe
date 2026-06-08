@@ -88,6 +88,56 @@ const ROUTINE_SCHEDULE_COMMANDS = new Set([
 	"delete_routine_schedule",
 ]);
 
+export const STANDALONE_DESKTOP_COMMANDS = [
+	"list_provider_catalog",
+	"list_provider_models",
+	"save_provider_settings",
+	"add_provider",
+	"run_provider_oauth_login",
+	"cline_account",
+	"browser_automation_status",
+	"browser_snapshot",
+	"browser_action",
+	"browser_screenshot",
+	"cursor_uri_preview",
+	"cursor_automation_ingest",
+	"cursor_uri_launch",
+	"search_workspace_files",
+	"get_global_settings",
+	"set_telemetry_opt_out",
+	"list_connector_channels",
+	"start_connector_channel",
+	"stop_connector_channel",
+	"list_mcp_servers",
+	"import_cursor_mcp_servers",
+	"cursor_mcp_install",
+	"authorize_mcp_server_oauth",
+	"authenticate_mcp_server",
+	"cursor_rule_open",
+	"cursor_plugin_add",
+	"cursor_git_action",
+	"set_mcp_server_disabled",
+	"upsert_mcp_server",
+	"delete_mcp_server",
+	"ensure_mcp_settings_file",
+	"open_mcp_settings_file",
+	...ROUTINE_SCHEDULE_COMMANDS,
+	"get_process_context",
+	"list_cli_sessions",
+	"list_discovered_sessions",
+	"list_background_agent_sessions",
+	"delete_background_agent_record",
+	"dismiss_background_agent_session",
+	"delete_background_agent_session",
+	"open_background_agent_worktree",
+	"reveal_background_agent_worktree",
+	"read_session_hooks",
+	"list_user_instruction_configs",
+	"toggle_disabled_plugin_tool",
+	"set_tool_disabled",
+	"set_plugin_disabled",
+] as const;
+
 function readCursorUriPreviewRequest(
 	args: Record<string, unknown> | undefined,
 ): CursorUriPreviewRequest {
@@ -330,7 +380,9 @@ export async function handleDesktopCommand(
 		);
 		return {
 			provider: providerId,
-			accessToken: saved.auth?.accessToken ?? saved.apiKey ?? "",
+			accessTokenPresent:
+				(saved.auth?.accessToken?.trim() ?? saved.apiKey?.trim() ?? "").length >
+				0,
 		};
 	}
 	if (command === "cline_account") {

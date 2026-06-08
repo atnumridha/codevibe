@@ -153,8 +153,46 @@ const mcpOAuthCommands = [
 	},
 ]
 
+const standaloneUiCommands = [
+	{
+		label: "Standalone hub route/readiness tests",
+		command: "npm",
+		args: [
+			"exec",
+			"--package",
+			"tsx",
+			"--",
+			"tsx",
+			"--tsconfig",
+			"apps/cline-hub/tsconfig.json",
+			"--test",
+			"apps/cline-hub/src/server/http.test.ts",
+			"apps/cline-hub/src/server/standalone-readiness.test.ts",
+			"apps/cline-hub/src/server/state-payloads.test.ts",
+			"apps/cline-hub/src/server/cursor-launch.test.ts",
+			"apps/cline-hub/src/server/desktop-commands.background-agent.test.ts",
+		],
+		cwd: repoRoot,
+		category: "standalone-ui",
+	},
+	{
+		label: "Standalone hub typecheck",
+		command: process.execPath,
+		args: ["node_modules/typescript/bin/tsc", "-p", "apps/cline-hub/tsconfig.json", "--noEmit"],
+		cwd: repoRoot,
+		category: "standalone-ui",
+	},
+	{
+		label: "Standalone webview build",
+		command: "npm",
+		args: ["--prefix", "apps/cline-hub/src/webview", "run", "build"],
+		cwd: repoRoot,
+		category: "standalone-ui",
+	},
+]
+
 function usage() {
-	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [--run-retrieval-indexing] [--run-mcp-oauth]
+	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [--run-retrieval-indexing] [--run-mcp-oauth] [--run-standalone-ui]
 
 Generates a local Markdown evidence log for the Cursor-parity release gate.
 
@@ -163,7 +201,8 @@ commands as not run. Use --run-required only in a dependency-equipped checkout
 where npm install, build, test, e2e, package, and VSIX smoke install are expected
 to run. Use --run-retrieval-indexing to execute focused retrieval/indexing
 privacy evidence without running the full dependency/build/e2e gate. Use
---run-mcp-oauth to execute focused Cursor MCP import/install/OAuth evidence.`)
+--run-mcp-oauth to execute focused Cursor MCP import/install/OAuth evidence.
+Use --run-standalone-ui to execute focused standalone UI/readiness evidence.`)
 }
 
 function parseArgs(argv) {
@@ -172,6 +211,7 @@ function parseArgs(argv) {
 		runRequired: false,
 		runRetrievalIndexing: false,
 		runMcpOAuth: false,
+		runStandaloneUi: false,
 	}
 
 	for (let index = 0; index < argv.length; index++) {
@@ -186,10 +226,13 @@ function parseArgs(argv) {
 			options.runRequired = true
 			options.runRetrievalIndexing = true
 			options.runMcpOAuth = true
+			options.runStandaloneUi = true
 		} else if (arg === "--run-retrieval-indexing") {
 			options.runRetrievalIndexing = true
 		} else if (arg === "--run-mcp-oauth") {
 			options.runMcpOAuth = true
+		} else if (arg === "--run-standalone-ui") {
+			options.runStandaloneUi = true
 		} else if (arg === "-h" || arg === "--help") {
 			usage()
 			process.exit(0)
@@ -263,6 +306,13 @@ function skippedRetrievalIndexingCommand(command) {
 function skippedMcpOAuthCommand(command) {
 	return {
 		...skippedCommand(command, "Skipped by default; rerun with --run-mcp-oauth or --run-required."),
+		category: command.category,
+	}
+}
+
+function skippedStandaloneUiCommand(command) {
+	return {
+		...skippedCommand(command, "Skipped by default; rerun with --run-standalone-ui or --run-required."),
 		category: command.category,
 	}
 }
@@ -393,6 +443,25 @@ function renderMcpOAuthEvidence(results) {
 	].join("\n")
 }
 
+function renderStandaloneUiEvidence(results) {
+	const standaloneResults = results.filter((result) => result.category === "standalone-ui")
+	if (standaloneResults.length === 0) {
+		return "_No standalone UI evidence commands were configured._"
+	}
+	const rows = standaloneResults.map(
+		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
+	)
+	return [
+		"| Status | Check | Command |",
+		"| --- | --- | --- |",
+		...rows,
+		"",
+		"Focused evidence covers the VS-Code-free hub UI route surface, standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
+		"",
+		"Readiness endpoint: `GET /api/standalone-readiness` returns redacted capability metadata for CodeVibe standalone mode, Codex Home auth support, Cursor-compatible routes, desktop commands, and settings surfaces.",
+	].join("\n")
+}
+
 function renderPrereqTable(summary) {
 	if (!summary?.checks) {
 		return "_Prerequisite JSON was unavailable._"
@@ -410,7 +479,7 @@ function renderPrereqTable(summary) {
 	].join("\n")
 }
 
-function renderEvidence({ metadata, results, prereqSummary, runRequired, runRetrievalIndexing, runMcpOAuth }) {
+function renderEvidence({ metadata, results, prereqSummary, runRequired, runRetrievalIndexing, runMcpOAuth, runStandaloneUi }) {
 	const generatedAt = new Date().toISOString()
 	return `# CodeVibe Cursor-Parity Evidence
 
@@ -433,6 +502,7 @@ ${fenced(metadata.vsCodeVersion)}
 - Required dependency/build commands executed: ${runRequired ? "yes" : "no"}
 - Focused retrieval/indexing evidence executed: ${runRetrievalIndexing ? "yes" : "no"}
 - Focused MCP install/OAuth evidence executed: ${runMcpOAuth ? "yes" : "no"}
+- Focused standalone UI evidence executed: ${runStandaloneUi ? "yes" : "no"}
 
 ## Preflight Summary
 
@@ -445,6 +515,10 @@ ${renderRetrievalIndexingEvidence(results)}
 ## MCP Install/OAuth Evidence
 
 ${renderMcpOAuthEvidence(results)}
+
+## Standalone UI Evidence
+
+${renderStandaloneUiEvidence(results)}
 
 ## Command Evidence
 
@@ -497,6 +571,7 @@ ${results.map(renderCommandResult).join("\n")}
 
 - Desktop app launches without VS Code:
 - Existing Codex auth state is detected from the configured Codex home:
+- \`GET /api/standalone-readiness\` exposes VS-Code-free readiness metadata:
 - Cursor URI preview and launch work from the standalone settings UI:
 - Browser controls, retrieval/indexing controls, background-agent sessions, MCP import/install, plugin add/replace, rule review, git helpers, and NDJSON ingest are visible and functional:
 - Secret-bearing URL query strings, tokens, headers, and config values are redacted from previews, logs, and UI metadata:
@@ -562,6 +637,18 @@ function main() {
 			results.push(skippedMcpOAuthCommand(command))
 		}
 	}
+	if (options.runStandaloneUi) {
+		for (const command of standaloneUiCommands) {
+			results.push({
+				...runCommand(command),
+				category: command.category,
+			})
+		}
+	} else {
+		for (const command of standaloneUiCommands) {
+			results.push(skippedStandaloneUiCommand(command))
+		}
+	}
 
 	const evidence = renderEvidence({
 		metadata,
@@ -570,6 +657,7 @@ function main() {
 		runRequired: options.runRequired,
 		runRetrievalIndexing: options.runRetrievalIndexing,
 		runMcpOAuth: options.runMcpOAuth,
+		runStandaloneUi: options.runStandaloneUi,
 	})
 
 	fs.mkdirSync(path.dirname(options.outFile), { recursive: true })
@@ -578,7 +666,12 @@ function main() {
 	const failed = results.filter((result) => result.status === "failed").length
 	const skipped = results.filter((result) => result.status === "not run").length
 	console.log(`${failed} failed command(s), ${skipped} not run command(s).`)
-	process.exit(failed === 0 && (skipped === 0 || options.runRetrievalIndexing || options.runMcpOAuth) ? 0 : 1)
+	process.exit(
+		failed === 0 &&
+			(skipped === 0 || options.runRetrievalIndexing || options.runMcpOAuth || options.runStandaloneUi)
+			? 0
+			: 1,
+	)
 }
 
 try {

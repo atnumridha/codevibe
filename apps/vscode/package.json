@@ -133,25 +133,6 @@
 				]
 			}
 		],
-		"viewsContainers": {
-			"activitybar": [
-				{
-					"id": "codevibe-ActivityBar",
-					"title": "CodeVibe",
-					"icon": "assets/icons/icon.svg"
-				}
-			]
-		},
-		"views": {
-			"codevibe-ActivityBar": [
-				{
-					"type": "webview",
-					"id": "codevibe.SidebarProvider",
-					"name": "",
-					"icon": "assets/icons/icon.svg"
-				}
-			]
-		},
 		"commands": [
 			{
 				"command": "codevibe.plusButtonClicked",
@@ -321,33 +302,6 @@
 			}
 		],
 		"menus": {
-			"view/title": [
-				{
-					"command": "codevibe.plusButtonClicked",
-					"group": "navigation@1",
-					"when": "view == codevibe.SidebarProvider"
-				},
-				{
-					"command": "codevibe.mcpButtonClicked",
-					"group": "navigation@2",
-					"when": "view == codevibe.SidebarProvider"
-				},
-				{
-					"command": "codevibe.historyButtonClicked",
-					"group": "navigation@3",
-					"when": "view == codevibe.SidebarProvider"
-				},
-				{
-					"command": "codevibe.accountButtonClicked",
-					"group": "navigation@5",
-					"when": "view == codevibe.SidebarProvider"
-				},
-				{
-					"command": "codevibe.settingsButtonClicked",
-					"group": "navigation@6",
-					"when": "view == codevibe.SidebarProvider"
-				}
-			],
 			"editor/context": [
 				{
 					"command": "codevibe.addToChat",
@@ -530,9 +484,10 @@
 		"release:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight:release": "node scripts/check-local-release-prereqs.mjs --release --github-release",
 		"release:cursor-parity:evidence": "node scripts/collect-cursor-parity-evidence.mjs",
-		"release:cursor-parity:evidence:fast": "node scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth",
+		"release:cursor-parity:evidence:fast": "node scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth --run-standalone-ui",
 		"release:cursor-parity:evidence:retrieval": "node scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing",
 		"release:cursor-parity:evidence:mcp": "node scripts/collect-cursor-parity-evidence.mjs --run-mcp-oauth",
+		"release:cursor-parity:evidence:standalone": "node scripts/collect-cursor-parity-evidence.mjs --run-standalone-ui",
 		"release:cursor-parity:evidence:full": "node scripts/collect-cursor-parity-evidence.mjs --run-required",
 		"package:github-vsix": "node scripts/package-github-vsix.mjs",
 		"package:github-vsix:release": "node scripts/package-github-vsix.mjs --require-release-gate",

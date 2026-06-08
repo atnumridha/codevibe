@@ -70,3 +70,7 @@ export function broadcastHubState(ctx: HubContext): void {
 	ctx.broadcast(hubStatePayload(ctx));
 	ctx.broadcast(webviewSessionsPayload(ctx));
 }
+
+export function broadcastHubStatus(ctx: HubContext): void {
+	ctx.broadcast(hubStatePayload(ctx));
+}

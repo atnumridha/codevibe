@@ -456,7 +456,7 @@ export function ChannelsContent() {
 					<DialogHeader>
 						<DialogTitle>Add Channel</DialogTitle>
 						<DialogDescription>
-							Start a connector channel for Cline Hub.
+							Start a connector channel for CodeVibe Hub.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="grid gap-4 py-2">

@@ -611,14 +611,13 @@ export class SharedUriHandler {
 	public static async handleUri(url: string, options: SharedUriHandlerOptions = {}): Promise<boolean> {
 		const { parsedUrl, path, query } = parseUri(url)
 
-		const isMcpOAuthCallback = MCP_OAUTH_CALLBACK_PATTERN.test(path)
 		let visibleWebview = WebviewProvider.getVisibleInstance()
-		if (!visibleWebview && isMcpOAuthCallback) {
+		if (!visibleWebview) {
 			try {
 				visibleWebview = WebviewProvider.getInstance()
 			} catch {
-				// The extension URI handler opens the sidebar before callbacks. HTTP callback
-				// paths can still arrive during startup, so keep the normal false return.
+				// URI routes can arrive while the extension is still booting. Keep the
+				// normal false return until a controller instance is ready.
 			}
 		}
 

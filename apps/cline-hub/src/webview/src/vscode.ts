@@ -58,20 +58,20 @@ function createBrowserSocket(): WebSocket {
 		} catch {
 			dispatchHostMessage({
 				type: "error",
-				text: "Received an invalid message from the Cline Hub server.",
+				text: "Received an invalid message from the CodeVibe Hub server.",
 			});
 		}
 	});
 	browserSocket.addEventListener("close", () => {
 		dispatchHostMessage({
 			type: "status",
-			text: "Disconnected from the Cline Hub server.",
+			text: "Disconnected from the CodeVibe Hub server.",
 		});
 	});
 	browserSocket.addEventListener("error", () => {
 		dispatchHostMessage({
 			type: "error",
-			text: "Failed to connect to the Cline Hub server.",
+			text: "Failed to connect to the CodeVibe Hub server.",
 		});
 	});
 	return browserSocket;
