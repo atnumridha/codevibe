@@ -55,6 +55,82 @@ function makeSnapshot() {
 	};
 }
 
+function getPlatformCliPackageName(): string {
+	const platform = process.platform === "win32" ? "windows" : process.platform;
+	return `cli-${platform}-${process.arch}`;
+}
+
+async function writeWrapperExecutable(wrapperRoot: string): Promise<string> {
+	const wrapperBinDir = join(wrapperRoot, "bin");
+	const wrapperPath = join(wrapperBinDir, "cline");
+	await mkdir(wrapperBinDir, { recursive: true });
+	await writeFile(wrapperPath, "#!/usr/bin/env node\n", "utf8");
+	return wrapperPath;
+}
+
+async function writeWrapperPlatformPackage(options: {
+	wrapperRoot: string;
+	scope: "codevibe" | "cline";
+	extensionName: string;
+	eventName: string;
+}): Promise<void> {
+	const platformPackageName = getPlatformCliPackageName();
+	const packageName = `@${options.scope}/${platformPackageName}`;
+	const packageRoot = join(
+		options.wrapperRoot,
+		"node_modules",
+		`@${options.scope}`,
+		platformPackageName,
+	);
+	const bootstrapPath = join(
+		packageRoot,
+		"extensions",
+		"plugin-sandbox-bootstrap.js",
+	);
+
+	await mkdir(join(packageRoot, "extensions"), { recursive: true });
+	await writeFile(
+		join(packageRoot, "package.json"),
+		JSON.stringify({
+			name: packageName,
+			version: "0.0.0-test",
+			type: "module",
+		}),
+		"utf8",
+	);
+	await writeFile(
+		bootstrapPath,
+		[
+			"process.on('message', (message) => {",
+			"  if (!message || message.type !== 'call') return;",
+			"  if (message.method !== 'initialize') throw new Error('Unexpected method: ' + message.method);",
+			"  process.send?.({",
+			"    type: 'event',",
+			`    name: ${JSON.stringify(options.eventName)},`,
+			`    payload: { packageName: ${JSON.stringify(packageName)} },`,
+			"  });",
+			"  process.send?.({",
+			"    type: 'response',",
+			"    id: message.id,",
+			"    ok: true,",
+			"    result: {",
+			"      plugins: [{",
+			"        pluginId: 'plugin_1',",
+			`        pluginPath: ${JSON.stringify(`${options.scope}-wrapper-bootstrap`)},`,
+			`        name: ${JSON.stringify(options.extensionName)},`,
+			"        manifest: { capabilities: ['tools'] },",
+			"        contributions: { tools: [], commands: [], messageBuilders: [], providers: [], automationEventTypes: [] },",
+			"      }],",
+			"      failures: [],",
+			"      warnings: [],",
+			"    },",
+			"  });",
+			"});",
+		].join("\n"),
+		"utf8",
+	);
+}
+
 describe("plugin-sandbox", () => {
 	let dir = "";
 	let sharedSandbox:
@@ -497,68 +573,27 @@ describe("plugin-sandbox", () => {
 		]);
 	});
 
-	it("resolves sandbox bootstrap from the npm wrapper platform package", async () => {
+	it("prefers the CodeVibe npm wrapper platform package", async () => {
 		const previousWrapperPath = process.env.CLINE_WRAPPER_PATH;
 		const wrapperRoot = await mkdtemp(
 			join(tmpdir(), "core-plugin-sandbox-wrapper-"),
 		);
-		const platform =
-			process.platform === "win32" ? "windows" : process.platform;
-		const packageRoot = join(
-			wrapperRoot,
-			"node_modules",
-			"@cline",
-			`cli-${platform}-${process.arch}`,
-		);
-		const wrapperBinDir = join(wrapperRoot, "bin");
-		const bootstrapPath = join(
-			packageRoot,
-			"extensions",
-			"plugin-sandbox-bootstrap.js",
-		);
-		const wrapperPath = join(wrapperBinDir, "cline");
 		const events: Array<{ name: string; payload?: unknown }> = [];
 
 		try {
-			await mkdir(join(packageRoot, "extensions"), { recursive: true });
-			await mkdir(wrapperBinDir, { recursive: true });
-			await writeFile(wrapperPath, "#!/usr/bin/env node\n", "utf8");
-			await writeFile(
-				join(packageRoot, "package.json"),
-				JSON.stringify({
-					name: `@cline/cli-${platform}-${process.arch}`,
-					version: "0.0.0-test",
-					type: "module",
-				}),
-				"utf8",
-			);
-			await writeFile(
-				bootstrapPath,
-				[
-					"process.on('message', (message) => {",
-					"  if (!message || message.type !== 'call') return;",
-					"  if (message.method !== 'initialize') throw new Error('Unexpected method: ' + message.method);",
-					"  process.send?.({ type: 'event', name: 'wrapper_bootstrap_selected', payload: { ok: true } });",
-					"  process.send?.({",
-					"    type: 'response',",
-					"    id: message.id,",
-					"    ok: true,",
-					"    result: {",
-					"      plugins: [{",
-					"        pluginId: 'plugin_1',",
-					"        pluginPath: 'wrapper-bootstrap',",
-					"        name: 'wrapper-bootstrap',",
-					"        manifest: { capabilities: ['tools'] },",
-					"        contributions: { tools: [], commands: [], messageBuilders: [], providers: [], automationEventTypes: [] },",
-					"      }],",
-					"      failures: [],",
-					"      warnings: [],",
-					"    },",
-					"  });",
-					"});",
-				].join("\n"),
-				"utf8",
-			);
+			const wrapperPath = await writeWrapperExecutable(wrapperRoot);
+			await writeWrapperPlatformPackage({
+				wrapperRoot,
+				scope: "cline",
+				extensionName: "cline-wrapper-bootstrap",
+				eventName: "cline_wrapper_bootstrap_selected",
+			});
+			await writeWrapperPlatformPackage({
+				wrapperRoot,
+				scope: "codevibe",
+				extensionName: "codevibe-wrapper-bootstrap",
+				eventName: "codevibe_wrapper_bootstrap_selected",
+			});
 
 			process.env.CLINE_WRAPPER_PATH = wrapperPath;
 			vi.resetModules();
@@ -572,10 +607,67 @@ describe("plugin-sandbox", () => {
 			try {
 				expect(
 					sandboxed.extensions?.map((extension) => extension.name),
-				).toEqual(["wrapper-bootstrap"]);
+				).toEqual(["codevibe-wrapper-bootstrap"]);
 				expect(events).toContainEqual({
-					name: "wrapper_bootstrap_selected",
-					payload: { ok: true },
+					name: "codevibe_wrapper_bootstrap_selected",
+					payload: {
+						packageName: `@codevibe/${getPlatformCliPackageName()}`,
+					},
+				});
+				expect(events).not.toContainEqual({
+					name: "cline_wrapper_bootstrap_selected",
+					payload: {
+						packageName: `@cline/${getPlatformCliPackageName()}`,
+					},
+				});
+			} finally {
+				await sandboxed.shutdown();
+			}
+		} finally {
+			if (previousWrapperPath === undefined) {
+				delete process.env.CLINE_WRAPPER_PATH;
+			} else {
+				process.env.CLINE_WRAPPER_PATH = previousWrapperPath;
+			}
+			vi.resetModules();
+			await rm(wrapperRoot, { recursive: true, force: true });
+		}
+	});
+
+	it("falls back to the Cline npm wrapper platform package", async () => {
+		const previousWrapperPath = process.env.CLINE_WRAPPER_PATH;
+		const wrapperRoot = await mkdtemp(
+			join(tmpdir(), "core-plugin-sandbox-wrapper-"),
+		);
+		const events: Array<{ name: string; payload?: unknown }> = [];
+
+		try {
+			const wrapperPath = await writeWrapperExecutable(wrapperRoot);
+			await writeWrapperPlatformPackage({
+				wrapperRoot,
+				scope: "cline",
+				extensionName: "cline-wrapper-bootstrap",
+				eventName: "cline_wrapper_bootstrap_selected",
+			});
+
+			process.env.CLINE_WRAPPER_PATH = wrapperPath;
+			vi.resetModules();
+			const { loadSandboxedPlugins: loadSandboxedPluginsFromWrapper } =
+				await import("./plugin-sandbox");
+			const sandboxed = await loadSandboxedPluginsFromWrapper({
+				pluginPaths: [join(wrapperRoot, "unused-plugin.mjs")],
+				onEvent: (event) => events.push(event),
+			});
+
+			try {
+				expect(
+					sandboxed.extensions?.map((extension) => extension.name),
+				).toEqual(["cline-wrapper-bootstrap"]);
+				expect(events).toContainEqual({
+					name: "cline_wrapper_bootstrap_selected",
+					payload: {
+						packageName: `@cline/${getPlatformCliPackageName()}`,
+					},
 				});
 			} finally {
 				await sandboxed.shutdown();

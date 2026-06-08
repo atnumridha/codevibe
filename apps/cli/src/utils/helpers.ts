@@ -6,6 +6,7 @@ import { type HookEventPayload, parseHookEventPayload } from "@cline/shared";
 import { ensureHookLogDir } from "@cline/shared/storage";
 import { nanoid } from "nanoid";
 import { commanderToParsedArgs, createProgram } from "../commands/program";
+import { installCodeVibeEnvAliases } from "./codevibe-env";
 import type { ParsedArgs } from "./types";
 
 export function sanitizeSessionToken(value: string): string {
@@ -530,10 +531,20 @@ export function resolveSandboxDataDir(
 	cwd: string,
 	explicitDir?: string,
 ): string {
-	const envDir = process.env.CLINE_SANDBOX_DATA_DIR?.trim();
+	const envDir =
+		process.env.CODEVIBE_SANDBOX_DATA_DIR?.trim() ||
+		process.env.CLINE_SANDBOX_DATA_DIR?.trim();
 	const baseDir =
-		explicitDir?.trim() || envDir || join(tmpdir(), "cline-sandbox");
+		explicitDir?.trim() || envDir || join(tmpdir(), "codevibe-sandbox");
 	return resolve(cwd, baseDir);
+}
+
+export function isSandboxEnvironmentEnabled(
+	env: NodeJS.ProcessEnv = process.env,
+): boolean {
+	return (
+		env.CODEVIBE_SANDBOX?.trim() === "1" || env.CLINE_SANDBOX?.trim() === "1"
+	);
 }
 
 export function configureSandboxEnvironment(options: {
@@ -545,6 +556,19 @@ export function configureSandboxEnvironment(options: {
 		return undefined;
 	}
 	const dataDir = resolveSandboxDataDir(options.cwd, options.explicitDir);
+	process.env.CODEVIBE_SANDBOX = "1";
+	process.env.CODEVIBE_SANDBOX_DATA_DIR = dataDir;
+	process.env.CODEVIBE_DATA_DIR = dataDir;
+	process.env.CODEVIBE_DB_DATA_DIR = join(dataDir, "db");
+	process.env.CODEVIBE_SESSION_DATA_DIR = join(dataDir, "sessions");
+	process.env.CODEVIBE_TEAM_DATA_DIR = join(dataDir, "teams");
+	process.env.CODEVIBE_PROVIDER_SETTINGS_PATH = join(
+		dataDir,
+		"settings",
+		"providers.json",
+	);
+	process.env.CODEVIBE_HOOKS_LOG_PATH = join(dataDir, "logs", "hooks.jsonl");
+	installCodeVibeEnvAliases();
 	process.env.CLINE_SANDBOX = "1";
 	process.env.CLINE_SANDBOX_DATA_DIR = dataDir;
 	process.env.CLINE_DATA_DIR = dataDir;

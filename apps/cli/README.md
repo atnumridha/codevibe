@@ -119,6 +119,7 @@ codevibe schedule import ./daily-review.yaml
 Use `CODEVIBE_*` names for new scripts. The CLI mirrors these into legacy `CLINE_*` names at startup for SDK compatibility, and legacy names are still accepted.
 
 - `CODEVIBE_DATA_DIR`
+- `CODEVIBE_DIR`
 - `CODEVIBE_PROVIDER`, `CODEVIBE_MODEL`, `CODEVIBE_API_KEY`
 - `CODEVIBE_LOG_ENABLED`, `CODEVIBE_LOG_LEVEL`, `CODEVIBE_LOG_PATH`, `CODEVIBE_LOG_NAME`
 - `CODEVIBE_SANDBOX`, `CODEVIBE_SANDBOX_DATA_DIR`

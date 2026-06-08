@@ -8,21 +8,41 @@ import { ExtensionRegistryInfo } from "@/registry"
 import { log } from "./utils"
 import { EnvironmentVariableCollection, MementoStore, readJson, SecretStore } from "./vscode-context-utils"
 
-log("Running standalone cline", ExtensionRegistryInfo.version)
-log(`CLINE_ENVIRONMENT: ${process.env.CLINE_ENVIRONMENT}`)
+log("Running standalone CodeVibe", ExtensionRegistryInfo.version)
+log(`CODEVIBE_ENVIRONMENT: ${process.env.CODEVIBE_ENVIRONMENT || process.env.CLINE_ENVIRONMENT}`)
 
 // WE WILL HAVE TO MIGRATE THIS FROM DATA TO v1 LATER
 const SETTINGS_SUBFOLDER = "data"
 
-export function initializeContext(clineDir?: string) {
-	const CLINE_DIR = clineDir || process.env.CLINE_DIR || `${os.homedir()}/.cline`
-	const DATA_DIR = path.join(CLINE_DIR, SETTINGS_SUBFOLDER)
+function expandHomeDir(dir: string): string {
+	if (dir === "~") {
+		return os.homedir()
+	}
+	if (dir.startsWith("~/")) {
+		return path.join(os.homedir(), dir.slice(2))
+	}
+	return dir
+}
+
+export function resolveCodeVibeDir(configDir?: string) {
+	const configuredDir =
+		configDir || process.env.CODEVIBE_DIR || process.env.CLINE_DIR || path.join(os.homedir(), ".codevibe")
+	return path.resolve(expandHomeDir(configuredDir))
+}
+
+export function initializeContext(configDir?: string) {
+	const CODEVIBE_DIR = resolveCodeVibeDir(configDir)
+	process.env.CODEVIBE_DIR = CODEVIBE_DIR
+	process.env.CLINE_DIR = CODEVIBE_DIR
+
+	const DATA_DIR = path.join(CODEVIBE_DIR, SETTINGS_SUBFOLDER)
 	const INSTALL_DIR = process.env.INSTALL_DIR || __dirname
 	const WORKSPACE_STORAGE_DIR = process.env.WORKSPACE_STORAGE_DIR || path.join(DATA_DIR, "workspace")
 
 	mkdirSync(DATA_DIR, { recursive: true })
 	mkdirSync(WORKSPACE_STORAGE_DIR, { recursive: true })
-	log("Using settings dir:", DATA_DIR)
+	log("Using CodeVibe storage dir:", CODEVIBE_DIR)
+	log("Using CodeVibe settings dir:", DATA_DIR)
 
 	const EXTENSION_DIR = path.join(INSTALL_DIR, "extension")
 	const EXTENSION_MODE = process.env.IS_DEV === "true" ? ExtensionMode.Development : ExtensionMode.Production
@@ -72,6 +92,7 @@ export function initializeContext(clineDir?: string) {
 
 	return {
 		extensionContext,
+		CODEVIBE_DIR,
 		DATA_DIR,
 		EXTENSION_DIR,
 	}

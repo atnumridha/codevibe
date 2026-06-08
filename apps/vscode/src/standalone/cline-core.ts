@@ -23,7 +23,7 @@ import { initializeContext } from "./vscode-context"
 let globalLockManager: SqliteLockManager | undefined
 
 async function main() {
-	log("\n\n\nStarting cline-core service...\n\n\n")
+	log("\n\n\nStarting CodeVibe core service...\n\n\n")
 	log(`Environment variables: ${JSON.stringify(process.env)}`)
 
 	// Parse command line arguments
@@ -44,7 +44,7 @@ async function main() {
 	log(`Heap snapshots (if triggered near OOM) will be written to: ${process.cwd()}`)
 
 	// Initialize context with optional custom directory from CLI
-	const { extensionContext, DATA_DIR, EXTENSION_DIR } = initializeContext(args.config)
+	const { extensionContext, CODEVIBE_DIR, DATA_DIR, EXTENSION_DIR } = initializeContext(args.config)
 
 	// Configure ports - CLI args override everything
 	if (args.port) {
@@ -67,8 +67,8 @@ async function main() {
 		// The host bridge should be available before creating the host provider because it depends on the host bridge.
 		setupHostProvider(extensionContext, EXTENSION_DIR, DATA_DIR)
 
-		// Create shared file-backed storage
-		const storageContext = createStorageContext()
+		// Create shared file-backed storage.
+		const storageContext = createStorageContext({ clineDir: CODEVIBE_DIR })
 		const webviewProvider = await initialize(storageContext)
 
 		// Enable the localhost HTTP server that handles auth redirects.
@@ -316,19 +316,21 @@ function parseArgs(): CliArgs {
 
 function showHelp() {
 	Logger.log(`
-Cline Core - Standalone Server
+CodeVibe Core - Standalone Server
 
 Usage: node cline-core.js [options]
 
 Options:
   -p, --port <port>              Port for the main gRPC service (default: ${PROTOBUS_PORT})
   --host-bridge-port <port>      Port for the host bridge service (default: ${HOSTBRIDGE_PORT})
-  -c, --config <path>            Directory for Cline data storage (default: ~/.cline)
+  -c, --config <path>            Directory for CodeVibe data storage (default: ~/.codevibe)
   -h, --help                     Show this help message
 
 Environment Variables:
   PROTOBUS_ADDRESS              Override the main service address (format: host:port)
   HOST_BRIDGE_ADDRESS            Override the host bridge address (format: host:port)
+  CODEVIBE_DIR                   Directory for CodeVibe data storage
+  CLINE_DIR                      Legacy storage directory override, mirrored for SDK compatibility
 `)
 }
 

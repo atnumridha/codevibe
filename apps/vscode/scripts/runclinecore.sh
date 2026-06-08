@@ -1,27 +1,38 @@
 #!/usr/bin/env bash
 set -eu #x
 
-# This installs the cline-core app to the user's home directory,
+# This installs the CodeVibe standalone core app to the user's home directory,
 # and starts the service.
 
 if [[ "${1:-}" == "-h" ]]; then
     ./scripts/test-hostbridge-server.ts &
 fi
 
-CORE_DIR=~/.cline/core
-INSTALL_DIR=$CORE_DIR/dev-instance/
-LOG_FILE=~/.cline/cline-core-service.log
+CODEVIBE_HOME="${CODEVIBE_DIR:-${CLINE_DIR:-$HOME/.codevibe}}"
+if [[ "$CODEVIBE_HOME" == "~" ]]; then
+    CODEVIBE_HOME="$HOME"
+elif [[ "$CODEVIBE_HOME" == "~/"* ]]; then
+    CODEVIBE_HOME="$HOME/${CODEVIBE_HOME:2}"
+fi
+mkdir -p "$CODEVIBE_HOME"
+CODEVIBE_HOME="$(cd "$CODEVIBE_HOME" && pwd)"
+export CODEVIBE_DIR="$CODEVIBE_HOME"
+export CLINE_DIR="$CODEVIBE_HOME"
+
+CORE_DIR="$CODEVIBE_HOME/core"
+INSTALL_DIR="$CORE_DIR/dev-instance"
+LOG_FILE="$CODEVIBE_HOME/codevibe-core-service.log"
 
 ZIP_FILE=standalone.zip
 ZIP=dist-standalone/${ZIP_FILE}
 
 # Remove old unpacked versions to force reinstall
-rm -rf $CORE_DIR/* || true
+rm -rf "$CORE_DIR"/* || true
 
-mkdir -p $INSTALL_DIR
-cp $ZIP $INSTALL_DIR
-cd $INSTALL_DIR
-unp $ZIP_FILE > /dev/null
+mkdir -p "$INSTALL_DIR"
+cp "$ZIP" "$INSTALL_DIR"
+cd "$INSTALL_DIR"
+unp "$ZIP_FILE" > /dev/null
 
 pkill -f cline-core.js || true
 
@@ -45,6 +56,6 @@ fi
 
 BINARY_MODULES_DIR="./binaries/$PLATFORM_NAME/node_modules"
 
-echo pwd: $(pwd)
+echo "CodeVibe standalone install dir: $(pwd)"
 set -x
-NODE_PATH=$BINARY_MODULES_DIR:./node_modules DEV_WORKSPACE_FOLDER=/tmp/ node --max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE:-8192} --heapsnapshot-near-heap-limit=1 cline-core.js 2>&1 | tee $LOG_FILE
+NODE_PATH=$BINARY_MODULES_DIR:./node_modules DEV_WORKSPACE_FOLDER=/tmp/ node --max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE:-8192} --heapsnapshot-near-heap-limit=1 cline-core.js 2>&1 | tee "$LOG_FILE"

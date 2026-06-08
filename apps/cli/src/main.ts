@@ -21,9 +21,14 @@ import {
 } from "./utils/compaction-mode";
 import {
 	configureSandboxEnvironment,
+	isSandboxEnvironmentEnabled,
 	normalizeAutoApproveArgs,
 	resolveWorkspaceRoot,
 } from "./utils/helpers";
+import {
+	resolveCodeVibeDir,
+	setCodeVibeDirEnvironment,
+} from "./utils/codevibe-env";
 import {
 	c,
 	installStreamErrorGuards,
@@ -116,9 +121,9 @@ export async function runCli(): Promise<void> {
 	const cliArgs = process.argv.slice(2);
 	const configDir = resolveConfigDirArg(cliArgs);
 	const { setClineDir, setHomeDir } = await import("@cline/shared/storage");
-	if (configDir) {
-		setClineDir(configDir);
-	}
+	const selectedConfigDir = configDir ?? resolveCodeVibeDir();
+	setCodeVibeDirEnvironment(selectedConfigDir);
+	setClineDir(selectedConfigDir);
 	setHomeDir(homedir());
 
 	// Capture activation telemetry only after config/home directory selection
@@ -180,12 +185,14 @@ export async function runCli(): Promise<void> {
 			// settings manager is constructed against ~/.cline.
 			if (opts.config?.trim()) {
 				const { setClineDir } = await import("@cline/shared/storage");
-				setClineDir(opts.config.trim());
+				const configDir = opts.config.trim();
+				setCodeVibeDirEnvironment(configDir);
+				setClineDir(configDir);
 			}
 			// Honor --data-dir before constructing the provider settings manager
 			// so writes land under the chosen data dir instead of ~/.cline.
 			configureSandboxEnvironment({
-				enabled: !!opts.dataDir || process.env.CLINE_SANDBOX?.trim() === "1",
+				enabled: !!opts.dataDir || isSandboxEnvironmentEnabled(),
 				cwd: opts.cwd ?? process.cwd(),
 				explicitDir: opts.dataDir,
 			});
@@ -388,11 +395,16 @@ export async function runCli(): Promise<void> {
 
 	const mcpImportCursorCmd = mcpCmd
 		.command("import-cursor")
-		.description("Preview or import MCP servers from workspace .cursor/mcp.json")
+		.description(
+			"Preview or import MCP servers from workspace .cursor/mcp.json",
+		)
 		.option("--yes", "Write the Cursor MCP servers to native MCP settings")
 		.option("--json", "Output the import result as JSON")
 		.option("--global", "Import MCP servers from ~/.cursor/mcp.json")
-		.option("-c, --cwd <path>", "Workspace directory containing .cursor/mcp.json")
+		.option(
+			"-c, --cwd <path>",
+			"Workspace directory containing .cursor/mcp.json",
+		)
 		.action(async () => {
 			const opts = mcpImportCursorCmd.opts<{
 				yes?: boolean;
@@ -423,10 +435,21 @@ export async function runCli(): Promise<void> {
 		.argument("<uri>", "Cursor-compatible URI")
 		.option("--yes", "Apply supported deeplink changes after previewing")
 		.option("--json", "Output the dispatch result as JSON")
-		.option("-c, --cwd <path>", "Workspace directory for file-producing deeplinks")
-		.option("--worktree", "For confirmed background-agent deeplinks, create an isolated worktree before queuing")
+		.option(
+			"-c, --cwd <path>",
+			"Workspace directory for file-producing deeplinks",
+		)
+		.option(
+			"--worktree",
+			"For confirmed background-agent deeplinks, create an isolated worktree before queuing",
+		)
 		.action(async (uri: string) => {
-			const opts = uriCmd.opts<{ yes?: boolean; json?: boolean; cwd?: string; worktree?: boolean }>();
+			const opts = uriCmd.opts<{
+				yes?: boolean;
+				json?: boolean;
+				cwd?: string;
+				worktree?: boolean;
+			}>();
 			const rootOpts = program.opts<{
 				cwd?: string;
 				provider?: string;
@@ -882,10 +905,8 @@ export async function runCli(): Promise<void> {
 	const cwd = args.cwd ?? process.cwd();
 	const workspaceRoot = resolveWorkspaceRoot(cwd);
 	// Sandbox mode is enabled implicitly whenever --data-dir is provided, or
-	// when CLINE_SANDBOX=1 is set in the environment (in which case the data
-	// dir falls back to $CLINE_SANDBOX_DATA_DIR or /tmp/cline-sandbox).
-	const sandboxEnabled =
-		!!args.dataDir || process.env.CLINE_SANDBOX?.trim() === "1";
+	// when CODEVIBE_SANDBOX=1 or legacy CLINE_SANDBOX=1 is set.
+	const sandboxEnabled = !!args.dataDir || isSandboxEnvironmentEnabled();
 	const sandboxDataDir = configureSandboxEnvironment({
 		enabled: sandboxEnabled,
 		cwd,

@@ -44,7 +44,7 @@ export const MAIN_MENU: MenuOption[] = [
 		icon: "\u2726",
 	},
 	{
-		label: "Sign in with Cline",
+		label: "Sign in with CodeVibe",
 		value: "cline",
 		detail: "Latest models with regular free promos",
 		icon: "\u263a",
@@ -146,7 +146,7 @@ export function toModelEntriesFromKnownModels(
 
 export function getOAuthProviderLabel(providerId: string): string {
 	if (providerId === "cline") {
-		return "Cline";
+		return "CodeVibe";
 	}
 	if (providerId === "openai-codex") {
 		return "ChatGPT";

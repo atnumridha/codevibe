@@ -48,7 +48,7 @@ const LOADED_ACTIONS: AccountAction[] = [
 	{
 		id: "change-model",
 		label: "Change model",
-		description: "Open the Cline model selector",
+		description: "Open the CodeVibe model selector",
 		enabled: true,
 	},
 	{
@@ -69,13 +69,13 @@ const UNAUTHENTICATED_ACTIONS: AccountAction[] = [
 	{
 		id: "login",
 		label: "Sign in or create account",
-		description: "Use Cline OAuth",
+		description: "Use CodeVibe OAuth",
 		enabled: true,
 	},
 	{
 		id: "learn-more",
 		label: "Learn more",
-		description: "Open cline.bot",
+		description: "Open CodeVibe on GitHub",
 		enabled: true,
 	},
 ];

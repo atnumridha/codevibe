@@ -7,12 +7,18 @@ import {
 	configureSandboxEnvironment,
 	formatToolInput,
 	formatToolOutput,
+	isSandboxEnvironmentEnabled,
 	isCliHookPayload,
 	normalizeAutoApproveArgs,
 	parseArgs,
+	resolveSandboxDataDir,
 } from "./helpers";
 
 type EnvSnapshot = {
+	CODEVIBE_DATA_DIR: string | undefined;
+	CODEVIBE_DB_DATA_DIR: string | undefined;
+	CODEVIBE_HOOKS_LOG_PATH: string | undefined;
+	CODEVIBE_SESSION_DATA_DIR: string | undefined;
 	CLINE_DATA_DIR: string | undefined;
 	CLINE_DB_DATA_DIR: string | undefined;
 	CLINE_HOOKS_LOG_PATH: string | undefined;
@@ -22,6 +28,10 @@ type EnvSnapshot = {
 
 function captureEnv(): EnvSnapshot {
 	return {
+		CODEVIBE_DATA_DIR: process.env.CODEVIBE_DATA_DIR,
+		CODEVIBE_DB_DATA_DIR: process.env.CODEVIBE_DB_DATA_DIR,
+		CODEVIBE_HOOKS_LOG_PATH: process.env.CODEVIBE_HOOKS_LOG_PATH,
+		CODEVIBE_SESSION_DATA_DIR: process.env.CODEVIBE_SESSION_DATA_DIR,
 		CLINE_DATA_DIR: process.env.CLINE_DATA_DIR,
 		CLINE_DB_DATA_DIR: process.env.CLINE_DB_DATA_DIR,
 		CLINE_HOOKS_LOG_PATH: process.env.CLINE_HOOKS_LOG_PATH,
@@ -31,6 +41,10 @@ function captureEnv(): EnvSnapshot {
 }
 
 function restoreEnv(snapshot: EnvSnapshot): void {
+	process.env.CODEVIBE_DATA_DIR = snapshot.CODEVIBE_DATA_DIR;
+	process.env.CODEVIBE_DB_DATA_DIR = snapshot.CODEVIBE_DB_DATA_DIR;
+	process.env.CODEVIBE_HOOKS_LOG_PATH = snapshot.CODEVIBE_HOOKS_LOG_PATH;
+	process.env.CODEVIBE_SESSION_DATA_DIR = snapshot.CODEVIBE_SESSION_DATA_DIR;
 	process.env.CLINE_DATA_DIR = snapshot.CLINE_DATA_DIR;
 	process.env.CLINE_DB_DATA_DIR = snapshot.CLINE_DB_DATA_DIR;
 	process.env.CLINE_HOOKS_LOG_PATH = snapshot.CLINE_HOOKS_LOG_PATH;
@@ -474,6 +488,15 @@ describe("sandbox environment", () => {
 	it("sets sandbox-specific storage paths", () => {
 		const root = mkdtempSync(path.join(os.tmpdir(), "cli-helper-sandbox-"));
 		const previous = {
+			CODEVIBE_SANDBOX: process.env.CODEVIBE_SANDBOX,
+			CODEVIBE_SANDBOX_DATA_DIR: process.env.CODEVIBE_SANDBOX_DATA_DIR,
+			CODEVIBE_DATA_DIR: process.env.CODEVIBE_DATA_DIR,
+			CODEVIBE_DB_DATA_DIR: process.env.CODEVIBE_DB_DATA_DIR,
+			CODEVIBE_SESSION_DATA_DIR: process.env.CODEVIBE_SESSION_DATA_DIR,
+			CODEVIBE_TEAM_DATA_DIR: process.env.CODEVIBE_TEAM_DATA_DIR,
+			CODEVIBE_PROVIDER_SETTINGS_PATH:
+				process.env.CODEVIBE_PROVIDER_SETTINGS_PATH,
+			CODEVIBE_HOOKS_LOG_PATH: process.env.CODEVIBE_HOOKS_LOG_PATH,
 			CLINE_SANDBOX: process.env.CLINE_SANDBOX,
 			CLINE_SANDBOX_DATA_DIR: process.env.CLINE_SANDBOX_DATA_DIR,
 			CLINE_DATA_DIR: process.env.CLINE_DATA_DIR,
@@ -490,6 +513,28 @@ describe("sandbox environment", () => {
 				explicitDir: "./sandbox-state",
 			});
 			expect(resolved).toBe(path.join(root, "sandbox-state"));
+			expect(process.env.CODEVIBE_SANDBOX).toBe("1");
+			expect(process.env.CODEVIBE_SANDBOX_DATA_DIR).toBe(
+				path.join(root, "sandbox-state"),
+			);
+			expect(process.env.CODEVIBE_DATA_DIR).toBe(
+				path.join(root, "sandbox-state"),
+			);
+			expect(process.env.CODEVIBE_DB_DATA_DIR).toBe(
+				path.join(root, "sandbox-state", "db"),
+			);
+			expect(process.env.CODEVIBE_SESSION_DATA_DIR).toBe(
+				path.join(root, "sandbox-state", "sessions"),
+			);
+			expect(process.env.CODEVIBE_TEAM_DATA_DIR).toBe(
+				path.join(root, "sandbox-state", "teams"),
+			);
+			expect(process.env.CODEVIBE_PROVIDER_SETTINGS_PATH).toBe(
+				path.join(root, "sandbox-state", "settings", "providers.json"),
+			);
+			expect(process.env.CODEVIBE_HOOKS_LOG_PATH).toBe(
+				path.join(root, "sandbox-state", "logs", "hooks.jsonl"),
+			);
 			expect(process.env.CLINE_SANDBOX).toBe("1");
 			expect(process.env.CLINE_SANDBOX_DATA_DIR).toBe(
 				path.join(root, "sandbox-state"),
@@ -511,6 +556,17 @@ describe("sandbox environment", () => {
 				path.join(root, "sandbox-state", "logs", "hooks.jsonl"),
 			);
 		} finally {
+			process.env.CODEVIBE_SANDBOX = previous.CODEVIBE_SANDBOX;
+			process.env.CODEVIBE_SANDBOX_DATA_DIR =
+				previous.CODEVIBE_SANDBOX_DATA_DIR;
+			process.env.CODEVIBE_DATA_DIR = previous.CODEVIBE_DATA_DIR;
+			process.env.CODEVIBE_DB_DATA_DIR = previous.CODEVIBE_DB_DATA_DIR;
+			process.env.CODEVIBE_SESSION_DATA_DIR =
+				previous.CODEVIBE_SESSION_DATA_DIR;
+			process.env.CODEVIBE_TEAM_DATA_DIR = previous.CODEVIBE_TEAM_DATA_DIR;
+			process.env.CODEVIBE_PROVIDER_SETTINGS_PATH =
+				previous.CODEVIBE_PROVIDER_SETTINGS_PATH;
+			process.env.CODEVIBE_HOOKS_LOG_PATH = previous.CODEVIBE_HOOKS_LOG_PATH;
 			process.env.CLINE_SANDBOX = previous.CLINE_SANDBOX;
 			process.env.CLINE_SANDBOX_DATA_DIR = previous.CLINE_SANDBOX_DATA_DIR;
 			process.env.CLINE_DATA_DIR = previous.CLINE_DATA_DIR;
@@ -522,5 +578,38 @@ describe("sandbox environment", () => {
 			process.env.CLINE_HOOKS_LOG_PATH = previous.CLINE_HOOKS_LOG_PATH;
 			rmSync(root, { recursive: true, force: true });
 		}
+	});
+
+	it("prefers CODEVIBE_SANDBOX_DATA_DIR over legacy CLINE_SANDBOX_DATA_DIR", () => {
+		const root = mkdtempSync(path.join(os.tmpdir(), "cli-helper-sandbox-env-"));
+		const previous = {
+			CODEVIBE_SANDBOX_DATA_DIR: process.env.CODEVIBE_SANDBOX_DATA_DIR,
+			CLINE_SANDBOX_DATA_DIR: process.env.CLINE_SANDBOX_DATA_DIR,
+		};
+		try {
+			process.env.CODEVIBE_SANDBOX_DATA_DIR = "./codevibe-state";
+			process.env.CLINE_SANDBOX_DATA_DIR = "./legacy-state";
+
+			expect(resolveSandboxDataDir(root)).toBe(
+				path.join(root, "codevibe-state"),
+			);
+		} finally {
+			process.env.CODEVIBE_SANDBOX_DATA_DIR =
+				previous.CODEVIBE_SANDBOX_DATA_DIR;
+			process.env.CLINE_SANDBOX_DATA_DIR = previous.CLINE_SANDBOX_DATA_DIR;
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
+	it("enables sandbox from CodeVibe or legacy sandbox flags", () => {
+		expect(isSandboxEnvironmentEnabled({ CODEVIBE_SANDBOX: "1" })).toBe(true);
+		expect(isSandboxEnvironmentEnabled({ CLINE_SANDBOX: "1" })).toBe(true);
+		expect(
+			isSandboxEnvironmentEnabled({
+				CODEVIBE_SANDBOX: "0",
+				CLINE_SANDBOX: "1",
+			}),
+		).toBe(true);
+		expect(isSandboxEnvironmentEnabled({ CODEVIBE_SANDBOX: "0" })).toBe(false);
 	});
 });

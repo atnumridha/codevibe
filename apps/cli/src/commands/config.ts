@@ -18,6 +18,7 @@ import {
 import { Command } from "commander";
 import { getToolCatalog } from "../runtime/tools";
 import { loadInteractiveConfigData } from "../tui/interactive-config";
+import { resolveCodeVibeDir } from "../utils/codevibe-env";
 import type { CliOutputMode } from "../utils/types";
 
 type ConfigIo = {
@@ -26,7 +27,7 @@ type ConfigIo = {
 };
 
 function resolveCliAgentConfigSearchPaths(cwd: string): string[] {
-	const clineDir = process.env.CLINE_DIR?.trim() || join(homedir(), ".cline");
+	const clineDir = resolveCodeVibeDir(process.env, homedir());
 	return [join(cwd, ".cline", "agents"), join(clineDir, "agents")];
 }
 

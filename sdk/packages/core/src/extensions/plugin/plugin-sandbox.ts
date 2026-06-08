@@ -128,9 +128,10 @@ function isUnknownPluginIdError(error: unknown): boolean {
 	return message.includes("Unknown sandbox plugin id:");
 }
 
-function getPlatformPackageName(): string {
+function getPlatformPackageNames(): string[] {
 	const platform = process.platform === "win32" ? "windows" : process.platform;
-	return `@cline/cli-${platform}-${process.arch}`;
+	const platformPackage = `cli-${platform}-${process.arch}`;
+	return [`@codevibe/${platformPackage}`, `@cline/${platformPackage}`];
 }
 
 function resolveBootstrapFromWrapper(): string | undefined {
@@ -140,15 +141,24 @@ function resolveBootstrapFromWrapper(): string | undefined {
 	}
 	try {
 		const requireFromWrapper = createRequire(wrapperPath);
-		const packageJsonPath = requireFromWrapper.resolve(
-			`${getPlatformPackageName()}/package.json`,
-		);
-		const candidate = join(
-			dirname(packageJsonPath),
-			"extensions",
-			"plugin-sandbox-bootstrap.js",
-		);
-		return existsSync(candidate) ? candidate : undefined;
+		for (const packageName of getPlatformPackageNames()) {
+			try {
+				const packageJsonPath = requireFromWrapper.resolve(
+					`${packageName}/package.json`,
+				);
+				const candidate = join(
+					dirname(packageJsonPath),
+					"extensions",
+					"plugin-sandbox-bootstrap.js",
+				);
+				if (existsSync(candidate)) {
+					return candidate;
+				}
+			} catch {
+				// Try the next platform package candidate.
+			}
+		}
+		return undefined;
 	} catch {
 		return undefined;
 	}
