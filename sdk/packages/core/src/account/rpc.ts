@@ -70,7 +70,7 @@ export async function executeClineAccountAction(
 		default: {
 			const exhaustive: never = request;
 			throw new Error(
-				`Unsupported Cline account operation: ${String(exhaustive)}`,
+				`Unsupported CodeVibe account operation: ${String(exhaustive)}`,
 			);
 		}
 	}

@@ -1,10 +1,10 @@
 {
 	"name": "@cline/sdk",
-	"description": "Cline SDK - user-facing alias for @cline/core",
+	"description": "CodeVibe SDK - user-facing alias for the core runtime",
 	"version": "0.0.43",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/cline/cline",
+		"url": "https://github.com/atnumridha/codevibe",
 		"directory": "sdk/packages/sdk"
 	},
 	"type": "module",

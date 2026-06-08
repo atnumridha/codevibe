@@ -40,10 +40,10 @@ function formatClineAccountRequestFailure(
 	const body = bodyText.trim();
 	if (body) {
 		const preview = body.length > 200 ? `${body.slice(0, 200)}...` : body;
-		return `Cline account request failed with status ${status}: ${preview}`;
+		return `CodeVibe account request failed with status ${status}: ${preview}`;
 	}
 
-	return `Cline account request failed with status ${status}`;
+	return `CodeVibe account request failed with status ${status}`;
 }
 
 export interface ClineAccountServiceOptions {
@@ -258,7 +258,7 @@ export class ClineAccountService {
 	): Promise<T> {
 		const token = (await this.getAuthTokenFn())?.trim();
 		if (!token) {
-			throw new Error("No Cline account auth token found");
+			throw new Error("No CodeVibe account auth token found");
 		}
 
 		const extraHeaders = this.getHeadersFn ? await this.getHeadersFn() : {};
@@ -284,7 +284,7 @@ export class ClineAccountService {
 			if (response.status === 204 || input?.expectNoContent) {
 				if (!response.ok) {
 					throw new Error(
-						`Cline account request failed with status ${response.status}`,
+						`CodeVibe account request failed with status ${response.status}`,
 					);
 				}
 				return undefined as T;
@@ -305,7 +305,7 @@ export class ClineAccountService {
 							),
 						);
 					}
-					throw new Error("Cline account response was not valid JSON");
+					throw new Error("CodeVibe account response was not valid JSON");
 				}
 			}
 
@@ -319,7 +319,9 @@ export class ClineAccountService {
 				const envelope = parsed as ClineApiEnvelope<T>;
 				if (typeof envelope.success === "boolean") {
 					if (!envelope.success) {
-						throw new Error(envelope.error || "Cline account request failed");
+						throw new Error(
+							envelope.error || "CodeVibe account request failed",
+						);
 					}
 					if (envelope.data !== undefined) {
 						return envelope.data;
@@ -328,7 +330,7 @@ export class ClineAccountService {
 			}
 
 			if (parsed === undefined || parsed === null) {
-				throw new Error("Cline account response payload was empty");
+				throw new Error("CodeVibe account response payload was empty");
 			}
 			return parsed as T;
 		} finally {

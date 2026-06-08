@@ -178,7 +178,7 @@ describe("ClineAccountService", () => {
 		});
 
 		await expect(service.fetchMe()).rejects.toThrow(
-			"Cline account request failed with status 401: Authentication failed",
+			"CodeVibe account request failed with status 401: Authentication failed",
 		);
 	});
 
@@ -194,7 +194,7 @@ describe("ClineAccountService", () => {
 		});
 
 		await expect(service.fetchMe()).rejects.toThrow(
-			"Cline account response was not valid JSON",
+			"CodeVibe account response was not valid JSON",
 		);
 	});
 

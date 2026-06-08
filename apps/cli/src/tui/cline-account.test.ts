@@ -32,6 +32,19 @@ vi.mock("@cline/core", () => {
 				coreMocks.saveProviderSettings(settings, options);
 			}
 		},
+		Llms: {
+			BUILT_IN_PROVIDER: {
+				OPENAI_CODEX: "openai-codex",
+			},
+			MODEL_COLLECTIONS_BY_PROVIDER_ID: {
+				"openai-codex": {
+					provider: {
+						defaultModelId: "gpt-5.5",
+					},
+				},
+			},
+			normalizeProviderId: (providerId: string) => providerId,
+		},
 		getValidClineCredentials: coreMocks.getValidClineCredentials,
 	};
 });

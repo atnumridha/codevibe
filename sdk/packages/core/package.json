@@ -1,10 +1,10 @@
 {
 	"name": "@cline/core",
-	"description": "Cline Core SDK for Node Runtime",
+	"description": "CodeVibe Core SDK for Node Runtime",
 	"version": "0.0.43",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/cline/cline",
+		"url": "https://github.com/atnumridha/codevibe",
 		"directory": "sdk/packages/core"
 	},
 	"type": "module",
