@@ -17,6 +17,8 @@ export const BACKGROUND_AGENT_LIFECYCLE_STATUSES = [
 	"fallback_ready",
 	"starting",
 	"running",
+	"completed",
+	"cancelled",
 	"failed",
 ] as const;
 
@@ -100,6 +102,7 @@ export interface BackgroundAgentLaunchDependencies {
 const MAX_BACKGROUND_AGENT_TASK_RECORDS = 100;
 const MAX_GIT_REF_LENGTH = 255;
 const GIT_REF_ALLOWED_CHARS = /^[A-Za-z0-9._/-]+$/;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: Git ref validation must reject ASCII control characters.
 const GIT_REF_FORBIDDEN_CHARS = /[\x00-\x20~^:?*[\\]/;
 const GIT_HEX_OBJECT_RE = /^[0-9a-f]{7,64}$/i;
 const SYMBOLIC_REFS = new Set([

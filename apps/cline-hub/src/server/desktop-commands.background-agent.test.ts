@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -114,5 +114,90 @@ test("delete_background_agent_record rejects unknown lifecycle records", async (
 				id: "missing",
 			}),
 		/unknown background agent record: missing/,
+	);
+});
+
+test("open_background_agent_worktree resolves a persisted worktree by record id", async (t) => {
+	const dataDir = withTempDataDir(t);
+	const worktreePath = join(dataDir, "repo-background-agent-bg-1");
+	mkdirSync(worktreePath);
+	writeBackgroundAgentTaskRecordsFile(
+		resolveBackgroundAgentRecordsPath(dataDir),
+		[backgroundRecord({ worktreePath })],
+	);
+	const ctx = new HubContext();
+
+	const response = (await handleDesktopCommand(
+		ctx,
+		"open_background_agent_worktree",
+		{ id: "bg-1", dryRun: true },
+	)) as Record<string, unknown>;
+
+	assert.deepEqual(response, {
+		recordId: "bg-1",
+		sessionId: "task-1",
+		worktreePath,
+		opened: false,
+	});
+	assert.deepEqual(ctx.events, []);
+});
+
+test("reveal_background_agent_worktree accepts a background-agent task id", async (t) => {
+	const dataDir = withTempDataDir(t);
+	const worktreePath = join(dataDir, "repo-background-agent-bg-1");
+	mkdirSync(worktreePath);
+	writeBackgroundAgentTaskRecordsFile(
+		resolveBackgroundAgentRecordsPath(dataDir),
+		[backgroundRecord({ worktreePath })],
+	);
+	const ctx = new HubContext();
+
+	const response = (await handleDesktopCommand(
+		ctx,
+		"reveal_background_agent_worktree",
+		{ sessionId: "task-1", dryRun: true },
+	)) as Record<string, unknown>;
+
+	assert.equal(response.recordId, "bg-1");
+	assert.equal(response.sessionId, "task-1");
+	assert.equal(response.worktreePath, worktreePath);
+	assert.equal(response.opened, false);
+});
+
+test("open_background_agent_worktree rejects records without a worktree", async (t) => {
+	const dataDir = withTempDataDir(t);
+	writeBackgroundAgentTaskRecordsFile(
+		resolveBackgroundAgentRecordsPath(dataDir),
+		[backgroundRecord({ launchMode: "controller-record", worktreePath: undefined })],
+	);
+	const ctx = new HubContext();
+
+	await assert.rejects(
+		() =>
+			handleDesktopCommand(ctx, "open_background_agent_worktree", {
+				id: "bg-1",
+				dryRun: true,
+			}),
+		/background agent record does not have a worktree path: bg-1/,
+	);
+});
+
+test("open_background_agent_worktree rejects non-directory worktree paths", async (t) => {
+	const dataDir = withTempDataDir(t);
+	const worktreePath = join(dataDir, "not-a-directory");
+	writeFileSync(worktreePath, "not a directory");
+	writeBackgroundAgentTaskRecordsFile(
+		resolveBackgroundAgentRecordsPath(dataDir),
+		[backgroundRecord({ worktreePath })],
+	);
+	const ctx = new HubContext();
+
+	await assert.rejects(
+		() =>
+			handleDesktopCommand(ctx, "open_background_agent_worktree", {
+				id: "bg-1",
+				dryRun: true,
+			}),
+		/background agent worktree path is not a directory:/,
 	);
 });

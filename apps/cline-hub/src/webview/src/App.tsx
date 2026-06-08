@@ -3,8 +3,10 @@ import {
 	BotIcon,
 	BoxIcon,
 	ClockIcon,
+	CopyIcon,
 	FunnelIcon,
 	GitBranchIcon,
+	FolderOpenIcon,
 	HomeIcon,
 	LinkIcon,
 	MessageSquareIcon,
@@ -449,6 +451,7 @@ function HomeView({
 	backgroundAgentSessions,
 	hubState,
 	onDismissBackgroundAgent,
+	onOpenBackgroundAgentWorktree,
 	onOpenSession,
 	onDeleteSession,
 	onRenameSession,
@@ -461,6 +464,9 @@ function HomeView({
 	backgroundAgentSessions: WebviewSessionSummary[];
 	hubState: WebviewHubState;
 	onDismissBackgroundAgent: (sessionId: string) => Promise<void> | void;
+	onOpenBackgroundAgentWorktree: (
+		sessionId: string,
+	) => Promise<void> | void;
 	onOpenSession: (sessionId: string) => void;
 	onDeleteSession: (sessionId: string) => Promise<void> | void;
 	onRenameSession: (sessionId: string, title: string) => Promise<void> | void;
@@ -645,6 +651,7 @@ function HomeView({
 				busyId={backgroundAgentBusyId}
 				error={backgroundAgentError}
 				onDismiss={onDismissBackgroundAgent}
+				onOpenWorktree={onOpenBackgroundAgentWorktree}
 				onOpen={onOpenSession}
 				sessions={backgroundAgentSessions}
 			/>
@@ -857,12 +864,14 @@ function BackgroundAgentLifecycleSection({
 	error,
 	onDismiss,
 	onOpen,
+	onOpenWorktree,
 	sessions,
 }: {
 	busyId?: string;
 	error?: string;
 	onDismiss: (sessionId: string) => Promise<void> | void;
 	onOpen: (sessionId: string) => void;
+	onOpenWorktree: (sessionId: string) => Promise<void> | void;
 	sessions: WebviewSessionSummary[];
 }) {
 	const [dismissTarget, setDismissTarget] =
@@ -873,6 +882,10 @@ function BackgroundAgentLifecycleSection({
 		await onDismiss(backgroundAgentRecordId(dismissTarget));
 		setDismissTarget(null);
 	};
+	const copyWorktreePath = useCallback((worktreePath?: string) => {
+		if (!worktreePath || typeof navigator === "undefined") return;
+		void navigator.clipboard?.writeText(worktreePath);
+	}, []);
 
 	return (
 		<section className="mb-4 overflow-hidden rounded-lg border bg-card">
@@ -904,6 +917,7 @@ function BackgroundAgentLifecycleSection({
 						const details = backgroundAgentLifecycleDetails(session);
 						const recordId = backgroundAgentRecordId(session);
 						const linkedTaskId = recordString(detailsRecord, "taskId");
+						const worktreePath = recordString(detailsRecord, "worktreePath");
 						const isBusy = busyId === recordId || busyId === session.sessionId;
 						return (
 							<div
@@ -931,6 +945,28 @@ function BackgroundAgentLifecycleSection({
 										variant="outline"
 									>
 										Open
+									</Button>
+									<Button
+										aria-label={`Open worktree for ${session.title || session.sessionId}`}
+										disabled={!worktreePath || isBusy}
+										onClick={() => void onOpenWorktree(recordId)}
+										size="icon-sm"
+										title="Open worktree"
+										type="button"
+										variant="outline"
+									>
+										<FolderOpenIcon className="size-3.5" />
+									</Button>
+									<Button
+										aria-label={`Copy worktree path for ${session.title || session.sessionId}`}
+										disabled={!worktreePath}
+										onClick={() => copyWorktreePath(worktreePath)}
+										size="icon-sm"
+										title="Copy worktree path"
+										type="button"
+										variant="ghost"
+									>
+										<CopyIcon className="size-3.5" />
 									</Button>
 									<Button
 										aria-label={`Dismiss ${session.title || session.sessionId}`}
@@ -1397,6 +1433,20 @@ function App() {
 		}
 	}, []);
 
+	const openBackgroundAgentWorktree = useCallback(async (recordId: string) => {
+		setBackgroundAgentBusyId(recordId);
+		setBackgroundAgentError(undefined);
+		try {
+			await desktopClient.openBackgroundAgentWorktree(recordId);
+		} catch (error) {
+			setBackgroundAgentError(
+				error instanceof Error ? error.message : String(error),
+			);
+		} finally {
+			setBackgroundAgentBusyId(undefined);
+		}
+	}, []);
+
 	const content = useMemo(() => {
 		if (view === "chat") {
 			return (
@@ -1427,6 +1477,7 @@ function App() {
 				hubState={hubState}
 				onDismissBackgroundAgent={dismissBackgroundAgent}
 				onDeleteSession={deleteSession}
+				onOpenBackgroundAgentWorktree={openBackgroundAgentWorktree}
 				onOpenSession={openSession}
 				onRenameSession={renameSession}
 				onRestartHub={restartHub}
@@ -1445,6 +1496,7 @@ function App() {
 		navigate,
 		navigateSettingsSection,
 		openSession,
+		openBackgroundAgentWorktree,
 		recentSessions,
 		renameSession,
 		restartHub,

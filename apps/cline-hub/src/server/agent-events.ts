@@ -1,4 +1,11 @@
-import type { CoreSessionEvent } from "@cline/core";
+import {
+	type BackgroundAgentLifecycleStatus,
+	type CoreSessionEvent,
+	readBackgroundAgentTaskRecordsFile,
+	resolveBackgroundAgentRecordsPath,
+	resolveClineDataDir,
+	writeBackgroundAgentTaskRecordsFile,
+} from "@cline/core";
 import type { AgentEvent } from "@cline/shared";
 import type { WebviewToolEvent } from "../webview-protocol";
 import { rejectPendingApprovalsForSession } from "./approvals";
@@ -126,6 +133,46 @@ function forwardAgentEvent(
 	}
 }
 
+function backgroundAgentRecordsPath(): string {
+	return resolveBackgroundAgentRecordsPath(resolveClineDataDir());
+}
+
+function endedLifecycleStatus(reason: unknown): BackgroundAgentLifecycleStatus {
+	const normalized = asString(reason)?.toLowerCase() ?? "";
+	if (
+		normalized.includes("cancel") ||
+		normalized.includes("abort") ||
+		normalized.includes("interrupt")
+	) {
+		return "cancelled";
+	}
+	return "completed";
+}
+
+function updateBackgroundAgentLifecycleStatus(
+	sessionId: string,
+	status: BackgroundAgentLifecycleStatus,
+): void {
+	const recordsPath = backgroundAgentRecordsPath();
+	const records = readBackgroundAgentTaskRecordsFile(recordsPath);
+	let changed = false;
+	const now = Date.now();
+	const nextRecords = records.map((record) => {
+		if (record.taskId !== sessionId) {
+			return record;
+		}
+		changed = true;
+		return {
+			...record,
+			status,
+			updatedAt: now,
+		};
+	});
+	if (changed) {
+		writeBackgroundAgentTaskRecordsFile(recordsPath, nextRecords);
+	}
+}
+
 export function handleSessionEvent(
 	ctx: HubContext,
 	event: CoreSessionEvent,
@@ -156,6 +203,10 @@ export function handleSessionEvent(
 		}
 		broadcastHubState(ctx);
 	} else if (event.type === "ended") {
+		updateBackgroundAgentLifecycleStatus(
+			sessionId,
+			endedLifecycleStatus(event.payload.reason),
+		);
 		rejectPendingApprovalsForSession(
 			ctx,
 			sessionId,

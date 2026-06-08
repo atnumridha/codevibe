@@ -5,6 +5,8 @@ export const BACKGROUND_AGENT_LIFECYCLE_STATUSES = [
 	"fallback_ready",
 	"starting",
 	"running",
+	"completed",
+	"cancelled",
 	"failed",
 ] as const
 

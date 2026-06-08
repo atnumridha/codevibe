@@ -1,3 +1,4 @@
+import { statSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import {
 	addLocalProvider,
@@ -195,6 +196,69 @@ function deleteBackgroundAgentLifecycleRecord(
 	ctx.pushEvent("Background agent dismissed", requestedId, "success");
 	broadcastHubState(ctx);
 	return listBackgroundAgentSessionSummaries(ctx);
+}
+
+function backgroundAgentWorktreeResult(
+	ctx: HubContext,
+	args?: Record<string, unknown>,
+): JsonRecord {
+	const requestedId =
+		asTrimmedString(args?.id) ??
+		asTrimmedString(args?.sessionId) ??
+		asTrimmedString(args?.taskId);
+	if (!requestedId) {
+		throw new Error("background agent record id is required");
+	}
+	const summary = listBackgroundAgentSessionSummaries(ctx).find((session) => {
+		const details =
+			session.backgroundAgentDetails &&
+			typeof session.backgroundAgentDetails === "object"
+				? session.backgroundAgentDetails
+				: {};
+		return (
+			session.sessionId === requestedId ||
+			asTrimmedString(details.id) === requestedId ||
+			asTrimmedString(details.taskId) === requestedId
+		);
+	});
+	if (!summary) {
+		throw new Error(`unknown background agent record: ${requestedId}`);
+	}
+	const details =
+		summary.backgroundAgentDetails &&
+		typeof summary.backgroundAgentDetails === "object"
+			? summary.backgroundAgentDetails
+			: {};
+	const recordId = asTrimmedString(details.id) ?? summary.sessionId;
+	const worktreePath = asTrimmedString(details.worktreePath);
+	if (!worktreePath) {
+		throw new Error(
+			`background agent record does not have a worktree path: ${requestedId}`,
+		);
+	}
+	if (!isAbsolute(worktreePath)) {
+		throw new Error(
+			`background agent worktree path must be absolute: ${requestedId}`,
+		);
+	}
+	const stats = statSync(worktreePath);
+	if (!stats.isDirectory()) {
+		throw new Error(
+			`background agent worktree path is not a directory: ${worktreePath}`,
+		);
+	}
+	const shouldOpen = args?.dryRun !== true && args?.open !== false;
+	if (shouldOpen) {
+		openExternalUrl(worktreePath);
+		ctx.pushEvent("Background agent worktree opened", worktreePath, "success");
+		broadcastHubState(ctx);
+	}
+	return {
+		recordId,
+		sessionId: summary.sessionId,
+		worktreePath,
+		opened: shouldOpen,
+	};
 }
 
 export async function handleDesktopCommand(
@@ -433,6 +497,12 @@ export async function handleDesktopCommand(
 		command === "delete_background_agent_session"
 	) {
 		return deleteBackgroundAgentLifecycleRecord(ctx, args);
+	}
+	if (
+		command === "open_background_agent_worktree" ||
+		command === "reveal_background_agent_worktree"
+	) {
+		return backgroundAgentWorktreeResult(ctx, args);
 	}
 	if (command === "read_session_hooks") {
 		return [];

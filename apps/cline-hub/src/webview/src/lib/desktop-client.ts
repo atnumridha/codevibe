@@ -226,6 +226,13 @@ export type CursorGitActionResponse = Record<string, unknown> & {
 	reason?: string;
 };
 
+export type BackgroundAgentWorktreeResponse = {
+	recordId: string;
+	sessionId: string;
+	worktreePath: string;
+	opened: boolean;
+};
+
 export type WorkspaceFileSearchInput = {
 	workspaceRoot?: string;
 	cwd?: string;
@@ -301,6 +308,15 @@ class HubDesktopClient {
 	): Promise<WebviewSessionSummary[]> {
 		return await this.invoke<WebviewSessionSummary[]>(
 			"delete_background_agent_record",
+			{ id },
+		);
+	}
+
+	async openBackgroundAgentWorktree(
+		id: string,
+	): Promise<BackgroundAgentWorktreeResponse> {
+		return await this.invoke<BackgroundAgentWorktreeResponse>(
+			"open_background_agent_worktree",
 			{ id },
 		);
 	}
