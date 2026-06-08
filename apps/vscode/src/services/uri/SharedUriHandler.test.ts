@@ -1,4 +1,5 @@
 import { expect } from "chai"
+import { execFileSync } from "child_process"
 import * as fs from "fs/promises"
 import { afterEach, beforeEach, describe, it } from "mocha"
 import os from "os"
@@ -18,6 +19,23 @@ function encodeConfig(config: Record<string, unknown>): string {
 		.replace(/\+/g, "-")
 		.replace(/\//g, "_")
 		.replace(/=+$/g, "")
+}
+
+function git(cwd: string, args: string[]): string {
+	return execFileSync("git", args, {
+		cwd,
+		encoding: "utf8",
+		stdio: ["ignore", "pipe", "pipe"],
+	}).trim()
+}
+
+async function initGitWorkspace(workspaceDir: string): Promise<void> {
+	git(workspaceDir, ["init", "-b", "main"])
+	git(workspaceDir, ["config", "user.email", "codevibe@example.invalid"])
+	git(workspaceDir, ["config", "user.name", "CodeVibe Test"])
+	await fs.writeFile(path.join(workspaceDir, "README.md"), "hello\n")
+	git(workspaceDir, ["add", "README.md"])
+	git(workspaceDir, ["commit", "-m", "initial"])
 }
 
 describe("SharedUriHandler", () => {
@@ -385,9 +403,7 @@ describe("SharedUriHandler", () => {
 					},
 				})
 
-				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/mcp/install?name=docs&config=${config}`,
-				)
+				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/mcp/install?name=docs&config=${config}`)
 
 				expect(result).to.be.true
 				const modal = showMessageStub.firstCall.args[0]
@@ -454,9 +470,7 @@ describe("SharedUriHandler", () => {
 					},
 				})
 
-				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/mcp/install?name=postgres&config=${config}`,
-				)
+				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/mcp/install?name=postgres&config=${config}`)
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal('Install MCP server "postgres"?')
@@ -560,7 +574,9 @@ describe("SharedUriHandler", () => {
 					strict: false,
 				})
 				expect(handleCursorAutomationIngestStub.firstCall.args[0].validation.events).to.have.length(1)
-				expect(handleCursorAutomationIngestStub.firstCall.args[0].routePrompt).to.contain("automation NDJSON ingest deeplink")
+				expect(handleCursorAutomationIngestStub.firstCall.args[0].routePrompt).to.contain(
+					"automation NDJSON ingest deeplink",
+				)
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -596,9 +612,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal(
-					"Cursor automation NDJSON failed strict validation.",
-				)
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor automation NDJSON failed strict validation.")
 				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["OK"])
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Strict mode: yes")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Rejected lines: 1")
@@ -608,71 +622,96 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should confirm Cursor git helper routes before creating a review task", async () => {
+			it("should confirm and run Cursor git checkout helpers", async () => {
+				await initGitWorkspace(workspaceDir)
+				git(workspaceDir, ["checkout", "-b", "feature/cursor-parity"])
+				git(workspaceDir, ["checkout", "main"])
 				showMessageStub.resetBehavior()
-				showMessageStub.resolves({ selectedOption: "Create Review Task" })
+				showMessageStub.onFirstCall().resolves({ selectedOption: "Run Checkout" })
+				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
 					"vscode://cline.cline/git/checkout?branch=feature%2Fcursor-parity",
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor git helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Cursor checkout/switch helper?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Requested git helper: checkout/switch")
-				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("normal approvals")
-				sinon.assert.calledOnce(handleTaskCreationStub)
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("git checkout helper")
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("not permission to run it")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Command: git checkout feature/cursor-parity")
+				expect(showMessageStub.secondCall.args[0].message).to.equal("Checked out feature/cursor-parity.")
+				expect(git(workspaceDir, ["branch", "--show-current"])).to.equal("feature/cursor-parity")
+				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should create review tasks for Cursor git branch helpers", async () => {
+			it("should confirm and run Cursor git branch helpers", async () => {
+				await initGitWorkspace(workspaceDir)
 				showMessageStub.resetBehavior()
-				showMessageStub.resolves({ selectedOption: "Create Review Task" })
+				showMessageStub.onFirstCall().resolves({ selectedOption: "Create and Checkout Branch" })
+				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
 					"vscode://cline.cline/git/branch?name=feature%2Fcursor-uri&base=main&checkout=true",
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor git helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Cursor branch creation or switch helper?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
 					"Requested git helper: branch creation or switch",
 				)
-				sinon.assert.calledOnce(handleTaskCreationStub)
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("git branch helper")
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("branch: feature/cursor-uri")
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Ask for confirmation")
+				expect(showMessageStub.secondCall.args[0].message).to.equal("Created and checked out feature/cursor-uri.")
+				expect(git(workspaceDir, ["branch", "--show-current"])).to.equal("feature/cursor-uri")
+				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should create review tasks for Cursor git commit helpers", async () => {
+			it("should confirm and run Cursor git commit helpers", async () => {
+				await initGitWorkspace(workspaceDir)
+				await fs.writeFile(path.join(workspaceDir, "feature.txt"), "new\n")
 				showMessageStub.resetBehavior()
-				showMessageStub.resolves({ selectedOption: "Create Review Task" })
-
-				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/git/commit?message=fix%3A%20cursor%20routes&files=src%2Fa.ts%2Csrc%2Fb.ts",
-				)
-
-				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor git helper?")
-				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
-					"Requested git helper: commit preparation",
-				)
-				sinon.assert.calledOnce(handleTaskCreationStub)
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("git commit helper")
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("fix: cursor routes")
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Do not push")
-			})
-
-			it("should not create a task when Cursor git helper confirmation is cancelled", async () => {
-				showMessageStub.resetBehavior()
+				showMessageStub.onFirstCall().resolves({ selectedOption: "Run Commit" })
 				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/git/commit?message=fix%3A%20safe%20changes",
+					"vscode://cline.cline/git/commit?message=fix%3A%20cursor%20routes&all=true",
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Review Cursor git helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Cursor commit preparation helper?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Requested git helper: commit preparation")
+				expect(showMessageStub.secondCall.args[0].message).to.equal("Committed changes.")
+				expect(git(workspaceDir, ["log", "-1", "--pretty=%s"])).to.equal("fix: cursor routes")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should block Cursor git commit helpers when no staged changes are available", async () => {
+				await initGitWorkspace(workspaceDir)
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "OK" })
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/git/commit?message=fix%3A%20empty%20commit")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor git helper needs review")
+				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["OK"])
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
+					"Reason: No staged changes are available to commit.",
+				)
+				expect(showMessageStub.calledOnce).to.be.true
+				expect(git(workspaceDir, ["log", "-1", "--pretty=%s"])).to.equal("initial")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should not run Cursor git helpers when confirmation is cancelled", async () => {
+				await initGitWorkspace(workspaceDir)
+				git(workspaceDir, ["checkout", "-b", "feature/safe-changes"])
+				git(workspaceDir, ["checkout", "main"])
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/git/checkout?branch=feature%2Fsafe-changes")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Cursor checkout/switch helper?")
+				expect(git(workspaceDir, ["branch", "--show-current"])).to.equal("main")
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -691,9 +730,7 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should open settings routes directly through the host", async () => {
-				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/settings?query=%40id%3Acline.apiProvider",
-				)
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/settings?query=%40id%3Acline.apiProvider")
 
 				expect(result).to.be.true
 				sinon.assert.calledOnceWithExactly(openSettingsStub, { query: "@id:cline.apiProvider" })
@@ -769,9 +806,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Install Plugin" })
 
-				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/plugin/add?id=docs-helper&replace=true",
-				)
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper&replace=true")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Replace existing: requested")
@@ -1092,11 +1127,7 @@ describe("SharedUriHandler", () => {
 				try {
 					const commandsDir = path.join(secondWorkspaceDir, ".cursor", "commands")
 					await fs.mkdir(commandsDir, { recursive: true })
-					await fs.writeFile(
-						path.join(commandsDir, "review-code.md"),
-						"Review the second workspace diff.",
-						"utf8",
-					)
+					await fs.writeFile(path.join(commandsDir, "review-code.md"), "Review the second workspace diff.", "utf8")
 
 					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
 
@@ -1118,11 +1149,7 @@ describe("SharedUriHandler", () => {
 				try {
 					const commandsDir = path.join(cursorHome, ".cursor", "commands")
 					await fs.mkdir(commandsDir, { recursive: true })
-					await fs.writeFile(
-						path.join(commandsDir, "review-code.md"),
-						"Review the global command target.",
-						"utf8",
-					)
+					await fs.writeFile(path.join(commandsDir, "review-code.md"), "Review the global command target.", "utf8")
 
 					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
 
@@ -1155,11 +1182,7 @@ describe("SharedUriHandler", () => {
 						"Review the workspace command target.",
 						"utf8",
 					)
-					await fs.writeFile(
-						path.join(globalCommandsDir, "review-code.md"),
-						"SHOULD_NOT_LOAD_GLOBAL_COMMAND",
-						"utf8",
-					)
+					await fs.writeFile(path.join(globalCommandsDir, "review-code.md"), "SHOULD_NOT_LOAD_GLOBAL_COMMAND", "utf8")
 
 					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
 
@@ -1263,9 +1286,7 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should reject MCP OAuth callbacks without state", async () => {
-				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/mcp-auth/callback/hash123?code=code123",
-				)
+				const result = await SharedUriHandler.handleUri("vscode://cline.cline/mcp-auth/callback/hash123?code=code123")
 
 				expect(result).to.be.false
 				expect(handleMcpOAuthCallbackStub.called).to.be.false

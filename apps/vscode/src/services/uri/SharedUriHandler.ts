@@ -27,6 +27,7 @@ import {
 	getInstalledServerOAuthSummary,
 	type CursorMcpServerConfig,
 } from "./CursorMcpInstall"
+import { executeCursorGitHelper, formatCursorGitHelperDetail, previewCursorGitHelper } from "./CursorGitHelper"
 
 export const TASK_URI_PATH = "/task"
 export const LG_TASK_URI_PATH = "/lg-task"
@@ -52,7 +53,9 @@ interface SharedUriController {
 	handleMcpOAuthCallback(serverHash: string, code: string, state: string): Promise<void>
 	handleHicapCallback(code: string): Promise<void>
 	handleCursorAutomationIngest(request: CursorCompatibleAutomationIngestRequest): Promise<unknown>
-	handleCursorBackgroundAgentLaunch(request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>): Promise<unknown>
+	handleCursorBackgroundAgentLaunch(
+		request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>,
+	): Promise<unknown>
 	handleCursorPluginAdd(request: CursorPluginAddInstallRequest): Promise<unknown>
 	postStateToWebview(): Promise<void>
 	stateManager?: {
@@ -160,10 +163,12 @@ function getSettingsQuery(route: CursorCompatibleUriRoute): string | undefined {
 	return getKnownCursorSettingsQuery(section) || getKnownCursorSettingsQuery(tab) || section || tab
 }
 
-function normalizeCursorRuleTarget(route: CursorCompatibleUriRoute): {
-	filename: string
-	relativePath: string
-} | undefined {
+function normalizeCursorRuleTarget(route: CursorCompatibleUriRoute):
+	| {
+			filename: string
+			relativePath: string
+	  }
+	| undefined {
 	if (!getCursorRuleContent(route) && getRouteStringParam(route, "url")) {
 		return undefined
 	}
@@ -198,10 +203,7 @@ function normalizeCursorRuleTarget(route: CursorCompatibleUriRoute): {
 }
 
 function titleFromCursorRuleFilename(filename: string): string {
-	const base =
-		filename === GlobalFileNames.cursorRulesFile
-			? "project rules"
-			: path.basename(filename, path.extname(filename))
+	const base = filename === GlobalFileNames.cursorRulesFile ? "project rules" : path.basename(filename, path.extname(filename))
 	return base
 		.replace(/[-_]+/g, " ")
 		.replace(/\s+/g, " ")
@@ -231,11 +233,13 @@ function normalizeImportedCursorRuleContent(content: string): string {
 	return content.endsWith("\n") ? content : `${content}\n`
 }
 
-function normalizeCursorCommandTarget(route: CursorCompatibleUriRoute): {
-	commandName: string
-	filename: string
-	relativePath: string
-} | undefined {
+function normalizeCursorCommandTarget(route: CursorCompatibleUriRoute):
+	| {
+			commandName: string
+			filename: string
+			relativePath: string
+	  }
+	| undefined {
 	if (
 		route.kind !== "command" ||
 		getRouteStringParam(route, "command") ||
@@ -270,12 +274,16 @@ function normalizeCursorCommandTarget(route: CursorCompatibleUriRoute): {
 	}
 }
 
-function buildCursorCommandFilePrompt(target: {
-	commandName: string
-}, source: {
-	displayPath: string
-	scope: "workspace" | "global"
-}, content: string): string {
+function buildCursorCommandFilePrompt(
+	target: {
+		commandName: string
+	},
+	source: {
+		displayPath: string
+		scope: "workspace" | "global"
+	},
+	content: string,
+): string {
 	const sourceLabel = source.scope === "global" ? "global command file" : "workspace command file"
 	return [
 		`A Cursor-compatible command deeplink named "${target.commandName}" was opened.`,
@@ -314,10 +322,7 @@ async function readCursorCommandFileFromPath(
 	try {
 		stat = await fs.lstat(filePath)
 	} catch (error) {
-		const code =
-			error && typeof error === "object" && "code" in error
-				? (error as { code?: unknown }).code
-				: undefined
+		const code = error && typeof error === "object" && "code" in error ? (error as { code?: unknown }).code : undefined
 		if (code === "ENOENT") {
 			return undefined
 		}
@@ -389,8 +394,7 @@ function buildCursorPluginAddDetail(route: CursorCompatibleUriRoute): {
 	const source = sourceParam ? getRouteStringParam(route, sourceParam) : configSource?.source
 	const resolvedSourceParam = sourceParam ?? (source ? "config" : undefined)
 	const displaySource = formatCursorPluginSource(source, resolvedSourceParam)
-	const configKeys =
-		configRecord ? Object.keys(configRecord).sort() : []
+	const configKeys = configRecord ? Object.keys(configRecord).sort() : []
 	const force = getCursorPluginForce(route)
 	const lines = source
 		? [
@@ -442,10 +446,7 @@ function getCursorPluginConfigSource(
 	return undefined
 }
 
-function formatCursorPluginSource(
-	source: string | undefined,
-	sourceParam: "id" | "name" | "url" | "config" | undefined,
-): string {
+function formatCursorPluginSource(source: string | undefined, sourceParam: "id" | "name" | "url" | "config" | undefined): string {
 	if (!source) {
 		return "config payload"
 	}
@@ -473,10 +474,7 @@ function buildCursorPrReviewDetail(route: CursorCompatibleUriRoute): string {
 	const number = getRouteStringParam(route, "number") || getRouteStringParam(route, "pullRequest")
 	const instructions = getRouteStringParam(route, "instructions")
 	const config = route.params.config
-	const configKeys =
-		config && typeof config === "object" && !Array.isArray(config)
-			? Object.keys(config).sort()
-			: []
+	const configKeys = config && typeof config === "object" && !Array.isArray(config) ? Object.keys(config).sort() : []
 	const target = url ? formatCursorUrlForDisplay(url) || "[provided url]" : repo && number ? `${repo}#${number}` : undefined
 	return [
 		`Pull request: ${target ?? "unknown"}`,
@@ -486,9 +484,7 @@ function buildCursorPrReviewDetail(route: CursorCompatibleUriRoute): string {
 	].join("\n")
 }
 
-function buildCursorBackgroundAgentDetail(
-	request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>,
-): string {
+function buildCursorBackgroundAgentDetail(request: ReturnType<typeof buildCursorCompatibleBackgroundAgentLaunchRequest>): string {
 	const configKeys = request.config ? Object.keys(request.config).sort() : []
 	return [
 		`Prompt: ${request.prompt}`,
@@ -506,10 +502,7 @@ function buildCursorAutomationIngestDetail(
 	request?: CursorCompatibleAutomationIngestRequest,
 ): string {
 	const config = route.params.config
-	const configKeys =
-		config && typeof config === "object" && !Array.isArray(config)
-			? Object.keys(config).sort()
-			: []
+	const configKeys = config && typeof config === "object" && !Array.isArray(config) ? Object.keys(config).sort() : []
 	return [
 		"Validate Cursor-compatible automation NDJSON and ingest accepted events into VS Code local automation storage.",
 		"This does not silently run tasks, terminal commands, network calls, git operations, or browser actions.",
@@ -523,8 +516,12 @@ function buildCursorAutomationIngestDetail(
 		...(request?.strict && request.validation.rejected.length > 0
 			? ["Strict mode will block storage until rejected lines are fixed."]
 			: []),
-		...(getRouteStringParam(route, "defaultSource") ? [`Default source: ${getRouteStringParam(route, "defaultSource")}`] : []),
-		...(getRouteStringParam(route, "allowedSources") ? [`Allowed sources: ${getRouteStringParam(route, "allowedSources")}`] : []),
+		...(getRouteStringParam(route, "defaultSource")
+			? [`Default source: ${getRouteStringParam(route, "defaultSource")}`]
+			: []),
+		...(getRouteStringParam(route, "allowedSources")
+			? [`Allowed sources: ${getRouteStringParam(route, "allowedSources")}`]
+			: []),
 		...(getRouteStringParam(route, "maxEvents") ? [`Max events: ${getRouteStringParam(route, "maxEvents")}`] : []),
 		...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
 	].join("\n")
@@ -553,17 +550,14 @@ function getCursorGitHelperTitle(route: CursorCompatibleUriRoute): string {
 
 function buildCursorGitHelperDetail(route: CursorCompatibleUriRoute): string {
 	const config = route.params.config
-	const configKeys =
-		config && typeof config === "object" && !Array.isArray(config)
-			? Object.keys(config).sort()
-			: []
+	const configKeys = config && typeof config === "object" && !Array.isArray(config) ? Object.keys(config).sort() : []
 	const detailLines = Object.entries(route.params)
 		.filter(([key]) => key !== "config")
 		.map(([key, value]) => `- ${key}: ${typeof value === "string" ? value : "object"}`)
 
 	return [
 		`Requested git helper: ${getCursorGitHelperTitle(route)}`,
-		"This will create an agent review task only. It will not run git commands, stage files, commit, checkout, or push without the normal approvals.",
+		"CodeVibe will preview the workspace, command, and safety checks before running anything. Confirming this modal may run the shown git command; push remains blocked and requires separate manual action.",
 		...(detailLines.length > 0 ? ["", "Route details:", ...detailLines] : []),
 		...(configKeys.length > 0 ? ["", `Config keys: ${configKeys.join(", ")}`] : []),
 	].join("\n")
@@ -588,10 +582,7 @@ function getCursorTaskRouteLabel(route: CursorCompatibleUriRoute): string {
 
 function buildCursorTaskCreationDetail(route: CursorCompatibleUriRoute, action: string): string {
 	const config = route.params.config
-	const configKeys =
-		config && typeof config === "object" && !Array.isArray(config)
-			? Object.keys(config).sort()
-			: []
+	const configKeys = config && typeof config === "object" && !Array.isArray(config) ? Object.keys(config).sort() : []
 	const glass = buildCursorCompatibleGlassRouteMetadata(route)
 	const routeParamKeys = Object.keys(route.params)
 		.filter((key) => key !== "config")
@@ -617,10 +608,7 @@ export class SharedUriHandler {
 	 * @param url The URI to process (can be from VSCode or converted from HTTP)
 	 * @returns Promise<boolean> indicating success (true) or failure (false)
 	 */
-	public static async handleUri(
-		url: string,
-		options: SharedUriHandlerOptions = {},
-	): Promise<boolean> {
+	public static async handleUri(url: string, options: SharedUriHandlerOptions = {}): Promise<boolean> {
 		const { parsedUrl, path, query } = parseUri(url)
 
 		const isMcpOAuthCallback = MCP_OAUTH_CALLBACK_PATTERN.test(path)
@@ -676,9 +664,7 @@ export class SharedUriHandler {
 				const cursorRoute = parseCursorCompatibleUri(path, query)
 				if (cursorRoute.recognized) {
 					if ("error" in cursorRoute) {
-						Logger.warn(
-							`SharedUriHandler: Invalid Cursor-compatible URI: ${cursorRoute.error}`,
-						)
+						Logger.warn(`SharedUriHandler: Invalid Cursor-compatible URI: ${cursorRoute.error}`)
 						return false
 					}
 					if (cursorRoute.route.kind === "mcp-install") {
@@ -774,19 +760,7 @@ export class SharedUriHandler {
 						return true
 					}
 					if (isCursorGitHelperRoute(cursorRoute.route)) {
-						const choice = await HostProvider.window.showMessage({
-							type: ShowMessageType.WARNING,
-							message: "Review Cursor git helper?",
-							options: {
-								modal: true,
-								items: ["Create Review Task"],
-								detail: buildCursorGitHelperDetail(cursorRoute.route),
-							},
-						})
-						if (choice.selectedOption !== "Create Review Task") {
-							return true
-						}
-						await controller.handleTaskCreation(buildCursorCompatibleTaskPrompt(cursorRoute.route))
+						await this.handleCursorGitHelperRoute(cursorRoute.route)
 						return true
 					}
 					if (cursorRoute.route.kind === "settings") {
@@ -821,9 +795,7 @@ export class SharedUriHandler {
 					if (!confirmed) {
 						return true
 					}
-					await controller.handleTaskCreation(
-						buildCursorCompatibleTaskPrompt(cursorRoute.route),
-					)
+					await controller.handleTaskCreation(buildCursorCompatibleTaskPrompt(cursorRoute.route))
 					return true
 				}
 			}
@@ -947,11 +919,7 @@ export class SharedUriHandler {
 			"Config includes multiple MCP servers. Choose exactly one server to install.",
 			"Selecting a server does not install the others.",
 			"",
-			...installRequests.flatMap((request, index) => [
-				`[${index + 1}]`,
-				formatCursorMcpInstallDetail(request),
-				"",
-			]),
+			...installRequests.flatMap((request, index) => [`[${index + 1}]`, formatCursorMcpInstallDetail(request), ""]),
 		].join("\n")
 		const choice = await HostProvider.window.showMessage({
 			type: ShowMessageType.WARNING,
@@ -1014,10 +982,7 @@ export class SharedUriHandler {
 			)
 			importedRuleWritten = Boolean(importedContent)
 		} catch (error) {
-			const code =
-				error && typeof error === "object" && "code" in error
-					? (error as { code?: unknown }).code
-					: undefined
+			const code = error && typeof error === "object" && "code" in error ? (error as { code?: unknown }).code : undefined
 			if (code !== "EEXIST") {
 				throw error
 			}
@@ -1090,6 +1055,32 @@ export class SharedUriHandler {
 			return true
 		}
 		return false
+	}
+
+	private static async handleCursorGitHelperRoute(route: CursorCompatibleUriRoute): Promise<void> {
+		const plan = previewCursorGitHelper(route, await getCursorCommandWorkspaceRoots())
+		const choice = await HostProvider.window.showMessage({
+			type: plan.actionable ? ShowMessageType.WARNING : ShowMessageType.INFORMATION,
+			message: plan.actionable ? `Run Cursor ${getCursorGitHelperTitle(route)} helper?` : "Cursor git helper needs review",
+			options: {
+				modal: true,
+				items: plan.actionable ? [plan.confirmLabel] : ["OK"],
+				detail: [buildCursorGitHelperDetail(route), "", formatCursorGitHelperDetail(plan)].join("\n"),
+			},
+		})
+		if (!plan.actionable || choice.selectedOption !== plan.confirmLabel) {
+			return
+		}
+
+		const result = executeCursorGitHelper(route, plan)
+		await HostProvider.window.showMessage({
+			type: result.executed ? ShowMessageType.INFORMATION : ShowMessageType.WARNING,
+			message: result.executed ? plan.successMessage : "Cursor git helper was not executed.",
+			options: {
+				items: [],
+				detail: formatCursorGitHelperDetail(result),
+			},
+		})
 	}
 
 	private static async confirmCursorTaskCreation(route: CursorCompatibleUriRoute, action: string): Promise<boolean> {
