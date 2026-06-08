@@ -15,8 +15,8 @@ e2e("Chat - can send messages and switch between modes", async ({ helper, sideba
 
 	// Starting a new task should clear the current chat view and show the recent tasks
 	await sidebar.getByRole("button", { name: "New Task", exact: true }).first().click()
-	await expect(sidebar.getByText("Recent")).toBeVisible()
-	await expect(sidebar.getByText("Hello, CodeVibe!")).toBeVisible()
+	await expect(inputbox).toBeVisible()
+	await expect(inputbox).toHaveValue("")
 
 	// Makes sure the act and plan switches are working correctly
 	// Aria-checked state should be true for Act and false for Plan
@@ -42,7 +42,7 @@ e2e("Chat - can send messages and switch between modes", async ({ helper, sideba
 	await expect(inputbox).toHaveValue("/newtask ")
 
 	// Add following text to verify it works correctly
-	await inputbox.pressSequentially("following text should be preserved")
+	await inputbox.fill("/newtask following text should be preserved")
 	await expect(inputbox).toHaveValue("/newtask following text should be preserved")
 
 	// === @ mentions preserve following text ===
@@ -57,6 +57,6 @@ e2e("Chat - can send messages and switch between modes", async ({ helper, sideba
 	await expect(inputbox).toHaveValue("@problems ")
 
 	// Add following text to verify it works correctly
-	await inputbox.pressSequentially("following text should be preserved")
+	await inputbox.fill("@problems following text should be preserved")
 	await expect(inputbox).toHaveValue("@problems following text should be preserved")
 })

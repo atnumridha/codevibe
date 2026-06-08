@@ -4,6 +4,7 @@ import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/Au
 import { ApiProvider } from "@shared/api"
 import { HistoryItem } from "@shared/HistoryItem"
 import { execa } from "execa"
+import * as fs from "fs"
 import * as http from "http"
 import * as path from "path"
 import * as vscode from "vscode"
@@ -67,6 +68,16 @@ async function updateAutoApprovalSettings(controller?: Controller) {
 		}
 
 		controller?.stateManager.setGlobalState("autoApprovalSettings", updatedSettings)
+		if (controller) {
+			const apiConfiguration = controller.stateManager.getApiConfiguration()
+			controller.stateManager.setApiConfiguration({
+				...apiConfiguration,
+				planModeApiProvider: "cline",
+				actModeApiProvider: "cline",
+			})
+			controller.stateManager.setSessionOverride("planModeApiProvider", "cline")
+			controller.stateManager.setSessionOverride("actModeApiProvider", "cline")
+		}
 		Logger.log("Auto approval settings updated for test mode")
 
 		// Update the webview with the new state
@@ -105,6 +116,16 @@ export async function createTestServer(controller: Controller): Promise<http.Ser
 			return
 		}
 
+		const readRequestBody = (): Promise<string> => {
+			return new Promise((resolve) => {
+				let body = ""
+				req.on("data", (chunk) => {
+					body += chunk.toString()
+				})
+				req.on("end", () => resolve(body))
+			})
+		}
+
 		// Handle shutdown request
 		if (req.method === "POST" && req.url === "/shutdown") {
 			res.writeHead(200)
@@ -118,6 +139,50 @@ export async function createTestServer(controller: Controller): Promise<http.Ser
 			return
 		}
 
+		if (req.method === "POST" && req.url === "/open-file") {
+			readRequestBody()
+				.then(async (body) => {
+					const { fileName } = JSON.parse(body)
+					if (!fileName || typeof fileName !== "string") {
+						res.writeHead(400)
+						res.end(JSON.stringify({ error: "Missing fileName parameter" }))
+						return
+					}
+
+					const workspaceRoots = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) ?? []
+					const candidatePaths = path.isAbsolute(fileName)
+						? [fileName]
+						: workspaceRoots.map((workspaceRoot) => path.join(workspaceRoot, fileName))
+					const filePath = candidatePaths.find((candidate) => fs.existsSync(candidate))
+
+					if (!filePath) {
+						res.writeHead(404)
+						res.end(JSON.stringify({ error: "File not found", candidates: candidatePaths }))
+						return
+					}
+
+					const webviewProvider = WebviewProvider.getInstance()
+					;(webviewProvider as unknown as { closePanel?: () => void })?.closePanel?.()
+					const editor = await vscode.window.showTextDocument(vscode.Uri.file(filePath), {
+						preview: false,
+						preserveFocus: false,
+						viewColumn: vscode.ViewColumn.One,
+					})
+					const lastLineIndex = Math.max(editor.document.lineCount - 1, 0)
+					const lastLine = editor.document.lineAt(lastLineIndex)
+					const selection = new vscode.Selection(0, 0, lastLineIndex, lastLine.text.length)
+					editor.selection = selection
+					editor.revealRange(selection, vscode.TextEditorRevealType.InCenterIfOutsideViewport)
+					res.writeHead(200, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: true, filePath }))
+				})
+				.catch((error) => {
+					res.writeHead(500)
+					res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
+				})
+			return
+		}
+
 		// Only handle POST requests to /task
 		if (req.method !== "POST" || req.url !== "/task") {
 			res.writeHead(404)
@@ -125,13 +190,7 @@ export async function createTestServer(controller: Controller): Promise<http.Ser
 			return
 		}
 
-		// Parse the request body
-		let body = ""
-		req.on("data", (chunk) => {
-			body += chunk.toString()
-		})
-
-		req.on("end", async () => {
+		readRequestBody().then(async (body) => {
 			try {
 				// Parse the JSON body
 				const { task, apiKey } = JSON.parse(body)

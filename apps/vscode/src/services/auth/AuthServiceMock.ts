@@ -106,12 +106,21 @@ export class AuthServiceMock extends AuthService {
 
 			Logger.log(`Successfully authenticated with mock server as ${authData.userInfo.name} (${authData.userInfo.email})`)
 
-			const visibleWebview = WebviewProvider.getVisibleInstance()
-
 			// Use appropriate provider name for callback
 			const providerName = this._provider?.name || "mock"
 			// Simulate handling the auth callback as if from a real provider
-			await visibleWebview?.controller.handleAuthCallback(authData.accessToken, providerName)
+			const visibleWebview = WebviewProvider.getVisibleInstance()
+			const controller = visibleWebview?.controller ?? this._controller
+			await controller.handleAuthCallback(authData.accessToken, providerName)
+			const apiConfiguration = controller.stateManager.getApiConfiguration()
+			controller.stateManager.setApiConfiguration({
+				...apiConfiguration,
+				planModeApiProvider: "cline",
+				actModeApiProvider: "cline",
+			})
+			controller.stateManager.setSessionOverride("planModeApiProvider", "cline")
+			controller.stateManager.setSessionOverride("actModeApiProvider", "cline")
+			await controller.postStateToWebview()
 		} catch (error) {
 			Logger.error("Error signing in with mock server:", error)
 			this._authenticated = false

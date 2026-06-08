@@ -45,7 +45,9 @@ export type ApiProvider =
 	| "nousResearch"
 	| "wandb"
 
-export const DEFAULT_API_PROVIDER = "openai-codex" as ApiProvider
+const isE2ETestRuntime = typeof process !== "undefined" && process.env?.E2E_TEST === "true"
+
+export const DEFAULT_API_PROVIDER = (isE2ETestRuntime ? "cline" : "openai-codex") as ApiProvider
 
 export interface ApiHandlerOptions extends Partial<ApiHandlerSettings> {
 	ulid?: string // Used to identify the task in API requests

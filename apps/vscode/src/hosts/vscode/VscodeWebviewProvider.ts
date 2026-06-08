@@ -48,6 +48,11 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 		return this.webview
 	}
 
+	public closePanel(): void {
+		this.panel?.dispose()
+		this.panel = undefined
+	}
+
 	public async show(preserveEditorFocus = false): Promise<void> {
 		if (this.panel) {
 			this.panel.reveal(this.panel.viewColumn, preserveEditorFocus)

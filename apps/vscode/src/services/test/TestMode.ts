@@ -55,9 +55,11 @@ async function checkForTestMode(): Promise<boolean> {
  */
 export async function initializeTestMode(webviewProvider?: any): Promise<vscode.Disposable[]> {
 	const disposables: vscode.Disposable[] = []
+	const controller = webviewProvider?.controller ?? webviewProvider
 
-	// Check if we're in test mode
-	const IS_TEST = await checkForTestMode()
+	// Check if we're in test mode. Playwright launches VS Code with E2E_TEST=true,
+	// while long-running evaluation workspaces still opt in with evals.env.
+	const IS_TEST = process.env.E2E_TEST === "true" || (await checkForTestMode())
 
 	// Set test mode state for other parts of the code
 	if (IS_TEST) {
@@ -66,7 +68,7 @@ export async function initializeTestMode(webviewProvider?: any): Promise<vscode.
 		vscode.commands.executeCommand("setContext", "codevibe.isTestMode", true)
 
 		// Set up test server if in test mode
-		createTestServer(webviewProvider)
+		createTestServer(controller)
 	}
 
 	// Watch for evals.env files being added or removed
@@ -78,7 +80,7 @@ export async function initializeTestMode(webviewProvider?: any): Promise<vscode.
 		if (!isInTestMode()) {
 			setTestMode(true)
 			vscode.commands.executeCommand("setContext", "codevibe.isTestMode", true)
-			createTestServer(webviewProvider)
+			createTestServer(controller)
 		}
 	})
 

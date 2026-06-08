@@ -1,11 +1,11 @@
 import type { ChildProcess } from "node:child_process"
-import { mkdtempSync, type PathLike, type RmOptions, readdirSync, rmSync } from "node:fs"
+import { mkdirSync, mkdtempSync, type PathLike, type RmOptions, readdirSync, rmSync, writeFileSync } from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 import { type ElectronApplication, expect, type Frame, type Page, test } from "@playwright/test"
 import { downloadAndUnzipVSCode, SilentReporter } from "@vscode/test-electron"
 import { _electron } from "playwright"
-import { ClineApiServerMock } from "../fixtures/server"
+import { CodeVibeApiServerMock } from "../fixtures/server"
 
 interface E2ETestDirectories {
 	workspaceDir: string
@@ -88,7 +88,11 @@ export class E2ETestHelper {
 
 				try {
 					const title = await frame.title()
-					if (title.startsWith("CodeVibe") || title.startsWith("Cline")) {
+					const hasCodeVibeSurface =
+						(await frame.getByTestId("chat-input").count()) > 0 ||
+						(await frame.getByRole("button", { name: "Login to CodeVibe" }).count()) > 0 ||
+						(await frame.getByText("Bring my own API key").count()) > 0
+					if (hasCodeVibeSurface || title.startsWith("CodeVibe")) {
 						this.cachedFrame = frame
 						return frame
 					}
@@ -102,8 +106,15 @@ export class E2ETestHelper {
 		}
 
 		// Use longer timeout (30s) for the webview - macOS CI runners can be slow
-		await E2ETestHelper.waitUntil(async () => (await findSidebarFrame()) !== null, 30000)
-		return (await findSidebarFrame()) || page.mainFrame()
+		let sidebarFrame: Frame | null = null
+		await E2ETestHelper.waitUntil(async () => {
+			sidebarFrame = await findSidebarFrame()
+			return sidebarFrame !== null
+		}, 30000)
+		if (!sidebarFrame) {
+			throw new Error("CodeVibe webview frame was not found")
+		}
+		return sidebarFrame
 	}
 
 	public static async rmForRetries(path: PathLike, options?: RmOptions): Promise<void> {
@@ -278,12 +289,38 @@ export class E2ETestHelper {
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {
-		const editorMenu = page.locator("li").filter({ hasText: "[Extension Development Host]" }).first()
-		await editorMenu.click({ delay: 100 })
-		const editorSearchBar = page.getByRole("textbox", {
-			name: "Search files by name (append",
-		})
-		await editorSearchBar.click({ delay: 100 }) // Ensure focus
+		await page.bringToFront()
+		const editorSearchBar = page.locator(".quick-input-widget input").first()
+
+		const waitForQuickInput = async (timeout = 2_000) => {
+			try {
+				await editorSearchBar.waitFor({ state: "visible", timeout })
+				return true
+			} catch {
+				return false
+			}
+		}
+
+		const openAttempts: Array<() => Promise<void>> = [
+			async () => {
+				const showAllCommands = page.getByText("Show All Commands", { exact: true }).first()
+				if (await showAllCommands.isVisible()) {
+					await showAllCommands.click({ delay: 50 })
+				}
+			},
+			async () => page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+A" : "Control+Shift+P"),
+			async () => page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+P" : "F1"),
+			async () => page.keyboard.press("F1"),
+		]
+
+		for (const open of openAttempts) {
+			await open().catch(() => undefined)
+			if (await waitForQuickInput()) {
+				break
+			}
+		}
+
+		await editorSearchBar.waitFor({ state: "visible", timeout: 10_000 })
 		await editorSearchBar.fill(`>${command}`)
 		await page.keyboard.press("Enter")
 	}
@@ -307,7 +344,7 @@ export class E2ETestHelper {
  * @extends test - Base Playwright test with multiple fixture extensions
  *
  * Fixtures provided:
- * - `server`: Shared ClineApiServerMock instance for API mocking (reused across all tests)
+ * - `server`: Shared CodeVibeApiServerMock instance for API mocking (reused across all tests)
  * - `workspaceDir`: Path to the test workspace directory
  * - `userDataDir`: Temporary directory for VS Code user data
  * - `extensionsDir`: Temporary directory for VS Code extensions
@@ -318,7 +355,7 @@ export class E2ETestHelper {
  * - `sidebar`: Playwright Frame object representing the CodeVibe extension's sidebar iframe
  *
  * @returns Extended test object with all fixtures available for E2E test scenarios:
- * - **server**: Automatically starts and manages a ClineApiServerMock instance
+ * - **server**: Automatically starts and manages a CodeVibeApiServerMock instance
  * - **workspaceDir**: Sets up a test workspace directory from fixtures
  * - **userDataDir**: Creates a temporary directory for VS Code user data
  * - **extensionsDir**: Creates a temporary directory for VS Code extensions
@@ -343,13 +380,13 @@ export class E2ETestHelper {
  * - Configures VS Code with disabled updates, workspace trust, and welcome screens
  */
 export const e2e = test
-	.extend<{ server: ClineApiServerMock | null }>({
+	.extend<{ server: CodeVibeApiServerMock | null }>({
 		server: async ({}, use) => {
 			// Start server if it doesn't exist
-			if (!ClineApiServerMock.globalSharedServer) {
-				await ClineApiServerMock.startGlobalServer()
+			if (!CodeVibeApiServerMock.globalSharedServer) {
+				await CodeVibeApiServerMock.startGlobalServer()
 			}
-			await use(ClineApiServerMock.globalSharedServer)
+			await use(CodeVibeApiServerMock.globalSharedServer)
 		},
 	})
 	.extend<E2ETestDirectories>({
@@ -372,12 +409,27 @@ export const e2e = test
 		channel: "stable",
 	})
 	.extend<{ openVSCode: (workspacePath: string) => Promise<ElectronApplication> }>({
-		openVSCode: async ({ userDataDir, channel }, use, testInfo) => {
+		openVSCode: async ({ userDataDir, extensionsDir, channel }, use, testInfo) => {
 			const executablePath = await downloadAndUnzipVSCode(channel, undefined, new SilentReporter())
 
 			await use(async (workspacePath: string) => {
 				// Create isolated Cline data directory for this test
 				const clineTestDir = mkdtempSync(path.join(os.tmpdir(), "cline-e2e-"))
+				const userSettingsDir = path.join(userDataDir, "User")
+				mkdirSync(userSettingsDir, { recursive: true })
+				writeFileSync(
+					path.join(userSettingsDir, "settings.json"),
+					JSON.stringify(
+						{
+							"extensions.ignoreRecommendations": true,
+							"git.openRepositoryInParentFolders": "never",
+							"telemetry.telemetryLevel": "off",
+							"workbench.enableExperiments": false,
+						},
+						null,
+						2,
+					),
+				)
 
 				const app = await _electron.launch({
 					executablePath,
@@ -400,10 +452,10 @@ export const e2e = test
 						"--no-sandbox",
 						"--disable-updates",
 						"--disable-workspace-trust",
-						"--disable-extensions", // Run VS Code with all extensions disabled other than the one under test.
 						"--skip-welcome",
 						"--skip-release-notes",
 						`--user-data-dir=${userDataDir}`,
+						`--extensions-dir=${extensionsDir}`,
 						`--install-extension=${path.join(E2ETestHelper.CODEBASE_ROOT_DIR, "dist", "e2e.vsix")}`,
 						`--extensionDevelopmentPath=${E2ETestHelper.CODEBASE_ROOT_DIR}`,
 						workspacePath,

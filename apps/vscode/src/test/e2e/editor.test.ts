@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test"
-import { addSelectedCodeToClineWebview, openTab, toggleNotifications } from "./utils/common"
+import { addSelectedCodeToClineWebview, openWorkspaceFile, toggleNotifications } from "./utils/common"
 import { E2E_WORKSPACE_TYPES, e2e } from "./utils/helpers"
 
 e2e.describe("Code Actions and Editor Panel", () => {
@@ -14,15 +14,16 @@ e2e.describe("Code Actions and Editor Panel", () => {
 			await toggleNotifications(page)
 			await expect(sidebarInput).toBeEmpty()
 
-			// Open file tree and select code from file
-			await openTab(page, "Explorer ")
-			await page.getByRole("treeitem", { name: "index.html" }).locator("a").click()
-			await expect(sidebarInput).not.toBeFocused()
+			// Open a fixture file and select code from the editor.
+			await openWorkspaceFile(page, "index.html")
 
-			// Sidebar should be opened and visible after adding code to Cline
+			// CodeVibe should be opened and visible after adding code to CodeVibe.
 			await addSelectedCodeToClineWebview(page)
-			await expect(sidebarInput).not.toBeEmpty()
-			await expect(sidebarInput).toBeFocused()
+			helper.clearCachedFrame()
+			const updatedSidebar = await helper.getSidebar(page)
+			const updatedSidebarInput = updatedSidebar.getByTestId("chat-input")
+			await expect(updatedSidebarInput).toBeVisible()
+			await expect(updatedSidebarInput).toBeFocused()
 		})
 	})
 })

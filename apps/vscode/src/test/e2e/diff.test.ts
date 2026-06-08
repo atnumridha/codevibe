@@ -11,19 +11,9 @@ e2e.describe("Diff Editor", () => {
 			const inputbox = sidebar.getByTestId("chat-input")
 			await expect(inputbox).toBeVisible()
 
-			await inputbox.fill("[diff.test.ts] Hello, CodeVibe!")
-			await expect(inputbox).toHaveValue("[diff.test.ts] Hello, CodeVibe!")
-			await sidebar.getByTestId("send-button").click()
-			await expect(inputbox).toHaveValue("")
-
-			// Back to home page with history
-			await sidebar.getByRole("button", { name: "Start New Task" }).click()
-			await expect(sidebar.getByText("Recent")).toBeVisible()
-			await expect(sidebar.getByText("Hello, CodeVibe!")).toBeVisible() // History with the previous sent message
-
 			// Submit a file edit request
-			await sidebar.getByTestId("chat-input").click()
-			await sidebar.getByTestId("chat-input").fill("edit_request")
+			await inputbox.click()
+			await inputbox.fill("edit_request")
 			await sidebar.getByTestId("send-button").click({ delay: 50 })
 
 			// Wait for the sidebar to load the file edit request

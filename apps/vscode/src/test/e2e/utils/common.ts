@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test"
+import { expect, type Page } from "@playwright/test"
 
 export const openTab = async (_page: Page, tabName: string) => {
 	await _page
@@ -7,10 +7,32 @@ export const openTab = async (_page: Page, tabName: string) => {
 		.click()
 }
 
-export const addSelectedCodeToClineWebview = async (_page: Page) => {
-	await _page.locator("div:nth-child(4) > span > span").first().click()
-	await _page.getByRole("textbox", { name: "The editor is not accessible" }).press("ControlOrMeta+a")
+export const openWorkspaceFile = async (_page: Page, fileName: string) => {
+	const closeModalButton = _page.getByRole("button", { name: /Close Modal Editor/ }).first()
+	if (await closeModalButton.isVisible().catch(() => false)) {
+		await closeModalButton.click({ delay: 50 })
+	}
 
+	const response = await fetch("http://127.0.0.1:9876/open-file", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ fileName }),
+	}).catch(() => null)
+
+	if (response?.ok) {
+		await expect(_page.getByRole("tab", { name: new RegExp(fileName) })).toBeVisible()
+		return
+	}
+
+	await _page.keyboard.press("ControlOrMeta+P")
+	const quickInput = _page.locator(".quick-input-widget input").first()
+	await quickInput.waitFor({ state: "visible" })
+	await quickInput.fill(fileName)
+	await _page.keyboard.press("Enter")
+	await expect(_page.getByRole("tab", { name: new RegExp(fileName) })).toBeVisible()
+}
+
+export const addSelectedCodeToClineWebview = async (_page: Page) => {
 	// Open Code Actions via keyboard for cross-platform reliability
 	await _page.keyboard.press("ControlOrMeta+.")
 

@@ -271,6 +271,18 @@ export class Controller {
 		historyItem?: HistoryItem,
 		taskSettings?: Partial<Settings>,
 	) {
+		if (process.env.E2E_TEST === "true") {
+			const apiConfiguration = this.stateManager.getApiConfiguration()
+			const testProvider: ApiProvider = "cline"
+			this.stateManager.setApiConfiguration({
+				...apiConfiguration,
+				planModeApiProvider: testProvider,
+				actModeApiProvider: testProvider,
+			})
+			this.stateManager.setSessionOverride("planModeApiProvider", testProvider)
+			this.stateManager.setSessionOverride("actModeApiProvider", testProvider)
+		}
+
 		// Fire-and-forget: We intentionally don't await fetchRemoteConfig here.
 		// Remote config is already fetched in startRemoteConfigTimer() which runs in the constructor,
 		// so enterprise policies (yoloModeAllowed, allowedMCPServers, etc.) are already applied.
@@ -360,6 +372,13 @@ export class Controller {
 		await this.stateManager.loadTaskSettings(taskId)
 		if (taskSettings) {
 			this.stateManager.setTaskSettingsBatch(taskId, taskSettings)
+		}
+		if (process.env.E2E_TEST === "true") {
+			const testProvider: ApiProvider = "cline"
+			this.stateManager.setTaskSettingsBatch(taskId, {
+				planModeApiProvider: testProvider,
+				actModeApiProvider: testProvider,
+			})
 		}
 
 		this.task = new Task({
