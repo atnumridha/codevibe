@@ -98,7 +98,7 @@ export const BROWSER_ACTIONS = ["launch", "click", "type", "scroll_down", "scrol
  */
 export const VALIDATION_ERROR_PATTERNS = [
 	"Missing required parameter",
-	"blocked by .clineignore",
+	"blocked by workspace ignore rules",
 	"blocked by direct-access ignore",
 ] as const
 

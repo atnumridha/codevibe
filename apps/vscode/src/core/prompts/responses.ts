@@ -25,7 +25,7 @@ export const formatResponse = {
 	toolError: (error?: string) => `The tool execution failed with the following error:\n<error>\n${error}\n</error>`,
 
 	clineIgnoreError: (path: string) =>
-		`Access to ${path} is blocked by direct-access ignore settings (.clineignore or .cursorignore). You must try to continue in the task without using this file, or ask the user to update the ignore file.`,
+		`Access to ${path} is blocked by the workspace ignore settings. You must try to continue in the task without using this file, or ask the user to update the ignore rules.`,
 
 	permissionDeniedError: (reason: string) =>
 		`Command execution blocked by configured command permissions: ${reason}. You must try a different approach or ask the user to update the permission settings.`,
@@ -320,7 +320,7 @@ Otherwise, if you have not completed the task and do not need additional informa
 			options?.ignoredFilesBehavior === "omit"
 				? "When using list_files, ignored entries are omitted from results. Attempting to access the file's contents e.g. through read_file will result in an error."
 				: `When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. Attempting to access the file's contents e.g. through read_file will result in an error.`
-		return `# .clineignore\n\n(The following is provided by a root-level .clineignore file where the user has specified files and directories that should not be accessed. ${listFilesBehavior})\n\n${content}\n.clineignore`
+		return `# Workspace ignore rules\n\n(The following is provided by root-level ignore settings where the user has specified files and directories that should not be accessed. ${listFilesBehavior})\n\n${content}`
 	},
 
 	clineRulesGlobalDirectoryInstructions: (globalClineRulesFilePath: string, content: string) =>

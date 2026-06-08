@@ -378,8 +378,7 @@ export const BrowserSettingsSection: React.FC<BrowserSettingsSectionProps> = ({ 
 										margin: "4px 0 0 0",
 									}}>
 									Enable CodeVibe to run JavaScript in the active browser page. Evaluation output and console logs are
-									redacted before they are returned. Cursor-compatible flows can also enable this with
-									cline.cursorCompatibility.safeBrowserEvaluate.enabled.
+									redacted before they are returned. Compatible browser flows use the same setting.
 								</p>
 							</div>
 						</div>

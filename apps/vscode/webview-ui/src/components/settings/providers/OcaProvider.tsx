@@ -304,10 +304,10 @@ export const OcaProvider = ({ isPopup, currentMode }: OcaProviderProps) => {
 						Please ask your IT administrator to set up Oracle Code Assist as a model provider. Oracle Employees,
 						please see the{" "}
 						<VSCodeLink
-							href="https://confluence.oraclecorp.com/confluence/display/AICODE/Oracle+Code+Assist+via+Cline"
+							href="https://confluence.oraclecorp.com/confluence/display/AICODE"
 							rel="noopener noreferrer"
 							target="_blank">
-							quickstart guide
+							Oracle Code Assist docs
 						</VSCodeLink>
 					</p>
 				</div>

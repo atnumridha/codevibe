@@ -1051,7 +1051,7 @@ export const ChatRowContent = memo(
 									Profile").
 									<a
 										className="px-1"
-										href="https://github.com/cline/cline/wiki/Troubleshooting-%E2%80%90-Shell-Integration-Unavailable">
+										href="https://github.com/atnumridha/codevibe#readme">
 										Still having trouble?
 									</a>
 								</div>

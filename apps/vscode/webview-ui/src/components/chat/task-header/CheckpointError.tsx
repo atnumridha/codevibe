@@ -35,7 +35,7 @@ export const CheckpointError: React.FC<CheckpointErrorProps> = ({
 					{messages.showGitInstructions && (
 						<a
 							className="text-link underline"
-							href="https://github.com/cline/cline/wiki/Installing-Git-for-Checkpoints">
+							href="https://github.com/atnumridha/codevibe#readme">
 							See instructions
 						</a>
 					)}

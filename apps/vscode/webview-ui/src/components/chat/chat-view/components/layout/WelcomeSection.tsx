@@ -29,7 +29,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 	showHistoryView,
 	version,
 	taskHistory,
-	shouldShowQuickWins,
+	shouldShowStarterWorkflows,
 }) => {
 	const { lastDismissedInfoBannerVersion, lastDismissedCliBannerVersion, lastDismissedModelBannerVersion, dismissedBanners } =
 		useExtensionState()
@@ -260,11 +260,13 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 				welcomeBanners={welcomeBanners}
 			/>
 			<div className="overflow-y-auto flex flex-col pb-2.5">
-				<HomeHeader shouldShowQuickWins={shouldShowQuickWins} />
+				<HomeHeader shouldShowStarterWorkflows={shouldShowStarterWorkflows} />
 				{!showWhatsNewModal && (
 					<>
 						<BannerCarousel banners={activeBanners} />
-						{!shouldShowQuickWins && taskHistory.length > 0 && <HistoryPreview showHistoryView={showHistoryView} />}
+						{!shouldShowStarterWorkflows && taskHistory.length > 0 && (
+							<HistoryPreview showHistoryView={showHistoryView} />
+						)}
 						{/* Quick launch worktree button */}
 						{isGitRepo && worktreesEnabled?.featureFlag && worktreesEnabled?.user && (
 							<div className="flex flex-col items-center gap-3 mt-2 mb-4 px-5">
@@ -314,7 +316,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 					</>
 				)}
 			</div>
-			<SuggestedTasks shouldShowQuickWins={shouldShowQuickWins} />
+			<SuggestedTasks shouldShowStarterWorkflows={shouldShowStarterWorkflows} />
 
 			{/* Quick launch worktree modal */}
 			<CreateWorktreeModal

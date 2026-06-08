@@ -116,7 +116,7 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 									It seems like you're having Windows PowerShell issues, please see this{" "}
 									<a
 										className="underline text-inherit"
-										href="https://github.com/cline/cline/wiki/TroubleShooting-%E2%80%90-%22PowerShell-is-not-recognized-as-an-internal-or-external-command%22">
+										href="https://github.com/atnumridha/codevibe#readme">
 										troubleshooting guide
 									</a>
 									.
@@ -147,8 +147,8 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 				return (
 					<div className="flex flex-col p-2 rounded text-xs opacity-80 bg-quote text-foreground">
 						<div>
-							CodeVibe tried to access <code>{message.text}</code> which is blocked by the <code>.clineignore</code>
-							file.
+							CodeVibe tried to access <code>{message.text}</code>, but it is blocked by your workspace ignore
+							rules.
 						</div>
 					</div>
 				)

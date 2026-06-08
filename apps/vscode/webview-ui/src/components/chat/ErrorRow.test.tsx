@@ -168,7 +168,7 @@ describe("ErrorRow", () => {
 			expect(screen.getByText("troubleshooting guide")).toBeInTheDocument()
 			expect(screen.getByRole("link", { name: "troubleshooting guide" })).toHaveAttribute(
 				"href",
-				"https://github.com/cline/cline/wiki/TroubleShooting-%E2%80%90-%22PowerShell-is-not-recognized-as-an-internal-or-external-command%22",
+				"https://github.com/atnumridha/codevibe#readme",
 			)
 		})
 

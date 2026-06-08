@@ -22,7 +22,7 @@ export const Default = () => (
 		<div className="flex flex-col gap-8 w-full max-w-md px-4">
 			<Popover>
 				<PopoverTrigger asChild>
-					<Button variant="cline">Open Popover</Button>
+					<Button variant="codevibe">Open Popover</Button>
 				</PopoverTrigger>
 				<PopoverContent>
 					<div className="space-y-2">

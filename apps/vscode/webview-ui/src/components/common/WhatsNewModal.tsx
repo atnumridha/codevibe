@@ -61,7 +61,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ open, onClose, ver
 							<a
 								aria-label="Follow us on X"
 								className="text-[var(--vscode-foreground)] hover:text-[var(--vscode-textLink-activeForeground)] transition-colors"
-								href="https://x.com/cline"
+								href="https://github.com/atnumridha/codevibe"
 								rel="noopener noreferrer"
 								target="_blank">
 								<XIcon />
@@ -71,7 +71,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ open, onClose, ver
 							<a
 								aria-label="Join our Discord"
 								className="text-[var(--vscode-foreground)] hover:text-[var(--vscode-textLink-activeForeground)] transition-colors"
-								href="https://discord.gg/cline"
+								href="https://github.com/atnumridha/codevibe/discussions"
 								rel="noopener noreferrer"
 								target="_blank">
 								<DiscordIcon />
@@ -81,7 +81,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ open, onClose, ver
 							<a
 								aria-label="Star us on GitHub"
 								className="text-[var(--vscode-foreground)] hover:text-[var(--vscode-textLink-activeForeground)] transition-colors"
-								href="https://github.com/cline/cline"
+								href="https://github.com/atnumridha/codevibe"
 								rel="noopener noreferrer"
 								target="_blank">
 								<GitHubIcon />
@@ -91,7 +91,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ open, onClose, ver
 							<a
 								aria-label="Join our subreddit"
 								className="text-[var(--vscode-foreground)] hover:text-[var(--vscode-textLink-activeForeground)] transition-colors"
-								href="https://www.reddit.com/r/cline/"
+								href="https://github.com/atnumridha/codevibe/discussions"
 								rel="noopener noreferrer"
 								target="_blank">
 								<RedditIcon />
@@ -101,7 +101,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ open, onClose, ver
 							<a
 								aria-label="Follow us on LinkedIn"
 								className="text-[var(--vscode-foreground)] hover:text-[var(--vscode-textLink-activeForeground)] transition-colors"
-								href="https://www.linkedin.com/company/clinebot/"
+								href="https://github.com/atnumridha/codevibe"
 								rel="noopener noreferrer"
 								target="_blank">
 								<LinkedInIcon />
@@ -112,7 +112,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ open, onClose, ver
 						<p className="text-sm text-center" style={{ color: "var(--vscode-descriptionForeground)" }}>
 							Please support CodeVibe by{" "}
 							<a
-								href="https://github.com/cline/cline"
+								href="https://github.com/atnumridha/codevibe"
 								rel="noopener noreferrer"
 								style={{ color: "var(--vscode-textLink-foreground)" }}
 								target="_blank">

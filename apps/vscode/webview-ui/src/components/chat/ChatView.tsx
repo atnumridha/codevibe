@@ -50,13 +50,11 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 		apiConfiguration,
 		telemetrySetting,
 		mode,
-		userInfo,
 		currentFocusChainChecklist,
 		focusChainSettings,
 		hooksEnabled,
 	} = useExtensionState()
-	const isProdHostedApp = userInfo?.apiBaseUrl === "https://app.cline.bot"
-	const shouldShowQuickWins = isProdHostedApp && (!taskHistory || taskHistory.length < QUICK_WINS_HISTORY_THRESHOLD)
+	const shouldShowStarterWorkflows = !taskHistory || taskHistory.length < QUICK_WINS_HISTORY_THRESHOLD
 
 	//const task = messages.length > 0 ? (messages[0].say === "task" ? messages[0] : undefined) : undefined) : undefined
 	const task = useMemo(() => messages.at(0), [messages]) // leaving this less safe version here since if the first message is not a task, then the extension is in a bad state and needs to be debugged (see Cline.abort)
@@ -349,7 +347,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 				) : (
 					<WelcomeSection
 						hideAnnouncement={hideAnnouncement}
-						shouldShowQuickWins={shouldShowQuickWins}
+						shouldShowStarterWorkflows={shouldShowStarterWorkflows}
 						showAnnouncement={showAnnouncement}
 						showHistoryView={showHistoryView}
 						taskHistory={taskHistory}

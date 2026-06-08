@@ -11,7 +11,7 @@ const FEATURE_TIPS: FeatureTipItem[] = [
 		text: 'Enable "Double-Check Completion" in settings to have CodeVibe verify its work before finishing a task.',
 	},
 	{
-		text: "Add a .cursorrules or .clinerules file to your project root to give CodeVibe project-specific instructions.",
+		text: "Add a project rules file to your workspace root to give CodeVibe project-specific instructions.",
 	},
 	{
 		text: "Switch to Plan Mode to discuss and plan an approach before CodeVibe takes action.",

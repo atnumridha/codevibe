@@ -19,6 +19,8 @@ import CreditsHistoryTable from "./CreditsHistoryTable"
 import { convertProtoUsageTransactions, getClineUris, getMainRole } from "./helpers"
 import { RemoteConfigToggle } from "./RemoteConfigToggle"
 
+const CODEVIBE_HOME_URL = "https://github.com/atnumridha/codevibe"
+
 type AccountViewProps = {
 	clineUser: ClineUser | null
 	organizations: UserOrganization[] | null
@@ -229,7 +231,10 @@ export const ClineAccountView = ({ clineUser, userOrganizations, activeOrganizat
 		fetchCreditBalance(dropdownValue)
 	}, 60000)
 
-	const clineUrl = appBaseUrl || "https://app.cline.bot"
+	const dashboardUrl = appBaseUrl ? getClineUris(appBaseUrl, "dashboard").href : CODEVIBE_HOME_URL
+	const creditsUrl = appBaseUrl
+		? getClineUris(appBaseUrl, "credits", dropdownValue === uid ? "account" : "organization")
+		: new URL(CODEVIBE_HOME_URL)
 
 	// Fetch balance on mount
 	useEffect(() => {
@@ -356,7 +361,7 @@ export const ClineAccountView = ({ clineUser, userOrganizations, activeOrganizat
 
 				<div className="w-full flex gap-2 flex-col min-[225px]:flex-row">
 					<div className="w-full min-[225px]:w-1/2">
-						<VSCodeButtonLink appearance="primary" className="w-full" href={getClineUris(clineUrl, "dashboard").href}>
+						<VSCodeButtonLink appearance="primary" className="w-full" href={dashboardUrl}>
 							Dashboard
 						</VSCodeButtonLink>
 					</div>
@@ -369,7 +374,7 @@ export const ClineAccountView = ({ clineUser, userOrganizations, activeOrganizat
 
 				<CreditBalance
 					balance={balance}
-					creditUrl={getClineUris(clineUrl, "credits", dropdownValue === uid ? "account" : "organization")}
+					creditUrl={creditsUrl}
 					fetchCreditBalance={() => fetchCreditBalance(dropdownValue)}
 					isLoading={isLoading}
 					lastFetchTime={lastFetchTime}

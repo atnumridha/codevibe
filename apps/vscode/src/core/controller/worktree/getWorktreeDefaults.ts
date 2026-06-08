@@ -28,9 +28,9 @@ export async function getWorktreeDefaults(_controller: Controller, _request: Emp
 	const suffix = generateRandomSuffix()
 
 	// Generate suggested branch name
-	const suggestedBranch = `worktree/cline-${suffix}`
+	const suggestedBranch = `worktree/codevibe-${suffix}`
 
-	// Generate suggested path in Documents/Cline/Worktrees/<project-name>-<suffix>
+	// Generate suggested path in Documents/CodeVibe/Worktrees/<project-name>-<suffix>
 	const documentsPath = await getDocumentsPath()
 	const cwd = await getWorkspacePath()
 

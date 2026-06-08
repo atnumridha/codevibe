@@ -8,42 +8,46 @@ interface QuickWinCardProps {
 
 const renderIcon = (iconName?: string) => {
 	if (!iconName) {
-		return <span className="codicon codicon-rocket text-[28px]! leading-none!"></span>
+		return <span className="codicon codicon-sparkle text-[16px]! leading-none!"></span>
 	}
 
-	let iconClass = "codicon-rocket"
+	let iconClass = "codicon-sparkle"
 	switch (iconName) {
-		case "WebAppIcon":
-			iconClass = "codicon-dashboard"
+		case "ReviewIcon":
+			iconClass = "codicon-search"
 			break
-		case "TerminalIcon":
-			iconClass = "codicon-terminal"
+		case "PlanIcon":
+			iconClass = "codicon-list-tree"
 			break
-		case "GameIcon":
-			iconClass = "codicon-game"
+		case "VerifyIcon":
+			iconClass = "codicon-beaker"
 			break
 		default:
 			break
 	}
-	return <span className={`codicon ${iconClass} text-[28px]! leading-none!`}></span>
+	return <span className={`codicon ${iconClass} text-[16px]! leading-none!`}></span>
 }
 
 const QuickWinCard: React.FC<QuickWinCardProps> = ({ task, onExecute }) => {
 	return (
-		<div
-			className="flex items-center mb-2 py-0 px-5 space-x-3 rounded-full cursor-pointer group transition-colors duration-150 ease-in-out bg-white/2 border border-(--vscode-panel-border) hover:bg-(--vscode-list-hoverBackground)"
-			onClick={() => onExecute()}>
-			<div className="shrink-0 flex items-center justify-center w-6 h-6 text-(--vscode-icon-foreground)">
+		<button
+			className="group grid grid-cols-[28px_1fr_18px] items-center gap-3 rounded-md border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-3 py-2 text-left transition-colors duration-150 ease-in-out hover:bg-[var(--vscode-list-hoverBackground)]"
+			onClick={onExecute}
+			type="button">
+			<div className="shrink-0 flex size-7 items-center justify-center rounded-sm bg-[var(--vscode-toolbar-hoverBackground)] text-[var(--vscode-icon-foreground)]">
 				{renderIcon(task.icon)}
 			</div>
 
-			<div className="grow min-w-0">
-				<h3 className="text-sm font-medium truncate text-(--vscode-editor-foreground) leading-tight mb-0 mt-0 pt-3">
+			<div className="min-w-0">
+				<h3 className="m-0 truncate text-sm font-medium leading-tight text-[var(--vscode-editor-foreground)]">
 					{task.title}
 				</h3>
-				<p className="text-xs truncate text-(--vscode-descriptionForeground) leading-tight mt-px">{task.description}</p>
+				<p className="m-0 mt-1 truncate text-xs leading-tight text-[var(--vscode-descriptionForeground)]">
+					{task.description}
+				</p>
 			</div>
-		</div>
+			<span className="codicon codicon-arrow-right text-[var(--vscode-descriptionForeground)] transition-transform group-hover:translate-x-0.5" />
+		</button>
 	)
 }
 
