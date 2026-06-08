@@ -181,19 +181,23 @@ let providerCatalogCache: {
 // -----------------------------------------------------------
 
 export function SettingsView({
+	initialCursorUri,
 	initialSection = "General",
 	onClose,
 	onNavigateSection,
 	onThemeChange,
 	theme,
 }: {
+	initialCursorUri?: string;
 	initialSection?: SettingsSection;
 	onClose: () => void;
 	onNavigateSection?: (section: SettingsSection) => void;
 	onThemeChange: (theme: Theme) => void;
 	theme: Theme;
 }) {
-	const [activeNav, setActiveNav] = useState<SettingsSection>(initialSection);
+	const [activeNav, setActiveNav] = useState<SettingsSection>(
+		initialCursorUri ? "Cursor Links" : initialSection,
+	);
 	const [providersExpanded, setProvidersExpanded] = useState(true);
 	const [providers, setProviders] = useState<Provider[]>(
 		() => providerCatalogCache?.providers ?? [],
@@ -613,7 +617,10 @@ export function SettingsView({
 					) : activeNav === "MCP" ? (
 						<McpServersContent />
 					) : activeNav === "Cursor Links" ? (
-						<CursorLinksContent onOpenSettings={selectSection} />
+						<CursorLinksContent
+							initialCursorUri={initialCursorUri}
+							onOpenSettings={selectSection}
+						/>
 					) : activeNav === "Channels" ? (
 						<ChannelsContent />
 					) : activeNav === "Schedules" ? (
@@ -924,11 +931,15 @@ function buildCursorUriLocalPreview(input: string): {
 }
 
 function CursorLinksContent({
+	initialCursorUri,
 	onOpenSettings,
 }: {
+	initialCursorUri?: string;
 	onOpenSettings?: (section: SettingsSection) => void;
 }) {
-	const [cursorUri, setCursorUri] = useState(DEFAULT_CURSOR_URI);
+	const [cursorUri, setCursorUri] = useState(
+		initialCursorUri ?? DEFAULT_CURSOR_URI,
+	);
 	const [preview, setPreview] = useState<
 		CursorUriPreviewResponse | undefined
 	>();
@@ -1033,8 +1044,8 @@ function CursorLinksContent({
 		route === "git-branch" ||
 		route === "git-commit";
 
-	const runPreview = async () => {
-		const uri = cursorUri.trim();
+	const runPreview = async (inputUri = cursorUri) => {
+		const uri = inputUri.trim();
 		if (!uri) {
 			setPreview(undefined);
 			setPreviewError("URI is required.");
@@ -1101,6 +1112,17 @@ function CursorLinksContent({
 		setGitResult(undefined);
 		setGitError(null);
 	};
+
+	useEffect(() => {
+		if (!initialCursorUri) {
+			return;
+		}
+		updateCursorUri(initialCursorUri);
+		const timeoutId = window.setTimeout(() => {
+			void runPreview(initialCursorUri);
+		}, 0);
+		return () => window.clearTimeout(timeoutId);
+	}, [initialCursorUri]);
 
 	const runMcpInstall = async () => {
 		const uri = cursorUri.trim();
@@ -1272,6 +1294,9 @@ function CursorLinksContent({
 					<h2 className="text-lg font-semibold text-foreground">
 						Cursor Links
 					</h2>
+					{initialCursorUri ? (
+						<Badge variant="secondary">Standalone URL</Badge>
+					) : null}
 				</div>
 				<section className="rounded-lg border border-border p-5">
 					<div className="flex flex-col gap-3">

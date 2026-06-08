@@ -55,6 +55,10 @@ import { getVsCodeApi, postToHost } from "./vscode";
 
 type View = "home" | "chat" | "settings";
 type Theme = "dark" | "light";
+type CursorLinkIntent = {
+	key: string;
+	uri: string;
+};
 
 const VIEW_PATHS: Record<View, string> = {
 	home: "/",
@@ -63,6 +67,29 @@ const VIEW_PATHS: Record<View, string> = {
 };
 
 const CHAT_SESSION_QUERY_PARAM = "id";
+const CURSOR_LINK_INTENT_PATHS = new Set([
+	"/createchat",
+	"/mcp/install",
+	"/background-agent",
+	"/settings",
+	"/prompt",
+	"/command",
+	"/rule",
+	"/pr-review",
+	"/plugin/add",
+	"/glass",
+	"/automation/ingest",
+	"/git/checkout",
+	"/git/branch",
+	"/git/commit",
+]);
+const CURSOR_SETTINGS_INTENT_PARAMS = new Set([
+	"config",
+	"query",
+	"section",
+	"tab",
+]);
+const CURSOR_LINK_APP_ONLY_PARAMS = new Set(["roomSecret"]);
 
 const SETTINGS_SECTION_PATHS: Record<SettingsSection, string> = {
 	General: "/settings",
@@ -74,6 +101,54 @@ const SETTINGS_SECTION_PATHS: Record<SettingsSection, string> = {
 	Schedules: "/settings/schedules",
 	Account: "/settings/account",
 };
+
+function normalizeCursorLinkPath(pathname: string): string {
+	if (pathname.length > 1 && pathname.endsWith("/")) {
+		return pathname.replace(/\/+$/, "");
+	}
+	return pathname;
+}
+
+function hasCursorSettingsIntentParams(search: string): boolean {
+	const params = new URLSearchParams(search);
+	for (const key of params.keys()) {
+		if (CURSOR_SETTINGS_INTENT_PARAMS.has(key)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function isCursorLinkIntentPath(pathname: string, search = ""): boolean {
+	const normalized = normalizeCursorLinkPath(pathname);
+	if (normalized === "/settings") {
+		return hasCursorSettingsIntentParams(search);
+	}
+	return CURSOR_LINK_INTENT_PATHS.has(normalized);
+}
+
+function cursorLinkSearchFromLocation(search: string): string {
+	const params = new URLSearchParams(search);
+	for (const key of CURSOR_LINK_APP_ONLY_PARAMS) {
+		params.delete(key);
+	}
+	const serialized = params.toString();
+	return serialized ? `?${serialized}` : "";
+}
+
+function buildCursorLinkIntentFromLocation(): CursorLinkIntent | undefined {
+	if (typeof window === "undefined") return undefined;
+	const path = normalizeCursorLinkPath(window.location.pathname);
+	if (!isCursorLinkIntentPath(path, window.location.search)) {
+		return undefined;
+	}
+	const route = path.replace(/^\/+/, "");
+	const search = cursorLinkSearchFromLocation(window.location.search);
+	return {
+		key: `${path}${search}${window.location.hash}`,
+		uri: `codevibe://${route}${search}${window.location.hash}`,
+	};
+}
 
 const EMPTY_HUB_STATE: WebviewHubState = {
 	type: "hub_state",
@@ -106,6 +181,12 @@ function writeTheme(theme: Theme): void {
 }
 
 function viewFromPath(pathname: string): View {
+	if (
+		typeof window !== "undefined" &&
+		isCursorLinkIntentPath(pathname, window.location.search)
+	) {
+		return "settings";
+	}
 	if (pathname === VIEW_PATHS.chat) return "chat";
 	if (
 		pathname === VIEW_PATHS.settings ||
@@ -147,6 +228,11 @@ function chatPath(sessionId?: string): string {
 
 function readCurrentSettingsSection(): SettingsSection {
 	if (typeof window === "undefined") return "General";
+	if (
+		isCursorLinkIntentPath(window.location.pathname, window.location.search)
+	) {
+		return "Cursor Links";
+	}
 	return settingsSectionFromPath(window.location.pathname);
 }
 
@@ -939,6 +1025,9 @@ function App() {
 	const [settingsSection, setSettingsSection] = useState<SettingsSection>(() =>
 		readCurrentSettingsSection(),
 	);
+	const [cursorLinkIntent, setCursorLinkIntent] = useState<
+		CursorLinkIntent | undefined
+	>(() => buildCursorLinkIntentFromLocation());
 	const [theme, setTheme] = useState<Theme>(() => readTheme());
 	const [hubState, setHubState] = useState<WebviewHubState>(EMPTY_HUB_STATE);
 	const [restartPending, setRestartPending] = useState(false);
@@ -962,6 +1051,7 @@ function App() {
 				nextView === "chat" ? readCurrentChatSessionId() : undefined,
 			);
 			setSettingsSection(readCurrentSettingsSection());
+			setCursorLinkIntent(buildCursorLinkIntentFromLocation());
 		};
 		window.addEventListener("popstate", handlePopState);
 		return () => window.removeEventListener("popstate", handlePopState);
@@ -1001,6 +1091,7 @@ function App() {
 		if (nextView === "settings") {
 			setSettingsSection("General");
 		}
+		setCursorLinkIntent(undefined);
 		const nextPath = VIEW_PATHS[nextView];
 		if (window.location.pathname !== nextPath) {
 			window.history.pushState(null, "", nextPath);
@@ -1010,6 +1101,7 @@ function App() {
 
 	const navigateSettingsSection = useCallback((section: SettingsSection) => {
 		setSettingsSection(section);
+		setCursorLinkIntent(undefined);
 		const nextPath = SETTINGS_SECTION_PATHS[section];
 		if (window.location.pathname !== nextPath) {
 			window.history.pushState(null, "", nextPath);
@@ -1018,6 +1110,7 @@ function App() {
 
 	const openSession = useCallback((sessionId: string) => {
 		setSelectedSessionId(sessionId);
+		setCursorLinkIntent(undefined);
 		const nextPath = chatPath(sessionId);
 		if (`${window.location.pathname}${window.location.search}` !== nextPath) {
 			window.history.pushState(null, "", nextPath);
@@ -1065,8 +1158,9 @@ function App() {
 		if (view === "settings") {
 			return (
 				<SettingsView
+					initialCursorUri={cursorLinkIntent?.uri}
 					initialSection={settingsSection}
-					key={settingsSection}
+					key={`${settingsSection}:${cursorLinkIntent?.key ?? ""}`}
 					onClose={() => navigate("home")}
 					onNavigateSection={navigateSettingsSection}
 					onThemeChange={setTheme}
@@ -1087,6 +1181,7 @@ function App() {
 		);
 	}, [
 		hubState,
+		cursorLinkIntent,
 		deleteSession,
 		navigate,
 		navigateSettingsSection,

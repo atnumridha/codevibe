@@ -786,6 +786,7 @@ export {
 	type StandaloneBrowserCdpOptions,
 	type ToolCatalogEntry,
 	type ToolExecutors,
+	type ToolOperationResult,
 	type ToolPolicyPresetName,
 	type ToolPresetName,
 	ToolPresets,

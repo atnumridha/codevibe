@@ -5,6 +5,12 @@ import type {
 	CursorUriPreviewRequest,
 	CursorUriPreviewResponse,
 	HubEventEnvelope,
+	HubMentionFileSearchRequest,
+	HubMentionFileSearchResponse,
+	HubPromptCommandExecuteRequest,
+	HubPromptCommandExecuteResponse,
+	HubPromptCommandListRequest,
+	HubPromptCommandListResponse,
 	HubUINotifyPayload,
 	HubUIShowWindowPayload,
 	SessionRecord,
@@ -100,6 +106,27 @@ export class HubUIClient {
 		options?: { timeoutMs?: number | null },
 	): Promise<CursorUriLaunchResponse> {
 		return this.client.launchCursorUri(input, options);
+	}
+
+	async searchMentionFiles(
+		input: HubMentionFileSearchRequest = {},
+		options?: { timeoutMs?: number | null },
+	): Promise<HubMentionFileSearchResponse> {
+		return this.client.searchMentionFiles(input, options);
+	}
+
+	async listPromptCommands(
+		input: HubPromptCommandListRequest = {},
+		options?: { timeoutMs?: number | null },
+	): Promise<HubPromptCommandListResponse> {
+		return this.client.listPromptCommands(input, options);
+	}
+
+	async executePromptCommand(
+		input: HubPromptCommandExecuteRequest,
+		options?: { timeoutMs?: number | null },
+	): Promise<HubPromptCommandExecuteResponse> {
+		return this.client.executePromptCommand(input, options);
 	}
 
 	/**

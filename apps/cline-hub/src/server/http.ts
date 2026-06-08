@@ -36,13 +36,38 @@ function contentTypeFor(path: string): string {
 	}
 }
 
-function isWebviewRoute(pathname: string): boolean {
+const CURSOR_COMPATIBLE_WEBVIEW_ROUTES = new Set([
+	"/createchat",
+	"/mcp/install",
+	"/background-agent",
+	"/prompt",
+	"/command",
+	"/rule",
+	"/pr-review",
+	"/plugin/add",
+	"/glass",
+	"/automation/ingest",
+	"/git/checkout",
+	"/git/branch",
+	"/git/commit",
+]);
+
+function normalizeWebviewRoute(pathname: string): string {
+	if (pathname.length > 1 && pathname.endsWith("/")) {
+		return pathname.replace(/\/+$/, "");
+	}
+	return pathname;
+}
+
+export function isWebviewRoute(pathname: string): boolean {
+	const route = normalizeWebviewRoute(pathname);
 	return (
-		pathname === "/" ||
-		pathname === "/index.html" ||
-		pathname === "/chat" ||
-		pathname === "/settings" ||
-		pathname.startsWith("/settings/")
+		route === "/" ||
+		route === "/index.html" ||
+		route === "/chat" ||
+		route === "/settings" ||
+		route.startsWith("/settings/") ||
+		CURSOR_COMPATIBLE_WEBVIEW_ROUTES.has(route)
 	);
 }
 
