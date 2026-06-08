@@ -68,7 +68,7 @@ const navCategories = [
 	"Providers",
 	"Customizations",
 	"MCP",
-	"Cursor Links",
+	"Compatibility",
 	"Channels",
 	"Schedules",
 	"Account",
@@ -155,7 +155,7 @@ function cursorSettingsSectionFromPreview(
 		return "Customizations";
 	}
 	if (/\b(cursor.?link|deeplink|deep-link|uri|url)\b/.test(target)) {
-		return "Cursor Links";
+		return "Compatibility";
 	}
 	if (/\b(channel|connector|slack|outlook|sharepoint)\b/.test(target)) {
 		return "Channels";
@@ -196,7 +196,7 @@ export function SettingsView({
 	theme: Theme;
 }) {
 	const [activeNav, setActiveNav] = useState<SettingsSection>(
-		initialCursorUri ? "Cursor Links" : initialSection,
+		initialCursorUri ? "Compatibility" : initialSection,
 	);
 	const [providersExpanded, setProvidersExpanded] = useState(true);
 	const [providers, setProviders] = useState<Provider[]>(
@@ -614,13 +614,13 @@ export function SettingsView({
 								providers={providers}
 							/>
 						)
-					) : activeNav === "MCP" ? (
-						<McpServersContent />
-					) : activeNav === "Cursor Links" ? (
-						<CursorLinksContent
-							initialCursorUri={initialCursorUri}
-							onOpenSettings={selectSection}
-						/>
+						) : activeNav === "MCP" ? (
+							<McpServersContent />
+						) : activeNav === "Compatibility" ? (
+							<CursorLinksContent
+								initialCursorUri={initialCursorUri}
+								onOpenSettings={selectSection}
+							/>
 					) : activeNav === "Channels" ? (
 						<ChannelsContent />
 					) : activeNav === "Schedules" ? (
@@ -1299,7 +1299,7 @@ function CursorLinksContent({
 				<div className="mb-6 flex items-center gap-2">
 					<Link2 className="size-4 text-muted-foreground" />
 					<h2 className="text-lg font-semibold text-foreground">
-						Cursor Links
+						Compatibility
 					</h2>
 					{initialCursorUri ? (
 						<Badge variant="secondary">Standalone URL</Badge>
@@ -2210,7 +2210,7 @@ function GeneralSettingsContent({
 						<div>
 							<p className="text-sm font-medium text-foreground">Telemetry</p>
 							<p className="mt-1 text-xs text-muted-foreground">
-								Enable error and usage report to help us improve Cline.
+								Enable error and usage reports to help us improve CodeVibe.
 							</p>
 							{telemetryError ? (
 								<p className="mt-2 text-xs text-destructive">
@@ -2257,7 +2257,7 @@ function GeneralSettingsContent({
 						</div>
 						<div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
 							<span className="rounded-md border bg-background px-1.5 py-0.5">
-								Host: {browserStatus?.host ?? "cline-hub"}
+								Host: {browserStatus?.host ?? "codevibe-hub"}
 							</span>
 							<span className="rounded-md border bg-background px-1.5 py-0.5">
 								Evaluate:{" "}

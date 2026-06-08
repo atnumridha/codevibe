@@ -116,7 +116,7 @@ export function buildSessionStartInput(
 			enableSafeBrowserEvaluate:
 				options?.enableSafeBrowserEvaluate === true &&
 				options?.enableBrowserAutomation === true,
-			teamName: options?.teamName ?? "cline-hub",
+			teamName: options?.teamName ?? "codevibe-hub",
 			missionLogIntervalSteps: 3,
 			missionLogIntervalMs: 120000,
 			checkpoint: { enabled: true },

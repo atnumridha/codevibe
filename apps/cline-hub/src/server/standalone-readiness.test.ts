@@ -47,7 +47,7 @@ test("standalone readiness exposes VS-Code-free Cursor/Codex surfaces", () => {
 		assert.ok(payload.cursorCompatibility.desktopCommands.includes(command), command);
 	}
 	for (const surface of [
-		"Cursor Links",
+		"Compatibility",
 		"Browser Tools",
 		"Retrieval & Indexing",
 		"Background Agents",

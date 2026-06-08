@@ -99,7 +99,7 @@ const SETTINGS_SECTION_PATHS: Record<SettingsSection, string> = {
 	Providers: "/settings/providers",
 	Customizations: "/settings/customizations",
 	MCP: "/settings/mcp",
-	"Cursor Links": "/settings/cursor-links",
+	Compatibility: "/settings/cursor-links",
 	Channels: "/settings/channels",
 	Schedules: "/settings/schedules",
 	Account: "/settings/account",
@@ -234,7 +234,7 @@ function readCurrentSettingsSection(): SettingsSection {
 	if (
 		isCursorLinkIntentPath(window.location.pathname, window.location.search)
 	) {
-		return "Cursor Links";
+		return "Compatibility";
 	}
 	return settingsSectionFromPath(window.location.pathname);
 }
@@ -555,11 +555,11 @@ function HomeView({
 						</span>
 					</button>
 					<button
-						aria-label="Copy ClineCore SDK version"
+						aria-label="Copy core SDK version"
 						className="inline-flex items-center gap-2 rounded-lg border px-2.5 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
 						disabled={!hubState.coreVersion}
 						onClick={() => copyText(hubState.coreVersion)}
-						title="Copy ClineCore SDK version"
+						title="Copy core SDK version"
 						type="button"
 					>
 						<BoxIcon className="size-4 shrink-0" />
@@ -1210,8 +1210,7 @@ function RecentSessionRow({
 							Delete Session {currentSessionId}
 						</AlertDialogTitle>
 						<AlertDialogDescription>
-							This will permanently delete this session from Cline across
-							clients:
+							This will permanently delete this CodeVibe session across clients:
 							<br />
 							{currentTitle}
 						</AlertDialogDescription>

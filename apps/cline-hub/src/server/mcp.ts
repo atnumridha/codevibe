@@ -932,7 +932,7 @@ export async function authorizeMcpServerOAuthForHub(
 	const result = await authorize({
 		serverName,
 		filePath: settingsPath,
-		clientName: "cline-hub",
+		clientName: "codevibe-hub",
 		clientVersion: "0.0.0",
 		timeoutMs: toPositiveInt(args?.timeoutMs) ?? 110_000,
 		successHtml:

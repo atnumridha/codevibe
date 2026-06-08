@@ -20,7 +20,7 @@ function safeBrowserEvaluateEnabled(): boolean {
 export function getHubBrowserAutomation(): BrowserAutomation {
 	if (hubBrowser) return hubBrowser;
 	hubBrowser = createStandaloneBrowserCdpAutomation({
-		host: "cline-hub",
+		host: "codevibe-hub",
 		safeBrowserEvaluateEnabled: safeBrowserEvaluateEnabled(),
 	});
 	return hubBrowser;

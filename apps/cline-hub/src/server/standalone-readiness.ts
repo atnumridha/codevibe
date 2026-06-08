@@ -41,7 +41,7 @@ export function standaloneReadinessPayload(
 			routes: CURSOR_COMPATIBLE_WEBVIEW_ROUTES,
 			desktopCommands: STANDALONE_DESKTOP_COMMANDS,
 			settingsSurfaces: [
-				"Cursor Links",
+				"Compatibility",
 				"Browser Tools",
 				"Retrieval & Indexing",
 				"Background Agents",

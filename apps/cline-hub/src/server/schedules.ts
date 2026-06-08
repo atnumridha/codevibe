@@ -28,7 +28,7 @@ async function clientCommand(
 ): Promise<Record<string, unknown>> {
 	const reply = await getCommands().handleCommand({
 		version: "v1",
-		clientId: "cline-hub-schedules",
+		clientId: "codevibe-hub-schedules",
 		command: hubCommand as never,
 		payload,
 	});

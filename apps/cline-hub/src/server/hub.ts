@@ -98,7 +98,7 @@ export async function attachHub(ctx: HubContext): Promise<void> {
 	const browserStatus = browser.getStatus();
 
 	ctx.cline = await ClineCore.create({
-		clientName: "cline-hub",
+		clientName: "codevibe-hub",
 		backendMode: "hub",
 		capabilities: {
 			toolExecutors: {
@@ -119,7 +119,7 @@ export async function attachHub(ctx: HubContext): Promise<void> {
 		hub: {
 			endpoint: ctx.hubUrl,
 			authToken: ctx.hubAuthToken,
-			clientType: "cline-hub-chat",
+			clientType: "codevibe-hub-chat",
 			displayName: "CodeVibe Hub Chat",
 			workspaceRoot,
 		},
@@ -128,7 +128,7 @@ export async function attachHub(ctx: HubContext): Promise<void> {
 	ctx.uiClient = new HubUIClient({
 		address: ctx.hubUrl,
 		authToken: ctx.hubAuthToken,
-		clientType: "cline-hub-server",
+		clientType: "codevibe-hub-server",
 		displayName: "CodeVibe Hub Server",
 	});
 	await ctx.uiClient.connect();
