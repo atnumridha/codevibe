@@ -423,6 +423,21 @@ function filterJsonArrayByIdSql(key, legacyIds) {
 	`
 }
 
+function filterJsonArrayByIdPatternSql(keyLikePattern, legacyIds) {
+	const quotedIds = legacyIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ")
+	const escapedPattern = keyLikePattern.replace(/'/g, "''")
+	const valueClauses = legacyIds.map((id) => `value like '%${id.replace(/'/g, "''")}%'`).join(" or ")
+	return `
+		update ItemTable
+		set value = coalesce((
+			select json_group_array(json(value))
+			from json_each(ItemTable.value)
+			where coalesce(json_extract(value, '$.id'), '') not in (${quotedIds})
+		), '[]')
+		where key like '${escapedPattern}' and (${valueClauses});
+	`
+}
+
 function filterJsonObjectKeysContainingSql(key, legacyFragments) {
 	const escapedKey = key.replace(/'/g, "''")
 	const valueClauses = legacyFragments.map((fragment) => `value like '%${fragment.replace(/'/g, "''")}%'`).join(" or ")
@@ -437,6 +452,21 @@ function filterJsonObjectKeysContainingSql(key, legacyFragments) {
 			where ${keepClauses}
 		), '{}')
 		where key = '${escapedKey}' and (${valueClauses});
+	`
+}
+
+function filterJsonObjectKeysByNamePatternSql(keyLikePattern, targetKeys) {
+	const quotedKeys = targetKeys.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ")
+	const escapedPattern = keyLikePattern.replace(/'/g, "''")
+	const valueClauses = targetKeys.map((id) => `value like '%${id.replace(/'/g, "''")}%'`).join(" or ")
+	return `
+		update ItemTable
+		set value = coalesce((
+			select json_group_object(json_each.key, json(json_each.value))
+			from json_each(ItemTable.value)
+			where json_each.key not in (${quotedKeys})
+		), '{}')
+		where key like '${escapedPattern}' and (${valueClauses});
 	`
 }
 
@@ -500,6 +530,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 		"vibecode.agentPanel",
 		"vibecodex-agent-extension-view",
 	]
+	const legacyStateKeyFragments = [...legacyActivityViewIds, ...legacyWebviewViewIds]
 	const competingAuxiliaryViewIds = [
 		"workbench.view.extension.codexSecondaryViewContainer",
 		"workbench.panel.chat",
@@ -509,7 +540,10 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 		filterJsonArrayByIdSql("workbench.activity.pinnedViewlets2", legacyActivityViewIds),
 		filterJsonArrayByIdSql("workbench.activity.placeholderViewlets", legacyActivityViewIds),
 		filterJsonArrayByIdSql("workbench.activity.viewletsWorkspaceState", legacyActivityViewIds),
+		filterJsonArrayByIdPatternSql("workbench.%.views.state.hidden", legacyWebviewViewIds),
+		filterJsonObjectKeysByNamePatternSql("workbench.%.views.state", legacyWebviewViewIds),
 		filterJsonObjectKeysContainingSql("memento/webviewViews.origins", legacyWebviewViewIds),
+		filterJsonObjectKeysContainingSql("__$__targetStorageMarker", legacyStateKeyFragments),
 		hideAuxiliaryBarForViewIdsSql(competingAuxiliaryViewIds),
 		hideJsonArrayEntriesByIdSql("workbench.auxiliarybar.viewContainersWorkspaceState", competingAuxiliaryViewIds),
 		hideJsonArrayEntriesByIdSql("workbench.auxiliarybar.pinnedPanels", competingAuxiliaryViewIds),
