@@ -23,6 +23,7 @@ import {
 	setDisabledTools,
 	setTelemetryOptOutGlobally,
 	toggleDisabledTool,
+	writeBackgroundAgentTaskRecordsFile,
 } from "@cline/core";
 import {
 	getClineEnvironmentConfig,
@@ -169,6 +170,31 @@ function listBackgroundAgentSessionSummaries(
 	return [...bySessionId.values()].sort(
 		(a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0),
 	);
+}
+
+function deleteBackgroundAgentLifecycleRecord(
+	ctx: HubContext,
+	args?: Record<string, unknown>,
+): WebviewSessionSummary[] {
+	const requestedId =
+		asTrimmedString(args?.id) ??
+		asTrimmedString(args?.sessionId) ??
+		asTrimmedString(args?.taskId);
+	if (!requestedId) {
+		throw new Error("background agent record id is required");
+	}
+	const recordsPath = backgroundAgentRecordsPath();
+	const records = readBackgroundAgentTaskRecordsFile(recordsPath);
+	const nextRecords = records.filter(
+		(record) => record.id !== requestedId && record.taskId !== requestedId,
+	);
+	if (nextRecords.length === records.length) {
+		throw new Error(`unknown background agent record: ${requestedId}`);
+	}
+	writeBackgroundAgentTaskRecordsFile(recordsPath, nextRecords);
+	ctx.pushEvent("Background agent dismissed", requestedId, "success");
+	broadcastHubState(ctx);
+	return listBackgroundAgentSessionSummaries(ctx);
 }
 
 export async function handleDesktopCommand(
@@ -400,6 +426,13 @@ export async function handleDesktopCommand(
 	}
 	if (command === "list_background_agent_sessions") {
 		return listBackgroundAgentSessionSummaries(ctx);
+	}
+	if (
+		command === "delete_background_agent_record" ||
+		command === "dismiss_background_agent_session" ||
+		command === "delete_background_agent_session"
+	) {
+		return deleteBackgroundAgentLifecycleRecord(ctx, args);
 	}
 	if (command === "read_session_hooks") {
 		return [];

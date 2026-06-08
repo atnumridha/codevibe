@@ -287,10 +287,21 @@ class HubDesktopClient {
 		});
 	}
 
-	async listBackgroundAgentSessions(limit = 300): Promise<WebviewSessionSummary[]> {
+	async listBackgroundAgentSessions(
+		limit = 300,
+	): Promise<WebviewSessionSummary[]> {
 		return await this.invoke<WebviewSessionSummary[]>(
 			"list_background_agent_sessions",
 			{ limit },
+		);
+	}
+
+	async deleteBackgroundAgentRecord(
+		id: string,
+	): Promise<WebviewSessionSummary[]> {
+		return await this.invoke<WebviewSessionSummary[]>(
+			"delete_background_agent_record",
+			{ id },
 		);
 	}
 
@@ -300,7 +311,9 @@ class HubDesktopClient {
 		);
 	}
 
-	async browserSnapshot(input: BrowserSnapshotInput = {}): Promise<BrowserToolResult> {
+	async browserSnapshot(
+		input: BrowserSnapshotInput = {},
+	): Promise<BrowserToolResult> {
 		return await this.invoke<BrowserToolResult>("browser_snapshot", input);
 	}
 
@@ -332,7 +345,9 @@ class HubDesktopClient {
 				uri: input.uri,
 				confirmed: input.confirmed,
 				...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
-				...(input.workspaceRoots ? { workspaceRoots: input.workspaceRoots } : {}),
+				...(input.workspaceRoots
+					? { workspaceRoots: input.workspaceRoots }
+					: {}),
 				...(input.maxCommandFileBytes !== undefined
 					? { maxCommandFileBytes: input.maxCommandFileBytes }
 					: {}),

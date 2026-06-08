@@ -51,6 +51,7 @@ import {
 	type SettingsSection,
 	SettingsView,
 } from "./components/views/settings/settings-view";
+import { desktopClient } from "./lib/desktop-client";
 import { getVsCodeApi, postToHost } from "./vscode";
 
 type View = "home" | "chat" | "settings";
@@ -443,7 +444,11 @@ function Shell({
 }
 
 function HomeView({
+	backgroundAgentBusyId,
+	backgroundAgentError,
+	backgroundAgentSessions,
 	hubState,
+	onDismissBackgroundAgent,
 	onOpenSession,
 	onDeleteSession,
 	onRenameSession,
@@ -451,7 +456,11 @@ function HomeView({
 	restartPending,
 	recentSessions,
 }: {
+	backgroundAgentBusyId?: string;
+	backgroundAgentError?: string;
+	backgroundAgentSessions: WebviewSessionSummary[];
 	hubState: WebviewHubState;
+	onDismissBackgroundAgent: (sessionId: string) => Promise<void> | void;
 	onOpenSession: (sessionId: string) => void;
 	onDeleteSession: (sessionId: string) => Promise<void> | void;
 	onRenameSession: (sessionId: string, title: string) => Promise<void> | void;
@@ -463,9 +472,7 @@ function HomeView({
 	const connectedClients = hubState.clients ?? [];
 	const connectedConnectors = hubState.connectors ?? [];
 	const latestEvents = hubState.events.slice(0, 6);
-	const activeBackgroundSessions = activeSessions.filter(
-		(session) => session.backgroundAgent,
-	).length;
+	const activeBackgroundSessions = backgroundAgentSessions.length;
 	const [restartDialogOpen, setRestartDialogOpen] = useState(false);
 	const [sessionFilters, setSessionFilters] = useState<string[]>([]);
 	const runDetailFilterOptions = useMemo(
@@ -634,6 +641,14 @@ function HomeView({
 				</div>
 			</section>
 
+			<BackgroundAgentLifecycleSection
+				busyId={backgroundAgentBusyId}
+				error={backgroundAgentError}
+				onDismiss={onDismissBackgroundAgent}
+				onOpen={onOpenSession}
+				sessions={backgroundAgentSessions}
+			/>
+
 			<section
 				id="connected-clients-section"
 				className="min-h-60 overflow-hidden rounded-lg border bg-card"
@@ -801,6 +816,190 @@ function HomeView({
 				</section>
 			</div>
 		</div>
+	);
+}
+
+function backgroundAgentLifecycleDetails(
+	session: WebviewSessionSummary,
+): string[] {
+	const details = sessionMetadataRecord(session.backgroundAgentDetails);
+	const repository = recordString(details, "repository");
+	const requestedBranch = recordString(details, "requestedBranch");
+	const requestedBaseBranch = recordString(details, "requestedBaseBranch");
+	const worktreePath = recordString(details, "worktreePath");
+	const worktreeBranch = recordString(details, "worktreeBranch");
+	const fallbackReason = recordString(details, "fallbackReason");
+	const warning = recordString(details, "warning");
+	const errorMessage = recordString(details, "errorMessage");
+	return [
+		repository ? `repo:${repository}` : undefined,
+		requestedBranch ? `branch:${requestedBranch}` : undefined,
+		requestedBaseBranch ? `base:${requestedBaseBranch}` : undefined,
+		worktreeBranch ? `worktree branch:${worktreeBranch}` : undefined,
+		worktreePath ? `worktree:${worktreePath}` : undefined,
+		fallbackReason ? `fallback:${fallbackReason}` : undefined,
+		warning ? `warning:${warning}` : undefined,
+		errorMessage ? `error:${errorMessage}` : undefined,
+	].filter((detail): detail is string => Boolean(detail));
+}
+
+function backgroundAgentRecordId(session: WebviewSessionSummary): string {
+	const details = sessionMetadataRecord(session.backgroundAgentDetails);
+	return (
+		recordString(details, "id") ||
+		recordString(details, "taskId") ||
+		session.sessionId
+	);
+}
+
+function BackgroundAgentLifecycleSection({
+	busyId,
+	error,
+	onDismiss,
+	onOpen,
+	sessions,
+}: {
+	busyId?: string;
+	error?: string;
+	onDismiss: (sessionId: string) => Promise<void> | void;
+	onOpen: (sessionId: string) => void;
+	sessions: WebviewSessionSummary[];
+}) {
+	const [dismissTarget, setDismissTarget] =
+		useState<WebviewSessionSummary | null>(null);
+	const targetId = dismissTarget ? backgroundAgentRecordId(dismissTarget) : "";
+	const confirmDismiss = async () => {
+		if (!dismissTarget) return;
+		await onDismiss(backgroundAgentRecordId(dismissTarget));
+		setDismissTarget(null);
+	};
+
+	return (
+		<section className="mb-4 overflow-hidden rounded-lg border bg-card">
+			<div className="flex items-center justify-between gap-3 border-b px-3.5 py-3">
+				<div>
+					<h3 className="text-[13px] font-[650]">Background Agent Lifecycle</h3>
+					<p className="text-[11px] text-muted-foreground">
+						{sessions.length} persisted launch record
+						{sessions.length === 1 ? "" : "s"}
+					</p>
+				</div>
+				<GitBranchIcon className="size-4 text-muted-foreground" />
+			</div>
+			{error ? (
+				<div className="border-b border-destructive/40 bg-destructive/10 px-3.5 py-2 text-xs text-destructive">
+					{error}
+				</div>
+			) : null}
+			<div className="grid gap-2 p-2.5">
+				{sessions.length === 0 ? (
+					<p className="px-1 py-4 text-[13px] text-muted-foreground">
+						No background-agent lifecycle records.
+					</p>
+				) : (
+					sessions.map((session) => {
+						const detailsRecord = sessionMetadataRecord(
+							session.backgroundAgentDetails,
+						);
+						const details = backgroundAgentLifecycleDetails(session);
+						const recordId = backgroundAgentRecordId(session);
+						const linkedTaskId = recordString(detailsRecord, "taskId");
+						const isBusy = busyId === recordId || busyId === session.sessionId;
+						return (
+							<div
+								className="grid gap-2 border bg-[color-mix(in_oklch,var(--background)_70%,var(--card))] p-2.5"
+								key={`${recordId}:${session.sessionId}`}
+							>
+								<div className="flex items-center gap-2">
+									<span
+										className={`size-2 shrink-0 rounded-full ${statusTone(session.status)}`}
+									/>
+									<div className="min-w-0 flex-1">
+										<p className="truncate text-[13px] font-semibold leading-tight">
+											{session.title || shortId(session.sessionId)}
+										</p>
+										<span className="block truncate text-[11px] text-muted-foreground">
+											{session.status || "unknown"} | {recordId}
+										</span>
+									</div>
+									<Button
+										aria-label={`Open ${session.title || session.sessionId}`}
+										disabled={!linkedTaskId}
+										onClick={() => onOpen(linkedTaskId ?? session.sessionId)}
+										size="sm"
+										type="button"
+										variant="outline"
+									>
+										Open
+									</Button>
+									<Button
+										aria-label={`Dismiss ${session.title || session.sessionId}`}
+										disabled={isBusy}
+										onClick={() => setDismissTarget(session)}
+										size="sm"
+										type="button"
+										variant="ghost"
+									>
+										<Trash2Icon className="size-3.5" />
+									</Button>
+								</div>
+								<div className="flex flex-wrap items-center gap-1.5 pl-4 text-[11px] text-muted-foreground">
+									<span>{formatRelativeTime(session.updatedAt)}</span>
+									{session.workspaceRoot ? (
+										<span
+											className="max-w-full break-all rounded-md border bg-background px-1.5 py-0.5"
+											title={session.workspaceRoot}
+										>
+											{session.workspaceRoot}
+										</span>
+									) : null}
+									{details.map((detail) => (
+										<span
+											className="max-w-full break-all rounded-md border bg-background px-1.5 py-0.5"
+											key={detail}
+											title={detail}
+										>
+											{detail}
+										</span>
+									))}
+								</div>
+							</div>
+						);
+					})
+				)}
+			</div>
+			<AlertDialog
+				open={Boolean(dismissTarget)}
+				onOpenChange={(open) => {
+					if (!open) setDismissTarget(null);
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Dismiss Background Agent</AlertDialogTitle>
+						<AlertDialogDescription>
+							This removes the persisted lifecycle record from the hub list. It
+							does not remove files, branches, worktrees, or active chat
+							history.
+							<br />
+							{targetId}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={Boolean(busyId)}>
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							disabled={Boolean(busyId)}
+							onClick={() => void confirmDismiss()}
+							variant="destructive"
+						>
+							{busyId ? "Dismissing..." : "Dismiss"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+		</section>
 	);
 }
 
@@ -1037,6 +1236,15 @@ function App() {
 	const [recentSessions, setRecentSessions] = useState<WebviewSessionSummary[]>(
 		[],
 	);
+	const [backgroundAgentSessions, setBackgroundAgentSessions] = useState<
+		WebviewSessionSummary[]
+	>([]);
+	const [backgroundAgentError, setBackgroundAgentError] = useState<
+		string | undefined
+	>();
+	const [backgroundAgentBusyId, setBackgroundAgentBusyId] = useState<
+		string | undefined
+	>();
 
 	useEffect(() => {
 		document.documentElement.classList.toggle("dark", theme === "dark");
@@ -1078,6 +1286,33 @@ function App() {
 		postToHost({ type: "ready" });
 		return () => window.removeEventListener("message", handleMessage);
 	}, []);
+
+	const refreshBackgroundAgentSessions = useCallback(async () => {
+		try {
+			const sessions = await desktopClient.listBackgroundAgentSessions();
+			setBackgroundAgentSessions(sessions);
+			setBackgroundAgentError(undefined);
+		} catch (error) {
+			setBackgroundAgentError(
+				error instanceof Error ? error.message : String(error),
+			);
+		}
+	}, []);
+
+	useEffect(() => {
+		void refreshBackgroundAgentSessions();
+		const intervalId = window.setInterval(() => {
+			void refreshBackgroundAgentSessions();
+		}, 15_000);
+		return () => window.clearInterval(intervalId);
+	}, [refreshBackgroundAgentSessions]);
+
+	useEffect(() => {
+		if (!hubState.connected) {
+			return;
+		}
+		void refreshBackgroundAgentSessions();
+	}, [hubState.connected, refreshBackgroundAgentSessions]);
 
 	const restartHub = useCallback(() => {
 		setRestartPending(true);
@@ -1146,6 +1381,22 @@ function App() {
 		});
 	}, []);
 
+	const dismissBackgroundAgent = useCallback(async (recordId: string) => {
+		setBackgroundAgentBusyId(recordId);
+		setBackgroundAgentError(undefined);
+		try {
+			const sessions =
+				await desktopClient.deleteBackgroundAgentRecord(recordId);
+			setBackgroundAgentSessions(sessions);
+		} catch (error) {
+			setBackgroundAgentError(
+				error instanceof Error ? error.message : String(error),
+			);
+		} finally {
+			setBackgroundAgentBusyId(undefined);
+		}
+	}, []);
+
 	const content = useMemo(() => {
 		if (view === "chat") {
 			return (
@@ -1170,7 +1421,11 @@ function App() {
 		}
 		return (
 			<HomeView
+				backgroundAgentBusyId={backgroundAgentBusyId}
+				backgroundAgentError={backgroundAgentError}
+				backgroundAgentSessions={backgroundAgentSessions}
 				hubState={hubState}
+				onDismissBackgroundAgent={dismissBackgroundAgent}
 				onDeleteSession={deleteSession}
 				onOpenSession={openSession}
 				onRenameSession={renameSession}
@@ -1181,8 +1436,12 @@ function App() {
 		);
 	}, [
 		hubState,
+		backgroundAgentBusyId,
+		backgroundAgentError,
+		backgroundAgentSessions,
 		cursorLinkIntent,
 		deleteSession,
+		dismissBackgroundAgent,
 		navigate,
 		navigateSettingsSection,
 		openSession,
