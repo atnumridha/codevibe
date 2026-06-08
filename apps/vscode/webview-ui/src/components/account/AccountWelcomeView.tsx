@@ -1,18 +1,15 @@
 import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react"
+import CodeVibeMark from "@/assets/CodeVibeMark"
 import { useClineSignIn } from "@/context/ClineAuthContext"
 import { useExtensionState } from "@/context/ExtensionStateContext"
-import ClineLogoVariable from "../../assets/ClineLogoVariable"
 
-// export const AccountWelcomeView = () => (
-// 	<div className="flex flex-col items-center pr-3 gap-2.5">
-// 		<ClineLogoWhite className="size-16 mb-4" />
 export const AccountWelcomeView = () => {
 	const { environment } = useExtensionState()
 	const { isLoginLoading, handleSignIn } = useClineSignIn()
 
 	return (
 		<div className="flex flex-col items-center gap-2.5">
-			<ClineLogoVariable className="size-16 mb-4" environment={environment} />
+			<CodeVibeMark className="size-16 mb-4" environment={environment} />
 
 			<p>
 				Sign up for an account to get access to the latest models, billing dashboard to view usage and credits, and more
@@ -20,7 +17,7 @@ export const AccountWelcomeView = () => {
 			</p>
 
 			<VSCodeButton className="w-full mb-4" disabled={isLoginLoading} onClick={handleSignIn}>
-				Sign up with Cline
+				Sign up with CodeVibe
 				{isLoginLoading && (
 					<span className="ml-1 animate-spin">
 						<span className="codicon codicon-refresh"></span>

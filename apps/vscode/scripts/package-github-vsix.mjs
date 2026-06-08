@@ -400,6 +400,44 @@ function assertVisibleManifestStringsBranded(value, label, pathParts = []) {
 	}
 }
 
+function assertNativeCodeVibeContributionIds(packageJson, label) {
+	const activityBarContainers = packageJson.contributes?.viewsContainers?.activitybar ?? []
+	const activityBarIds = activityBarContainers.map((container) => container?.id).filter(Boolean)
+	assertArrayIncludes(activityBarIds, "codevibe-ActivityBar", `${label} viewsContainers.activitybar ids`)
+	if (activityBarIds.includes("claude-dev-ActivityBar")) {
+		throw new Error(`${label} must not contribute the legacy claude-dev activity bar container`)
+	}
+
+	const views = packageJson.contributes?.views ?? {}
+	if ("claude-dev-ActivityBar" in views) {
+		throw new Error(`${label} must not contribute views under legacy claude-dev-ActivityBar`)
+	}
+	const codevibeViews = Array.isArray(views["codevibe-ActivityBar"]) ? views["codevibe-ActivityBar"] : []
+	const viewIds = codevibeViews.map((view) => view?.id).filter(Boolean)
+	assertArrayIncludes(viewIds, "codevibe.SidebarProvider", `${label} codevibe-ActivityBar views`)
+	if (viewIds.includes("claude-dev.SidebarProvider")) {
+		throw new Error(`${label} must not contribute the legacy claude-dev.SidebarProvider view`)
+	}
+
+	const commands = Array.isArray(packageJson.contributes?.commands) ? packageJson.contributes.commands : []
+	for (const command of commands) {
+		if (typeof command?.command === "string" && command.command.startsWith("cline.")) {
+			throw new Error(`${label} must not contribute legacy Cline command ${command.command}`)
+		}
+	}
+
+	for (const [menuId, items] of Object.entries(packageJson.contributes?.menus ?? {})) {
+		for (const item of Array.isArray(items) ? items : []) {
+			if (typeof item?.command === "string" && item.command.startsWith("cline.")) {
+				throw new Error(`${label} menu ${menuId} must not reference legacy Cline command ${item.command}`)
+			}
+			if (typeof item?.when === "string" && item.when.includes("claude-dev.SidebarProvider")) {
+				throw new Error(`${label} menu ${menuId} must not target legacy claude-dev.SidebarProvider`)
+			}
+		}
+	}
+}
+
 function brandPackagedMarkdownAssets() {
 	const snapshot = new Map()
 	for (const assetPath of packagedMarkdownAssetPaths) {
@@ -485,6 +523,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 		throw new Error(`${label} must default cline.cursorCompatibility.sandboxPolicy to prompt`)
 	}
 	assertVisibleManifestStringsBranded(packageJson, label)
+	assertNativeCodeVibeContributionIds(packageJson, label)
 	for (const value of ["prompt", "workspace", "readOnly", "disabled"]) {
 		assertArrayIncludes(
 			properties["cline.cursorCompatibility.sandboxPolicy"].enum,
