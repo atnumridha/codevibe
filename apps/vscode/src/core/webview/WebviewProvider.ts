@@ -115,7 +115,7 @@ export abstract class WebviewProvider {
 					font-src ${this.getCspSource()} data:; 
 					style-src ${this.getCspSource()} 'unsafe-inline'; 
 					img-src ${this.getCspSource()} https: data:; 
-					script-src 'nonce-${nonce}' 'unsafe-eval';">
+					script-src ${this.getCspSource()} 'nonce-${nonce}' 'unsafe-eval';">
 				<title>CodeVibe</title>
 			</head>
 			<body>
