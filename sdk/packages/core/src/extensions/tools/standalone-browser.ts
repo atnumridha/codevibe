@@ -14,8 +14,13 @@ export const STANDALONE_BROWSER_EXECUTOR_NAMES = [
 
 export const STANDALONE_BROWSER_ACTIONS = [
 	"launch",
+	"navigate",
 	"click",
+	"hover",
+	"fill",
+	"select",
 	"type",
+	"key_press",
 	"scroll_down",
 	"scroll_up",
 	"evaluate",
@@ -87,8 +92,13 @@ export function getStandaloneBrowserAutomationStatus(
 		readOnlyTools: ["browser_snapshot", "browser_screenshot"],
 		mutatingActions: [
 			"launch",
+			"navigate",
 			"click",
+			"hover",
+			"fill",
+			"select",
 			"type",
+			"key_press",
 			"scroll_down",
 			"scroll_up",
 			"evaluate",

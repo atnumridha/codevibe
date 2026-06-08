@@ -555,7 +555,7 @@ export function createBrowserActionTool(
 		name: "browser_action",
 		description:
 			"Perform a Cursor-compatible browser action through a host-provided browser executor. " +
-			"Supports launch, click, type, scroll_down, scroll_up, evaluate, and close. " +
+			"Supports launch, navigate, click, hover, fill, select, type, key_press, scroll_down, scroll_up, evaluate, and close. " +
 			"JavaScript evaluation is disabled unless enableSafeBrowserEvaluate is explicitly true.",
 		inputSchema: zodToJsonSchema(BrowserActionInputSchema),
 		timeoutMs,

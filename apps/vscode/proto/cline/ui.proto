@@ -99,6 +99,11 @@ enum BrowserAction {
   SCROLL_UP = 4;
   CLOSE = 5;
   EVALUATE = 6;
+  NAVIGATE = 7;
+  HOVER = 8;
+  FILL = 9;
+  SELECT = 10;
+  KEY_PRESS = 11;
 }
 
 // Enum for MCP server request types
@@ -136,6 +141,7 @@ message ClineSayBrowserAction {
   BrowserAction action = 1;
   string coordinate = 2;
   string text = 3;
+  string url = 4;
 }
 
 // Message for BrowserActionResult

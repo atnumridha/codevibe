@@ -9,7 +9,7 @@ import os from "os"
 import pWaitFor from "p-wait-for"
 import * as path from "path"
 // @ts-ignore
-import type { LoggerMessage, ScreenshotOptions } from "puppeteer-core"
+import type { KeyInput, LoggerMessage, ScreenshotOptions } from "puppeteer-core"
 import { Browser, connect, launch, Page, TimeoutError } from "puppeteer-core"
 import { StateManager } from "@/core/storage/StateManager"
 import { telemetryService } from "@/services/telemetry"
@@ -521,6 +521,17 @@ export class BrowserSession {
 		})
 	}
 
+	async hover(coordinate: string): Promise<BrowserActionResult> {
+		this.browserActions.push("hover: coordinate")
+
+		const [x, y] = parseBrowserCoordinate(coordinate)
+		return this.doAction(async (page) => {
+			await page.mouse.move(x, y)
+			this.currentMousePosition = coordinate
+			await setTimeoutPromise(150)
+		})
+	}
+
 	// page.goto { waitUntil: "networkidle0" } may not ever resolve, and not waiting could return page content too early before js has loaded
 	// https://stackoverflow.com/questions/52497252/puppeteer-wait-until-page-is-completely-loaded/61304202#61304202
 	private async waitTillHTMLStable(page: Page, timeout = 5_000) {
@@ -594,6 +605,88 @@ export class BrowserSession {
 
 		return this.doAction(async (page) => {
 			await page.keyboard.type(text)
+		})
+	}
+
+	async fill(coordinate: string, text: string): Promise<BrowserActionResult> {
+		this.browserActions.push(`fill:${text.length} chars at coordinate`)
+
+		const [x, y] = parseBrowserCoordinate(coordinate)
+		return this.doAction(async (page) => {
+			await page.mouse.click(x, y)
+			this.currentMousePosition = coordinate
+			await selectFocusedText(page)
+			await page.keyboard.type(text)
+			await setTimeoutPromise(150)
+		})
+	}
+
+	async select(coordinate: string, valueOrLabel: string): Promise<BrowserActionResult> {
+		this.browserActions.push(`select:${valueOrLabel.length} chars at coordinate`)
+
+		const [x, y] = parseBrowserCoordinate(coordinate)
+		return this.doAction(async (page) => {
+			await page.mouse.click(x, y)
+			this.currentMousePosition = coordinate
+			const selected = await page.evaluate((requested) => {
+				const active = document.activeElement
+				if (!(active instanceof HTMLSelectElement)) {
+					return {
+						ok: false,
+						error: "The focused element is not a native select element.",
+					}
+				}
+				const normalized = requested.trim().toLowerCase()
+				const options = Array.from(active.options)
+				const option =
+					options.find((candidate) => candidate.value === requested) ||
+					options.find((candidate) => candidate.label === requested) ||
+					options.find((candidate) => candidate.text.trim() === requested) ||
+					options.find((candidate) => candidate.value.trim().toLowerCase() === normalized) ||
+					options.find((candidate) => candidate.label.trim().toLowerCase() === normalized) ||
+					options.find((candidate) => candidate.text.trim().toLowerCase() === normalized)
+				if (!option) {
+					return {
+						ok: false,
+						error: `No select option matched "${requested}".`,
+					}
+				}
+				active.value = option.value
+				active.dispatchEvent(new Event("input", { bubbles: true }))
+				active.dispatchEvent(new Event("change", { bubbles: true }))
+				return {
+					ok: true,
+					value: option.value,
+					label: option.label || option.text,
+				}
+			}, valueOrLabel)
+			if (!selected.ok) {
+				throw new Error(selected.error)
+			}
+			await setTimeoutPromise(150)
+		})
+	}
+
+	async keyPress(keyOrChord: string): Promise<BrowserActionResult> {
+		this.browserActions.push(`keyPress:${keyOrChord}`)
+
+		return this.doAction(async (page) => {
+			const keys = parseKeyboardChord(keyOrChord)
+			const key = keys.pop()
+			if (!key) {
+				throw new Error("Browser key_press requires a key name.")
+			}
+			for (const modifier of keys) {
+				await page.keyboard.down(modifier)
+			}
+			try {
+				await page.keyboard.press(key)
+			} finally {
+				for (const modifier of keys.reverse()) {
+					await page.keyboard.up(modifier)
+				}
+			}
+			await setTimeoutPromise(100)
 		})
 	}
 
@@ -756,4 +849,56 @@ function serializeBrowserEvaluateResult(value: unknown): string {
 	} catch {
 		return String(value)
 	}
+}
+
+function parseBrowserCoordinate(coordinate: string): [number, number] {
+	const [rawX, rawY] = coordinate.split(",").map((part) => part.trim())
+	const x = Number(rawX)
+	const y = Number(rawY)
+	if (!Number.isFinite(x) || !Number.isFinite(y)) {
+		throw new Error('Browser coordinate must use finite numeric "x,y" values.')
+	}
+	return [x, y]
+}
+
+async function selectFocusedText(page: Page): Promise<void> {
+	const modifier: KeyInput = process.platform === "darwin" ? "Meta" : "Control"
+	await page.keyboard.down(modifier)
+	try {
+		await page.keyboard.press("A")
+	} finally {
+		await page.keyboard.up(modifier)
+	}
+}
+
+function parseKeyboardChord(keyOrChord: string): KeyInput[] {
+	const keys = keyOrChord
+		.split("+")
+		.map((part) => normalizeKeyboardKey(part))
+		.filter((part) => part.length > 0)
+	return keys as KeyInput[]
+}
+
+function normalizeKeyboardKey(key: string): string {
+	const trimmed = key.trim()
+	const lower = trimmed.toLowerCase()
+	const aliases: Record<string, string> = {
+		cmd: "Meta",
+		command: "Meta",
+		meta: "Meta",
+		ctrl: "Control",
+		control: "Control",
+		alt: "Alt",
+		option: "Alt",
+		shift: "Shift",
+		esc: "Escape",
+		enter: "Enter",
+		return: "Enter",
+		tab: "Tab",
+		space: "Space",
+		backspace: "Backspace",
+		delete: "Delete",
+		del: "Delete",
+	}
+	return aliases[lower] ?? trimmed
 }

@@ -64,6 +64,59 @@ function truncateText(value: string, maxLength: number): string {
 	return `${value.slice(0, maxLength)}\n[truncated]`;
 }
 
+function parseCoordinate(coordinate: string): [number, number] {
+	const [rawX, rawY] = coordinate.split(",").map((part) => part.trim());
+	const x = Number(rawX);
+	const y = Number(rawY);
+	if (!Number.isFinite(x) || !Number.isFinite(y)) {
+		throw new Error("coordinate must be formatted as finite x,y values");
+	}
+	return [x, y];
+}
+
+function parseKeyboardChord(keyOrChord: string): { key: string; modifiers: number } {
+	const parts = keyOrChord
+		.split("+")
+		.map((part) => normalizeKeyboardKey(part))
+		.filter(Boolean);
+	const key = parts.pop();
+	if (!key) {
+		throw new Error("key_press requires a key name");
+	}
+	let modifiers = 0;
+	for (const modifier of parts) {
+		if (modifier === "Alt") modifiers |= 1;
+		if (modifier === "Control") modifiers |= 2;
+		if (modifier === "Meta") modifiers |= 4;
+		if (modifier === "Shift") modifiers |= 8;
+	}
+	return { key, modifiers };
+}
+
+function normalizeKeyboardKey(key: string): string {
+	const trimmed = key.trim();
+	const lower = trimmed.toLowerCase();
+	const aliases: Record<string, string> = {
+		cmd: "Meta",
+		command: "Meta",
+		meta: "Meta",
+		ctrl: "Control",
+		control: "Control",
+		alt: "Alt",
+		option: "Alt",
+		shift: "Shift",
+		esc: "Escape",
+		enter: "Enter",
+		return: "Enter",
+		tab: "Tab",
+		space: "Space",
+		backspace: "Backspace",
+		delete: "Delete",
+		del: "Delete",
+	};
+	return aliases[lower] ?? trimmed;
+}
+
 function stringifyError(error: unknown): string {
 	return error instanceof Error ? error.message : String(error);
 }
@@ -429,6 +482,15 @@ export class StandaloneBrowserCdpAutomation {
 					includeLogs: true,
 				});
 			}
+			case "navigate": {
+				if (!input.url) throw new Error("url is required for navigate");
+				await this.ensurePage();
+				await this.navigate(input.url);
+				return await this.captureSnapshot({
+					includeScreenshot: true,
+					includeLogs: true,
+				});
+			}
 			case "click": {
 				if (!input.coordinate) throw new Error("coordinate is required for click");
 				await this.ensurePage();
@@ -438,10 +500,48 @@ export class StandaloneBrowserCdpAutomation {
 					includeLogs: true,
 				});
 			}
+			case "hover": {
+				if (!input.coordinate) throw new Error("coordinate is required for hover");
+				await this.ensurePage();
+				await this.hover(input.coordinate);
+				return await this.captureSnapshot({
+					includeScreenshot: true,
+					includeLogs: true,
+				});
+			}
+			case "fill": {
+				if (!input.coordinate) throw new Error("coordinate is required for fill");
+				if (!input.text) throw new Error("text is required for fill");
+				await this.ensurePage();
+				await this.fill(input.coordinate, input.text);
+				return await this.captureSnapshot({
+					includeScreenshot: true,
+					includeLogs: true,
+				});
+			}
+			case "select": {
+				if (!input.coordinate) throw new Error("coordinate is required for select");
+				if (!input.text) throw new Error("text is required for select");
+				await this.ensurePage();
+				await this.select(input.coordinate, input.text);
+				return await this.captureSnapshot({
+					includeScreenshot: true,
+					includeLogs: true,
+				});
+			}
 			case "type": {
 				if (!input.text) throw new Error("text is required for type");
 				await this.ensurePage();
 				await this.page!.send("Input.insertText", { text: input.text });
+				return await this.captureSnapshot({
+					includeScreenshot: true,
+					includeLogs: true,
+				});
+			}
+			case "key_press": {
+				if (!input.text) throw new Error("text is required for key_press");
+				await this.ensurePage();
+				await this.keyPress(input.text);
 				return await this.captureSnapshot({
 					includeScreenshot: true,
 					includeLogs: true,
@@ -646,11 +746,14 @@ export class StandaloneBrowserCdpAutomation {
 		).catch(() => {});
 	}
 
+	private async navigate(url: string): Promise<void> {
+		await this.ensurePage();
+		await this.page!.send("Page.navigate", { url });
+		await this.waitForLoad();
+	}
+
 	private async click(coordinate: string): Promise<void> {
-		const [x, y] = coordinate.split(",").map((part) => Number(part.trim()));
-		if (!Number.isFinite(x) || !Number.isFinite(y)) {
-			throw new Error("coordinate must be formatted as x,y");
-		}
+		const [x, y] = parseCoordinate(coordinate);
 		this.currentMousePosition = `${x},${y}`;
 		await this.page!.send("Input.dispatchMouseEvent", {
 			type: "mouseMoved",
@@ -673,6 +776,85 @@ export class StandaloneBrowserCdpAutomation {
 			clickCount: 1,
 		});
 		await this.waitForLoad(1_500);
+	}
+
+	private async hover(coordinate: string): Promise<void> {
+		const [x, y] = parseCoordinate(coordinate);
+		this.currentMousePosition = `${x},${y}`;
+		await this.page!.send("Input.dispatchMouseEvent", {
+			type: "mouseMoved",
+			x,
+			y,
+			button: "none",
+		});
+		await delay(150);
+	}
+
+	private async fill(coordinate: string, text: string): Promise<void> {
+		await this.click(coordinate);
+		await this.evaluateExpression(
+			`(() => {
+				const active = document.activeElement;
+				if (active && typeof active.select === "function") {
+					active.select();
+					return true;
+				}
+				if (active && active.isContentEditable) {
+					document.execCommand("selectAll");
+					return true;
+				}
+				return false;
+			})()`,
+		).catch(() => false);
+		await this.page!.send("Input.insertText", { text });
+		await delay(150);
+	}
+
+	private async select(coordinate: string, valueOrLabel: string): Promise<void> {
+		await this.click(coordinate);
+		const selected = await this.evaluateExpression<{ ok: boolean; error?: string }>(
+			`((requested) => {
+				const active = document.activeElement;
+				if (!(active instanceof HTMLSelectElement)) {
+					return { ok: false, error: "The focused element is not a native select element." };
+				}
+				const normalized = requested.trim().toLowerCase();
+				const options = Array.from(active.options);
+				const option =
+					options.find((candidate) => candidate.value === requested) ||
+					options.find((candidate) => candidate.label === requested) ||
+					options.find((candidate) => candidate.text.trim() === requested) ||
+					options.find((candidate) => candidate.value.trim().toLowerCase() === normalized) ||
+					options.find((candidate) => candidate.label.trim().toLowerCase() === normalized) ||
+					options.find((candidate) => candidate.text.trim().toLowerCase() === normalized);
+				if (!option) {
+					return { ok: false, error: \`No select option matched "\${requested}".\` };
+				}
+				active.value = option.value;
+				active.dispatchEvent(new Event("input", { bubbles: true }));
+				active.dispatchEvent(new Event("change", { bubbles: true }));
+				return { ok: true };
+			})(${JSON.stringify(valueOrLabel)})`,
+		);
+		if (!selected.ok) {
+			throw new Error(selected.error ?? "Browser select failed.");
+		}
+		await delay(150);
+	}
+
+	private async keyPress(keyOrChord: string): Promise<void> {
+		const { key, modifiers } = parseKeyboardChord(keyOrChord);
+		await this.page!.send("Input.dispatchKeyEvent", {
+			type: "keyDown",
+			key,
+			modifiers,
+		});
+		await this.page!.send("Input.dispatchKeyEvent", {
+			type: "keyUp",
+			key,
+			modifiers,
+		});
+		await delay(100);
 	}
 
 	private async captureSnapshot(input: {

@@ -157,6 +157,13 @@ export async function browserAction(
 			await browserSession.launchBrowser()
 			return toBrowserPageResult(await browserSession.navigateToUrl(url))
 		}
+		case "navigate": {
+			const url = optionalString(request.url)
+			if (!url) {
+				throw new Error("url is required for browser navigate.")
+			}
+			return toBrowserPageResult(await browserSession.navigateToUrl(url))
+		}
 		case "click": {
 			const coordinate = optionalString(request.coordinate)
 			if (!coordinate) {
@@ -169,12 +176,63 @@ export async function browserAction(
 			}
 			return toBrowserPageResult(await browserSession.click(coordinate))
 		}
+		case "hover": {
+			const coordinate = optionalString(request.coordinate)
+			if (!coordinate) {
+				throw new Error("coordinate is required for browser hover.")
+			}
+			const browserSettings = getEffectiveControllerBrowserSettings(controller)
+			const validation = validateBrowserClickCoordinate(coordinate, browserSettings.viewport)
+			if (!validation.ok) {
+				throw new Error(validation.error ?? "Browser coordinate is invalid.")
+			}
+			return toBrowserPageResult(await browserSession.hover(coordinate))
+		}
+		case "fill": {
+			const coordinate = optionalString(request.coordinate)
+			if (!coordinate) {
+				throw new Error("coordinate is required for browser fill.")
+			}
+			const text = request.text ?? ""
+			if (!text) {
+				throw new Error("text is required for browser fill.")
+			}
+			const browserSettings = getEffectiveControllerBrowserSettings(controller)
+			const validation = validateBrowserClickCoordinate(coordinate, browserSettings.viewport)
+			if (!validation.ok) {
+				throw new Error(validation.error ?? "Browser coordinate is invalid.")
+			}
+			return toBrowserPageResult(await browserSession.fill(coordinate, text))
+		}
+		case "select": {
+			const coordinate = optionalString(request.coordinate)
+			if (!coordinate) {
+				throw new Error("coordinate is required for browser select.")
+			}
+			const text = request.text ?? ""
+			if (!text) {
+				throw new Error("text is required for browser select.")
+			}
+			const browserSettings = getEffectiveControllerBrowserSettings(controller)
+			const validation = validateBrowserClickCoordinate(coordinate, browserSettings.viewport)
+			if (!validation.ok) {
+				throw new Error(validation.error ?? "Browser coordinate is invalid.")
+			}
+			return toBrowserPageResult(await browserSession.select(coordinate, text))
+		}
 		case "type": {
 			const text = request.text ?? ""
 			if (!text) {
 				throw new Error("text is required for browser type.")
 			}
 			return toBrowserPageResult(await browserSession.type(text))
+		}
+		case "key_press": {
+			const text = request.text ?? ""
+			if (!text) {
+				throw new Error("text is required for browser key_press.")
+			}
+			return toBrowserPageResult(await browserSession.keyPress(text))
 		}
 		case "scroll_down":
 			return toBrowserPageResult(await browserSession.scrollDown())

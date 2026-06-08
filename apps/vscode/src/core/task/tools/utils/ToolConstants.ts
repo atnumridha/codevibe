@@ -91,7 +91,20 @@ export const PATH_REQUIRED_TOOLS = [
 /**
  * Browser action types for validation
  */
-export const BROWSER_ACTIONS = ["launch", "click", "type", "scroll_down", "scroll_up", "close"] as const
+export const BROWSER_ACTIONS = [
+	"launch",
+	"navigate",
+	"click",
+	"hover",
+	"fill",
+	"select",
+	"type",
+	"key_press",
+	"scroll_down",
+	"scroll_up",
+	"evaluate",
+	"close",
+] as const
 
 /**
  * Common validation error patterns

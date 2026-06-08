@@ -16,6 +16,7 @@ import {
 } from "./definitions";
 import { TimeoutError } from "./helpers";
 import { INPUT_ARG_CHAR_LIMIT } from "./schemas";
+import { getStandaloneBrowserAutomationStatus } from "./standalone-browser";
 import type { SkillsExecutorWithMetadata } from "./types";
 
 function createMockSkillsExecutor(
@@ -465,6 +466,37 @@ describe("default browser tools", () => {
 		expect(execute).not.toHaveBeenCalled();
 	});
 
+	it("accepts Cursor-style browser actions without enabling evaluate", async () => {
+		const execute = vi.fn(async () => ({ title: "ok" }));
+		const tool = createBrowserActionTool(execute);
+		const context = {
+			agentId: "agent-1",
+			conversationId: "conv-1",
+			iteration: 1,
+		};
+
+		for (const input of [
+			{ action: "navigate", url: "https://example.test/next" },
+			{ action: "hover", coordinate: "10,20" },
+			{ action: "fill", coordinate: "30,40", text: "hello" },
+			{ action: "select", coordinate: "50,60", text: "Option A" },
+			{ action: "key_press", text: "Enter" },
+		] as const) {
+			const result = await tool.execute(input, context);
+			expect(result).toMatchObject({
+				query: `browser_action:${input.action}`,
+				success: true,
+			});
+		}
+
+		expect(execute).toHaveBeenCalledTimes(5);
+		expect(execute).toHaveBeenNthCalledWith(
+			1,
+			{ action: "navigate", url: "https://example.test/next" },
+			expect.objectContaining({ agentId: "agent-1" }),
+		);
+	});
+
 	it("runs browser actions when enabled and redacts sensitive results", async () => {
 		const execute = vi.fn(async () => ({
 			evaluationResult: "api_key=sk-secret-value-1234567890",
@@ -532,6 +564,35 @@ describe("default browser tools", () => {
 				iteration: 1,
 			}),
 		);
+	});
+
+	it("reports the full Cursor-style standalone browser action surface", () => {
+		const status = getStandaloneBrowserAutomationStatus({
+			host: "test",
+			hasBrowserActionExecutor: true,
+			hasBrowserSnapshotExecutor: true,
+			hasBrowserScreenshotExecutor: true,
+		});
+
+		expect(status.actions).toEqual([
+			"launch",
+			"navigate",
+			"click",
+			"hover",
+			"fill",
+			"select",
+			"type",
+			"key_press",
+			"scroll_down",
+			"scroll_up",
+			"evaluate",
+			"close",
+		]);
+		expect(status.mutatingActions).toEqual(status.actions);
+		expect(status.readOnlyTools).toEqual([
+			"browser_snapshot",
+			"browser_screenshot",
+		]);
 	});
 });
 

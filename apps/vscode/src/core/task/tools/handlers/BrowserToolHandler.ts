@@ -105,7 +105,7 @@ export function validateBrowserClickCoordinate(
 	if (parts.length !== 2 || parts.some((part) => part.length === 0)) {
 		return {
 			ok: false,
-			error: 'Browser click coordinate must use "x,y" format, for example "450,300".',
+			error: 'Browser coordinate must use "x,y" format, for example "450,300".',
 		}
 	}
 
@@ -113,20 +113,20 @@ export function validateBrowserClickCoordinate(
 	if (!Number.isFinite(x) || !Number.isFinite(y)) {
 		return {
 			ok: false,
-			error: "Browser click coordinate must contain finite numeric x and y values.",
+			error: "Browser coordinate must contain finite numeric x and y values.",
 		}
 	}
 	if (x < 0 || y < 0) {
 		return {
 			ok: false,
-			error: "Browser click coordinate must not be negative.",
+			error: "Browser coordinate must not be negative.",
 		}
 	}
 
 	if (x > viewport.width || y > viewport.height) {
 		return {
 			ok: false,
-			error: `Browser click coordinate ${x},${y} is outside the configured ${viewport.width}x${viewport.height} viewport.`,
+			error: `Browser coordinate ${x},${y} is outside the configured ${viewport.width}x${viewport.height} viewport.`,
 		}
 	}
 
@@ -175,6 +175,7 @@ export class BrowserToolHandler implements IFullyManagedTool {
 				this.name,
 				JSON.stringify({
 					action: action as BrowserAction,
+					url: redactSensitiveBrowserText(uiHelpers.removeClosingTag(block, "url", url)),
 					coordinate: uiHelpers.removeClosingTag(block, "coordinate", coordinate),
 					text: redactSensitiveBrowserText(displayText),
 				} satisfies ClineSayBrowserAction),
@@ -264,8 +265,22 @@ export class BrowserToolHandler implements IFullyManagedTool {
 				await config.services.browserSession.launchBrowser()
 				browserActionResult = await config.services.browserSession.navigateToUrl(url)
 			} else {
-				// Handle other actions (click, type, scroll, close)
-				if (action === "click") {
+				if (action === "navigate") {
+					if (!url) {
+						config.taskState.consecutiveMistakeCount++
+						const errorResult = await config.callbacks.sayAndCreateMissingParamError(this.name, "url")
+						await config.services.browserSession.closeBrowser()
+						return errorResult
+					}
+					if (this.validator) {
+						const sandboxValidation = this.validator.checkCursorSandboxUrl(url, config.cursorSandboxPolicy)
+						if (!sandboxValidation.ok) {
+							config.taskState.consecutiveMistakeCount++
+							return formatResponse.toolError(sandboxValidation.error)
+						}
+					}
+				}
+				if (["click", "hover", "fill", "select"].includes(action)) {
 					if (!coordinate) {
 						config.taskState.consecutiveMistakeCount++
 						const errorResult = await config.callbacks.sayAndCreateMissingParamError(this.name, "coordinate")
@@ -278,10 +293,10 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					)
 					if (!coordinateValidation.ok) {
 						config.taskState.consecutiveMistakeCount++
-						return formatResponse.toolError(coordinateValidation.error ?? "Browser click coordinate is invalid.")
+						return formatResponse.toolError(coordinateValidation.error ?? "Browser coordinate is invalid.")
 					}
 				}
-				if (action === "type") {
+				if (["type", "fill", "select", "key_press"].includes(action)) {
 					if (!text) {
 						config.taskState.consecutiveMistakeCount++
 						const errorResult = await config.callbacks.sayAndCreateMissingParamError(this.name, "text")
@@ -310,6 +325,7 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					this.name,
 					JSON.stringify({
 						action: action as BrowserAction,
+						url: redactSensitiveBrowserText(url),
 						coordinate,
 						text: redactSensitiveBrowserText(text),
 					} satisfies ClineSayBrowserAction),
@@ -321,11 +337,26 @@ export class BrowserToolHandler implements IFullyManagedTool {
 				// Execute the action
 				const browserSession = config.services.browserSession
 				switch (action) {
+					case "navigate":
+						browserActionResult = await browserSession.navigateToUrl(url!)
+						break
 					case "click":
 						browserActionResult = await browserSession.click(coordinate!)
 						break
+					case "hover":
+						browserActionResult = await browserSession.hover(coordinate!)
+						break
+					case "fill":
+						browserActionResult = await browserSession.fill(coordinate!, text!)
+						break
+					case "select":
+						browserActionResult = await browserSession.select(coordinate!, text!)
+						break
 					case "type":
 						browserActionResult = await browserSession.type(text!)
+						break
+					case "key_press":
+						browserActionResult = await browserSession.keyPress(text!)
 						break
 					case "scroll_down":
 						browserActionResult = await browserSession.scrollDown()
@@ -347,8 +378,13 @@ export class BrowserToolHandler implements IFullyManagedTool {
 			// Handle results based on action type
 			switch (action) {
 				case "launch":
+				case "navigate":
 				case "click":
+				case "hover":
+				case "fill":
+				case "select":
 				case "type":
+				case "key_press":
 				case "scroll_down":
 				case "scroll_up":
 				case "evaluate":

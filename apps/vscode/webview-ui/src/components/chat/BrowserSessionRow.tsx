@@ -551,6 +551,7 @@ const BrowserSessionRowContent = memo(
 						return (
 							<BrowserActionBox
 								action={browserAction.action}
+								url={browserAction.url}
 								coordinate={browserAction.coordinate}
 								text={browserAction.text}
 							/>
@@ -570,15 +571,35 @@ const BrowserSessionRowContent = memo(
 	deepEqual,
 )
 
-const BrowserActionBox = ({ action, coordinate, text }: { action: BrowserAction; coordinate?: string; text?: string }) => {
-	const getBrowserActionText = (action: BrowserAction, coordinate?: string, text?: string) => {
+const BrowserActionBox = ({
+	action,
+	url,
+	coordinate,
+	text,
+}: {
+	action: BrowserAction
+	url?: string
+	coordinate?: string
+	text?: string
+}) => {
+	const getBrowserActionText = (action: BrowserAction, url?: string, coordinate?: string, text?: string) => {
 		switch (action) {
 			case "launch":
 				return `Launch browser at ${text}`
+			case "navigate":
+				return `Navigate to ${url}`
 			case "click":
 				return `Click (${coordinate?.replace(",", ", ")})`
+			case "hover":
+				return `Hover (${coordinate?.replace(",", ", ")})`
+			case "fill":
+				return `Fill "${text}" at (${coordinate?.replace(",", ", ")})`
+			case "select":
+				return `Select "${text}" at (${coordinate?.replace(",", ", ")})`
 			case "type":
 				return `Type "${text}"`
+			case "key_press":
+				return `Press ${text}`
 			case "scroll_down":
 				return "Scroll down"
 			case "scroll_up":
@@ -595,7 +616,7 @@ const BrowserActionBox = ({ action, coordinate, text }: { action: BrowserAction;
 				<div style={browseActionRowContainerStyle}>
 					<span style={browseActionRowStyle}>
 						<span style={browseActionTextStyle}>Browse Action: </span>
-						{getBrowserActionText(action, coordinate, text)}
+						{getBrowserActionText(action, url, coordinate, text)}
 					</span>
 				</div>
 			</div>

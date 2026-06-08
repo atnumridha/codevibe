@@ -11,6 +11,11 @@ function createConfig(allowBrowserEvaluate: boolean, evaluateResult?: unknown) {
 	const browserSession = {
 		click: sinon.stub().resolves({}),
 		evaluate: sinon.stub().resolves(evaluateResult ?? {}),
+		fill: sinon.stub().resolves({}),
+		hover: sinon.stub().resolves({}),
+		keyPress: sinon.stub().resolves({}),
+		navigateToUrl: sinon.stub().resolves({}),
+		select: sinon.stub().resolves({}),
 		type: sinon.stub().resolves({}),
 		closeBrowser: sinon.stub().resolves({}),
 	}
@@ -54,6 +59,15 @@ function makeClickBlock(coordinate: string) {
 		type: "tool_use" as const,
 		name: ClineDefaultTool.BROWSER,
 		params: { action: "click", coordinate },
+		partial: false,
+	}
+}
+
+function makeBrowserActionBlock(params: Record<string, string>) {
+	return {
+		type: "tool_use" as const,
+		name: ClineDefaultTool.BROWSER,
+		params,
 		partial: false,
 	}
 }
@@ -264,6 +278,59 @@ describe("BrowserToolHandler evaluate safety", () => {
 		assert.equal(config.taskState.consecutiveMistakeCount, 0)
 		assert(actionSay)
 		assert.equal(JSON.parse(actionSay?.args[1]).coordinate, "450,300")
+	})
+
+	it("runs navigate with URL sandbox validation and redacted display", async () => {
+		const { config, browserSession, callbacks } = createConfig(false)
+		const validator = {
+			checkCursorSandboxUrl: sinon.stub().returns({ ok: true }),
+		}
+		const secretUrl = "https://example.com/path?access_token=secret-token-value-1234567890"
+
+		await new BrowserToolHandler(validator as any).execute(
+			config,
+			makeBrowserActionBlock({ action: "navigate", url: secretUrl }),
+		)
+
+		const actionSay = callbacks.say.getCalls().find((call) => call.args[0] === ClineDefaultTool.BROWSER)
+		assert.equal(validator.checkCursorSandboxUrl.calledOnce, true)
+		assert.equal(browserSession.navigateToUrl.calledOnceWith(secretUrl), true)
+		assert(actionSay)
+		assert(!String(actionSay?.args[1]).includes("secret-token-value-1234567890"))
+		assert(String(actionSay?.args[1]).includes("[REDACTED]"))
+	})
+
+	it("dispatches Cursor-style hover, fill, select, and key_press actions", async () => {
+		const { config, browserSession } = createConfig(false)
+		const handler = new BrowserToolHandler()
+
+		await handler.execute(config, makeBrowserActionBlock({ action: "hover", coordinate: "10,20" }))
+		await handler.execute(config, makeBrowserActionBlock({ action: "fill", coordinate: "30,40", text: "hello" }))
+		await handler.execute(config, makeBrowserActionBlock({ action: "select", coordinate: "50,60", text: "Option A" }))
+		await handler.execute(config, makeBrowserActionBlock({ action: "key_press", text: "Enter" }))
+
+		assert.equal(browserSession.hover.calledOnceWith("10,20"), true)
+		assert.equal(browserSession.fill.calledOnceWith("30,40", "hello"), true)
+		assert.equal(browserSession.select.calledOnceWith("50,60", "Option A"), true)
+		assert.equal(browserSession.keyPress.calledOnceWith("Enter"), true)
+	})
+
+	it("rejects missing required params for Cursor-style browser actions", async () => {
+		const { config, browserSession, callbacks } = createConfig(false)
+		const handler = new BrowserToolHandler()
+
+		assert.equal(await handler.execute(config, makeBrowserActionBlock({ action: "navigate" })), "missing")
+		assert.equal(await handler.execute(config, makeBrowserActionBlock({ action: "hover" })), "missing")
+		assert.equal(await handler.execute(config, makeBrowserActionBlock({ action: "fill", coordinate: "10,20" })), "missing")
+		assert.equal(await handler.execute(config, makeBrowserActionBlock({ action: "select", coordinate: "10,20" })), "missing")
+		assert.equal(await handler.execute(config, makeBrowserActionBlock({ action: "key_press" })), "missing")
+
+		assert.equal(callbacks.sayAndCreateMissingParamError.callCount, 5)
+		assert.equal(browserSession.navigateToUrl.called, false)
+		assert.equal(browserSession.hover.called, false)
+		assert.equal(browserSession.fill.called, false)
+		assert.equal(browserSession.select.called, false)
+		assert.equal(browserSession.keyPress.called, false)
 	})
 
 	it("rejects malformed browser click coordinates before clicking", async () => {

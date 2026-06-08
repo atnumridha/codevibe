@@ -258,11 +258,25 @@ export type HookOutputStreamMeta = {
 }
 
 // must keep in sync with system prompt
-export const browserActions = ["launch", "click", "type", "scroll_down", "scroll_up", "evaluate", "close"] as const
+export const browserActions = [
+	"launch",
+	"navigate",
+	"click",
+	"hover",
+	"fill",
+	"select",
+	"type",
+	"key_press",
+	"scroll_down",
+	"scroll_up",
+	"evaluate",
+	"close",
+] as const
 export type BrowserAction = (typeof browserActions)[number]
 
 export interface ClineSayBrowserAction {
 	action: BrowserAction
+	url?: string
 	coordinate?: string
 	text?: string
 }

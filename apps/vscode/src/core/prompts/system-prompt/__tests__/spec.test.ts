@@ -150,14 +150,34 @@ describe("plan_mode_respond native schema", () => {
 })
 
 describe("browser_action tool docs", () => {
-		it("documents evaluate as discoverable and gated for every browser action variant", () => {
+	it("documents Cursor-style browser actions and gated evaluate for every browser action variant", () => {
 			for (const spec of browser_action_variants) {
 				const parameters = spec.parameters ?? []
 				const action = parameters.find((parameter) => parameter.name === "action")
+				const url = parameters.find((parameter) => parameter.name === "url")
+				const coordinate = parameters.find((parameter) => parameter.name === "coordinate")
 				const text = parameters.find((parameter) => parameter.name === "text")
-				const docs = `${spec.description}\n${action?.instruction ?? ""}\n${action?.usage ?? ""}\n${text?.instruction ?? ""}\n${text?.usage ?? ""}`
+				const docs = `${spec.description}\n${action?.instruction ?? ""}\n${action?.usage ?? ""}\n${url?.instruction ?? ""}\n${coordinate?.instruction ?? ""}\n${text?.instruction ?? ""}\n${text?.usage ?? ""}`
 
-			expect(docs).to.include("evaluate")
+			for (const documentedAction of [
+				"launch",
+				"navigate",
+				"click",
+				"hover",
+				"fill",
+				"select",
+				"type",
+				"key_press",
+				"scroll_down",
+				"scroll_up",
+				"evaluate",
+				"close",
+			]) {
+				expect(docs).to.include(documentedAction)
+			}
+			expect(docs).to.include("After launch")
+			expect(docs).to.include("browser_snapshot")
+			expect(docs).to.include("browser_screenshot")
 			expect(docs).to.include("browser JavaScript evaluation")
 			expect(docs).to.include("codevibe.cursorCompatibility.safeBrowserEvaluate.enabled")
 		}

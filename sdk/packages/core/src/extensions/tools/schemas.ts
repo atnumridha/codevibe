@@ -208,8 +208,13 @@ export const BrowserSnapshotInputSchema = z
 
 export const BrowserActionNameSchema = z.enum([
 	"launch",
+	"navigate",
 	"click",
+	"hover",
+	"fill",
+	"select",
 	"type",
+	"key_press",
 	"scroll_down",
 	"scroll_up",
 	"evaluate",
@@ -231,47 +236,57 @@ export const BrowserActionInputSchema = z
 			.string()
 			.url()
 			.optional()
-			.describe("URL to open when action is launch."),
+			.describe("URL to open when action is launch or navigate."),
 		coordinate: z
 			.string()
 			.min(1)
 			.optional()
-			.describe("Screen coordinate or element reference for click actions."),
+			.describe("Screen coordinate or element reference for click, hover, fill, or select actions."),
 		text: z
 			.string()
 			.min(1)
 			.max(INPUT_ARG_CHAR_LIMIT)
 			.optional()
-			.describe("Text to type, or JavaScript to evaluate when explicitly enabled."),
+			.describe("Text to type/fill/select, key name to press, or JavaScript to evaluate when explicitly enabled."),
 	})
 	.superRefine((value, ctx) => {
-		if (value.action === "launch" && !value.url) {
+		if ((value.action === "launch" || value.action === "navigate") && !value.url) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ["url"],
-				message: "url is required for launch",
-			});
-		}
-		if (value.action === "click" && !value.coordinate) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				path: ["coordinate"],
-				message: "coordinate is required for click",
+				message: "url is required for launch and navigate",
 			});
 		}
 		if (
-			(value.action === "type" || value.action === "evaluate") &&
+			(value.action === "click" ||
+				value.action === "hover" ||
+				value.action === "fill" ||
+				value.action === "select") &&
+			!value.coordinate
+		) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["coordinate"],
+				message: "coordinate is required for click, hover, fill, and select",
+			});
+		}
+		if (
+			(value.action === "type" ||
+				value.action === "fill" ||
+				value.action === "select" ||
+				value.action === "key_press" ||
+				value.action === "evaluate") &&
 			!value.text
 		) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ["text"],
-				message: "text is required for type and evaluate",
+				message: "text is required for type, fill, select, key_press, and evaluate",
 			});
 		}
 	})
 	.describe(
-		"Perform a Cursor-compatible browser action through a host-provided executor. JavaScript evaluation is disabled unless enableSafeBrowserEvaluate is explicitly true.",
+		"Perform a Cursor-compatible browser action through a host-provided executor. Supports launch, navigate, click, hover, fill, select, type, key_press, scroll, evaluate, and close. JavaScript evaluation is disabled unless enableSafeBrowserEvaluate is explicitly true.",
 	);
 
 /**
