@@ -375,6 +375,7 @@ function runSqlite(databasePath, sql) {
 function filterJsonArrayByIdSql(key, legacyIds) {
 	const quotedIds = legacyIds.map((id) => `'${id.replace(/'/g, "''")}'`).join(", ")
 	const escapedKey = key.replace(/'/g, "''")
+	const valueClauses = legacyIds.map((id) => `value like '%${id.replace(/'/g, "''")}%'`).join(" or ")
 	return `
 		update ItemTable
 		set value = coalesce((
@@ -382,12 +383,15 @@ function filterJsonArrayByIdSql(key, legacyIds) {
 			from json_each(ItemTable.value)
 			where coalesce(json_extract(value, '$.id'), '') not in (${quotedIds})
 		), '[]')
-		where key = '${escapedKey}' and value like '%codevibe-ActivityBar%';
+		where key = '${escapedKey}' and (${valueClauses});
 	`
 }
 
 function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
-	const legacyActivityViewIds = ["workbench.view.extension.codevibe-ActivityBar"]
+	const legacyActivityViewIds = [
+		"workbench.view.extension.codevibe-ActivityBar",
+		"workbench.view.extension.vibecodeAgentSidebar",
+	]
 	const sql = [
 		filterJsonArrayByIdSql("workbench.activity.pinnedViewlets2", legacyActivityViewIds),
 		filterJsonArrayByIdSql("workbench.activity.placeholderViewlets", legacyActivityViewIds),
@@ -398,14 +402,22 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 			'workbench.view.extension.codevibe-ActivityBar.state',
 			'workbench.view.extension.codevibe-ActivityBar.state.hidden',
 			'workbench.view.extension.codevibe-ActivityBar.numberOfVisibleViews',
-			'memento/webviewView.codevibe.SidebarProvider'
+			'workbench.view.extension.vibecodeAgentSidebar.state',
+			'workbench.view.extension.vibecodeAgentSidebar.state.hidden',
+			'workbench.view.extension.vibecodeAgentSidebar.numberOfVisibleViews',
+			'memento/webviewView.codevibe.SidebarProvider',
+			'memento/webviewView.vibecode.agent',
+			'memento/webviewView.vibecode.agentPanel'
 		);
 		`,
 		`
 		update ItemTable
 		set value = 'workbench.view.explorer'
 		where key = 'workbench.sidebar.activeviewletid'
-			and value = 'workbench.view.extension.codevibe-ActivityBar';
+			and value in (
+				'workbench.view.extension.codevibe-ActivityBar',
+				'workbench.view.extension.vibecodeAgentSidebar'
+			);
 		`,
 	].join("\n")
 	const result = runSqlite(databasePath, sql)

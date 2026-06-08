@@ -101,7 +101,7 @@ export async function getContextForCommand(
 }
 
 export async function showWebview(preserveEditorFocus: boolean = true): Promise<WebviewProvider> {
-	await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.FocusChatInput, preserveEditorFocus)
+	await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview, preserveEditorFocus)
 
 	return WebviewProvider.getInstance()
 }

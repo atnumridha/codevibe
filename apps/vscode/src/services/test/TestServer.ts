@@ -96,7 +96,7 @@ async function updateAutoApprovalSettings(controller?: Controller) {
  */
 export async function createTestServer(controller: Controller): Promise<http.Server> {
 	Logger.log("[createTestServer] Opening CodeVibe surface...")
-	vscode.commands.executeCommand(ExtensionRegistryInfo.commands.FocusChatInput)
+	vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview)
 
 	// Update auto approval settings is available
 	await updateAutoApprovalSettings(controller)

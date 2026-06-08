@@ -478,11 +478,18 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.FocusChatInput, async (preserveEditorFocus = false) => {
+			await openNativeCodexSidebar(preserveEditorFocus)
+			telemetryService.captureButtonClick("command_focusChatInput")
+		}),
+	)
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(commands.OpenLegacyWebview, async (preserveEditorFocus = false) => {
 			const webview = await showCodeVibeSurface(preserveEditorFocus)
 
 			// Send show webview event with preserveEditorFocus flag
 			sendShowWebviewEvent(preserveEditorFocus)
-			telemetryService.captureButtonClick("command_focusChatInput", webview.controller?.task?.ulid)
+			telemetryService.captureButtonClick("command_openLegacyWebview", webview.controller?.task?.ulid)
 		}),
 	)
 
@@ -765,7 +772,7 @@ async function openCodeVibeSurfaceForTaskUri(): Promise<void> {
 	const sidebarWaitTimeoutMs = 3000
 	const sidebarWaitIntervalMs = 50
 
-	await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.FocusChatInput, true)
+	await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview, true)
 
 	const startedAt = Date.now()
 	while (Date.now() - startedAt < sidebarWaitTimeoutMs) {
@@ -776,6 +783,19 @@ async function openCodeVibeSurfaceForTaskUri(): Promise<void> {
 	}
 
 	Logger.warn("Task URI handling timed out waiting for CodeVibe surface visibility")
+}
+
+async function openNativeCodexSidebar(_preserveEditorFocus: boolean): Promise<void> {
+	try {
+		await vscode.commands.executeCommand("chatgpt.openSidebar")
+		return
+	} catch (error) {
+		Logger.warn(`CodeVibe could not open the Codex sidebar: ${error}`)
+	}
+
+	await vscode.window.showWarningMessage(
+		"CodeVibe opens the Codex sidebar by default. Install or enable the OpenAI ChatGPT extension, or run 'CodeVibe: Open Legacy CodeVibe Webview' for the compatibility UI.",
+	)
 }
 
 async function showCodeVibeSurface(preserveEditorFocus: boolean): Promise<VscodeWebviewProvider> {

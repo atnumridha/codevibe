@@ -58,6 +58,7 @@
 		"onCommand:codevibe.addToChat",
 		"onCommand:codevibe.addTerminalOutputToChat",
 		"onCommand:codevibe.focusChatInput",
+		"onCommand:codevibe.openLegacyWebview",
 		"onCommand:codevibe.generateGitCommitMessage",
 		"onCommand:codevibe.abortGitCommitMessage",
 		"onCommand:codevibe.explainCode",
@@ -189,6 +190,11 @@
 			{
 				"command": "codevibe.focusChatInput",
 				"title": "Open CodeVibe",
+				"category": "CodeVibe"
+			},
+			{
+				"command": "codevibe.openLegacyWebview",
+				"title": "Open Legacy CodeVibe Webview",
 				"category": "CodeVibe"
 			},
 			{
