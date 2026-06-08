@@ -159,7 +159,7 @@ describe("browser_action tool docs", () => {
 
 			expect(docs).to.include("evaluate")
 			expect(docs).to.include("browser JavaScript evaluation")
-			expect(docs).to.include("cline.cursorCompatibility.safeBrowserEvaluate.enabled")
+			expect(docs).to.include("codevibe.cursorCompatibility.safeBrowserEvaluate.enabled")
 		}
 	})
 

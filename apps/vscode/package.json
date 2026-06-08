@@ -393,7 +393,7 @@
 		"configuration": {
 			"title": "CodeVibe",
 			"properties": {
-				"cline.openAiCodex.authSource": {
+				"codevibe.openAiCodex.authSource": {
 					"type": "string",
 					"enum": [
 						"codexHome",
@@ -408,22 +408,22 @@
 					"default": "codexHome",
 					"description": "Controls where OpenAI Codex credentials are loaded from. Codex Home reads ~/.codex/auth.json by default."
 				},
-				"cline.cursorCompatibility.enabled": {
+				"codevibe.cursorCompatibility.enabled": {
 					"type": "boolean",
 					"default": true,
 					"description": "Enables CodeVibe compatibility inputs such as .cursorrules, .cursor/rules, .cursorignore, .cursorindexingignore, .cursor/mcp.json, and .cursor/sandbox.json."
 				},
-				"cline.cursorCompatibility.deepLinks.enabled": {
+				"codevibe.cursorCompatibility.deepLinks.enabled": {
 					"type": "boolean",
 					"default": true,
 					"description": "Enables validation for compatible deep-link route families before routing them into CodeVibe tasks."
 				},
-				"cline.cursorCompatibility.retrievalIndexing.privacyGate": {
+				"codevibe.cursorCompatibility.retrievalIndexing.privacyGate": {
 					"type": "boolean",
 					"default": true,
 					"description": "Requires compatible indexing and retrieval features to respect workspace ignore files and privacy gates."
 				},
-				"cline.cursorCompatibility.sandboxPolicy": {
+				"codevibe.cursorCompatibility.sandboxPolicy": {
 					"type": "string",
 					"enum": [
 						"prompt",
@@ -440,7 +440,7 @@
 					"default": "prompt",
 					"description": "Default policy for untrusted compatibility sandbox inputs such as .cursor/sandbox.json."
 				},
-				"cline.cursorCompatibility.safeBrowserEvaluate.enabled": {
+				"codevibe.cursorCompatibility.safeBrowserEvaluate.enabled": {
 					"type": "boolean",
 					"default": false,
 					"description": "Enables the same gated browser_action evaluate permission as Browser Settings > Allow browser JavaScript evaluation for compatible browser automation flows. Keep disabled unless you trust the active task."

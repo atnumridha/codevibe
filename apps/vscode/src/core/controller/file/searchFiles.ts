@@ -11,8 +11,8 @@ import { FileSearchRequest, FileSearchResults, FileSearchType } from "@shared/pr
 import { convertSearchResultsToProtoFileInfos } from "@shared/proto-conversions/file/search-result-conversion"
 import { type FsInfo, getFsInfo } from "@utils/fs-info"
 import { getWorkspacePath } from "@utils/path"
-import * as vscode from "vscode"
 import { Logger } from "@/shared/services/Logger"
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 import { Controller } from ".."
 
 // error_reason values surfaced on FileSearchResults; see proto/cline/file.proto.
@@ -33,10 +33,9 @@ function classifyError(error: unknown): { errorReason: string; errorMessage: str
 }
 
 function getCursorRetrievalIndexingPrivacyGate(): boolean {
-	const config = vscode.workspace.getConfiguration("cline")
 	return (
-		config.get<boolean>("cursorCompatibility.enabled", true) &&
-		config.get<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
+		getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true) &&
+		getCodeVibeConfigurationValue<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
 	)
 }
 

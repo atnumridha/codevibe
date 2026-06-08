@@ -746,7 +746,7 @@ describe("SharedUriHandler", () => {
 				sinon.assert.calledTwice(openSettingsStub)
 				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "@id:cline.apiProvider" })
 				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({
-					query: "@id:cline.cursorCompatibility.deepLinks.enabled",
+					query: "@id:codevibe.cursorCompatibility.deepLinks.enabled",
 				})
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -760,7 +760,7 @@ describe("SharedUriHandler", () => {
 				expect(ndjsonResult).to.be.true
 				expect(customResult).to.be.true
 				sinon.assert.calledThrice(openSettingsStub)
-				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "@id:cline.openAiCodex.authSource" })
+				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "@id:codevibe.openAiCodex.authSource" })
 				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({ query: "@id:ndjson.port" })
 				expect(openSettingsStub.thirdCall.args[0]).to.deep.equal({ query: "Custom Tools" })
 				expect(handleTaskCreationStub.called).to.be.false
@@ -774,10 +774,10 @@ describe("SharedUriHandler", () => {
 				expect(browserEvaluateResult).to.be.true
 				sinon.assert.calledTwice(openSettingsStub)
 				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({
-					query: "@id:cline.cursorCompatibility.safeBrowserEvaluate.enabled",
+					query: "@id:codevibe.cursorCompatibility.safeBrowserEvaluate.enabled",
 				})
 				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({
-					query: "@id:cline.cursorCompatibility.safeBrowserEvaluate.enabled",
+					query: "@id:codevibe.cursorCompatibility.safeBrowserEvaluate.enabled",
 				})
 				expect(handleTaskCreationStub.called).to.be.false
 			})

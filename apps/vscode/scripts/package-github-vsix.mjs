@@ -15,12 +15,12 @@ const projectRoot = path.join(__dirname, "..")
 const packageJsonPath = path.join(projectRoot, "package.json")
 
 const requiredCursorParityConfigKeys = [
-	"cline.openAiCodex.authSource",
-	"cline.cursorCompatibility.enabled",
-	"cline.cursorCompatibility.deepLinks.enabled",
-	"cline.cursorCompatibility.retrievalIndexing.privacyGate",
-	"cline.cursorCompatibility.sandboxPolicy",
-	"cline.cursorCompatibility.safeBrowserEvaluate.enabled",
+	"codevibe.openAiCodex.authSource",
+	"codevibe.cursorCompatibility.enabled",
+	"codevibe.cursorCompatibility.deepLinks.enabled",
+	"codevibe.cursorCompatibility.retrievalIndexing.privacyGate",
+	"codevibe.cursorCompatibility.sandboxPolicy",
+	"codevibe.cursorCompatibility.safeBrowserEvaluate.enabled",
 	"ndjson.port",
 	"ndjson.bindAddress",
 ]
@@ -774,35 +774,35 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 		assertArrayIncludes(commands, command, `${label} contributes.commands`)
 	}
 
-	const codexAuth = properties["cline.openAiCodex.authSource"]
+	const codexAuth = properties["codevibe.openAiCodex.authSource"]
 	if (codexAuth.default !== "codexHome") {
-		throw new Error(`${label} must default cline.openAiCodex.authSource to codexHome`)
+		throw new Error(`${label} must default codevibe.openAiCodex.authSource to codexHome`)
 	}
 	for (const value of ["codexHome", "vscodeSecret", "auto"]) {
-		assertArrayIncludes(codexAuth.enum, value, `${label} cline.openAiCodex.authSource enum`)
+		assertArrayIncludes(codexAuth.enum, value, `${label} codevibe.openAiCodex.authSource enum`)
 	}
 	for (const key of [
-		"cline.cursorCompatibility.enabled",
-		"cline.cursorCompatibility.deepLinks.enabled",
-		"cline.cursorCompatibility.retrievalIndexing.privacyGate",
+		"codevibe.cursorCompatibility.enabled",
+		"codevibe.cursorCompatibility.deepLinks.enabled",
+		"codevibe.cursorCompatibility.retrievalIndexing.privacyGate",
 	]) {
 		if (properties[key].default !== true) {
 			throw new Error(`${label} must default ${key} to true`)
 		}
 	}
-	if (properties["cline.cursorCompatibility.safeBrowserEvaluate.enabled"].default !== false) {
+	if (properties["codevibe.cursorCompatibility.safeBrowserEvaluate.enabled"].default !== false) {
 		throw new Error(`${label} must default safe browser evaluate to false`)
 	}
-	if (properties["cline.cursorCompatibility.sandboxPolicy"].default !== "prompt") {
-		throw new Error(`${label} must default cline.cursorCompatibility.sandboxPolicy to prompt`)
+	if (properties["codevibe.cursorCompatibility.sandboxPolicy"].default !== "prompt") {
+		throw new Error(`${label} must default codevibe.cursorCompatibility.sandboxPolicy to prompt`)
 	}
 	assertVisibleManifestStringsBranded(packageJson, label)
 	assertNativeCodeVibeContributionIds(packageJson, label)
 	for (const value of ["prompt", "workspace", "readOnly", "disabled"]) {
 		assertArrayIncludes(
-			properties["cline.cursorCompatibility.sandboxPolicy"].enum,
+			properties["codevibe.cursorCompatibility.sandboxPolicy"].enum,
 			value,
-			`${label} cline.cursorCompatibility.sandboxPolicy enum`,
+			`${label} codevibe.cursorCompatibility.sandboxPolicy enum`,
 		)
 	}
 }

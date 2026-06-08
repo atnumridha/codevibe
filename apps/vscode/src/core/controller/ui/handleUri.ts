@@ -1,7 +1,7 @@
 import { BooleanResponse, type StringRequest } from "@shared/proto/cline/common"
-import * as vscode from "vscode"
 import { SharedUriHandler } from "@/services/uri/SharedUriHandler"
 import { Logger } from "@/shared/services/Logger"
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 import type { Controller } from "../index"
 
 /**
@@ -14,9 +14,10 @@ export async function handleUri(_controller: Controller, request: StringRequest)
 	}
 
 	try {
-		const cursorDeepLinksEnabled = vscode.workspace
-			.getConfiguration("cline")
-			.get<boolean>("cursorCompatibility.deepLinks.enabled", true)
+		const cursorDeepLinksEnabled = getCodeVibeConfigurationValue<boolean>(
+			"cursorCompatibility.deepLinks.enabled",
+			true,
+		)
 		return BooleanResponse.create({
 			value: await SharedUriHandler.handleUriWithController(_controller, value, {
 				cursorCompatibleDeepLinksEnabled: cursorDeepLinksEnabled,

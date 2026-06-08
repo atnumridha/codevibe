@@ -6,6 +6,7 @@ import {
 	SearchWorkspaceItemsRequest_SearchItemType,
 	SearchWorkspaceItemsResponse,
 } from "@/shared/proto/host/workspace"
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 
 const DEFAULT_SEARCH_LIMIT = 5000
 
@@ -30,10 +31,9 @@ function matchesSelectedType(
 }
 
 function getCursorRetrievalIndexingPrivacyGate(): boolean {
-	const config = vscode.workspace.getConfiguration("cline")
 	return (
-		config.get<boolean>("cursorCompatibility.enabled", true) &&
-		config.get<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
+		getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true) &&
+		getCodeVibeConfigurationValue<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
 	)
 }
 

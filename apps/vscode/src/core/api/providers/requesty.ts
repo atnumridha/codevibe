@@ -47,7 +47,7 @@ export class RequestyHandler implements ApiHandler {
 					baseURL: toRequestyServiceStringUrl(this.options.requestyBaseUrl),
 					apiKey: this.options.requestyApiKey,
 					defaultHeaders: {
-						"HTTP-Referer": "https://cline.bot",
+						"HTTP-Referer": "https://github.com/atnumridha/codevibe",
 						"X-Title": "CodeVibe",
 					},
 				})

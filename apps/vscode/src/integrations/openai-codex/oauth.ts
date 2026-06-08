@@ -4,12 +4,12 @@ import * as http from "http"
 import * as os from "os"
 import * as path from "path"
 import { URL } from "url"
-import * as vscode from "vscode"
 import { z } from "zod"
 import { StateManager } from "@/core/storage/StateManager"
 import { buildExternalBasicHeaders } from "@/services/EnvUtils"
 import { fetch } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 
 /**
  * OpenAI Codex OAuth Configuration
@@ -294,9 +294,10 @@ export function isOpenAiCodexAuthFailure(error: unknown): boolean {
 
 function getOpenAiCodexAuthSource(): OpenAiCodexAuthSource {
 	try {
-		const configuredSource = vscode.workspace
-			.getConfiguration("cline")
-			.get<OpenAiCodexAuthSource>("openAiCodex.authSource", DEFAULT_OPENAI_CODEX_AUTH_SOURCE)
+		const configuredSource = getCodeVibeConfigurationValue<OpenAiCodexAuthSource>(
+			"openAiCodex.authSource",
+			DEFAULT_OPENAI_CODEX_AUTH_SOURCE,
+		)
 
 		if (isOpenAiCodexAuthSource(configuredSource)) {
 			return configuredSource

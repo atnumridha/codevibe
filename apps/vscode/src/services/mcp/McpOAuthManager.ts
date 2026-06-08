@@ -98,8 +98,8 @@ class ClineOAuthClientProvider implements OAuthClientProvider {
 			grant_types: ["authorization_code", "refresh_token"],
 			response_types: ["code"],
 			client_name: "CodeVibe",
-			client_uri: "https://cline.bot",
-			software_id: "cline",
+			client_uri: "https://github.com/atnumridha/codevibe",
+			software_id: "codevibe",
 		}
 	}
 

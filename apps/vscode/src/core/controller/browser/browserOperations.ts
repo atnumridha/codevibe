@@ -1,4 +1,3 @@
-import * as vscode from "vscode"
 import {
 	BrowserAction,
 	type BrowserActionResult,
@@ -18,6 +17,7 @@ import {
 import { EmptyRequest } from "@shared/proto/cline/common"
 import { BrowserSession } from "@/services/browser/BrowserSession"
 import { Logger } from "@/shared/services/Logger"
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 import {
 	sanitizeBrowserActionResult,
 	validateBrowserClickCoordinate,
@@ -41,11 +41,10 @@ function requireActiveTab(tabId?: string): string | undefined {
 }
 
 function getEffectiveControllerBrowserSettings(controller: Controller) {
-	const config = vscode.workspace.getConfiguration("cline")
 	return getEffectiveBrowserSettings(controller.stateManager.getGlobalSettingsKey("browserSettings"), {
 		cursorCompatibilitySafeBrowserEvaluateEnabled:
-			config.get<boolean>("cursorCompatibility.enabled", true) &&
-			config.get<boolean>("cursorCompatibility.safeBrowserEvaluate.enabled", false),
+			getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true) &&
+			getCodeVibeConfigurationValue<boolean>("cursorCompatibility.safeBrowserEvaluate.enabled", false),
 	})
 }
 
@@ -189,7 +188,7 @@ export async function browserAction(
 			const browserSettings = getEffectiveControllerBrowserSettings(controller)
 			if (!browserSettings.allowBrowserEvaluate) {
 				throw new Error(
-					"Browser JavaScript evaluation is disabled. Enable Browser Settings or cline.cursorCompatibility.safeBrowserEvaluate.enabled before using evaluate.",
+					"Browser JavaScript evaluation is disabled. Enable Browser Settings or codevibe.cursorCompatibility.safeBrowserEvaluate.enabled before using evaluate.",
 				)
 			}
 			return toBrowserPageResult(await browserSession.evaluate(text))

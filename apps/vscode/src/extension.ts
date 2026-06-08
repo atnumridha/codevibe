@@ -21,6 +21,7 @@ import { HostProvider } from "@/hosts/host-provider"
 import { vscodeHostBridgeClient } from "@/hosts/vscode/hostbridge/client/host-grpc-client"
 import { createStorageContext } from "@/shared/storage/storage-context"
 import { readTextFromClipboard, writeTextToClipboard } from "@/utils/env"
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 import { initialize, tearDown } from "./common"
 import { addToCline } from "./core/controller/commands/addToCline"
 import { explainWithCline } from "./core/controller/commands/explainWithCline"
@@ -194,9 +195,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		const uriPath = getUriPath(url)
 		const isTaskUri = uriPath === TASK_URI_PATH || uriPath === LG_TASK_URI_PATH
 		const isMcpAuthCallbackUri = /^\/mcp-auth\/callback\/[^/]+$/.test(uriPath ?? "")
-		const cursorDeepLinksEnabled = vscode.workspace
-			.getConfiguration("cline")
-			.get<boolean>("cursorCompatibility.deepLinks.enabled", true)
+		const cursorDeepLinksEnabled = getCodeVibeConfigurationValue<boolean>(
+			"cursorCompatibility.deepLinks.enabled",
+			true,
+		)
 		const isCursorCompatibleUri =
 			cursorDeepLinksEnabled && uriPath ? isCursorCompatibleUriPath(uriPath) : false
 
@@ -273,9 +275,10 @@ export async function activate(context: vscode.ExtensionContext) {
 				return
 			}
 			const success = await SharedUriHandler.handleUri(uri.trim(), {
-				cursorCompatibleDeepLinksEnabled: vscode.workspace
-					.getConfiguration("cline")
-					.get<boolean>("cursorCompatibility.deepLinks.enabled", true),
+				cursorCompatibleDeepLinksEnabled: getCodeVibeConfigurationValue<boolean>(
+					"cursorCompatibility.deepLinks.enabled",
+					true,
+				),
 			})
 			if (!success) {
 				await vscode.window.showWarningMessage("CodeVibe could not process that deeplink.")

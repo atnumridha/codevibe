@@ -28,7 +28,6 @@ import fs from "fs/promises"
 import open from "open"
 import pWaitFor from "p-wait-for"
 import * as path from "path"
-import * as vscode from "vscode"
 import { ClineEnv } from "@/config"
 import type { FolderLockWithRetryResult } from "@/core/locks/types"
 import { HostProvider } from "@/hosts/host-provider"
@@ -56,6 +55,7 @@ import { ShowMessageType } from "@/shared/proto/host/window"
 import { Logger } from "@/shared/services/Logger"
 import { Session } from "@/shared/services/Session"
 import { getLatestAnnouncementId } from "@/utils/announcements"
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 import { createWorktree as createWorktreeUtil } from "@/utils/git-worktree"
 import { getCwd, getDesktopDir } from "@/utils/path"
 import { PromptRegistry } from "../prompts/system-prompt"
@@ -233,7 +233,7 @@ export class Controller {
 			await this.postStateToWebview()
 			HostProvider.window.showMessage({
 				type: ShowMessageType.INFORMATION,
-				message: "Successfully logged out of Cline",
+				message: "Successfully logged out of CodeVibe",
 			})
 		} catch (_error) {
 			HostProvider.window.showMessage({
@@ -326,26 +326,23 @@ export class Controller {
 		})
 
 		const cwd = this.workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
-		const clineConfig = vscode.workspace.getConfiguration("cline")
-		const cursorCompatibilityEnabled = clineConfig.get<boolean>("cursorCompatibility.enabled", true)
+		const cursorCompatibilityEnabled = getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true)
 		const getCursorSafeBrowserEvaluateEnabled = () => {
-			const currentConfig = vscode.workspace.getConfiguration("cline")
 			return (
-				currentConfig.get<boolean>("cursorCompatibility.enabled", true) &&
-				currentConfig.get<boolean>("cursorCompatibility.safeBrowserEvaluate.enabled", false)
+				getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true) &&
+				getCodeVibeConfigurationValue<boolean>("cursorCompatibility.safeBrowserEvaluate.enabled", false)
 			)
 		}
 		const getCursorRetrievalIndexingPrivacyGate = () => {
-			const currentConfig = vscode.workspace.getConfiguration("cline")
 			return (
-				currentConfig.get<boolean>("cursorCompatibility.enabled", true) &&
-				currentConfig.get<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
+				getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true) &&
+				getCodeVibeConfigurationValue<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
 			)
 		}
 		const cursorSandboxPolicy = await resolveCursorSandboxPolicy({
 			workspaceRoot: cwd,
 			enabled: cursorCompatibilityEnabled,
-			policySetting: clineConfig.get<string>("cursorCompatibility.sandboxPolicy", "prompt"),
+			policySetting: getCodeVibeConfigurationValue<string>("cursorCompatibility.sandboxPolicy", "prompt"),
 			logger: { warn: (message) => Logger.warn(message) },
 		})
 
@@ -636,7 +633,7 @@ export class Controller {
 			Logger.error("Failed to handle auth callback:", error)
 			HostProvider.window.showMessage({
 				type: ShowMessageType.ERROR,
-				message: "Failed to log in to Cline",
+				message: "Failed to log in to CodeVibe",
 			})
 			// Even on login failure, we preserve any existing tokens
 			// Only clear tokens on explicit logout
