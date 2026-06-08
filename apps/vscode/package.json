@@ -137,26 +137,31 @@
 			{
 				"command": "codevibe.plusButtonClicked",
 				"title": "New Task",
+				"category": "CodeVibe",
 				"icon": "$(add)"
 			},
 			{
 				"command": "codevibe.mcpButtonClicked",
 				"title": "MCP Servers",
+				"category": "CodeVibe",
 				"icon": "$(server)"
 			},
 			{
 				"command": "codevibe.historyButtonClicked",
 				"title": "History",
+				"category": "CodeVibe",
 				"icon": "$(history)"
 			},
 			{
 				"command": "codevibe.accountButtonClicked",
 				"title": "Account",
+				"category": "CodeVibe",
 				"icon": "$(account)"
 			},
 			{
 				"command": "codevibe.settingsButtonClicked",
 				"title": "Settings",
+				"category": "CodeVibe",
 				"icon": "$(settings-gear)"
 			},
 			{
@@ -183,7 +188,7 @@
 			},
 			{
 				"command": "codevibe.focusChatInput",
-				"title": "Jump to Chat Input",
+				"title": "Open CodeVibe",
 				"category": "CodeVibe"
 			},
 			{

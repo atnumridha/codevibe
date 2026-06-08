@@ -84,12 +84,8 @@ async function updateAutoApprovalSettings(controller?: Controller) {
  * @returns The created HTTP server instance
  */
 export async function createTestServer(controller: Controller): Promise<http.Server> {
-	// Try to show the Cline sidebar
-	Logger.log("[createTestServer] Opening Cline in sidebar...")
-	vscode.commands.executeCommand(`workbench.view.${ExtensionRegistryInfo.name}-ActivityBar`)
-
-	// Then ensure the webview is focused/loaded
-	vscode.commands.executeCommand(`${ExtensionRegistryInfo.views.Sidebar}.focus`)
+	Logger.log("[createTestServer] Opening CodeVibe surface...")
+	vscode.commands.executeCommand(ExtensionRegistryInfo.commands.FocusChatInput)
 
 	// Update auto approval settings is available
 	await updateAutoApprovalSettings(controller)

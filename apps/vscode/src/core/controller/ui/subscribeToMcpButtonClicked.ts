@@ -1,10 +1,12 @@
 import { Empty, EmptyRequest } from "@shared/proto/cline/common"
-import { Logger } from "@/shared/services/Logger"
-import { getRequestRegistry, StreamingResponseHandler } from "../grpc-handler"
-import { Controller } from "../index"
+import type { StreamingResponseHandler } from "../grpc-handler"
+import type { Controller } from "../index"
+import { createBufferedSubscription } from "./bufferedSubscription"
 
-// Keep track of active mcpButtonClicked subscriptions
-const activeMcpButtonClickedSubscriptions = new Set<StreamingResponseHandler<Empty>>()
+const mcpButtonClickedSubscription = createBufferedSubscription<Empty>({
+	logLabel: "mcpButtonClicked",
+	registryType: "mcpButtonClicked_subscription",
+})
 
 /**
  * Subscribe to mcpButtonClicked events
@@ -19,38 +21,12 @@ export async function subscribeToMcpButtonClicked(
 	responseStream: StreamingResponseHandler<Empty>,
 	requestId?: string,
 ): Promise<void> {
-	// Add this subscription to the active subscriptions
-	activeMcpButtonClickedSubscriptions.add(responseStream)
-
-	// Register cleanup when the connection is closed
-	const cleanup = () => {
-		activeMcpButtonClickedSubscriptions.delete(responseStream)
-	}
-
-	// Register the cleanup function with the request registry if we have a requestId
-	if (requestId) {
-		getRequestRegistry().registerRequest(requestId, cleanup, { type: "mcpButtonClicked_subscription" }, responseStream)
-	}
+	await mcpButtonClickedSubscription.subscribe(responseStream, requestId)
 }
 
 /**
  * Send a mcpButtonClicked event to all active subscribers
  */
 export async function sendMcpButtonClickedEvent(): Promise<void> {
-	// Send the event to all active subscribers
-	const promises = Array.from(activeMcpButtonClickedSubscriptions).map(async (responseStream) => {
-		try {
-			const event = Empty.create({})
-			await responseStream(
-				event,
-				false, // Not the last message
-			)
-		} catch (error) {
-			Logger.error("Error sending mcpButtonClicked event:", error)
-			// Remove the subscription if there was an error
-			activeMcpButtonClickedSubscriptions.delete(responseStream)
-		}
-	})
-
-	await Promise.all(promises)
+	await mcpButtonClickedSubscription.send(Empty.create({}))
 }

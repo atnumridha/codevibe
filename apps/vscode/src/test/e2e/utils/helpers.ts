@@ -88,7 +88,7 @@ export class E2ETestHelper {
 
 				try {
 					const title = await frame.title()
-					if (title.startsWith("Cline")) {
+					if (title.startsWith("CodeVibe") || title.startsWith("Cline")) {
 						this.cachedFrame = frame
 						return frame
 					}
@@ -101,7 +101,7 @@ export class E2ETestHelper {
 			return null
 		}
 
-		// Use longer timeout (30s) for sidebar - macOS CI runners can be slow
+		// Use longer timeout (30s) for the webview - macOS CI runners can be slow
 		await E2ETestHelper.waitUntil(async () => (await findSidebarFrame()) !== null, 30000)
 		return (await findSidebarFrame()) || page.mainFrame()
 	}
@@ -274,7 +274,7 @@ export class E2ETestHelper {
 	}
 
 	public static async openClineSidebar(page: Page): Promise<void> {
-		await page.getByRole("tab", { name: /Cline/ }).locator("a").click()
+		await E2ETestHelper.runCommandPalette(page, "CodeVibe: Open CodeVibe")
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {
@@ -314,7 +314,7 @@ export class E2ETestHelper {
  * - `openVSCode`: Function that returns a Promise resolving to an ElectronApplication instance
  * - `app`: ElectronApplication instance with automatic cleanup
  * - `helper`: E2ETestHelper instance for test utilities
- * - `page`: Playwright Page object representing the main VS Code window with Cline sidebar opened
+ * - `page`: Playwright Page object representing the main VS Code window with CodeVibe opened
  * - `sidebar`: Playwright Frame object representing the Cline extension's sidebar iframe
  *
  * @returns Extended test object with all fixtures available for E2E test scenarios:
@@ -325,7 +325,7 @@ export class E2ETestHelper {
  * - **openVSCode**: Factory function that launches VS Code with proper configuration for testing
  * - **app**: Manages the VS Code ElectronApplication lifecycle with automatic cleanup
  * - **helper**: Provides E2ETestHelper utilities for test operations
- * - **page**: Configures the main VS Code window with notifications disabled and Cline sidebar open
+ * - **page**: Configures the main VS Code window with notifications disabled and CodeVibe open
  * - **sidebar**: Provides access to the Cline extension's sidebar frame
  *
  * @example

@@ -92,7 +92,7 @@ const GLOBAL_STATE_FIELDS = {
 	remoteWorkflowToggles: { default: {} as ClineRulesToggles },
 	remoteSkillsToggles: { default: {} as ClineRulesToggles },
 	dismissedBanners: { default: [] as Array<{ bannerId: string; dismissedAt: number }> },
-	// Path to worktree that should auto-open Cline sidebar when launched
+	// Path to worktree that should auto-open CodeVibe when launched
 	worktreeAutoOpenPath: { default: undefined as string | undefined },
 	backgroundAgentTaskRecords: { default: [] as BackgroundAgentTaskRecord[] },
 } satisfies FieldDefinitions

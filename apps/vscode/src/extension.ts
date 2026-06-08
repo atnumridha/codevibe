@@ -132,17 +132,42 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.PlusButton, async () => {
-			const sidebarInstance = WebviewProvider.getInstance()
-			await sidebarInstance.controller.clearTask()
-			await sidebarInstance.controller.postStateToWebview()
+			const webview = await showCodeVibeSurface(false)
+			await webview.controller.clearTask()
+			await webview.controller.postStateToWebview()
 			await sendChatButtonClickedEvent()
 		}),
 	)
-	context.subscriptions.push(vscode.commands.registerCommand(commands.McpButton, () => sendMcpButtonClickedEvent()))
-	context.subscriptions.push(vscode.commands.registerCommand(commands.SettingsButton, () => sendSettingsButtonClickedEvent()))
-	context.subscriptions.push(vscode.commands.registerCommand(commands.HistoryButton, () => sendHistoryButtonClickedEvent()))
-	context.subscriptions.push(vscode.commands.registerCommand(commands.AccountButton, () => sendAccountButtonClickedEvent()))
-	context.subscriptions.push(vscode.commands.registerCommand(commands.WorktreesButton, () => sendWorktreesButtonClickedEvent()))
+	context.subscriptions.push(
+		vscode.commands.registerCommand(commands.McpButton, async () => {
+			await showCodeVibeSurface(false)
+			await sendMcpButtonClickedEvent()
+		}),
+	)
+	context.subscriptions.push(
+		vscode.commands.registerCommand(commands.SettingsButton, async () => {
+			await showCodeVibeSurface(false)
+			await sendSettingsButtonClickedEvent()
+		}),
+	)
+	context.subscriptions.push(
+		vscode.commands.registerCommand(commands.HistoryButton, async () => {
+			await showCodeVibeSurface(false)
+			await sendHistoryButtonClickedEvent()
+		}),
+	)
+	context.subscriptions.push(
+		vscode.commands.registerCommand(commands.AccountButton, async () => {
+			await showCodeVibeSurface(false)
+			await sendAccountButtonClickedEvent()
+		}),
+	)
+	context.subscriptions.push(
+		vscode.commands.registerCommand(commands.WorktreesButton, async () => {
+			await showCodeVibeSurface(false)
+			await sendWorktreesButtonClickedEvent()
+		}),
+	)
 
 	/*
 	We use the text document content provider API to show the left side for diff view by creating a
@@ -176,7 +201,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			cursorDeepLinksEnabled && uriPath ? isCursorCompatibleUriPath(uriPath) : false
 
 		if (isTaskUri || isCursorCompatibleUri || isMcpAuthCallbackUri) {
-			await openClineSidebarForTaskUri()
+			await openCodeVibeSurfaceForTaskUri()
 		}
 
 		let success = await SharedUriHandler.handleUri(url, {
@@ -185,7 +210,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		// Task deeplinks can race with first-time sidebar initialization.
 		if (!success && (isTaskUri || isCursorCompatibleUri || isMcpAuthCallbackUri)) {
-			await openClineSidebarForTaskUri()
+			await openCodeVibeSurfaceForTaskUri()
 			success = await SharedUriHandler.handleUri(url, {
 				cursorCompatibleDeepLinksEnabled: cursorDeepLinksEnabled,
 			})
@@ -453,19 +478,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.FocusChatInput, async (preserveEditorFocus = false) => {
-			const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
-
-			// Show the webview
-			const webviewView = webview.getWebview()
-			if (webviewView) {
-				if (preserveEditorFocus) {
-					// Only make webview visible without forcing focus
-					webviewView.show(false)
-				} else {
-					// Show and force focus (default behavior for explicit focus actions)
-					webviewView.show(true)
-				}
-			}
+			const webview = await showCodeVibeSurface(preserveEditorFocus)
 
 			// Send show webview event with preserveEditorFocus flag
 			sendShowWebviewEvent(preserveEditorFocus)
@@ -748,18 +761,11 @@ async function showCursorNdjsonStatus(status: CursorNdjsonIngestServerStatus, ti
 	await vscode.window.showInformationMessage(`${title}: ${detail}`)
 }
 
-async function openClineSidebarForTaskUri(): Promise<void> {
+async function openCodeVibeSurfaceForTaskUri(): Promise<void> {
 	const sidebarWaitTimeoutMs = 3000
 	const sidebarWaitIntervalMs = 50
 
-	try {
-		await vscode.commands.executeCommand(`${ExtensionRegistryInfo.views.Sidebar}.focus`)
-	} catch (error) {
-		Logger.log(
-			`CodeVibe legacy sidebar focus is unavailable; routing URI through the initialized controller. ${String(error)}`,
-		)
-		return
-	}
+	await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.FocusChatInput, true)
 
 	const startedAt = Date.now()
 	while (Date.now() - startedAt < sidebarWaitTimeoutMs) {
@@ -769,7 +775,13 @@ async function openClineSidebarForTaskUri(): Promise<void> {
 		await new Promise((resolve) => setTimeout(resolve, sidebarWaitIntervalMs))
 	}
 
-	Logger.warn("Task URI handling timed out waiting for Cline sidebar visibility")
+	Logger.warn("Task URI handling timed out waiting for CodeVibe surface visibility")
+}
+
+async function showCodeVibeSurface(preserveEditorFocus: boolean): Promise<VscodeWebviewProvider> {
+	const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
+	await webview.show(preserveEditorFocus)
+	return webview
 }
 
 async function getBinaryLocation(name: string): Promise<string> {

@@ -1,10 +1,12 @@
 import { Empty, EmptyRequest } from "@shared/proto/cline/common"
-import { Logger } from "@/shared/services/Logger"
-import { getRequestRegistry, StreamingResponseHandler } from "../grpc-handler"
-import { Controller } from "../index"
+import type { StreamingResponseHandler } from "../grpc-handler"
+import type { Controller } from "../index"
+import { createBufferedSubscription } from "./bufferedSubscription"
 
-// Keep track of active chatButtonClicked subscriptions
-const activeChatButtonClickedSubscriptions = new Set<StreamingResponseHandler<Empty>>()
+const chatButtonClickedSubscription = createBufferedSubscription<Empty>({
+	logLabel: "chatButtonClicked",
+	registryType: "chatButtonClicked_subscription",
+})
 
 /**
  * Subscribe to chatButtonClicked events
@@ -19,38 +21,12 @@ export async function subscribeToChatButtonClicked(
 	responseStream: StreamingResponseHandler<Empty>,
 	requestId?: string,
 ): Promise<void> {
-	// Add this subscription to the active subscriptions
-	activeChatButtonClickedSubscriptions.add(responseStream)
-
-	// Register cleanup when the connection is closed
-	const cleanup = () => {
-		activeChatButtonClickedSubscriptions.delete(responseStream)
-	}
-
-	// Register the cleanup function with the request registry if we have a requestId
-	if (requestId) {
-		getRequestRegistry().registerRequest(requestId, cleanup, { type: "chatButtonClicked_subscription" }, responseStream)
-	}
+	await chatButtonClickedSubscription.subscribe(responseStream, requestId)
 }
 
 /**
  * Send a chatButtonClicked event to all active subscribers
  */
 export async function sendChatButtonClickedEvent(): Promise<void> {
-	// Send the event to all active subscribers
-	const promises = Array.from(activeChatButtonClickedSubscriptions).map(async (responseStream) => {
-		try {
-			const event = Empty.create({})
-			await responseStream(
-				event,
-				false, // Not the last message
-			)
-		} catch (error) {
-			Logger.error("Error sending chatButtonClicked event:", error)
-			// Remove the subscription if there was an error
-			activeChatButtonClickedSubscriptions.delete(responseStream)
-		}
-	})
-
-	await Promise.all(promises)
+	await chatButtonClickedSubscription.send(Empty.create({}))
 }

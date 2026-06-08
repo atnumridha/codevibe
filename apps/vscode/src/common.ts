@@ -116,7 +116,7 @@ async function showVersionUpdateAnnouncement(stateManager: StateManager) {
 
 /**
  * Checks if this workspace was opened from the worktree quick launch button.
- * If so, opens the Cline sidebar and clears the state.
+ * If so, opens the CodeVibe surface and clears the state.
  */
 async function checkWorktreeAutoOpen(stateManager: StateManager): Promise<void> {
 	try {
@@ -139,7 +139,7 @@ async function checkWorktreeAutoOpen(stateManager: StateManager): Promise<void> 
 		if (arePathsEqual(currentPath, worktreeAutoOpenPath)) {
 			// Clear the state first to prevent re-triggering
 			stateManager.setGlobalState("worktreeAutoOpenPath", undefined)
-			// Open the Cline sidebar
+			// Open the CodeVibe surface.
 			await HostProvider.workspace.openClineSidebarPanel({})
 		}
 	} catch (error) {

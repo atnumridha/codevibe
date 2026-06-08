@@ -19,29 +19,73 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	public static readonly SIDEBAR_ID = ExtensionRegistryInfo.views.Sidebar
 
 	private webview?: vscode.WebviewView
+	private panel?: vscode.WebviewPanel
 	private disposables: vscode.Disposable[] = []
+	private panelDisposables: vscode.Disposable[] = []
 
 	override getWebviewUrl(path: string) {
-		if (!this.webview) {
+		const webview = this.webview?.webview ?? this.panel?.webview
+		if (!webview) {
 			throw new Error("Webview not initialized")
 		}
-		const uri = this.webview.webview.asWebviewUri(vscode.Uri.file(path))
+		const uri = webview.asWebviewUri(vscode.Uri.file(path))
 		return uri.toString()
 	}
 
 	override getCspSource() {
-		if (!this.webview) {
+		const webview = this.webview?.webview ?? this.panel?.webview
+		if (!webview) {
 			throw new Error("Webview not initialized")
 		}
-		return this.webview.webview.cspSource
+		return webview.cspSource
 	}
 
 	override isVisible() {
-		return this.webview?.visible || false
+		return this.webview?.visible || this.panel?.visible || false
 	}
 
 	public getWebview(): vscode.WebviewView | undefined {
 		return this.webview
+	}
+
+	public async show(preserveEditorFocus = false): Promise<void> {
+		if (this.webview) {
+			this.webview.show(!preserveEditorFocus)
+			return
+		}
+
+		if (this.panel) {
+			this.panel.reveal(this.panel.viewColumn, preserveEditorFocus)
+			return
+		}
+
+		const viewColumn = vscode.window.activeTextEditor ? vscode.ViewColumn.Beside : vscode.ViewColumn.One
+		this.panel = vscode.window.createWebviewPanel("codevibe.agentPanel", "CodeVibe", viewColumn, {
+			enableScripts: true,
+			retainContextWhenHidden: true,
+			localResourceRoots: [vscode.Uri.file(HostProvider.get().extensionFsPath)],
+		})
+
+		this.panel.webview.html =
+			this.context.extensionMode === vscode.ExtensionMode.Development
+				? await this.getHMRHtmlContent()
+				: this.getHtmlContent()
+
+		this.setWebviewMessageListener(this.panel.webview, this.panelDisposables)
+		this.registerConfigurationListener(this.panelDisposables)
+
+		this.panel.onDidDispose(
+			() => {
+				while (this.panelDisposables.length) {
+					this.panelDisposables.pop()?.dispose()
+				}
+				this.panel = undefined
+			},
+			null,
+			this.panelDisposables,
+		)
+
+		Logger.log("[VscodeWebviewProvider] Webview panel opened")
 	}
 
 	/**
@@ -98,17 +142,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 			this.disposables,
 		)
 
-		// Listen for configuration changes
-		vscode.workspace.onDidChangeConfiguration(
-			async (e) => {
-				if (e && e.affectsConfiguration("cline.mcpMarketplace.enabled")) {
-					// Update state when marketplace tab setting changes
-					await this.controller.postStateToWebview()
-				}
-			},
-			null,
-			this.disposables,
-		)
+		this.registerConfigurationListener(this.disposables)
 
 		// if the extension is starting a new session, clear previous task state
 		this.controller.clearTask()
@@ -142,13 +176,26 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	 *
 	 * @param webview The webview instance to attach the message listener to
 	 */
-	private setWebviewMessageListener(webview: vscode.Webview) {
+	private registerConfigurationListener(disposables: vscode.Disposable[]) {
+		vscode.workspace.onDidChangeConfiguration(
+			async (e) => {
+				if (e && e.affectsConfiguration("cline.mcpMarketplace.enabled")) {
+					// Update state when marketplace tab setting changes
+					await this.controller.postStateToWebview()
+				}
+			},
+			null,
+			disposables,
+		)
+	}
+
+	private setWebviewMessageListener(webview: vscode.Webview, disposables = this.disposables) {
 		webview.onDidReceiveMessage(
 			(message) => {
 				this.handleWebviewMessage(message)
 			},
 			null,
-			this.disposables,
+			disposables,
 		)
 	}
 
@@ -187,17 +234,21 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	 * @returns A thenable that resolves to a boolean indicating success, or undefined if the webview is not available
 	 */
 	private async postMessageToWebview(message: ExtensionMessage): Promise<boolean | undefined> {
-		return this.webview?.webview.postMessage(message)
+		return (this.webview?.webview ?? this.panel?.webview)?.postMessage(message)
 	}
 
 	override async dispose() {
 		// WebviewView doesn't have a dispose method, it's managed by VSCode
 		// We just need to clean up our disposables
+		this.panel?.dispose()
 		while (this.disposables.length) {
 			const x = this.disposables.pop()
 			if (x) {
 				x.dispose()
 			}
+		}
+		while (this.panelDisposables.length) {
+			this.panelDisposables.pop()?.dispose()
 		}
 		super.dispose()
 	}

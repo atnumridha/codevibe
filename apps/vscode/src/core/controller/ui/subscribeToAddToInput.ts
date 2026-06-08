@@ -1,10 +1,13 @@
 import type { EmptyRequest, String as ProtoString } from "@shared/proto/cline/common"
-import { Logger } from "@/shared/services/Logger"
-import { getRequestRegistry, type StreamingResponseHandler } from "../grpc-handler"
+import type { StreamingResponseHandler } from "../grpc-handler"
 import type { Controller } from "../index"
+import { createBufferedSubscription } from "./bufferedSubscription"
 
-// Keep track of active addToInput subscriptions
-const activeAddToInputSubscriptions = new Set<StreamingResponseHandler<ProtoString>>()
+const addToInputSubscription = createBufferedSubscription<ProtoString>({
+	logLabel: "addToInput",
+	registryType: "addToInput_subscription",
+	maxPending: 20,
+})
 
 /**
  * Subscribe to addToInput events
@@ -19,18 +22,7 @@ export async function subscribeToAddToInput(
 	responseStream: StreamingResponseHandler<ProtoString>,
 	requestId?: string,
 ): Promise<void> {
-	// Add this subscription to the active subscriptions
-	activeAddToInputSubscriptions.add(responseStream)
-
-	// Register cleanup when the connection is closed
-	const cleanup = () => {
-		activeAddToInputSubscriptions.delete(responseStream)
-	}
-
-	// Register the cleanup function with the request registry if we have a requestId
-	if (requestId) {
-		getRequestRegistry().registerRequest(requestId, cleanup, { type: "addToInput_subscription" }, responseStream)
-	}
+	await addToInputSubscription.subscribe(responseStream, requestId)
 }
 
 /**
@@ -38,22 +30,5 @@ export async function subscribeToAddToInput(
  * @param text The text to add to the input
  */
 export async function sendAddToInputEvent(text: string): Promise<void> {
-	// Send the event to all active subscribers
-	const promises = Array.from(activeAddToInputSubscriptions).map(async (responseStream) => {
-		try {
-			const event: ProtoString = {
-				value: text,
-			}
-			await responseStream(
-				event,
-				false, // Not the last message
-			)
-		} catch (error) {
-			Logger.error("Error sending addToInput event:", error)
-			// Remove the subscription if there was an error
-			activeAddToInputSubscriptions.delete(responseStream)
-		}
-	})
-
-	await Promise.all(promises)
+	await addToInputSubscription.send({ value: text })
 }
