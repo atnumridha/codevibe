@@ -36,7 +36,7 @@ const agentFeatures: FeatureToggle[] = [
 	{
 		id: "subagents",
 		label: "Subagents",
-		description: "Let Cline run focused subagents in parallel to explore the codebase for you.",
+		description: "Let CodeVibe run focused subagents in parallel to explore the codebase for you.",
 		stateKey: "subagentsEnabled",
 		settingKey: "subagentsEnabled",
 	},
@@ -82,7 +82,7 @@ const editorFeatures: FeatureToggle[] = [
 	{
 		id: "show-feature-tips",
 		label: "Feature Tips",
-		description: "Show rotating tips during the thinking phase to help you discover Cline features.",
+		description: "Show rotating tips during the thinking phase to help you discover CodeVibe features.",
 		stateKey: "showFeatureTips",
 		settingKey: "showFeatureTips",
 	},
@@ -102,7 +102,7 @@ const editorFeatures: FeatureToggle[] = [
 	},
 	{
 		id: "cline-web-tools",
-		label: "Cline Web Tools",
+		label: "CodeVibe Web Tools",
 		description: "Access web browsing and search capabilities",
 		stateKey: "clineWebToolsEnabled",
 		settingKey: "clineWebToolsEnabled",
@@ -136,7 +136,7 @@ const experimentalFeatures: FeatureToggle[] = [
 	{
 		id: "lazy-teammate",
 		label: "Lazy Teammate Mode",
-		description: "Sometimes Cline just isn't feeling it today. For entertainment purposes only.",
+		description: "Sometimes CodeVibe just isn't feeling it today. For entertainment purposes only.",
 		stateKey: "lazyTeammateModeEnabled",
 		settingKey: "lazyTeammateModeEnabled",
 	},

@@ -146,7 +146,7 @@ export async function createTestServer(controller: Controller): Promise<http.Ser
 				const visibleWebview = WebviewProvider.getVisibleInstance()
 				if (!visibleWebview || !visibleWebview.controller) {
 					res.writeHead(500)
-					res.end(JSON.stringify({ error: "No active Cline instance found" }))
+					res.end(JSON.stringify({ error: "No active CodeVibe instance found" }))
 					return
 				}
 
@@ -301,7 +301,7 @@ export async function createTestServer(controller: Controller): Promise<http.Ser
 								messages = await getSavedClineMessages(taskId)
 							}
 						} catch (error) {
-							Logger.log(`Error getting saved Cline messages: ${error}`)
+							Logger.log(`Error getting saved CodeVibe messages: ${error}`)
 						}
 
 						try {

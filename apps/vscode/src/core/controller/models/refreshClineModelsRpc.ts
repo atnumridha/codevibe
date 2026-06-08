@@ -5,7 +5,7 @@ import type { Controller } from "../index"
 import { refreshClineModels } from "./refreshClineModels"
 
 /**
- * Refreshes Cline models and returns protobuf types for gRPC
+ * Refreshes CodeVibe models and returns protobuf types for gRPC
  * @param controller The controller instance
  * @param request Empty request (unused but required for gRPC signature)
  * @returns OpenRouterCompatibleModelInfo with protobuf types (reusing the same proto type)

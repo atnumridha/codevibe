@@ -674,14 +674,14 @@ UPDATE_SNAPSHOTS=true npm run test:unit
 
 ### Testing in Debug Mode
 
-**For live testing with real models**, run Cline in debug mode to verify your variant works correctly:
+**For live testing with real models**, run CodeVibe in debug mode to verify your variant works correctly:
 
 1. **Enable Debug Mode:**
    - See the main [CONTRIBUTING.md](../../../../CONTRIBUTING.md) for instructions on running Cline in debug mode
    - Debug mode enables additional features for testing and verification
 
 2. **Run a Task with Your Model:**
-   - Configure your model in Cline settings
+   - Configure your model in CodeVibe settings
    - Start a conversation or task with the model
    - The system will automatically select your variant based on the matcher function
 
@@ -703,7 +703,7 @@ UPDATE_SNAPSHOTS=true npm run test:unit
 **Example verification:**
 ```json
 {
-  "systemPrompt": "You are Cline...\n\n====\n\n# Agent Role\n...",
+  "systemPrompt": "You are CodeVibe...\n\n====\n\n# Agent Role\n...",
   "modelFamily": "my-new-model",
   "tools": ["bash", "file_read", "ask"],
   // ... rest of task data

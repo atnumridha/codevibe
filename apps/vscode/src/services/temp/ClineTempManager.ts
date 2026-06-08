@@ -25,7 +25,7 @@ interface TempFileInfo {
 }
 
 /**
- * Singleton manager for Cline's temporary files.
+ * Singleton manager for CodeVibe's temporary files.
  */
 class ClineTempManagerImpl {
 	private readonly tempDir: string
@@ -76,11 +76,11 @@ class ClineTempManagerImpl {
 	}
 
 	/**
-	 * Clean up old Cline temp files based on age and total size constraints.
+	 * Clean up old CodeVibe temp files based on age and total size constraints.
 	 * Called on extension activation.
 	 *
 	 * Strategy:
-	 * 1. Scan the Cline temp directory
+	 * 1. Scan the CodeVibe temp directory
 	 * 2. Delete all files older than 50 hours
 	 * 3. If still over 2GB total, delete oldest files until under limit
 	 */
@@ -154,10 +154,10 @@ class ClineTempManagerImpl {
 			}
 
 			if (deletedCount > 0) {
-				Logger.info(`Cline temp cleanup: deleted ${deletedCount} files, freed ${Math.round(freedBytes / 1024 / 1024)}MB`)
+				Logger.info(`CodeVibe temp cleanup: deleted ${deletedCount} files, freed ${Math.round(freedBytes / 1024 / 1024)}MB`)
 			}
 		} catch (error) {
-			Logger.error("Error during Cline temp cleanup", error)
+			Logger.error("Error during CodeVibe temp cleanup", error)
 		}
 
 		return { deletedCount, freedBytes }

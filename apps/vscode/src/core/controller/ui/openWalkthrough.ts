@@ -7,7 +7,7 @@ import { Logger } from "@/shared/services/Logger"
 import type { Controller } from "../index"
 
 /**
- * Opens the Cline walkthrough in VSCode
+ * Opens the CodeVibe walkthrough in VSCode
  * @param controller The controller instance
  * @param request Empty request
  * @returns Empty response
@@ -16,7 +16,7 @@ export async function openWalkthrough(_controller: Controller, _request: EmptyRe
 	try {
 		await vscode.commands.executeCommand(
 			"workbench.action.openWalkthrough",
-			`saoudrizwan.${ExtensionRegistryInfo.name}#ClineWalkthrough`,
+			`atnumridha.${ExtensionRegistryInfo.name}#CodeVibeWalkthrough`,
 		)
 		telemetryService.captureButtonClick("webview_openWalkthrough")
 		return Empty.create({})

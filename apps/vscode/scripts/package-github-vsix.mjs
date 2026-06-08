@@ -36,7 +36,7 @@ const requiredCursorParityCommands = [
 
 const expectedManifestAssetPaths = [
 	"assets/icons/icon.png",
-	"assets/icons/cline-bot.woff",
+	"assets/icons/codevibe-glyph.woff",
 	"walkthrough/step1.md",
 	"walkthrough/step2.md",
 	"walkthrough/step3.md",

@@ -22,7 +22,7 @@ export type RuleContextBuilderDeps = {
 }
 
 /**
- * Builds the evaluation context used for conditional Cline Rules (e.g. YAML frontmatter `paths:`).
+ * Builds the evaluation context used for conditional CodeVibe Rules (e.g. YAML frontmatter `paths:`).
  *
  * Kept in the user-instructions domain so Task remains orchestration-focused.
  *

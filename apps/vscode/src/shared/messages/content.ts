@@ -77,7 +77,7 @@ export type ClineContent = ClineUserContent | ClineAssistantContent
 /**
  * An extension of Anthropic.MessageParam that includes Cline-specific fields.
  * This ensures backward compatibility where the messages were stored in Anthropic format,
- * while allowing for additional metadata specific to Cline to avoid unknown fields in Anthropic SDK
+ * while allowing for additional metadata specific to CodeVibe to avoid unknown fields in Anthropic SDK
  * added by ignoring the type checking for those fields.
  */
 export interface ClineStorageMessage extends Anthropic.MessageParam {

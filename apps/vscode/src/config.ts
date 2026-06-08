@@ -80,7 +80,7 @@ class ClineEndpoint {
 	}
 
 	/**
-	 * Checks if Cline is running in self-hosted/on-premise mode.
+	 * Checks if CodeVibe is running in self-hosted/on-premise mode.
 	 * @returns true if in selfHosted mode, or true if not initialized (safety fallback to prevent accidental external calls)
 	 */
 	public static isSelfHosted(): boolean {

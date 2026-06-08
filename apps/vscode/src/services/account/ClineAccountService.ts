@@ -36,7 +36,7 @@ export class ClineAccountService {
 	}
 
 	/**
-	 * Returns the base URL for the Cline API
+	 * Returns the base URL for the CodeVibe API
 	 * @returns The base URL as a string
 	 */
 	get baseUrl(): string {
@@ -44,7 +44,7 @@ export class ClineAccountService {
 	}
 
 	/**
-	 * Helper function to make authenticated requests to the Cline API
+	 * Helper function to make authenticated requests to the CodeVibe API
 	 * @param endpoint The API endpoint to call (without the base URL)
 	 * @param config Additional axios request configuration
 	 * @param options.allowNullData When true, allows response.data.data to be null without throwing.

@@ -68,7 +68,7 @@ describe("ErrorRow", () => {
 		const clineignoreMessage = { ...mockMessage, text: "/path/to/file.txt" }
 		render(<ErrorRow errorType="clineignore_error" message={clineignoreMessage} />)
 
-		expect(screen.getByText(/Cline tried to access/)).toBeInTheDocument()
+		expect(screen.getByText(/CodeVibe tried to access/)).toBeInTheDocument()
 		expect(screen.getByText("/path/to/file.txt")).toBeInTheDocument()
 	})
 
@@ -143,7 +143,7 @@ describe("ErrorRow", () => {
 
 			expect(screen.queryByText("Authentication failed")).not.toBeInTheDocument()
 			expect(screen.getByText(/Whoops looks like you're logged out/)).toBeInTheDocument()
-			expect(screen.getByText("Sign in to Cline")).toBeInTheDocument()
+			expect(screen.getByText("Sign in to CodeVibe")).toBeInTheDocument()
 		})
 
 		it("renders PowerShell troubleshooting link when error mentions PowerShell", async () => {

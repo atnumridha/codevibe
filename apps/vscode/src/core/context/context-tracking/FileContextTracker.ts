@@ -18,7 +18,7 @@ import type { FileMetadataEntry } from "./ContextTrackerTypes"
 // FileContextTracker
 /**
 This class is responsible for tracking file operations.
-If the full contents of a file are passed to Cline via a tool, mention, or edit, the file is marked as active.
+If the full contents of a file are passed to CodeVibe via a tool, mention, or edit, the file is marked as active.
 If a file is modified outside of Cline, we detect and track this change to prevent stale context.
 This is used when restoring a task (non-git "checkpoint" restore), and mid-task.
 */
@@ -80,7 +80,7 @@ export class FileContextTracker {
 
 	/**
 	 * Tracks a file operation in metadata and sets up a watcher for the file
-	 * This is the main entry point for FileContextTracker and is called when a file is passed to Cline via a tool, mention, or edit.
+	 * This is the main entry point for FileContextTracker and is called when a file is passed to CodeVibe via a tool, mention, or edit.
 	 */
 	async trackFileContext(filePath: string, operation: "read_tool" | "user_edited" | "cline_edited" | "file_mentioned") {
 		try {
@@ -142,13 +142,13 @@ export class FileContextTracker {
 					this.recentlyModifiedFiles.add(filePath)
 					break
 
-				// cline_edited: Cline has edited the file
+				// cline_edited: CodeVibe has edited the file
 				case "cline_edited":
 					newEntry.cline_read_date = now
 					newEntry.cline_edit_date = now
 					break
 
-				// read_tool/file_mentioned: Cline has read the file via a tool or file mention
+				// read_tool/file_mentioned: CodeVibe has read the file via a tool or file mention
 				case "read_tool":
 				case "file_mentioned":
 					newEntry.cline_read_date = now

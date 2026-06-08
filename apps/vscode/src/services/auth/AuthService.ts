@@ -45,7 +45,7 @@ export interface ClineAccountUserInfo {
 	id: string
 	organizations: ClineAccountOrganization[]
 	/**
-	 * Cline app base URL, used for webview UI and other client-side operations
+	 * CodeVibe app base URL, used for webview UI and other client-side operations
 	 */
 	appBaseUrl?: string
 	/**

@@ -44,7 +44,7 @@ export class PostHogClientProvider {
 
 	/**
 	 * Filters PostHog events before they are sent.
-	 * For exceptions, we only capture those from the Cline extension.
+	 * For exceptions, we only capture those from the CodeVibe extension.
 	 * this is specifically to avoid capturing errors from anything other than Cline
 	 */
 	static eventFilter(event: EventMessage | null) {

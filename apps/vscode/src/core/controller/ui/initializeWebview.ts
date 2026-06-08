@@ -73,7 +73,7 @@ export async function initializeWebview(controller: Controller, _request: EmptyR
 
 		refreshClineModels(controller).then(async (models) => {
 			if (models && Object.keys(models).length > 0) {
-				// Update model info in state for Cline (this needs to be done here since we don't want to update state while settings is open, and we may refresh models there)
+				// Update model info in state for CodeVibe (this needs to be done here since we don't want to update state while settings is open, and we may refresh models there)
 				const apiConfiguration = controller.stateManager.getApiConfiguration()
 				const planActSeparateModelsSetting = controller.stateManager.getGlobalSettingsKey("planActSeparateModelsSetting")
 				const currentMode = controller.stateManager.getGlobalSettingsKey("mode")

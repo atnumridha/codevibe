@@ -10,7 +10,7 @@ type LgHookScript = {
 
 export async function writeLgWebhookConfig(webhookUrl: string, webhookToken: string): Promise<void> {
 	const documentsPath = await getDocumentsPath()
-	const clineDir = path.join(documentsPath, "Cline")
+	const clineDir = path.join(documentsPath, "CodeVibe")
 	const configPath = path.join(clineDir, "webhook_config.json")
 
 	await fs.mkdir(clineDir, { recursive: true })
@@ -74,7 +74,7 @@ try {
         $documentsPath = Join-Path $HOME "Documents"
     }
 
-    $configPath = Join-Path (Join-Path $documentsPath "Cline") "webhook_config.json"
+    $configPath = Join-Path (Join-Path $documentsPath "CodeVibe") "webhook_config.json"
     if (-not (Test-Path $configPath)) {
         @{ cancel = $false } | ConvertTo-Json -Compress
         exit 0
@@ -134,7 +134,7 @@ try {
         $documentsPath = Join-Path $HOME "Documents"
     }
 
-    $configPath = Join-Path (Join-Path $documentsPath "Cline") "webhook_config.json"
+    $configPath = Join-Path (Join-Path $documentsPath "CodeVibe") "webhook_config.json"
     if (-not (Test-Path $configPath)) {
         @{ cancel = $false } | ConvertTo-Json -Compress
         exit 0
@@ -190,7 +190,7 @@ try {
         $documentsPath = Join-Path $HOME "Documents"
     }
 
-    $configPath = Join-Path (Join-Path $documentsPath "Cline") "webhook_config.json"
+    $configPath = Join-Path (Join-Path $documentsPath "CodeVibe") "webhook_config.json"
     if (-not (Test-Path $configPath)) {
         @{ cancel = $false } | ConvertTo-Json -Compress
         exit 0
@@ -233,7 +233,7 @@ const os = require("os")
 const path = require("path")
 
 async function readConfig() {
-  const configPath = path.join(os.homedir(), "Documents", "Cline", "webhook_config.json")
+  const configPath = path.join(os.homedir(), "Documents", "CodeVibe", "webhook_config.json")
   try {
     const rawConfig = await fs.readFile(configPath, "utf-8")
     const config = JSON.parse(rawConfig)

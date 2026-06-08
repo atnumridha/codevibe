@@ -298,7 +298,7 @@ class TemplateEngine {
 
 **Base Template Example:**
 ```markdown
-You are Cline, a highly skilled software engineer...
+You are CodeVibe, a highly skilled software engineer...
 
 ====
 
@@ -1131,7 +1131,7 @@ export function registerClineToolSets(): void {
 }
 ```
 
-This comprehensive guide should help developers understand both the architecture and practical steps needed to extend Cline with new tools.
+This comprehensive guide should help developers understand both the architecture and practical steps needed to extend CodeVibe with new tools.
 
 ## Key Features
 

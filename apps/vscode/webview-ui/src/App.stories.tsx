@@ -306,7 +306,7 @@ export const Onboarding: Story = {
 		const canvas = within(canvasElement)
 
 		// Step 0: User type selection should be visible
-		const title = canvas.getByText("How will you use Cline?")
+		const title = canvas.getByText("How will you use CodeVibe?")
 		await expect(title).toBeInTheDocument()
 		const freeUserOption = canvas.getByText("Absolutely Free")
 		const powerUserOption = canvas.getByText("Frontier Model")
@@ -353,7 +353,7 @@ export const Onboarding: Story = {
 		await userEvent.click(backButton)
 
 		// Should be back to user type selection
-		await expect(canvas.getByText("How will you use Cline?")).toBeInTheDocument()
+		await expect(canvas.getByText("How will you use CodeVibe?")).toBeInTheDocument()
 
 		// Test power user flow
 		await userEvent.click(powerUserOption)
@@ -536,7 +536,7 @@ export const AutoApprovalEnabled: Story = {
 	parameters: {
 		docs: {
 			description: {
-				story: "Shows the interface with auto-approval enabled, allowing Cline to execute certain actions automatically without user confirmation.",
+				story: "Shows the interface with auto-approval enabled, allowing CodeVibe to execute certain actions automatically without user confirmation.",
 			},
 		},
 	},
@@ -730,7 +730,7 @@ export const Followup = quickStory(
 	"Follow-up",
 	"followup",
 	"What would you like me to work on next?",
-	"Shows followup question state where Cline asks for next steps.",
+	"Shows followup question state where CodeVibe asks for next steps.",
 )
 export const ResumeTask = quickStory(
 	"Resume Task",

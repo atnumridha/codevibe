@@ -87,7 +87,7 @@ export class ClineHandler implements ApiHandler {
 			try {
 				const defaultHeaders: Record<string, string> = {
 					"HTTP-Referer": "https://cline.bot",
-					"X-Title": "Cline",
+					"X-Title": "CodeVibe",
 					"X-Task-ID": this.options.ulid || "",
 				}
 				Object.assign(defaultHeaders, await buildClineExtraHeaders())
@@ -161,10 +161,10 @@ export class ClineHandler implements ApiHandler {
 				// openrouter returns an error object instead of the openai sdk throwing an error
 				if ("error" in chunk) {
 					const error = chunk.error as OpenRouterErrorResponse["error"]
-					Logger.error(`Cline API Error: ${error?.code} - ${error?.message}`)
+					Logger.error(`CodeVibe API Error: ${error?.code} - ${error?.message}`)
 					// Include metadata in the error message if available
 					const metadataStr = error.metadata ? `\nMetadata: ${JSON.stringify(error.metadata, null, 2)}` : ""
-					throw new Error(`Cline API Error ${error.code}: ${error.message}${metadataStr}`)
+					throw new Error(`CodeVibe API Error ${error.code}: ${error.message}${metadataStr}`)
 				}
 
 				if (!this.lastGenerationId && chunk.id) {
@@ -259,14 +259,14 @@ export class ClineHandler implements ApiHandler {
 
 			// Fallback to generation endpoint if usage chunk not returned
 			if (!didOutputUsage) {
-				Logger.warn("Cline API did not return usage chunk, fetching from generation endpoint")
+				Logger.warn("CodeVibe API did not return usage chunk, fetching from generation endpoint")
 				const apiStreamUsage = await this.getApiStreamUsage(freeModelIds)
 				if (apiStreamUsage) {
 					yield apiStreamUsage
 				}
 			}
 		} catch (error) {
-			Logger.error("Cline API Error:", error)
+			Logger.error("CodeVibe API Error:", error)
 			throw error
 		}
 	}

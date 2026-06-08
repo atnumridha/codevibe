@@ -35,7 +35,7 @@
  *
  * ## Proxy Support
  *
- * Cline uses platform-specific fetch implementations to handle proxy
+ * CodeVibe uses platform-specific fetch implementations to handle proxy
  * configuration:
  * - **VSCode**: Uses global fetch (VSCode provides proxy configuration)
  * - **JetBrains, CLI**: Uses undici fetch with explicit ProxyAgent

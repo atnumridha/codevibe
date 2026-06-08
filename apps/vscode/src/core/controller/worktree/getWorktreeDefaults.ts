@@ -40,7 +40,7 @@ export async function getWorktreeDefaults(_controller: Controller, _request: Emp
 		projectName = path.basename(cwd)
 	}
 
-	const suggestedPath = path.join(documentsPath, "Cline", "Worktrees", `${projectName}-${suffix}`)
+	const suggestedPath = path.join(documentsPath, "CodeVibe", "Worktrees", `${projectName}-${suffix}`)
 
 	return WorktreeDefaults.create({
 		suggestedBranch,

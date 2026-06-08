@@ -18,7 +18,7 @@ type CheckpointOperation = "CHECKPOINT_INIT" | "CHECKPOINT_COMMIT" | "CHECKPOINT
 /**
  * CheckpointTracker Module
  *
- * Core implementation of Cline's Checkpoints system that provides version control
+ * Core implementation of CodeVibe's Checkpoints system that provides version control
  * capabilities without interfering with the user's main Git repository. Key features:
  *
  * Shadow Git Repository:

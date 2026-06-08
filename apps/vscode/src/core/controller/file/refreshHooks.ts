@@ -11,7 +11,7 @@ export async function refreshHooks(
 	_request?: any,
 	globalHooksDirOverride?: string,
 ): Promise<HooksToggles> {
-	const globalHooksDir = globalHooksDirOverride || path.join(os.homedir(), "Documents", "Cline", "Hooks")
+	const globalHooksDir = globalHooksDirOverride || path.join(os.homedir(), "Documents", "CodeVibe", "Hooks")
 	const isWindows = process.platform === "win32"
 
 	// Collect global hooks

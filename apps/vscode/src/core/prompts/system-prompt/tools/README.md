@@ -1,10 +1,10 @@
 # Tool Registration System
 
-This directory contains the tool registration system for Cline tools. The system automatically collects and registers all tool variants with the `ClineToolSet` provider.
+This directory contains the tool registration system for CodeVibe tools. The system automatically collects and registers all tool variants with the `CodeVibeToolSet` provider.
 
 ## Overview
 
-Each tool file in this directory exports a `{toolName}_variants` array containing tool specifications for different prompt variants (e.g., Claude, GPT). The registration system automatically imports all these variants and registers them with the `ClineToolSet` provider.
+Each tool file in this directory exports a `{toolName}_variants` array containing tool specifications for different prompt variants (e.g., Claude, GPT). The registration system automatically imports all these variants and registers them with the `CodeVibeToolSet` provider.
 
 ## Files
 
@@ -37,14 +37,14 @@ console.log(summary);
 ### Using Registered Tools
 
 ```typescript
-import { ClineToolSet } from "../registry/ClineToolSet";
+import { CodeVibeToolSet } from "../registry/CodeVibeToolSet";
 import { PromptVariant } from "@/shared/tools";
 
 // Get all tools for a specific variant
-const claudeTools = ClineToolSet.getTools(PromptVariant.CLAUDE);
+const claudeTools = CodeVibeToolSet.getTools(PromptVariant.CLAUDE);
 
 // Get a specific tool by name
-const writeToFileTool = ClineToolSet.getToolByName("write_to_file", PromptVariant.CLAUDE);
+const writeToFileTool = CodeVibeToolSet.getToolByName("write_to_file", PromptVariant.CLAUDE);
 ```
 
 ## Tool Structure

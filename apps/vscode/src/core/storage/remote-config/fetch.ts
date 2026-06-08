@@ -30,7 +30,7 @@ function parseApiKeys(value: string): APIKeySettings {
 }
 
 /**
- * Helper function to make authenticated requests to the Cline API
+ * Helper function to make authenticated requests to the CodeVibe API
  * @param endpoint The API endpoint path (with {id} placeholder if needed)
  * @param organizationId The organization ID to replace in the endpoint
  * @returns The response data on success

@@ -46,7 +46,7 @@ export class VercelAIGatewayHandler implements ApiHandler {
 					apiKey: this.options.vercelAiGatewayApiKey,
 					defaultHeaders: {
 						"http-referer": "https://cline.bot",
-						"x-title": "Cline",
+						"x-title": "CodeVibe",
 					},
 				})
 			} catch (error: any) {

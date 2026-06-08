@@ -764,17 +764,17 @@ export const ExtensionStateContextProvider: React.FC<{
 		refreshLiteLlmModels,
 	])
 
-	// Refresh Cline models function
+	// Refresh CodeVibe models function
 	const refreshClineModels = useCallback(() => {
 		ModelsServiceClient.refreshClineModelsRpc(EmptyRequest.create({}))
 			.then((response: OpenRouterCompatibleModelInfo) => {
 				const models = fromProtobufModels(response.models)
 				setClineModels((prev) => (Object.keys(models).length > 0 ? models : (prev ?? null)))
 			})
-			.catch((error: Error) => console.error("Failed to refresh Cline models:", error))
+			.catch((error: Error) => console.error("Failed to refresh CodeVibe models:", error))
 	}, [])
 
-	// Auto-refresh Cline models when provider is cline
+	// Auto-refresh CodeVibe models when provider is cline
 	useEffect(() => {
 		const hasClineProvider =
 			state.apiConfiguration?.actModeApiProvider === "cline" || state.apiConfiguration?.planModeApiProvider === "cline"

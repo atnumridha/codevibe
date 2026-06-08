@@ -47,7 +47,7 @@ type ClineSupportedParams =
 	| "top_p"
 
 /**
- * The raw model information returned by the Cline API to list models
+ * The raw model information returned by the CodeVibe API to list models
  */
 interface ClineRawModelInfo {
 	id: string
@@ -90,15 +90,15 @@ async function fetchRawClineModels(): Promise<ClineRawModelInfo[]> {
 	const response = await axios.get(`${apiBaseUrl}/api/v1/ai/cline/models`, getAxiosSettings())
 
 	if (!Array.isArray(response.data?.data)) {
-		throw new Error("Invalid response data when fetching Cline models")
+		throw new Error("Invalid response data when fetching CodeVibe models")
 	}
 
-	Logger.log("Cline models source: Cline API")
+	Logger.log("CodeVibe models source: CodeVibe API")
 	return response.data.data as ClineRawModelInfo[]
 }
 
 /**
- * Core function: Refreshes the Cline models and returns application types
+ * Core function: Refreshes the CodeVibe models and returns application types
  * @param controller The controller instance
  * @returns Record of model ID to ModelInfo (application types)
  */
@@ -301,13 +301,13 @@ async function fetchAndCacheClineModels(): Promise<Record<string, ModelInfo>> {
 			}
 		}
 		if (Object.keys(models).length === 0) {
-			throw new Error("No Cline models returned from API")
+			throw new Error("No CodeVibe models returned from API")
 		}
 		// Save models and cache them in memory
 		await fs.writeFile(clineModelsFilePath, JSON.stringify(models))
-		Logger.log("Cline models fetched and saved")
+		Logger.log("CodeVibe models fetched and saved")
 	} catch (error) {
-		Logger.error("Error fetching Cline models:", error)
+		Logger.error("Error fetching CodeVibe models:", error)
 
 		// If we failed to fetch models, try to read cached models from disk
 		try {
@@ -315,10 +315,10 @@ async function fetchAndCacheClineModels(): Promise<Record<string, ModelInfo>> {
 			if (fileExists) {
 				const fileContents = await fs.readFile(clineModelsFilePath, "utf8")
 				models = JSON.parse(fileContents)
-				Logger.log("Loaded Cline models from cache")
+				Logger.log("Loaded CodeVibe models from cache")
 			}
 		} catch (cacheError) {
-			Logger.error("Error reading Cline models from cache:", cacheError)
+			Logger.error("Error reading CodeVibe models from cache:", cacheError)
 		}
 	}
 
@@ -331,7 +331,7 @@ async function fetchAndCacheClineModels(): Promise<Record<string, ModelInfo>> {
 }
 
 /**
- * Read cached Cline models from disk
+ * Read cached CodeVibe models from disk
  * @returns The cached models or undefined if not found
  */
 export async function readClineModelsFromCache(): Promise<Record<string, ModelInfo> | undefined> {
@@ -343,7 +343,7 @@ export async function readClineModelsFromCache(): Promise<Record<string, ModelIn
 			return JSON.parse(fileContents)
 		}
 	} catch (error) {
-		Logger.error("Error reading Cline models from cache:", error)
+		Logger.error("Error reading CodeVibe models from cache:", error)
 	}
 	return undefined
 }

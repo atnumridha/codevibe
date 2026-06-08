@@ -15,7 +15,7 @@ interface CheckpointAddResult {
 /**
  * GitOperations Class
  *
- * Handles git-specific operations for Cline's Checkpoints system.
+ * Handles git-specific operations for CodeVibe's Checkpoints system.
  *
  * Key responsibilities:
  * - Git repository initialization and configuration

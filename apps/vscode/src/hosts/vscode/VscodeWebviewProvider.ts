@@ -24,7 +24,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	private panelDisposables: vscode.Disposable[] = []
 
 	override getWebviewUrl(path: string) {
-		const webview = this.webview?.webview ?? this.panel?.webview
+		const webview = this.panel?.webview ?? this.webview?.webview
 		if (!webview) {
 			throw new Error("Webview not initialized")
 		}
@@ -33,7 +33,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	}
 
 	override getCspSource() {
-		const webview = this.webview?.webview ?? this.panel?.webview
+		const webview = this.panel?.webview ?? this.webview?.webview
 		if (!webview) {
 			throw new Error("Webview not initialized")
 		}
@@ -49,14 +49,16 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	}
 
 	public async show(preserveEditorFocus = false): Promise<void> {
-		if (this.webview) {
-			this.webview.show(!preserveEditorFocus)
-			return
-		}
-
 		if (this.panel) {
 			this.panel.reveal(this.panel.viewColumn, preserveEditorFocus)
 			return
+		}
+
+		if (this.webview?.visible) {
+			await vscode.commands.executeCommand("workbench.action.closeSidebar").then(
+				() => undefined,
+				() => undefined,
+			)
 		}
 
 		const viewColumn = vscode.window.activeTextEditor ? vscode.ViewColumn.Beside : vscode.ViewColumn.One
@@ -234,7 +236,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	 * @returns A thenable that resolves to a boolean indicating success, or undefined if the webview is not available
 	 */
 	private async postMessageToWebview(message: ExtensionMessage): Promise<boolean | undefined> {
-		return (this.webview?.webview ?? this.panel?.webview)?.postMessage(message)
+		return (this.panel?.webview ?? this.webview?.webview)?.postMessage(message)
 	}
 
 	override async dispose() {

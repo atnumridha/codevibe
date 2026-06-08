@@ -255,10 +255,10 @@ export class E2ETestHelper {
 	}
 
 	public async signin(webview: Frame): Promise<void> {
-		await webview.getByRole("button", { name: "Login to Cline" }).click({ delay: 100 })
+		await webview.getByRole("button", { name: "Login to CodeVibe" }).click({ delay: 100 })
 
 		// Verify start up page is no longer visible
-		await expect(webview.getByRole("button", { name: "Login to Cline" })).not.toBeVisible()
+		await expect(webview.getByRole("button", { name: "Login to CodeVibe" })).not.toBeVisible()
 
 		const closeButton = webview.getByRole("button", { name: "Close" })
 		let shouldCloseModal = false
@@ -295,7 +295,7 @@ export class E2ETestHelper {
 }
 
 /**
- * NOTE: Use the `e2e` test fixture for all E2E tests to test the Cline extension.
+ * NOTE: Use the `e2e` test fixture for all E2E tests to test the CodeVibe extension.
  *
  * Extended Playwright test configuration for Cline E2E testing.
  *
@@ -315,7 +315,7 @@ export class E2ETestHelper {
  * - `app`: ElectronApplication instance with automatic cleanup
  * - `helper`: E2ETestHelper instance for test utilities
  * - `page`: Playwright Page object representing the main VS Code window with CodeVibe opened
- * - `sidebar`: Playwright Frame object representing the Cline extension's sidebar iframe
+ * - `sidebar`: Playwright Frame object representing the CodeVibe extension's sidebar iframe
  *
  * @returns Extended test object with all fixtures available for E2E test scenarios:
  * - **server**: Automatically starts and manages a ClineApiServerMock instance
@@ -326,7 +326,7 @@ export class E2ETestHelper {
  * - **app**: Manages the VS Code ElectronApplication lifecycle with automatic cleanup
  * - **helper**: Provides E2ETestHelper utilities for test operations
  * - **page**: Configures the main VS Code window with notifications disabled and CodeVibe open
- * - **sidebar**: Provides access to the Cline extension's sidebar frame
+ * - **sidebar**: Provides access to the CodeVibe extension's sidebar frame
  *
  * @example
  * ```typescript
@@ -337,7 +337,7 @@ export class E2ETestHelper {
  *
  * @remarks
  * - Automatically handles VS Code download and setup
- * - Installs the Cline extension in development mode
+ * - Installs the CodeVibe extension in development mode
  * - Records test videos for debugging
  * - Performs cleanup of temporary directories after each test
  * - Configures VS Code with disabled updates, workspace trust, and welcome screens

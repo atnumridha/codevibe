@@ -120,7 +120,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
 	{
 		id: "about",
 		name: "About",
-		tooltipText: "About Cline",
+		tooltipText: "About CodeVibe",
 		headerText: "About",
 		icon: Info,
 	},

@@ -17,12 +17,12 @@ export const MOCK_CLINE_API_SERVER_URL = `http://localhost:${E2E_API_SERVER_PORT
 const useVerboseLogging = process.env.CLINE_E2E_TESTS_VERBOSE === "true"
 function log(...args: unknown[]) {
 	if (useVerboseLogging) {
-		console.log("[ClineApiServerMock]", ...args)
+		console.log("[CodeVibeApiServerMock]", ...args)
 	}
 }
 
-export class ClineApiServerMock {
-	static globalSharedServer: ClineApiServerMock | null = null
+export class CodeVibeApiServerMock {
+	static globalSharedServer: CodeVibeApiServerMock | null = null
 	static globalSockets: Set<Socket> = new Set()
 
 	private currentUser: UserResponse | null = null
@@ -127,11 +127,11 @@ export class ClineApiServerMock {
 	}
 
 	// Starts the global shared server
-	public static async startGlobalServer(): Promise<ClineApiServerMock> {
+	public static async startGlobalServer(): Promise<CodeVibeApiServerMock> {
 		log("=== SERVER FIXTURE CALLED ===")
-		if (ClineApiServerMock.globalSharedServer) {
+		if (CodeVibeApiServerMock.globalSharedServer) {
 			log("Using existing global server")
-			return ClineApiServerMock.globalSharedServer
+			return CodeVibeApiServerMock.globalSharedServer
 		}
 
 		log("Starting global server...")
@@ -186,11 +186,11 @@ export class ClineApiServerMock {
 			// Authenticate the token and set current user
 			if (isAuthRequired && authToken) {
 				log(`Authenticating token: ${authToken}`)
-				const user = ClineApiServerMock.globalSharedServer!.API_USER.getUserByToken(authToken)
+				const user = CodeVibeApiServerMock.globalSharedServer!.API_USER.getUserByToken(authToken)
 				if (!user) {
 					return sendApiError("Invalid token", 401)
 				}
-				ClineApiServerMock.globalSharedServer!.setCurrentUser(user)
+				CodeVibeApiServerMock.globalSharedServer!.setCurrentUser(user)
 			}
 
 			log("=== MOCK SERVER REQUEST ===")
@@ -203,14 +203,14 @@ export class ClineApiServerMock {
 			// Route handling
 			const handleRequest = async () => {
 				// Try to match the route using registered endpoints
-				const routeMatch = ClineApiServerMock.matchRoute(path, method)
+				const routeMatch = CodeVibeApiServerMock.matchRoute(path, method)
 
 				if (!routeMatch.matched) {
 					return sendJson({ error: "Not found" }, 404)
 				}
 
 				const { baseRoute, endpoint, params = {} } = routeMatch
-				const controller = ClineApiServerMock.globalSharedServer!
+				const controller = CodeVibeApiServerMock.globalSharedServer!
 
 				// Health check endpoints
 				if (baseRoute === "/health") {
@@ -447,7 +447,7 @@ export class ClineApiServerMock {
 						if (body.includes("edit_request")) {
 							responseText = E2E_MOCK_API_RESPONSES.EDIT_REQUEST
 						}
-						if (body.includes("[diff.test.ts] Hello, Cline!")) {
+						if (body.includes("[diff.test.ts] Hello, CodeVibe!")) {
 							// The playwright test in diff.test.ts needs the "API Request..." text
 							// to be on the screen long enough to detect it.  This worked at 100ms
 							// too, but setting to 500ms to cover slower CI boxes.
@@ -529,7 +529,7 @@ export class ClineApiServerMock {
 									index: 0,
 									message: {
 										role: "assistant",
-										content: "Hello! I'm a mock Cline API response.",
+										content: "Hello! I'm a mock CodeVibe API response.",
 									},
 									finish_reason: "stop",
 								},
@@ -616,14 +616,14 @@ export class ClineApiServerMock {
 		})
 
 		// Initialize the controller after the server is created
-		const controller = new ClineApiServerMock(server)
-		ClineApiServerMock.globalSharedServer = controller
+		const controller = new CodeVibeApiServerMock(server)
+		CodeVibeApiServerMock.globalSharedServer = controller
 
 		// Track connections for proper cleanup
 		server.on("connection", (socket) => {
-			ClineApiServerMock.globalSockets.add(socket)
+			CodeVibeApiServerMock.globalSockets.add(socket)
 			socket.on("close", () => {
-				ClineApiServerMock.globalSockets.delete(socket)
+				CodeVibeApiServerMock.globalSockets.delete(socket)
 			})
 		})
 
@@ -633,7 +633,7 @@ export class ClineApiServerMock {
 					console.error(`Failed to start server on port ${E2E_API_SERVER_PORT}:`, error)
 					reject(error)
 				} else {
-					log(`ClineApiServerMock listening on port ${E2E_API_SERVER_PORT}`)
+					log(`CodeVibeApiServerMock listening on port ${E2E_API_SERVER_PORT}`)
 					resolve()
 				}
 			})
@@ -644,15 +644,15 @@ export class ClineApiServerMock {
 
 	// Stops the global shared server
 	public static async stopGlobalServer(): Promise<void> {
-		if (!ClineApiServerMock.globalSharedServer) {
+		if (!CodeVibeApiServerMock.globalSharedServer) {
 			return
 		}
 
-		const server = ClineApiServerMock.globalSharedServer.server
+		const server = CodeVibeApiServerMock.globalSharedServer.server
 
 		// Clean shutdown - destroy all socket connections first
-		ClineApiServerMock.globalSockets.forEach((socket) => socket.destroy())
-		ClineApiServerMock.globalSockets.clear()
+		CodeVibeApiServerMock.globalSockets.forEach((socket) => socket.destroy())
+		CodeVibeApiServerMock.globalSockets.clear()
 
 		await new Promise<void>((resolve, reject) => {
 			server.close((err) => {
@@ -665,6 +665,6 @@ export class ClineApiServerMock {
 			})
 		})
 
-		ClineApiServerMock.globalSharedServer = null
+		CodeVibeApiServerMock.globalSharedServer = null
 	}
 }

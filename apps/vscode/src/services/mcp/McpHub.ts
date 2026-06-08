@@ -287,12 +287,12 @@ export class McpHub {
 	}
 
 	private async readNativeMcpSettingsFile(): Promise<McpSettings | undefined> {
-		return this.readAndValidateMcpSettingsPath(await this.getNativeMcpSettingsFilePath(), "Cline")
+		return this.readAndValidateMcpSettingsPath(await this.getNativeMcpSettingsFilePath(), "CodeVibe")
 	}
 
 	private async readAllMcpSettingsFiles(): Promise<McpSettingsReadResult | undefined> {
 		const nativeSettingsPath = await this.getNativeMcpSettingsFilePath()
-		const nativeSettings = await this.readAndValidateMcpSettingsPath(nativeSettingsPath, "Cline")
+		const nativeSettings = await this.readAndValidateMcpSettingsPath(nativeSettingsPath, "CodeVibe")
 		if (!nativeSettings) {
 			return undefined
 		}
@@ -355,7 +355,7 @@ export class McpHub {
 		serverName: string,
 	): Promise<{ settingsPath: string; settings: McpSettings }> {
 		const settingsPath = await this.getSettingsFilePathForServer(serverName)
-		const settings = await this.readAndValidateMcpSettingsPath(settingsPath, settingsPath.endsWith(CURSOR_MCP_SETTINGS_RELATIVE_PATH) ? ".cursor/mcp.json" : "Cline")
+		const settings = await this.readAndValidateMcpSettingsPath(settingsPath, settingsPath.endsWith(CURSOR_MCP_SETTINGS_RELATIVE_PATH) ? ".cursor/mcp.json" : "CodeVibe")
 		if (!settings) {
 			throw new Error("Failed to read or validate MCP settings")
 		}
@@ -550,7 +550,7 @@ export class McpHub {
 			// Each MCP server requires its own transport connection and has unique capabilities, configurations, and error handling. Having separate clients also allows proper scoping of resources/tools and independent server management like reconnection.
 			const client = new Client(
 				{
-					name: "Cline",
+					name: "CodeVibe",
 					version: this.clientVersion,
 				},
 				{
@@ -1178,7 +1178,7 @@ export class McpHub {
 	private setupFileWatcher(name: string, config: Extract<McpServerConfig, { type: "stdio" }>) {
 		const filePath = config.args?.find((arg: string) => arg.includes("build/index.js"))
 		if (filePath) {
-			// we use chokidar instead of onDidSaveTextDocument because it doesn't require the file to be open in the editor. The settings config is better suited for onDidSave since that will be manually updated by the user or Cline (and we want to detect save events, not every file change)
+			// we use chokidar instead of onDidSaveTextDocument because it doesn't require the file to be open in the editor. The settings config is better suited for onDidSave since that will be manually updated by the user or CodeVibe (and we want to detect save events, not every file change)
 			const watcher = chokidar.watch(filePath, {
 				// persistent: true,
 				// ignoreInitial: true,

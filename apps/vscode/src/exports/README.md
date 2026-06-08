@@ -1,6 +1,6 @@
-# Cline API
+# CodeVibe API
 
-The Cline extension exposes an API that can be used by other extensions. To use this API in your extension:
+The CodeVibe extension exposes an API that can be used by other extensions. To use this API in your extension:
 
 1. Copy `src/extension-api/cline.d.ts` to your extension's source directory.
 2. Include `cline.d.ts` in your extension's compilation.
@@ -10,30 +10,30 @@ The Cline extension exposes an API that can be used by other extensions. To use 
     const clineExtension = vscode.extensions.getExtension<ClineAPI>("atnumridha.codevibe")
 
     if (!clineExtension?.isActive) {
-    	throw new Error("Cline extension is not activated")
+        throw new Error("CodeVibe extension is not activated")
     }
 
     const cline = clineExtension.exports
 
     if (cline) {
-    	// Now you can use the API
+        // Now you can use the API
 
-    	// Start a new task with an initial message
-    	await cline.startNewTask("Hello, Cline! Let's make a new project...")
+        // Start a new task with an initial message
+        await cline.startNewTask("Hello, CodeVibe! Let's make a new project...")
 
-    	// Start a new task with an initial message and images
-    	await cline.startNewTask("Use this design language", ["data:image/webp;base64,..."])
+        // Start a new task with an initial message and images
+        await cline.startNewTask("Use this design language", ["data:image/webp;base64,..."])
 
-    	// Send a message to the current task
-    	await cline.sendMessage("Can you fix the @problems?")
+        // Send a message to the current task
+        await cline.sendMessage("Can you fix the @problems?")
 
-    	// Simulate pressing the primary button in the chat interface (e.g. 'Save' or 'Proceed While Running')
-    	await cline.pressPrimaryButton()
+        // Simulate pressing the primary button in the chat interface (e.g. 'Save' or 'Proceed While Running')
+        await cline.pressPrimaryButton()
 
-    	// Simulate pressing the secondary button in the chat interface (e.g. 'Reject')
-    	await cline.pressSecondaryButton()
+        // Simulate pressing the secondary button in the chat interface (e.g. 'Reject')
+        await cline.pressSecondaryButton()
     } else {
-    	console.error("Cline API is not available")
+        console.error("CodeVibe API is not available")
     }
     ```
 

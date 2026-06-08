@@ -76,7 +76,7 @@
 			"codevibe-icon": {
 				"description": "CodeVibe",
 				"default": {
-					"fontPath": "assets/icons/cline-bot.woff",
+					"fontPath": "assets/icons/codevibe-glyph.woff",
 					"fontCharacter": "\\e900"
 				}
 			}

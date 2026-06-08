@@ -97,7 +97,7 @@ class ClineOAuthClientProvider implements OAuthClientProvider {
 			token_endpoint_auth_method: "none",
 			grant_types: ["authorization_code", "refresh_token"],
 			response_types: ["code"],
-			client_name: "Cline",
+			client_name: "CodeVibe",
 			client_uri: "https://cline.bot",
 			software_id: "cline",
 		}

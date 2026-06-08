@@ -103,7 +103,7 @@ export function parseAgentConfigFromYaml(content: string): AgentBaseConfig {
 }
 
 export function getAgentsConfigPath(homeDir = os.homedir()): string {
-	return path.join(homeDir, "Documents", "Cline", AGENTS_CONFIG_DIRECTORY_NAME)
+	return path.join(homeDir, "Documents", "CodeVibe", AGENTS_CONFIG_DIRECTORY_NAME)
 }
 
 function normalizeAgentName(name: string): string {

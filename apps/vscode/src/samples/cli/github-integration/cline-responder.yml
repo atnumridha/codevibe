@@ -1,4 +1,4 @@
-name: Cline Issue Assistant
+name: CodeVibe Issue Assistant
 
 on:
   issue_comment:
@@ -29,16 +29,16 @@ jobs:
         if: steps.detect.outputs.hit == 'true'
         uses: actions/checkout@v4
 
-      # Node v20 is needed for Cline CLI on GitHub Actions Linux
+      # Node v20 is needed for CodeVibe CLI on GitHub Actions Linux
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Setup Cline CLI
+      - name: Setup CodeVibe CLI
         if: steps.detect.outputs.hit == 'true'
         run: |
-          # Install the Cline CLI
+          # Install the CodeVibe CLI
           sudo npm install -g cline
 
       - name: Create Cline Instance

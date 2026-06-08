@@ -13,7 +13,7 @@ interface ClineProviderProps {
 }
 
 /**
- * The Cline provider configuration component
+ * The CodeVibe provider configuration component
  */
 export const ClineProvider = ({ showModelOptions, isPopup, currentMode, initialModelTab }: ClineProviderProps) => {
 	return (

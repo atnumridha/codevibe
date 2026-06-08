@@ -571,7 +571,7 @@ export class AwsBedrockHandler implements ApiHandler {
 	}
 
 	/**
-	 * Converts Cline's tool definitions (Anthropic format with `input_schema`) to the
+	 * Converts CodeVibe's tool definitions (Anthropic format with `input_schema`) to the
 	 * Bedrock Converse API `ToolConfiguration` shape. Returns `undefined` when no tools
 	 * are provided so callers can conditionally spread into the command params.
 	 */

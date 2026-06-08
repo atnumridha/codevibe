@@ -113,7 +113,7 @@ export interface TokenUsage {
 const MAX_ERROR_MESSAGE_LENGTH = 500
 
 /**
- * TelemetryService handles telemetry event tracking for the Cline extension
+ * TelemetryService handles telemetry event tracking for the CodeVibe extension
  * Uses an abstracted telemetry provider to support multiple analytics backends
  * Respects user privacy settings and VSCode's global telemetry configuration
  */
@@ -284,7 +284,7 @@ export class TelemetryService {
 			SLASH_COMMAND_USED: "task.slash_command_used",
 			// Tracks when a feature is toggled on/off
 			FEATURE_TOGGLED: "task.feature_toggled",
-			// Tracks when individual Cline rules are toggled on/off
+			// Tracks when individual CodeVibe rules are toggled on/off
 			RULE_TOGGLED: "task.rule_toggled",
 			// Tracks when auto condense setting is toggled on/off
 			AUTO_CONDENSE_TOGGLED: "task.auto_condense_toggled",
@@ -400,7 +400,7 @@ export class TelemetryService {
 		// We only enable telemetry if global host telemetry is enabled
 		const hostSetting = await HostProvider.env.getTelemetrySettings({})
 		if (hostSetting.isEnabled === Setting.DISABLED) {
-			// Only show warning if user has opted in to Cline telemetry but host telemetry is disabled
+			// Only show warning if user has opted in to CodeVibe telemetry but host telemetry is disabled
 			if (didUserOptIn) {
 				void HostProvider.window
 					.showMessage({
@@ -1564,7 +1564,7 @@ export class TelemetryService {
 	}
 
 	/**
-	 * Records when individual Cline rules are toggled on/off
+	 * Records when individual CodeVibe rules are toggled on/off
 	 * @param ulid Unique identifier for the task (to track rule changes within task context)
 	 * @param ruleFileName The filename of the rule (sanitized to exclude full path)
 	 * @param enabled Whether the rule is being enabled (true) or disabled (false)
