@@ -2,36 +2,38 @@
 
 The CodeVibe extension exposes an API that can be used by other extensions. To use this API in your extension:
 
-1. Copy `src/extension-api/cline.d.ts` to your extension's source directory.
-2. Include `cline.d.ts` in your extension's compilation.
+1. Copy `src/exports/codevibe.d.ts` to your extension's source directory.
+2. Include `codevibe.d.ts` in your extension's compilation.
 3. Get access to the API with the following code:
 
     ```ts
-    const clineExtension = vscode.extensions.getExtension<ClineAPI>("atnumridha.codevibe")
+    import type { CodeVibeAPI } from "./codevibe"
 
-    if (!clineExtension?.isActive) {
+    const codeVibeExtension = vscode.extensions.getExtension<CodeVibeAPI>("atnumridha.codevibe")
+
+    if (!codeVibeExtension?.isActive) {
         throw new Error("CodeVibe extension is not activated")
     }
 
-    const cline = clineExtension.exports
+    const codevibe = codeVibeExtension.exports
 
-    if (cline) {
+    if (codevibe) {
         // Now you can use the API
 
         // Start a new task with an initial message
-        await cline.startNewTask("Hello, CodeVibe! Let's make a new project...")
+        await codevibe.startNewTask("Hello, CodeVibe! Let's make a new project...")
 
         // Start a new task with an initial message and images
-        await cline.startNewTask("Use this design language", ["data:image/webp;base64,..."])
+        await codevibe.startNewTask("Use this design language", ["data:image/webp;base64,..."])
 
         // Send a message to the current task
-        await cline.sendMessage("Can you fix the @problems?")
+        await codevibe.sendMessage("Can you fix the @problems?")
 
         // Simulate pressing the primary button in the chat interface (e.g. 'Save' or 'Proceed While Running')
-        await cline.pressPrimaryButton()
+        await codevibe.pressPrimaryButton()
 
         // Simulate pressing the secondary button in the chat interface (e.g. 'Reject')
-        await cline.pressSecondaryButton()
+        await codevibe.pressSecondaryButton()
     } else {
         console.error("CodeVibe API is not available")
     }
@@ -45,4 +47,5 @@ The CodeVibe extension exposes an API that can be used by other extensions. To u
     ]
     ```
 
-For detailed information on the available methods and their usage, refer to the `cline.d.ts` file.
+For detailed information on the available methods and their usage, refer to the `codevibe.d.ts` file.
+The legacy `cline.d.ts` alias remains for integrations that need upstream compatibility.

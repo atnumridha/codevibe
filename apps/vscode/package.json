@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe Cursor-parity coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.3",
+	"version": "3.88.4",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"

@@ -13,7 +13,7 @@ export interface ChangedFile {
 	after: string
 }
 
-const EXPLAINER_SYSTEM_PROMPT = `You are an AI coding assistant called Cline that will be explaining code changes to a developer. Your goal is to help the user understand what changed and why.
+const EXPLAINER_SYSTEM_PROMPT = `You are an AI coding assistant called CodeVibe that will be explaining code changes to a developer. Your goal is to help the user understand what changed and why.
 - Use a friendly, conversational tone as if pair programming
 - When relevant, briefly explain technical concepts or patterns used
 - Focus on helping the user learn and understand the codebase

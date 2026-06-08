@@ -128,7 +128,7 @@ Anthropic is aware of this issue and is considering a fix: https://github.com/an
 			if (err.message.includes("ENAMETOOLONG")) {
 				throw new Error(
 					`Executing Claude Code failed due to a long system prompt. Windows has a limit of 8191 characters, which makes the integration with CodeVibe not work properly.
-Please check our docs on how to integrate Claude Code with CodeVibe on Windows: https://docs.cline.bot/provider-config/claude-code#windows-setup.
+Please check the CodeVibe Claude Code setup notes: https://github.com/atnumridha/codevibe#readme.
 Anthropic is aware of this issue and is considering a fix: https://github.com/anthropics/claude-code/issues/3411.
 `,
 					{ cause: err },

@@ -36,4 +36,4 @@ CodeVibe keeps selected upstream-derived internal names and compatibility paths 
 
 ## License
 
-[Apache 2.0 © 2026 Cline Bot Inc.](./LICENSE)
+[Apache 2.0](./LICENSE). CodeVibe includes Apache-licensed upstream components and keeps required attribution in the source distribution.

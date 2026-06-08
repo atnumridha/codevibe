@@ -12,7 +12,7 @@ import { sendMcpButtonClickedEvent } from "./core/controller/ui/subscribeToMcpBu
 import { sendSettingsButtonClickedEvent } from "./core/controller/ui/subscribeToSettingsButtonClicked"
 import { sendWorktreesButtonClickedEvent } from "./core/controller/ui/subscribeToWorktreesButtonClicked"
 import { WebviewProvider } from "./core/webview"
-import { createClineAPI } from "./exports"
+import { createCodeVibeAPI } from "./exports"
 import { initializeTestMode } from "./services/test/TestMode"
 import "./utils/path" // necessary to have access to String.prototype.toPosix
 import path from "node:path"
@@ -97,6 +97,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// IMPORTANT: Must be done after host provider is setup and migrations are complete
 	const webview = (await initialize(storageContext)) as VscodeWebviewProvider
 	await closeLegacyCodeVibePanels()
+	scheduleLegacyCodeVibePanelCleanup(context)
 
 	// 5. Register services and commands specific to VS Code
 	// Initialize test mode and add disposables to context
@@ -138,7 +139,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.PlusButton, async () => {
-			const webview = await showCodeVibeSurface(false)
+			const webview = await showPreferredCodeVibeSurface(false)
 			await webview.controller.clearTask()
 			await webview.controller.postStateToWebview()
 			await sendChatButtonClickedEvent()
@@ -146,31 +147,31 @@ export async function activate(context: vscode.ExtensionContext) {
 	)
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.McpButton, async () => {
-			await showCodeVibeSurface(false)
+			await showPreferredCodeVibeSurface(false)
 			await sendMcpButtonClickedEvent()
 		}),
 	)
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.SettingsButton, async () => {
-			await showCodeVibeSurface(false)
+			await showPreferredCodeVibeSurface(false)
 			await sendSettingsButtonClickedEvent()
 		}),
 	)
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.HistoryButton, async () => {
-			await showCodeVibeSurface(false)
+			await showPreferredCodeVibeSurface(false)
 			await sendHistoryButtonClickedEvent()
 		}),
 	)
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.AccountButton, async () => {
-			await showCodeVibeSurface(false)
+			await showPreferredCodeVibeSurface(false)
 			await sendAccountButtonClickedEvent()
 		}),
 	)
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.WorktreesButton, async () => {
-			await showCodeVibeSurface(false)
+			await showPreferredCodeVibeSurface(false)
 			await sendWorktreesButtonClickedEvent()
 		}),
 	)
@@ -299,10 +300,10 @@ export async function activate(context: vscode.ExtensionContext) {
 			.then((module) => {
 				const devTaskCommands = module.registerTaskCommands(webview.controller)
 				context.subscriptions.push(...devTaskCommands)
-				Logger.log("[Cline Dev] Dev mode activated & dev commands registered")
+				Logger.log("[CodeVibe Dev] Dev mode activated & dev commands registered")
 			})
 			.catch((error) => {
-				Logger.log("[Cline Dev] Failed to register dev commands: " + error)
+				Logger.log("[CodeVibe Dev] Failed to register dev commands: " + error)
 			})
 	}
 
@@ -649,9 +650,9 @@ ${ctx.cellJson || "{}"}
 	})
 	context.subscriptions.push({ dispose: unsubSecrets })
 
-	Logger.log(`[Cline] extension activated in ${performance.now() - activationStartTime} ms`)
+	Logger.log(`[CodeVibe] extension activated in ${performance.now() - activationStartTime} ms`)
 
-	return createClineAPI(webview.controller)
+	return createCodeVibeAPI(webview.controller)
 }
 
 async function showJupyterPromptInput(title: string, placeholder: string): Promise<string | undefined> {
@@ -702,7 +703,7 @@ async function showJupyterPromptInput(title: string, placeholder: string): Promi
 
 function setupHostProvider(context: ExtensionContext) {
 	const outputChannel = registerClineOutputChannel(context)
-	outputChannel.appendLine("[Cline] Setting up VS Code host...")
+	outputChannel.appendLine("[CodeVibe] Setting up VS Code host...")
 
 	const createWebview = () => new VscodeWebviewProvider(context)
 	const createDiffView = () => new VscodeDiffViewProvider()
@@ -849,6 +850,21 @@ async function closeLegacyCodeVibePanels(): Promise<void> {
 		;(WebviewProvider.getInstance() as VscodeWebviewProvider).closePanel()
 	} catch {
 		// The provider is not initialized during early activation paths.
+	}
+}
+
+function scheduleLegacyCodeVibePanelCleanup(context: vscode.ExtensionContext): void {
+	for (const delayMs of [500, 2_000, 5_000]) {
+		const timer = setTimeout(() => {
+			closeLegacyCodeVibePanels().catch((error) => {
+				Logger.warn(
+					`Failed to close restored CodeVibe legacy panel after layout restore: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				)
+			})
+		}, delayMs)
+		context.subscriptions.push({ dispose: () => clearTimeout(timer) })
 	}
 }
 

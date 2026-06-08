@@ -62,7 +62,7 @@ export class ClineAccountService {
 		// IMPORTANT: Prefixed with 'workos:' so backend can route verification to WorkOS provider
 		const clineAccountAuthToken = options?.authToken ?? (await this._authService.getAuthToken())
 		if (!clineAccountAuthToken) {
-			throw new Error("No Cline account auth token found")
+			throw new Error("No CodeVibe account auth token found")
 		}
 		const requestConfig: AxiosRequestConfig = {
 			...config,
