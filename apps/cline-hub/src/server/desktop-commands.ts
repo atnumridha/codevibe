@@ -1,5 +1,5 @@
 import { statSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute } from "node:path";
 import {
 	addLocalProvider,
 	type ClineAccountActionRequest,
@@ -76,6 +76,7 @@ import {
 	readProviderSettingsUpdate,
 	toPositiveInt,
 } from "./utils";
+import { resolveWorkspaceSubpath } from "./workspace-boundary";
 
 const ROUTINE_SCHEDULE_COMMANDS = new Set([
 	"list_routine_schedules",
@@ -114,25 +115,15 @@ function readCursorUriPreviewRequest(
 	};
 }
 
-function isInsideOrSame(parent: string, candidate: string): boolean {
-	const rel = relative(parent, candidate);
-	return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
-
 function readWorkspaceFileSearchRequest(
 	args: Record<string, unknown> | undefined,
 ): HubMentionFileSearchRequest {
-	const activeRoot = resolve(workspaceRoot);
-	const requestedRoot = resolve(
+	const requestedRoot = resolveWorkspaceSubpath(
+		workspaceRoot,
 		asTrimmedString(args?.workspaceRoot) ??
-			asTrimmedString(args?.cwd) ??
-			activeRoot,
+			asTrimmedString(args?.cwd),
+		"search_workspace_files",
 	);
-	if (!isInsideOrSame(activeRoot, requestedRoot)) {
-		throw new Error(
-			"search_workspace_files workspaceRoot must be inside the active workspace",
-		);
-	}
 	const query = asTrimmedString(args?.query) ?? "";
 	const limit = toPositiveInt(args?.limit);
 	const cursorRetrievalIndexingPrivacyGate =

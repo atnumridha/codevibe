@@ -88,7 +88,7 @@ export class SearchFilesToolHandler implements IFullyManagedTool {
 				absolutePath,
 				regex,
 				filePattern,
-				config.services.clineIgnoreController,
+				config.cursorRetrievalIndexingPrivacyGate ? config.services.clineIgnoreController : undefined,
 			)
 
 			// Parse the result count from the first line

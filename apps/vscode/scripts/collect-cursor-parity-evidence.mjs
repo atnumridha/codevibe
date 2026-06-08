@@ -81,21 +81,59 @@ const requiredDependencyCommands = [
 	},
 ]
 
+const retrievalIndexingCommands = [
+	{
+		label: "Retrieval/indexing privacy unit tests",
+		command: "npm",
+		args: [
+			"--prefix",
+			"apps/vscode",
+			"run",
+			"test:unit",
+			"--",
+			"--grep",
+			"Cursor.*(ignore|retrieval|indexing)|retrieval privacy|host-index results|ripgrep fallback|searchWorkspaceItems|ignored list entries|SearchFilesToolHandler.execute|ListFilesToolHandler.execute|File Search|ClineIgnoreController",
+		],
+		cwd: repoRoot,
+		category: "retrieval-indexing",
+	},
+	{
+		label: "Hub retrieval workspace-boundary tests",
+		command: "npm",
+		args: [
+			"exec",
+			"--package",
+			"tsx",
+			"--",
+			"tsx",
+			"--tsconfig",
+			"apps/cline-hub/tsconfig.json",
+			"--test",
+			"apps/cline-hub/src/server/desktop-commands.search.test.ts",
+			"apps/cline-hub/src/server/workspace-boundary.test.ts",
+		],
+		cwd: repoRoot,
+		category: "retrieval-indexing",
+	},
+]
+
 function usage() {
-	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required]
+	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [--run-retrieval-indexing]
 
 Generates a local Markdown evidence log for the Cursor-parity release gate.
 
 Default mode records safe, non-mutating probes and marks dependency/build/test
 commands as not run. Use --run-required only in a dependency-equipped checkout
 where npm install, build, test, e2e, package, and VSIX smoke install are expected
-to run.`)
+to run. Use --run-retrieval-indexing to execute focused retrieval/indexing
+privacy evidence without running the full dependency/build/e2e gate.`)
 }
 
 function parseArgs(argv) {
 	const options = {
 		outFile: defaultOutFile,
 		runRequired: false,
+		runRetrievalIndexing: false,
 	}
 
 	for (let index = 0; index < argv.length; index++) {
@@ -108,6 +146,9 @@ function parseArgs(argv) {
 			options.outFile = path.resolve(value)
 		} else if (arg === "--run-required") {
 			options.runRequired = true
+			options.runRetrievalIndexing = true
+		} else if (arg === "--run-retrieval-indexing") {
+			options.runRetrievalIndexing = true
 		} else if (arg === "-h" || arg === "--help") {
 			usage()
 			process.exit(0)
@@ -168,6 +209,13 @@ function skippedCommand({ label, command, args }, reason) {
 		stdout: "",
 		stderr: "",
 		reason,
+	}
+}
+
+function skippedRetrievalIndexingCommand(command) {
+	return {
+		...skippedCommand(command, "Skipped by default; rerun with --run-retrieval-indexing or --run-required."),
+		category: command.category,
 	}
 }
 
@@ -263,6 +311,23 @@ Stderr:${fenced(result.stderr)}
 `
 }
 
+function renderRetrievalIndexingEvidence(results) {
+	const retrievalResults = results.filter((result) => result.category === "retrieval-indexing")
+	if (retrievalResults.length === 0) {
+		return "_No retrieval/indexing evidence commands were configured._"
+	}
+	const rows = retrievalResults.map(
+		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
+	)
+	return [
+		"| Status | Check | Command |",
+		"| --- | --- | --- |",
+		...rows,
+		"",
+		"Focused evidence covers Cursor-compatible retrieval privacy for `.cursorignore`, `.cursorindexingignore`, host-index search, ripgrep fallback, `list_files`, `search_files`, and hub mention-search workspace boundaries.",
+	].join("\n")
+}
+
 function renderPrereqTable(summary) {
 	if (!summary?.checks) {
 		return "_Prerequisite JSON was unavailable._"
@@ -280,7 +345,7 @@ function renderPrereqTable(summary) {
 	].join("\n")
 }
 
-function renderEvidence({ metadata, results, prereqSummary, runRequired }) {
+function renderEvidence({ metadata, results, prereqSummary, runRequired, runRetrievalIndexing }) {
 	const generatedAt = new Date().toISOString()
 	return `# CodeVibe Cursor-Parity Evidence
 
@@ -301,10 +366,15 @@ ${fenced(metadata.vsCodeVersion)}
 - Evidence owner:
 - Validation date: ${generatedAt.slice(0, 10)}
 - Required dependency/build commands executed: ${runRequired ? "yes" : "no"}
+- Focused retrieval/indexing evidence executed: ${runRetrievalIndexing ? "yes" : "no"}
 
 ## Preflight Summary
 
 ${renderPrereqTable(prereqSummary)}
+
+## Retrieval/Indexing Evidence
+
+${renderRetrievalIndexingEvidence(results)}
 
 ## Command Evidence
 
@@ -398,12 +468,25 @@ function main() {
 			results.push(skippedCommand(command, reason))
 		}
 	}
+	if (options.runRetrievalIndexing) {
+		for (const command of retrievalIndexingCommands) {
+			results.push({
+				...runCommand(command),
+				category: command.category,
+			})
+		}
+	} else {
+		for (const command of retrievalIndexingCommands) {
+			results.push(skippedRetrievalIndexingCommand(command))
+		}
+	}
 
 	const evidence = renderEvidence({
 		metadata,
 		results,
 		prereqSummary: parsePrereqSummary(results),
 		runRequired: options.runRequired,
+		runRetrievalIndexing: options.runRetrievalIndexing,
 	})
 
 	fs.mkdirSync(path.dirname(options.outFile), { recursive: true })
@@ -412,7 +495,7 @@ function main() {
 	const failed = results.filter((result) => result.status === "failed").length
 	const skipped = results.filter((result) => result.status === "not run").length
 	console.log(`${failed} failed command(s), ${skipped} not run command(s).`)
-	process.exit(failed === 0 && skipped === 0 ? 0 : 1)
+	process.exit(failed === 0 && (skipped === 0 || options.runRetrievalIndexing) ? 0 : 1)
 }
 
 try {

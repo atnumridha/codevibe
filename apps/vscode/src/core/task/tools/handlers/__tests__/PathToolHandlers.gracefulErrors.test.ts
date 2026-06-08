@@ -641,6 +641,31 @@ describe("SearchFilesToolHandler.execute – error recovery", () => {
 		assert.equal(taskState.consecutiveMistakeCount, 0)
 	})
 
+	it("passes the retrieval ignore controller to search_files when Cursor privacy gate is enabled", async () => {
+		const { config, validator } = createConfig()
+		const handler = new SearchFilesToolHandler(validator)
+		const ripgrepModule = await import("@services/ripgrep")
+		const stub = sandbox.stub(ripgrepModule, "regexSearchFiles").resolves("Found 0 results.\n\n")
+
+		await handler.execute(config, makeBlock(".", "needle"))
+
+		assert.equal(stub.callCount, 1)
+		assert.equal(stub.firstCall.args[4], config.services.clineIgnoreController)
+	})
+
+	it("omits the retrieval ignore controller from search_files when Cursor privacy gate is disabled", async () => {
+		const { config, validator } = createConfig()
+		config.cursorRetrievalIndexingPrivacyGate = false
+		const handler = new SearchFilesToolHandler(validator)
+		const ripgrepModule = await import("@services/ripgrep")
+		const stub = sandbox.stub(ripgrepModule, "regexSearchFiles").resolves("Found 0 results.\n\n")
+
+		await handler.execute(config, makeBlock(".", "needle"))
+
+		assert.equal(stub.callCount, 1)
+		assert.equal(stub.firstCall.args[4], undefined)
+	})
+
 	it("catches a thrown exception from path resolution and returns a tool error", async () => {
 		const { config, taskState, validator } = createConfig()
 		const handler = new SearchFilesToolHandler(validator)
