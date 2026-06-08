@@ -387,24 +387,53 @@ function filterJsonArrayByIdSql(key, legacyIds) {
 	`
 }
 
+function filterJsonObjectKeysContainingSql(key, legacyFragments) {
+	const escapedKey = key.replace(/'/g, "''")
+	const valueClauses = legacyFragments.map((fragment) => `value like '%${fragment.replace(/'/g, "''")}%'`).join(" or ")
+	const keepClauses = legacyFragments
+		.map((fragment) => `json_each.key not like '%${fragment.replace(/'/g, "''")}%'`)
+		.join(" and ")
+	return `
+		update ItemTable
+		set value = coalesce((
+			select json_group_object(json_each.key, json_each.value)
+			from json_each(ItemTable.value)
+			where ${keepClauses}
+		), '{}')
+		where key = '${escapedKey}' and (${valueClauses});
+	`
+}
+
 function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 	const legacyActivityViewIds = [
+		"workbench.view.extension.claude-dev-ActivityBar",
 		"workbench.view.extension.codevibe-ActivityBar",
 		"workbench.view.extension.vibecodeAgentSidebar",
+	]
+	const legacyWebviewViewIds = [
+		"claude-dev.SidebarProvider",
+		"codevibe.SidebarProvider",
+		"vibecode.agent",
+		"vibecode.agentPanel",
 	]
 	const sql = [
 		filterJsonArrayByIdSql("workbench.activity.pinnedViewlets2", legacyActivityViewIds),
 		filterJsonArrayByIdSql("workbench.activity.placeholderViewlets", legacyActivityViewIds),
 		filterJsonArrayByIdSql("workbench.activity.viewletsWorkspaceState", legacyActivityViewIds),
+		filterJsonObjectKeysContainingSql("memento/webviewViews.origins", legacyWebviewViewIds),
 		`
 		delete from ItemTable
 		where key in (
+			'workbench.view.extension.claude-dev-ActivityBar.state',
+			'workbench.view.extension.claude-dev-ActivityBar.state.hidden',
+			'workbench.view.extension.claude-dev-ActivityBar.numberOfVisibleViews',
 			'workbench.view.extension.codevibe-ActivityBar.state',
 			'workbench.view.extension.codevibe-ActivityBar.state.hidden',
 			'workbench.view.extension.codevibe-ActivityBar.numberOfVisibleViews',
 			'workbench.view.extension.vibecodeAgentSidebar.state',
 			'workbench.view.extension.vibecodeAgentSidebar.state.hidden',
 			'workbench.view.extension.vibecodeAgentSidebar.numberOfVisibleViews',
+			'memento/webviewView.claude-dev.SidebarProvider',
 			'memento/webviewView.codevibe.SidebarProvider',
 			'memento/webviewView.vibecode.agent',
 			'memento/webviewView.vibecode.agentPanel'
@@ -415,6 +444,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 		set value = 'workbench.view.explorer'
 		where key = 'workbench.sidebar.activeviewletid'
 			and value in (
+				'workbench.view.extension.claude-dev-ActivityBar',
 				'workbench.view.extension.codevibe-ActivityBar',
 				'workbench.view.extension.vibecodeAgentSidebar'
 			);
