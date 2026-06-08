@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-// Post-install script for Cline CLI.
+// Post-install script for CodeVibe CLI.
 //
 // Creates a hard link (or copy fallback) from the platform-specific binary
-// to bin/.cline for fast startup on subsequent runs.
+// to bin/.codevibe and bin/.cline for fast startup on subsequent runs.
 //
 // This script must use only Node.js APIs (no Bun) since it runs via
 // "node script/postinstall.mjs" in the npm lifecycle.
@@ -31,23 +31,40 @@ function main() {
 	};
 	const platform = platformMap[os.platform()] || os.platform();
 	const arch = os.arch();
-	const packageName = `@cline/cli-${platform}-${arch}`;
-	const binaryName = "cline";
+	const packageNames = [
+		`@codevibe/cli-${platform}-${arch}`,
+		`@cline/cli-${platform}-${arch}`,
+	];
+	const binaryNames = ["codevibe", "cline"];
 
 	let binaryPath;
-	try {
-		const packageJsonPath = require.resolve(`${packageName}/package.json`);
-		const packageDir = path.dirname(packageJsonPath);
-		binaryPath = path.join(packageDir, "bin", binaryName);
-
-		if (!fs.existsSync(binaryPath)) {
-			throw new Error(`Binary not found at ${binaryPath}`);
+	let resolvedPackageName;
+	for (const packageName of packageNames) {
+		try {
+			const packageJsonPath = require.resolve(`${packageName}/package.json`);
+			const packageDir = path.dirname(packageJsonPath);
+			for (const binaryName of binaryNames) {
+				const candidate = path.join(packageDir, "bin", binaryName);
+				if (fs.existsSync(candidate)) {
+					binaryPath = candidate;
+					resolvedPackageName = packageName;
+					break;
+				}
+			}
+			if (binaryPath) {
+				break;
+			}
+		} catch {
+			// Try the next package name.
 		}
-	} catch (_error) {
+	}
+	if (!binaryPath) {
 		// Platform package not available. The resolver script will find
 		// it at runtime by walking node_modules. This is expected on
 		// platforms we don't ship binaries for.
-		console.log(`Note: ${packageName} not found, skipping binary cache`);
+		console.log(
+			`Note: ${packageNames.join(" or ")} not found, skipping binary cache`,
+		);
 		return;
 	}
 
@@ -55,7 +72,7 @@ function main() {
 		path.basename(__dirname) === "script"
 			? path.join(__dirname, "..", "bin")
 			: path.join(__dirname, "bin");
-	const target = path.join(binDir, ".cline");
+	const targets = [path.join(binDir, ".codevibe"), path.join(binDir, ".cline")];
 
 	// Ensure bin directory exists
 	if (!fs.existsSync(binDir)) {
@@ -63,20 +80,25 @@ function main() {
 	}
 
 	// Remove existing cached binary
-	if (fs.existsSync(target)) {
-		fs.unlinkSync(target);
+	for (const target of targets) {
+		if (fs.existsSync(target)) {
+			fs.unlinkSync(target);
+		}
 	}
 
 	// Hard link preferred (shares disk space), copy as fallback
 	// (hard links fail on some filesystems like NFS or cross-device)
-	try {
-		fs.linkSync(binaryPath, target);
-	} catch {
-		fs.copyFileSync(binaryPath, target);
+	for (const target of targets) {
+		try {
+			fs.linkSync(binaryPath, target);
+		} catch {
+			fs.copyFileSync(binaryPath, target);
+		}
+		fs.chmodSync(target, 0o755);
 	}
-
-	fs.chmodSync(target, 0o755);
-	console.log(`Cached cline binary at ${target}`);
+	console.log(
+		`Cached CodeVibe binary from ${resolvedPackageName} at ${targets.join(", ")}`,
+	);
 }
 
 try {

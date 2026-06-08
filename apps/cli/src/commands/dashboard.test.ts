@@ -7,10 +7,13 @@ import { runDashboardCommand, waitForProcessShutdown } from "./dashboard";
 const ENV_KEYS = [
 	"WORKSPACE_ROOT",
 	"HOST",
+	"CODEVIBE_HUB_DASHBOARD_PORT",
 	"CLINE_HUB_DASHBOARD_PORT",
 	"PUBLIC_URL",
 	"ROOM_SECRET",
+	"CODEVIBE_HUB_WEBVIEW_DIST_DIR",
 	"CLINE_HUB_WEBVIEW_DIST_DIR",
+	"CODEVIBE_WRAPPER_PATH",
 	"CLINE_WRAPPER_PATH",
 ] as const;
 
@@ -39,15 +42,17 @@ describe("runDashboardCommand", () => {
 			| {
 					workspaceRoot: string | undefined;
 					host: string | undefined;
-					port: string | undefined;
+					codevibePort: string | undefined;
+					legacyPort: string | undefined;
 					publicUrl: string | undefined;
 					roomSecret: string | undefined;
-					webviewDistDir: string | undefined;
+					codevibeWebviewDistDir: string | undefined;
+					legacyWebviewDistDir: string | undefined;
 			  }
 			| undefined;
-		const webviewDistDir = mkdtempSync(join(tmpdir(), "cline-webview-dist-"));
+		const webviewDistDir = mkdtempSync(join(tmpdir(), "codevibe-webview-dist-"));
 		mkdirSync(webviewDistDir, { recursive: true });
-		process.env.CLINE_HUB_WEBVIEW_DIST_DIR = webviewDistDir;
+		process.env.CODEVIBE_HUB_WEBVIEW_DIST_DIR = webviewDistDir;
 
 		const exitCode = await runDashboardCommand({
 			cwd: "sdk",
@@ -63,10 +68,12 @@ describe("runDashboardCommand", () => {
 				observedEnv = {
 					workspaceRoot: process.env.WORKSPACE_ROOT,
 					host: process.env.HOST,
-					port: process.env.CLINE_HUB_DASHBOARD_PORT,
+					codevibePort: process.env.CODEVIBE_HUB_DASHBOARD_PORT,
+					legacyPort: process.env.CLINE_HUB_DASHBOARD_PORT,
 					publicUrl: process.env.PUBLIC_URL,
 					roomSecret: process.env.ROOM_SECRET,
-					webviewDistDir: process.env.CLINE_HUB_WEBVIEW_DIST_DIR,
+					codevibeWebviewDistDir: process.env.CODEVIBE_HUB_WEBVIEW_DIST_DIR,
+					legacyWebviewDistDir: process.env.CLINE_HUB_WEBVIEW_DIST_DIR,
 				};
 				return {
 					listenUrl: "http://127.0.0.1:9090/",
@@ -88,18 +95,20 @@ describe("runDashboardCommand", () => {
 		expect(observedEnv).toEqual({
 			workspaceRoot: resolve("sdk"),
 			host: "127.0.0.1",
-			port: "9090",
+			codevibePort: "9090",
+			legacyPort: "9090",
 			publicUrl: "http://127.0.0.1:9090",
 			roomSecret: "secret",
-			webviewDistDir,
+			codevibeWebviewDistDir: webviewDistDir,
+			legacyWebviewDistDir: webviewDistDir,
 		});
 		expect(opened).toEqual(["http://127.0.0.1:9090/?roomSecret=secret"]);
 		expect(stop).toHaveBeenCalledTimes(1);
-		expect(output.join("\n")).toContain("Cline dashboard listening at");
+		expect(output.join("\n")).toContain("CodeVibe dashboard listening at");
 		expect(output.join("\n")).toContain("ws://127.0.0.1:25463/hub");
 		expect(errors).toEqual([]);
 		expect(process.env.WORKSPACE_ROOT).toBe(originalEnv.WORKSPACE_ROOT);
-		expect(process.env.CLINE_HUB_WEBVIEW_DIST_DIR).toBe(webviewDistDir);
+		expect(process.env.CODEVIBE_HUB_WEBVIEW_DIST_DIR).toBe(webviewDistDir);
 	});
 
 	it("honors --no-open behavior", async () => {
@@ -126,22 +135,23 @@ describe("runDashboardCommand", () => {
 	});
 
 	it("finds webview assets from the published wrapper package layout", async () => {
-		const root = mkdtempSync(join(tmpdir(), "cline-wrapper-layout-"));
-		const wrapperPath = join(root, "node_modules", "cline", "bin", "cline");
+		const root = mkdtempSync(join(tmpdir(), "codevibe-wrapper-layout-"));
+		const wrapperPath = join(root, "node_modules", "codevibe", "bin", "codevibe");
 		const platformName = platform() === "win32" ? "windows" : platform();
 		const webviewDistDir = join(
 			root,
 			"node_modules",
-			"cline",
+			"codevibe",
 			"node_modules",
-			"@cline",
+			"@codevibe",
 			`cli-${platformName}-${arch()}`,
 			"cline-hub",
 			"webview",
 		);
 		mkdirSync(join(wrapperPath, ".."), { recursive: true });
 		mkdirSync(webviewDistDir, { recursive: true });
-		process.env.CLINE_WRAPPER_PATH = wrapperPath;
+		process.env.CODEVIBE_WRAPPER_PATH = wrapperPath;
+		delete process.env.CODEVIBE_HUB_WEBVIEW_DIST_DIR;
 		delete process.env.CLINE_HUB_WEBVIEW_DIST_DIR;
 		let observedWebviewDistDir: string | undefined;
 
@@ -152,7 +162,7 @@ describe("runDashboardCommand", () => {
 				writeErr: () => {},
 			},
 			startServer: async () => {
-				observedWebviewDistDir = process.env.CLINE_HUB_WEBVIEW_DIST_DIR;
+				observedWebviewDistDir = process.env.CODEVIBE_HUB_WEBVIEW_DIST_DIR;
 				return {
 					listenUrl: "http://127.0.0.1:8787/",
 					publicUrl: "http://127.0.0.1:8787",

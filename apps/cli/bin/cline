@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
-// Binary resolver for Cline CLI.
+// Binary resolver for CodeVibe CLI.
 //
 // This script runs with Node.js (available everywhere npm is) and finds the
 // correct platform-specific compiled binary to execute. The compiled binary
 // has Bun embedded, so users don't need Bun installed.
 //
 // Resolution order:
-// 1. CLINE_BIN_PATH env var override
-// 2. Cached binary at bin/.cline (created by postinstall)
+// 1. CODEVIBE_BIN_PATH or CLINE_BIN_PATH env var override
+// 2. Cached binary at bin/.codevibe or bin/.cline (created by postinstall)
 // 3. Walk up node_modules to find the platform-specific package
 
 const childProcess = require("child_process");
@@ -16,10 +16,25 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-const scriptPath = fs.realpathSync(__filename);
+function resolveInvokedScriptPath() {
+	try {
+		if (process.argv[1]) {
+			return fs.realpathSync(process.argv[1]);
+		}
+	} catch {
+		// Fall back to this resolver file.
+	}
+	return fs.realpathSync(__filename);
+}
+
+const scriptPath = resolveInvokedScriptPath();
 const scriptDir = path.dirname(scriptPath);
+const invokedName = path.basename(process.argv[1] || "codevibe").toLowerCase();
+const primaryBinary = invokedName.startsWith("cline") ? "cline" : "codevibe";
+const binaryNames = primaryBinary === "cline" ? ["cline", "codevibe"] : ["codevibe", "cline"];
 const childEnv = {
 	...process.env,
+	CODEVIBE_WRAPPER_PATH: scriptPath,
 	CLINE_WRAPPER_PATH: scriptPath,
 };
 
@@ -43,15 +58,17 @@ function run(target) {
 }
 
 // 1. Check env var override
-const envPath = process.env.CLINE_BIN_PATH;
+const envPath = process.env.CODEVIBE_BIN_PATH || process.env.CLINE_BIN_PATH;
 if (envPath) {
 	run(envPath);
 }
 
 // 2. Check cached binary
-const cached = path.join(scriptDir, ".cline");
-if (fs.existsSync(cached)) {
-	run(cached);
+for (const cachedName of [".codevibe", ".cline"]) {
+	const cached = path.join(scriptDir, cachedName);
+	if (fs.existsSync(cached)) {
+		run(cached);
+	}
 }
 
 // 3. Detect platform and architecture
@@ -74,11 +91,14 @@ if (!arch) {
 	arch = os.arch();
 }
 
-const base = "@cline/cli-" + platform + "-" + arch;
-const binary = platform === "windows" ? "cline.exe" : "cline";
+const packageNames = [
+	"@codevibe/cli-" + platform + "-" + arch,
+	"@cline/cli-" + platform + "-" + arch,
+];
+const platformBinaryNames = binaryNames.map((name) => (platform === "windows" ? name + ".exe" : name));
 
 // Build fallback chain of package names to try
-const names = [base];
+const names = packageNames;
 
 function findBinary(startDir) {
 	let current = startDir;
@@ -86,10 +106,12 @@ function findBinary(startDir) {
 		const modules = path.join(current, "node_modules");
 		if (fs.existsSync(modules)) {
 			for (const name of names) {
-				// Scoped package: @cline/cli-darwin-arm64 lives at
-				// node_modules/@cline/cli-darwin-arm64
-				const candidate = path.join(modules, name, "bin", binary);
-				if (fs.existsSync(candidate)) return candidate;
+				// Scoped package: @codevibe/cli-darwin-arm64 lives at
+				// node_modules/@codevibe/cli-darwin-arm64
+				for (const binary of platformBinaryNames) {
+					const candidate = path.join(modules, name, "bin", binary);
+					if (fs.existsSync(candidate)) return candidate;
+				}
 			}
 		}
 		const parent = path.dirname(current);
@@ -103,7 +125,7 @@ function findBinary(startDir) {
 const resolved = findBinary(scriptDir);
 if (!resolved) {
 	console.error(
-		"Could not find the Cline CLI binary for your platform.\n" +
+		"Could not find the CodeVibe CLI binary for your platform.\n" +
 			"Your platform: " +
 			os.platform() +
 			" " +
@@ -114,7 +136,7 @@ if (!resolved) {
 				return '"' + n + '"';
 			}).join(" or ") +
 			"\n\n" +
-			"Try reinstalling: npm install -g cline",
+			"Try reinstalling: npm install -g codevibe",
 	);
 	process.exit(1);
 }

@@ -31,8 +31,10 @@ export interface RunDashboardCommandOptions {
 	waitForShutdown?: (server: DashboardServerHandle) => Promise<void>;
 }
 
-const DASHBOARD_PORT_ENV = "CLINE_HUB_DASHBOARD_PORT";
-const WEBVIEW_DIST_ENV = "CLINE_HUB_WEBVIEW_DIST_DIR";
+const DASHBOARD_PORT_ENV = "CODEVIBE_HUB_DASHBOARD_PORT";
+const LEGACY_DASHBOARD_PORT_ENV = "CLINE_HUB_DASHBOARD_PORT";
+const WEBVIEW_DIST_ENV = "CODEVIBE_HUB_WEBVIEW_DIST_DIR";
+const LEGACY_WEBVIEW_DIST_ENV = "CLINE_HUB_WEBVIEW_DIST_DIR";
 
 function setEnvValue(name: string, value: string | undefined): () => void {
 	const previous = process.env[name];
@@ -53,6 +55,11 @@ async function withDashboardEnvironment<T>(
 	options: RunDashboardCommandOptions,
 	fn: () => Promise<T>,
 ): Promise<T> {
+	const defaultWebviewDistDir = resolveDefaultWebviewDistDir();
+	const webviewDistDir =
+		process.env[WEBVIEW_DIST_ENV]?.trim() ||
+		process.env[LEGACY_WEBVIEW_DIST_ENV]?.trim() ||
+		defaultWebviewDistDir;
 	const restore = [
 		setEnvValue(
 			"WORKSPACE_ROOT",
@@ -60,9 +67,11 @@ async function withDashboardEnvironment<T>(
 		),
 		setEnvValue("HOST", options.host),
 		setEnvValue(DASHBOARD_PORT_ENV, options.port),
+		setEnvValue(LEGACY_DASHBOARD_PORT_ENV, options.port),
 		setEnvValue("PUBLIC_URL", options.publicUrl),
 		setEnvValue("ROOM_SECRET", options.roomSecret),
-		setEnvValue(WEBVIEW_DIST_ENV, resolveDefaultWebviewDistDir()),
+		setEnvValue(WEBVIEW_DIST_ENV, webviewDistDir),
+		setEnvValue(LEGACY_WEBVIEW_DIST_ENV, webviewDistDir),
 	];
 	try {
 		return await fn();
@@ -74,7 +83,10 @@ async function withDashboardEnvironment<T>(
 }
 
 function resolveDefaultWebviewDistDir(): string | undefined {
-	if (process.env[WEBVIEW_DIST_ENV]?.trim()) {
+	if (
+		process.env[WEBVIEW_DIST_ENV]?.trim() ||
+		process.env[LEGACY_WEBVIEW_DIST_ENV]?.trim()
+	) {
 		return undefined;
 	}
 
@@ -85,7 +97,7 @@ function resolveDefaultWebviewDistDir(): string | undefined {
 		join(moduleDir, "../../../cline-hub/dist/webview"),
 		// Node bundle: apps/cli/dist/index.js
 		join(moduleDir, "cline-hub/webview"),
-		// Compiled platform package: apps/cli/dist/<platform>/bin/cline
+		// Compiled platform package: apps/cli/dist/<platform>/bin/codevibe
 		join(dirname(process.execPath), "../cline-hub/webview"),
 	];
 
@@ -93,20 +105,22 @@ function resolveDefaultWebviewDistDir(): string | undefined {
 }
 
 function resolveInstalledPlatformPackageWebviewCandidates(): string[] {
-	const packageName = resolvePlatformPackageName();
+	const packageNames = resolvePlatformPackageNames();
+	const wrapperPath =
+		process.env.CODEVIBE_WRAPPER_PATH || process.env.CLINE_WRAPPER_PATH;
 	const starts = [
-		process.env.CLINE_WRAPPER_PATH
-			? dirname(process.env.CLINE_WRAPPER_PATH)
-			: undefined,
+		wrapperPath ? dirname(wrapperPath) : undefined,
 		dirname(process.execPath),
 	].filter((value): value is string => !!value?.trim());
 	const candidates: string[] = [];
 	for (const start of starts) {
 		let current = start;
 		for (;;) {
-			candidates.push(
-				join(current, "node_modules", packageName, "cline-hub/webview"),
-			);
+			for (const packageName of packageNames) {
+				candidates.push(
+					join(current, "node_modules", packageName, "cline-hub/webview"),
+				);
+			}
 			const parent = dirname(current);
 			if (parent === current) break;
 			current = parent;
@@ -115,9 +129,12 @@ function resolveInstalledPlatformPackageWebviewCandidates(): string[] {
 	return candidates;
 }
 
-function resolvePlatformPackageName(): string {
+function resolvePlatformPackageNames(): string[] {
 	const platformName = platform() === "win32" ? "windows" : platform();
-	return `@cline/cli-${platformName}-${arch()}`;
+	return [
+		`@codevibe/cli-${platformName}-${arch()}`,
+		`@cline/cli-${platformName}-${arch()}`,
+	];
 }
 
 async function startDefaultDashboardServer(): Promise<DashboardServerHandle> {
@@ -171,7 +188,7 @@ export async function runDashboardCommand(
 		const dashboardUrl =
 			server.inviteUrl || server.publicUrl || server.listenUrl;
 		options.io.writeln(
-			`${c.green}Cline dashboard listening at${c.reset} ${dashboardUrl}`,
+			`${c.green}CodeVibe dashboard listening at${c.reset} ${dashboardUrl}`,
 		);
 		if (server.hubUrl) {
 			options.io.writeln(`${c.dim}Hub endpoint: ${server.hubUrl}${c.reset}`);

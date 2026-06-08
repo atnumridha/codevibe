@@ -48,8 +48,9 @@ function buildInlinedEnvDefines(): Record<string, string> {
 const pkg = JSON.parse(readFileSync(join(cliDir, "package.json"), "utf-8"));
 const version: string = pkg.version;
 const repository: unknown = pkg.repository;
+const sourcePackageName = String(pkg.name ?? "@cline/cli");
 
-console.log(`Building @cline/cli v${version}`);
+console.log(`Building CodeVibe CLI v${version}`);
 
 const buildOptions = parseBuildOptions(process.argv.slice(2));
 
@@ -100,7 +101,7 @@ if (!buildOptions.skipSdkBuild) {
 	await $`bun run build:sdk`.cwd(rootDir);
 
 	console.log("Building CLI bundle...");
-	await $`bun -F @cline/cli build`.cwd(rootDir);
+	await $`bun -F ${sourcePackageName} build`.cwd(rootDir);
 }
 
 const hubWebviewSource = join(cliDir, "../cline-hub/src/webview");
@@ -141,7 +142,7 @@ function shouldBuildHubWebview(): boolean {
 }
 
 if (shouldBuildHubWebview()) {
-	console.log("Building Cline Hub webview...");
+	console.log("Building CodeVibe Hub webview...");
 	await $`bun -F @cline/cline-hub build:webview`.cwd(rootDir);
 }
 
@@ -183,10 +184,10 @@ async function buildCompiledBinary(input: {
 	// Build to /tmp first so Bun's temp-file rename stays on one filesystem
 	// layer in containerized environments (virtiofs, overlayfs).
 	const entrypoint = join(cliDir, "src/index.ts");
-	const tmpDir = join("/tmp", `cline-build-${input.dirName}`);
+	const tmpDir = join("/tmp", `codevibe-build-${input.dirName}`);
 	const tmpOutfile = join(
 		tmpDir,
-		input.outfile.endsWith(".exe") ? "cline.exe" : "cline",
+		input.outfile.endsWith(".exe") ? "codevibe.exe" : "codevibe",
 	);
 	mkdirSync(tmpDir, { recursive: true });
 
@@ -225,9 +226,10 @@ async function buildCompiledBinary(input: {
 for (const item of targets) {
 	// npm treats "win32" specially in os field, but for package naming use "windows"
 	const displayOs = item.os === "win32" ? "windows" : item.os;
-	const name = `@cline/cli-${displayOs}-${item.arch}`;
+	const name = `@codevibe/cli-${displayOs}-${item.arch}`;
 	const dirName = `cli-${displayOs}-${item.arch}`;
-	const binaryName = item.os === "win32" ? "cline.exe" : "cline";
+	const binaryName = item.os === "win32" ? "codevibe.exe" : "codevibe";
+	const legacyBinaryName = item.os === "win32" ? "cline.exe" : "cline";
 	const bunTarget = getBunTarget(item);
 
 	console.log(`\nBuilding ${name} (target: ${bunTarget})...`);
@@ -237,6 +239,8 @@ for (const item of targets) {
 	const outfile = join(outDir, binaryName);
 
 	await buildCompiledBinary({ bunTarget, dirName, outfile });
+	const legacyOutfile = join(outDir, legacyBinaryName);
+	await $`cp ${outfile} ${legacyOutfile} && chmod 755 ${legacyOutfile}`;
 
 	// Smoke test: only run on current platform
 	if (item.os === process.platform && item.arch === process.arch) {
@@ -283,12 +287,13 @@ for (const item of targets) {
 			{
 				name,
 				version,
-				description: `Cline CLI binary for ${displayOs} ${item.arch}`,
+				description: `CodeVibe CLI binary for ${displayOs} ${item.arch}`,
 				os: [item.os],
 				cpu: [item.arch],
 				...(repository ? { repository } : {}),
 				bin: {
-					cline: `bin/${binaryName}`,
+					codevibe: `bin/${binaryName}`,
+					cline: `bin/${legacyBinaryName}`,
 				},
 			},
 			null,

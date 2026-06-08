@@ -57,7 +57,7 @@ function shouldBuildHubWebview(): boolean {
 }
 
 if (shouldBuildHubWebview()) {
-	console.log("Building Cline Hub webview...");
+	console.log("Building CodeVibe Hub webview...");
 	await $`bun -F @cline/cline-hub build:webview`.cwd(repoRoot);
 }
 

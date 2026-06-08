@@ -130,7 +130,7 @@ describe("createClineAccountService", () => {
 		await expect(
 			createClineAccountService({ config: makeConfig() }),
 		).rejects.toThrow(
-			"Cline account requires re-authentication. Run cline auth cline.",
+			"CodeVibe account requires re-authentication. Run codevibe auth openai-codex.",
 		);
 	});
 });

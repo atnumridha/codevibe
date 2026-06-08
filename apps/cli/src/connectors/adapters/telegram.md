@@ -1,6 +1,6 @@
 # Telegram Connector
 
-The Telegram connector bridges a Telegram Bot API bot into Cline CLI sessions. It is a polling connector, so it does not need a public webhook URL. The connector process must stay running while Telegram access is active.
+The Telegram connector bridges a Telegram Bot API bot into CodeVibe CLI sessions. It is a polling connector, so it does not need a public webhook URL. The connector process must stay running while Telegram access is active.
 
 ## Setup
 
@@ -13,7 +13,7 @@ Create a bot with `@BotFather`:
 Start the connector:
 
 ```bash
-cline connect telegram -k "$TELEGRAM_BOT_TOKEN"
+codevibe connect telegram -k "$TELEGRAM_BOT_TOKEN"
 ```
 
 The connector discovers the bot username from the token. Use `--bot-username`
@@ -23,26 +23,26 @@ Useful variants:
 
 ```bash
 # Keep logs in the active terminal while debugging.
-cline connect telegram -i -k "$TELEGRAM_BOT_TOKEN"
+codevibe connect telegram -i -k "$TELEGRAM_BOT_TOKEN"
 
 # Read credentials from env vars.
-TELEGRAM_BOT_TOKEN=123456:ABCDEF... cline connect telegram
+TELEGRAM_BOT_TOKEN=123456:ABCDEF... codevibe connect telegram
 
 # Override the workspace and model used for Telegram sessions.
-cline connect telegram -k "$TELEGRAM_BOT_TOKEN" --cwd /path/to/repo --provider cline --model openai/gpt-5.3-codex
+codevibe connect telegram -k "$TELEGRAM_BOT_TOKEN" --cwd /path/to/repo --provider openai-codex --model openai/gpt-5.3-codex
 
 # Disable tools for untrusted Telegram surfaces.
-cline connect telegram -k "$TELEGRAM_BOT_TOKEN" --no-tools
+codevibe connect telegram -k "$TELEGRAM_BOT_TOKEN" --no-tools
 
 # Stop Telegram connector processes and sessions.
-cline connect --stop telegram
+codevibe connect --stop telegram
 ```
 
 After the connector starts, send `/help` or `/start` to the bot in Telegram.
 
 ## What It Does
 
-- Starts or reuses a Cline RPC-backed session for each Telegram thread.
+- Starts or reuses a CodeVibe RPC-backed session for each Telegram thread.
 - Keeps chat history and working-directory state separately per Telegram thread.
 - Lets Telegram users ask questions, assign coding tasks, and, when tools are enabled, inspect files, edit files, run commands, and prepare PRs.
 - Supports required tool approvals from Telegram with `Y` and `N` replies.
@@ -71,17 +71,17 @@ Tools are enabled by default for Telegram sessions. That means anyone who can su
 Use `--no-tools` when the Telegram surface is not trusted:
 
 ```bash
-cline connect telegram -k "$TELEGRAM_BOT_TOKEN" --no-tools
+codevibe connect telegram -k "$TELEGRAM_BOT_TOKEN" --no-tools
 ```
 
 When the connector starts with `--no-tools`, chat commands such as `/tools on` and `/yolo on` cannot re-enable tools for that connector run.
 
-For participant restrictions, run the interactive connector wizard with `cline connect`. The Telegram wizard asks whether to restrict access, points you to `@userinfobot`, and configures your numeric Telegram user ID.
+For participant restrictions, run the interactive connector wizard with `codevibe connect`. The Telegram wizard asks whether to restrict access, points you to `@userinfobot`, and configures your numeric Telegram user ID.
 
 You can also pass the user ID directly:
 
 ```bash
-cline connect telegram -k "$TELEGRAM_BOT_TOKEN" --allowed-user-id 12345
+codevibe connect telegram -k "$TELEGRAM_BOT_TOKEN" --allowed-user-id 12345
 ```
 
 You can also pass a manual `--hook-command` that returns `{"action":"deny"}` for unauthorized `session.authorize` events. If neither access option is configured, messages are allowed.
@@ -110,7 +110,7 @@ Schedules created this way automatically target the current Telegram thread for 
 If you are creating the schedule outside Telegram, first send `/whereami` in Telegram to get the thread id, then pass the delivery metadata to the CLI:
 
 ```bash
-cline schedule create "Daily summary" \
+codevibe schedule create "Daily summary" \
   --cron "0 9 * * *" \
   --prompt "Summarize yesterday's activity in this workspace." \
   --workspace /path/to/repo \

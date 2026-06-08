@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import "./utils/codevibe-env";
 import { isMainThread } from "node:worker_threads";
 import { disposeAll, initVcr, isHubDaemonProcess } from "@cline/shared";
 import { logCliProcessError } from "./logging/errors";
@@ -11,7 +12,8 @@ import {
 import { writeErr } from "./utils/output";
 
 // Initialize VCR before any HTTP requests are made.
-// Set CLINE_VCR=record|playback and CLINE_VCR_CASSETTE=<path> to enable.
+// Set CODEVIBE_VCR=record|playback and CODEVIBE_VCR_CASSETTE=<path> to enable.
+// Legacy CLINE_* names are still accepted for SDK compatibility.
 initVcr(process.env.CLINE_VCR);
 
 if (!isMainThread) {

@@ -1,18 +1,19 @@
 {
 	"name": "@cline/cli",
-	"displayName": "cline",
+	"displayName": "codevibe",
 	"version": "3.0.20",
-	"description": "Autonomous coding agent CLI - capable of creating/editing files, running commands, using the browser, and more",
+	"description": "CodeVibe autonomous coding agent CLI with Codex auth, Cursor-compatible workflows, MCP, browser tools, and background sessions.",
 	"type": "module",
 	"publishConfig": {
 		"access": "public"
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/cline/cline.git",
+		"url": "git+https://github.com/atnumridha/codevibe.git",
 		"directory": "apps/cli"
 	},
 	"keywords": [
+		"codevibe",
 		"cline",
 		"claude",
 		"dev",
@@ -28,14 +29,15 @@
 		"cli"
 	],
 	"author": {
-		"name": "Cline Bot Inc."
+		"name": "CodeVibe"
 	},
 	"license": "Apache-2.0",
-	"homepage": "https://cline.bot",
+	"homepage": "https://github.com/atnumridha/codevibe",
 	"bugs": {
-		"url": "https://github.com/cline/cline/issues"
+		"url": "https://github.com/atnumridha/codevibe/issues"
 	},
 	"bin": {
+		"codevibe": "src/index.ts",
 		"cline": "src/index.ts"
 	},
 	"engines": {
@@ -56,7 +58,7 @@
 		"prepublishOnly": "bun script/guard-direct-publish.ts",
 		"publish:npm": "bun script/publish-npm.ts",
 		"publish:npm:dry": "bun script/publish-npm.ts --dry-run",
-		"dev": "CLINE_BUILD_ENV=development bun --conditions=development ./src/index.ts",
+		"dev": "CODEVIBE_BUILD_ENV=development bun --conditions=development ./src/index.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "bun run test:unit",
 		"test:unit": "vitest run --config vitest.config.ts",

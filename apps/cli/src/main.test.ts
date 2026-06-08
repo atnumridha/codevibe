@@ -692,7 +692,7 @@ describe("runCli lightweight command dispatch", () => {
 	it("passes the migration notice marker into interactive mode", async () => {
 		const notice = {
 			id: "cline-cli-tui-default",
-			title: "Welcome to the new Cline CLI",
+			title: "Welcome to the new CodeVibe CLI",
 		};
 		migrationNoticeMocks.getClineCliMigrationNotice.mockReturnValue(notice);
 		Object.defineProperty(process.stdout, "isTTY", {
@@ -956,7 +956,7 @@ describe("runCli lightweight command dispatch", () => {
 		);
 	});
 
-	it("does not pass non-Cline provider settings as Cline account options", async () => {
+	it("does not pass non-Cline provider settings as CodeVibe account options", async () => {
 		providerSettingsMocks.getLastUsedProviderSettings.mockReturnValue({
 			provider: "openrouter",
 			baseUrl: "https://openrouter.ai/api/v1",
@@ -1019,7 +1019,7 @@ describe("runCli lightweight command dispatch", () => {
 		);
 	});
 
-	it("passes Cline provider settings as Cline account options", async () => {
+	it("passes Cline provider settings as CodeVibe account options", async () => {
 		const clineSettings = {
 			provider: "cline",
 			baseUrl: "https://api.example.test",

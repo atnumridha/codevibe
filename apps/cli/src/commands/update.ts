@@ -17,7 +17,7 @@ import {
 	spawnKanbanInstallProcess,
 } from "./kanban";
 
-const DEFAULT_PACKAGE_NAME = "cline";
+const DEFAULT_PACKAGE_NAME = "codevibe";
 
 type CliPackageName = typeof DEFAULT_PACKAGE_NAME;
 
@@ -89,7 +89,10 @@ export function getInstallationInfo(currentVersion: string): InstallationInfo {
 	const tag = getNpmTag(currentVersion);
 	try {
 		const scriptPath = realpathSync(
-			process.env.CLINE_WRAPPER_PATH || process.argv[1] || "",
+			process.env.CODEVIBE_WRAPPER_PATH ||
+				process.env.CLINE_WRAPPER_PATH ||
+				process.argv[1] ||
+				"",
 		).replace(/\\/g, "/");
 
 		if (scriptPath.includes("/.npm/_npx") || scriptPath.includes("/npm/_npx")) {
@@ -335,7 +338,8 @@ async function restartHubServerIfRunning(): Promise<void> {
 /**
  * Non-blocking auto-update check for CLI startup.
  * Spawns a detached install process if a newer version is available.
- * Skipped for npx, dev, unknown installs. Disable with CLINE_NO_AUTO_UPDATE=1.
+ * Skipped for npx, dev, unknown installs. Disable with CODEVIBE_NO_AUTO_UPDATE=1.
+ * The legacy CLINE_NO_AUTO_UPDATE name is still accepted.
  */
 export function autoUpdateOnStartup(): void {
 	if (process.env.IS_DEV === "true") return;
@@ -386,7 +390,7 @@ export async function checkForUpdates(
 	const currentVersion = version;
 	const includeKanban = options.includeKanban ?? true;
 	writeln(
-		`${c.cyan}Checking for updates${includeKanban ? " to Cline CLI and kanban" : ""}…${c.reset}`,
+		`${c.cyan}Checking for updates${includeKanban ? " to CodeVibe CLI and kanban" : ""}…${c.reset}`,
 	);
 
 	const { packageName, updateCommand, packageManager } =
@@ -472,7 +476,7 @@ export async function checkForUpdates(
 		if (cliUpdateAvailable && latestVersion) {
 			if (!updateCommand) {
 				writeln(
-					`${c.dim}Unable to determine Cline update command. Please update manually with your package manager.${c.reset}`,
+					`${c.dim}Unable to determine CodeVibe update command. Please update manually with your package manager.${c.reset}`,
 				);
 				hadFailure = true;
 			} else {
@@ -490,7 +494,7 @@ export async function checkForUpdates(
 						await restartHubServerIfRunning();
 					} else {
 						writeErr(
-							`Cline update failed (exit code ${exitCode}). Try running: ${manualUpdateCommand.command}`,
+							`CodeVibe update failed (exit code ${exitCode}). Try running: ${manualUpdateCommand.command}`,
 						);
 						hadFailure = true;
 					}
@@ -498,7 +502,7 @@ export async function checkForUpdates(
 					const message =
 						error instanceof Error ? error.message : String(error);
 					writeErr(
-						`Failed to run Cline update command ${manualUpdateCommand.command}: ${message}`,
+						`Failed to run CodeVibe update command ${manualUpdateCommand.command}: ${message}`,
 					);
 					hadFailure = true;
 				}

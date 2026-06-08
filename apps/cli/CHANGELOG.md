@@ -1,4 +1,4 @@
-# Cline CLI Changelog
+# CodeVibe CLI Changelog
 
 ## 3.0.20
 
@@ -13,11 +13,11 @@
 - Fix Slack channel mentions so replies post in the original message's thread.
 - Fix the abort indicator to clear immediately when a task is cancelled.
 - Sync the Fireworks AI model registry and refresh the bundled model catalog with current platform offerings.
-- Bump the bundled SDK to v0.0.43, which forces a running Cline Hub to restart so it picks up the latest SDK code.
+- Bump the bundled SDK to v0.0.43, which forces a running CodeVibe Hub to restart so it picks up the latest SDK code.
 
 ## 3.0.17
 
-- Fix a regression introduced in 3.0.15 where the interactive CLI could get stuck after stopping and restarting Cline Hub and then pressing Escape to cancel a request. The CLI now detects stale or missing sessions, recovers any pending messages, and starts a fresh session instead of failing with "session not found".
+- Fix a regression introduced in 3.0.15 where the interactive CLI could get stuck after stopping and restarting CodeVibe Hub and then pressing Escape to cancel a request. The CLI now detects stale or missing sessions, recovers any pending messages, and starts a fresh session instead of failing with "session not found".
 - Fix Ctrl+C and Hub shutdown races that surfaced as "hook dispatch failed" and WebSocket connection errors from late hook events racing against Hub shutdown.
 - Fix the Hub daemon being shut down prematurely when a runtime request was aborted, so the daemon now stays alive.
 - Improve the Telegram connector with a new `--allowed-user-id` flag to restrict which Telegram users are authorized to interact with the agent.
@@ -35,7 +35,7 @@
 
 ## 3.0.15
 
-- Add Cline Hub, a web app for monitoring connected clients, viewing and driving sessions, streaming assistant output, and restarting the local hub, with local, LAN, and tunnel usage gated by a room secret.
+- Add CodeVibe Hub, a web app for monitoring connected clients, viewing and driving sessions, streaming assistant output, and restarting the local hub, with local, LAN, and tunnel usage gated by a room secret.
 - Support global AGENTS rules so agent rules can be applied across all sessions, not just per-project.
 - Let plugins contribute static or dynamic rule content when installed in the sandbox.
 - Bind Discord sessions to individual message authors so different Discord users no longer share chat state in a thread.
@@ -147,18 +147,18 @@
 
 ## 3.0.0
 
-Introducing our new Cline CLI built on our new SDK and comes with a snappy new TUI.
+Introducing the CodeVibe CLI built on our new SDK and comes with a snappy new TUI.
 
 Install:
 
 ```sh
-npm install -g cline
+npm install -g codevibe
 ```
 
 For nightly builds:
 
 ```sh
-npm install -g cline@nightly
+npm install -g codevibe@nightly
 ```
 
 ## 0.0.13
@@ -274,7 +274,7 @@ npm install -g cline@nightly
 
 - Rewritten TUI from Ink to OpenTUI with streaming markdown, syntax-highlighted diffs, scrollable chat, and mouse support
 - Dialog system for model picker, tool approval, settings browser, session history, and onboarding
-- Interactive setup wizards: `cline connect`, `cline schedule`, `cline mcp`
+- Interactive setup wizards: `codevibe connect`, `codevibe schedule`, `codevibe mcp`
 - Plan/Act mode toggle with system prompt and tool rebuilding on switch
 - Input autocomplete for slash commands and file mentions
 - Message queuing and steer messages during running turns

@@ -743,7 +743,7 @@ async function launchCursorBackgroundAgentTask(
 				address: clientOptions.address,
 				authToken: clientOptions.authToken,
 				clientType: "cli-cursor-background-agent",
-				displayName: "Cline CLI (Cursor background agent)",
+				displayName: "CodeVibe CLI (Cursor background agent)",
 				workspaceRoot: clientOptions.workspaceRoot,
 				cwd: clientOptions.cwd,
 			}));
@@ -961,8 +961,8 @@ async function launchCursorAgentTask(
 						: "cli-cursor-agent-task",
 				displayName:
 					request.kind === "background-agent"
-						? "Cline CLI (Cursor background agent)"
-						: "Cline CLI (Cursor agent task)",
+						? "CodeVibe CLI (Cursor background agent)"
+						: "CodeVibe CLI (Cursor agent task)",
 				workspaceRoot: clientOptions.workspaceRoot,
 				cwd: clientOptions.cwd,
 			}));

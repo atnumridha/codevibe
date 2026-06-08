@@ -71,7 +71,7 @@ export function getClineCliMigrationNotice(
 	}
 	return {
 		id: NOTICE_ID,
-		title: "Welcome to the new Cline CLI",
+		title: "Welcome to the new CodeVibe CLI",
 	};
 }
 

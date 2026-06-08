@@ -142,7 +142,7 @@ const HELP_ROWS: HelpRow[] = [
 		kind: "entry",
 		id: "c-account",
 		key: "/account",
-		desc: "View Cline account and switch account",
+		desc: "View CodeVibe account and switch account",
 	},
 	{
 		kind: "entry",
@@ -180,7 +180,7 @@ const HELP_ROWS: HelpRow[] = [
 		key: "/undo",
 		desc: "Restore to a previous checkpoint",
 	},
-	{ kind: "entry", id: "c-quit", key: "/quit", desc: "Exit Cline" },
+	{ kind: "entry", id: "c-quit", key: "/quit", desc: "Exit CodeVibe" },
 	{ kind: "entry", id: "c-help", key: "/help", desc: "Show this help" },
 
 	{ kind: "spacer", id: "s2" },
@@ -227,19 +227,19 @@ const HELP_ROWS: HelpRow[] = [
 	{
 		kind: "entry",
 		id: "w-connect",
-		key: "cline connect",
+			key: "codevibe connect",
 		desc: "Set up messaging platform integrations",
 	},
 	{
 		kind: "entry",
 		id: "w-schedule",
-		key: "cline schedule",
+			key: "codevibe schedule",
 		desc: "Create and manage scheduled cron tasks",
 	},
 	{
 		kind: "entry",
 		id: "w-mcp",
-		key: "cline mcp",
+			key: "codevibe mcp",
 		desc: "Add, remove, and manage MCP servers",
 	},
 ];

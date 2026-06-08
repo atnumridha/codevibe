@@ -16,18 +16,22 @@ import {
 	shouldAllowDirectPublish,
 } from "../../script/guard-direct-publish";
 
+const bunAvailable = spawnSync("bun", ["--version"], {
+	encoding: "utf8",
+}).status === 0;
+
 describe("CLI distribution package shape", () => {
 	it("rejects direct source package publishing by default", () => {
 		expect(shouldAllowDirectPublish({})).toBe(false);
-		expect(shouldAllowDirectPublish({ CLINE_ALLOW_DIRECT_PUBLISH: "1" })).toBe(
-			true,
-		);
+		expect(
+			shouldAllowDirectPublish({ CODEVIBE_ALLOW_DIRECT_PUBLISH: "1" }),
+		).toBe(true);
 		expect(DIRECT_PUBLISH_GUARD_MESSAGE).toContain(
 			"Direct packaging or publishing from apps/cli is disabled.",
 		);
 	});
 
-	it("rejects direct source package packing by default", () => {
+	it.skipIf(!bunAvailable)("rejects direct source package packing by default", () => {
 		const cliRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 		const result = spawnSync("bun", ["pm", "pack", "--dry-run"], {
@@ -39,26 +43,27 @@ describe("CLI distribution package shape", () => {
 		expect(result.stderr).toContain(DIRECT_PUBLISH_GUARD_MESSAGE);
 	});
 
-	it("packs the generated npm wrapper package", async () => {
-		const packageDir = await mkdtemp(join(tmpdir(), "cline-cli-pack-"));
+	it.skipIf(!bunAvailable)("packs the generated npm wrapper package", async () => {
+		const packageDir = await mkdtemp(join(tmpdir(), "codevibe-cli-pack-"));
 		try {
 			await mkdir(join(packageDir, "bin"), { recursive: true });
 			await writeFile(
 				join(packageDir, "package.json"),
 				`${JSON.stringify(
 					{
-						name: "cline",
+						name: "codevibe",
 						version: "1.2.3",
 						description: "CLI test package",
 						license: "Apache-2.0",
 						bin: {
+							codevibe: "./bin/codevibe",
 							cline: "./bin/cline",
 						},
 						scripts: {
 							postinstall: "node ./postinstall.mjs || true",
 						},
 						optionalDependencies: {
-							"@cline/cli-linux-x64": "1.2.3",
+							"@codevibe/cli-linux-x64": "1.2.3",
 						},
 					},
 					null,
@@ -66,10 +71,19 @@ describe("CLI distribution package shape", () => {
 				)}\n`,
 			);
 			await writeFile(
+				join(packageDir, "bin", "codevibe"),
+				[
+					"#!/usr/bin/env node",
+					'console.log("codevibe wrapper smoke test");',
+					"",
+				].join("\n"),
+			);
+			await chmod(join(packageDir, "bin", "codevibe"), 0o755);
+			await writeFile(
 				join(packageDir, "bin", "cline"),
 				[
 					"#!/usr/bin/env node",
-					'console.log("cline wrapper smoke test");',
+					'console.log("legacy cline wrapper smoke test");',
 					"",
 				].join("\n"),
 			);

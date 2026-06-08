@@ -452,7 +452,7 @@ class TelegramConnector extends ConnectorBase<
 					"Notes:",
 					"  - Without -i, the connector is launched in the background.",
 					"  - Tools are enabled by default for Telegram sessions.",
-					"  - Use --allowed-user-id or `cline connect` to restrict Telegram access.",
+					"  - Use --allowed-user-id or `codevibe connect` to restrict Telegram access.",
 					"  - Bot username is discovered from the Telegram bot token when omitted.",
 					"  - Provider/model default to the CLI's last-used provider settings.",
 				].join("\n"),
@@ -662,7 +662,7 @@ class TelegramConnector extends ConnectorBase<
 				formatBackgroundStartMessage: (pid) =>
 					`[telegram] starting background connector pid=${pid} bot=@${options.botUsername}`,
 				foregroundHint:
-					"[telegram] use `cline connect telegram -i ...` to run in the foreground",
+					"[telegram] use `codevibe connect telegram -i ...` to run in the foreground",
 				launchFailureMessage:
 					"failed to launch Telegram connector in background",
 			})

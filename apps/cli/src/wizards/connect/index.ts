@@ -219,9 +219,9 @@ export async function runConnectWizard(): Promise<number> {
 
 	args.push("-i");
 
-	p.log.success(
-		`Running: cline connect ${platform.id} ${redactCommandArgs(args)}`,
-	);
+		p.log.success(
+			`Running: codevibe connect ${platform.id} ${redactCommandArgs(args)}`,
+		);
 	p.outro("Starting connector (Ctrl+C to stop)");
 
 	return runConnectAdapter(platform.id, args, {

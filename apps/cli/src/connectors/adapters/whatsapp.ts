@@ -477,7 +477,7 @@ class WhatsAppConnector extends ConnectorBase<
 				formatBackgroundStartMessage: (pid) =>
 					`[whatsapp] starting background connector pid=${pid} user=${options.userName}`,
 				foregroundHint:
-					"[whatsapp] use `cline connect whatsapp -i ...` to run in the foreground",
+					"[whatsapp] use `codevibe connect whatsapp -i ...` to run in the foreground",
 				launchFailureMessage:
 					"failed to launch WhatsApp connector in background",
 			})

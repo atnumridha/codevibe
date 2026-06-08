@@ -9,6 +9,7 @@ import {
 } from "./update";
 
 const originalArgv = [...process.argv];
+const originalCodeVibeWrapperPath = process.env.CODEVIBE_WRAPPER_PATH;
 const originalWrapperPath = process.env.CLINE_WRAPPER_PATH;
 const tempDirs: string[] = [];
 
@@ -27,6 +28,11 @@ function createTempFile(pathSuffix: string): string {
 describe("getInstallationInfo", () => {
 	afterEach(() => {
 		process.argv = [...originalArgv];
+		if (originalCodeVibeWrapperPath === undefined) {
+			delete process.env.CODEVIBE_WRAPPER_PATH;
+		} else {
+			process.env.CODEVIBE_WRAPPER_PATH = originalCodeVibeWrapperPath;
+		}
 		if (originalWrapperPath === undefined) {
 			delete process.env.CLINE_WRAPPER_PATH;
 		} else {
@@ -38,36 +44,37 @@ describe("getInstallationInfo", () => {
 	});
 
 	it("detects npm installs from the wrapper path passed to the compiled binary", () => {
-		const wrapperPath = createTempFile("lib/node_modules/cline/bin/cline");
-		process.env.CLINE_WRAPPER_PATH = wrapperPath;
+		const wrapperPath = createTempFile("lib/node_modules/codevibe/bin/codevibe");
+		process.env.CODEVIBE_WRAPPER_PATH = wrapperPath;
 		process.argv = ["bun", "/$bunfs/root/cline", "update", "--verbose"];
 
 		expect(getInstallationInfo("1.2.3")).toEqual({
 			packageManager: PackageManager.NPM,
-			packageName: "cline",
-			updateCommand: "npm update -g cline --tag latest",
+			packageName: "codevibe",
+			updateCommand: "npm update -g codevibe --tag latest",
 		});
 	});
 
 	it("uses the nightly tag when the current CLI version is nightly", () => {
-		const wrapperPath = createTempFile("lib/node_modules/cline/bin/cline");
+		const wrapperPath = createTempFile("lib/node_modules/codevibe/bin/codevibe");
 		process.env.CLINE_WRAPPER_PATH = wrapperPath;
 		process.argv = ["bun", "/$bunfs/root/cline", "update", "--verbose"];
 
 		expect(getInstallationInfo("1.2.3-nightly.456")).toEqual({
 			packageManager: PackageManager.NPM,
-			packageName: "cline",
-			updateCommand: "npm update -g cline --tag nightly",
+			packageName: "codevibe",
+			updateCommand: "npm update -g codevibe --tag nightly",
 		});
 	});
 
 	it("falls back to unknown when only Bun's virtual compiled path is available", () => {
+		delete process.env.CODEVIBE_WRAPPER_PATH;
 		delete process.env.CLINE_WRAPPER_PATH;
 		process.argv = ["bun", "/$bunfs/root/cline", "update", "--verbose"];
 
 		expect(getInstallationInfo("1.2.3")).toEqual({
 			packageManager: PackageManager.UNKNOWN,
-			packageName: "cline",
+			packageName: "codevibe",
 		});
 	});
 });
@@ -76,30 +83,32 @@ describe("withMinimumReleaseAgeBypass", () => {
 	it("adds the package-manager-specific cooldown bypass", () => {
 		expect(
 			withMinimumReleaseAgeBypass(
-				"npm update -g cline --tag latest",
+				"npm update -g codevibe --tag latest",
 				PackageManager.NPM,
 			).command,
-		).toBe("npm update -g cline --tag latest --min-release-age=0");
-		expect(
-			withMinimumReleaseAgeBypass("bun add -g cline@latest", PackageManager.BUN)
-				.command,
-		).toBe("bun add -g cline@latest --minimum-release-age=0");
+		).toBe("npm update -g codevibe --tag latest --min-release-age=0");
 		expect(
 			withMinimumReleaseAgeBypass(
-				"yarn global add cline@latest",
+				"bun add -g codevibe@latest",
+				PackageManager.BUN,
+			).command,
+		).toBe("bun add -g codevibe@latest --minimum-release-age=0");
+		expect(
+			withMinimumReleaseAgeBypass(
+				"yarn global add codevibe@latest",
 				PackageManager.YARN,
 			).command,
-		).toBe("yarn global add cline@latest");
+		).toBe("yarn global add codevibe@latest");
 		expect(
 			withMinimumReleaseAgeBypass(
-				"yarn global add cline@latest",
+				"yarn global add codevibe@latest",
 				PackageManager.YARN,
 			).env?.YARN_NPM_MINIMAL_AGE_GATE,
 		).toBe("0");
 
 		expect(
 			withMinimumReleaseAgeBypass(
-				"pnpm add -g cline@latest",
+				"pnpm add -g codevibe@latest",
 				PackageManager.PNPM,
 			).env?.pnpm_config_minimum_release_age,
 		).toBe("0");
