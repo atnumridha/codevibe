@@ -28,6 +28,7 @@ import {
 	saveProviderSettings,
 	sendProviderCatalog,
 } from "./server/providers";
+import { createMcpServersWatcher } from "./server/mcp";
 import {
 	abortPeerTurn,
 	deleteSession,
@@ -64,6 +65,13 @@ export async function startClineHubDashboardServer(): Promise<ClineHubDashboardS
 	}
 
 	await attachHub(ctx);
+	const mcpWatcher = createMcpServersWatcher({
+		onChange: (payload) => ctx.broadcast(payload),
+		onError: (error, path) => {
+			ctx.pushEvent("MCP watcher error", `${path}: ${error.message}`, "warn");
+			broadcastHubState(ctx);
+		},
+	});
 	const healthInterval = setInterval(() => {
 		void (async () => {
 			await syncHubHealth(ctx);
@@ -223,6 +231,7 @@ export async function startClineHubDashboardServer(): Promise<ClineHubDashboardS
 			if (stopped) return;
 			stopped = true;
 			clearInterval(healthInterval);
+			mcpWatcher.close();
 			try {
 				server.stop(true);
 			} finally {

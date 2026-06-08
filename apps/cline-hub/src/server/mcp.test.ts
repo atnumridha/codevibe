@@ -63,6 +63,75 @@ function withEnvValue(
 	});
 }
 
+function createFakeWatchFile() {
+	type Listener = (eventType: string, fileName: string | Buffer | null) => void;
+	const entries: Array<{
+		path: string;
+		listener: Listener;
+		closed: boolean;
+	}> = [];
+	return {
+		watchFile(
+			path: string,
+			_options: { persistent: false },
+			listener: Listener,
+		) {
+			const entry = { path, listener, closed: false };
+			entries.push(entry);
+			return {
+				close() {
+					entry.closed = true;
+				},
+				on(_event: "error", _listener: (error: Error) => void) {
+					return undefined;
+				},
+			};
+		},
+		emit(path: string, fileName: string, eventType = "change") {
+			for (const entry of entries) {
+				if (!entry.closed && entry.path === path) {
+					entry.listener(eventType, fileName);
+				}
+			}
+		},
+	};
+}
+
+async function waitForMcpWatcherPayload(
+	t: test.TestContext,
+	options: {
+		workspaceRoot: string;
+		userHome: string;
+		debounceMs?: number;
+		watchFile?: ReturnType<typeof createFakeWatchFile>["watchFile"];
+	},
+	trigger: () => void,
+): Promise<Record<string, unknown>> {
+	let watcher: mcpModule.McpServersWatcher | undefined;
+	const payload = await new Promise<Record<string, unknown>>(
+		(resolve, reject) => {
+			const timeoutId = setTimeout(() => {
+				reject(new Error("Timed out waiting for MCP watcher payload"));
+			}, 2_000);
+			watcher = mcpModule.createMcpServersWatcher({
+				...options,
+				debounceMs: options.debounceMs ?? 25,
+				onChange: (nextPayload) => {
+					clearTimeout(timeoutId);
+					resolve(nextPayload);
+				},
+				onError: (error) => {
+					clearTimeout(timeoutId);
+					reject(error);
+				},
+			});
+			t.after(() => watcher?.close());
+			trigger();
+		},
+	);
+	return payload;
+}
+
 test("readMcpServersResponse exposes sanitized OAuth status", (t) => {
 	withMcpSettingsFile(t, {
 		mcpServers: {
@@ -237,6 +306,78 @@ test("setMcpServerDisabled writes global Cursor source servers in place", (t) =>
 	assert.equal(cursorSettings.mcpServers.gamma.disabled, true);
 	assert.equal(gamma?.settingsSource, "cursor-global");
 	assert.equal(gamma?.disabled, true);
+});
+
+test("createMcpServersWatcher broadcasts when a workspace Cursor source appears", async (t) => {
+	const dir = withTempDir(t);
+	const nativePath = join(dir, "settings", "cline_mcp_settings.json");
+	const workspaceRoot = join(dir, "workspace");
+	const userHome = join(dir, "home");
+	const workspaceCursorPath = join(workspaceRoot, ".cursor", "mcp.json");
+	withEnvValue(t, "CLINE_MCP_SETTINGS_PATH", nativePath);
+	withEnvValue(t, "CODEVIBE_CURSOR_HOME", userHome);
+	writeJsonFile(nativePath, { mcpServers: {} });
+	mkdirSync(dirname(workspaceCursorPath), { recursive: true });
+	const fakeWatch = createFakeWatchFile();
+
+	const payload = await waitForMcpWatcherPayload(
+		t,
+		{ workspaceRoot, userHome, watchFile: fakeWatch.watchFile },
+		() => {
+			writeJsonFile(workspaceCursorPath, {
+				mcpServers: {
+					live: {
+						type: "stdio",
+						command: "cursor-live",
+					},
+				},
+			});
+			fakeWatch.emit(dirname(workspaceCursorPath), "mcp.json");
+		},
+	);
+	const live = (payload.servers as Array<Record<string, unknown>>).find(
+		(server) => server.name === "live",
+	);
+
+	assert.equal(payload.type, "mcp_servers_changed");
+	assert.equal(live?.settingsSource, "cursor-workspace");
+	assert.equal(live?.settingsPath, workspaceCursorPath);
+	assert.equal(live?.command, "cursor-live");
+});
+
+test("createMcpServersWatcher drops removed Cursor source servers", async (t) => {
+	const dir = withTempDir(t);
+	const nativePath = join(dir, "settings", "cline_mcp_settings.json");
+	const workspaceRoot = join(dir, "workspace");
+	const userHome = join(dir, "home");
+	const workspaceCursorPath = join(workspaceRoot, ".cursor", "mcp.json");
+	withEnvValue(t, "CLINE_MCP_SETTINGS_PATH", nativePath);
+	withEnvValue(t, "CODEVIBE_CURSOR_HOME", userHome);
+	writeJsonFile(nativePath, { mcpServers: {} });
+	writeJsonFile(workspaceCursorPath, {
+		mcpServers: {
+			live: {
+				type: "stdio",
+				command: "cursor-live",
+			},
+		},
+	});
+	const fakeWatch = createFakeWatchFile();
+
+	const payload = await waitForMcpWatcherPayload(
+		t,
+		{ workspaceRoot, userHome, watchFile: fakeWatch.watchFile },
+		() => {
+			rmSync(workspaceCursorPath);
+			fakeWatch.emit(dirname(workspaceCursorPath), "mcp.json");
+		},
+	);
+	const live = (payload.servers as Array<Record<string, unknown>>).find(
+		(server) => server.name === "live",
+	);
+
+	assert.equal(payload.type, "mcp_servers_changed");
+	assert.equal(live, undefined);
 });
 
 test("authorizeMcpServerOAuthForHub delegates to SDK OAuth helper", async (t) => {

@@ -1,5 +1,11 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	watch,
+	writeFileSync,
+} from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 import {
 	authorizeMcpServerOAuth,
 	buildCursorMcpInstallRequest,
@@ -33,6 +39,18 @@ interface ReadMcpServersResponseOptions {
 	userHome?: string;
 }
 
+interface WatchMcpServersOptions extends ReadMcpServersResponseOptions {
+	debounceMs?: number;
+	onChange: (payload: JsonRecord) => void;
+	onError?: (error: Error, path: string) => void;
+	watchFile?: WatchFileFn;
+}
+
+export interface McpServersWatcher {
+	close(): void;
+	watchedPaths(): string[];
+}
+
 interface McpServerSource {
 	settingsPath: string;
 	settingsSource: McpSettingsSource;
@@ -45,6 +63,27 @@ interface McpServerWriteTarget {
 	settingsSource: McpSettingsSource;
 	servers: JsonRecord;
 }
+
+interface McpSourcePathTarget {
+	settingsPath: string;
+	settingsSource: McpSettingsSource;
+}
+
+interface WatchTarget {
+	watchPath: string;
+	fileName: string;
+}
+
+type WatchFileFn = (
+	path: string,
+	options: { persistent: false },
+	listener: (eventType: string, fileName: string | Buffer | null) => void,
+) => CloseableWatcher;
+
+type CloseableWatcher = {
+	close(): void;
+	on?: (event: "error", listener: (error: Error) => void) => unknown;
+};
 
 export function readMcpServersResponse(
 	options: ReadMcpServersResponseOptions = {},
@@ -79,6 +118,129 @@ export function readMcpServersResponse(
 		sources: getReadableMcpSourceSummaries(options),
 		...(skippedServers.length > 0 ? { skippedServers } : {}),
 		...(sourceErrors.length > 0 ? { sourceErrors } : {}),
+	};
+}
+
+export function mcpServersChangedPayload(
+	reason = "change",
+	options: ReadMcpServersResponseOptions = {},
+): JsonRecord {
+	return {
+		type: "mcp_servers_changed",
+		reason,
+		timestamp: Date.now(),
+		...readMcpServersResponse(options),
+	};
+}
+
+export function createMcpServersWatcher(
+	options: WatchMcpServersOptions,
+): McpServersWatcher {
+	const debounceMs = Math.max(25, options.debounceMs ?? 150);
+	const sourceOptions: ReadMcpServersResponseOptions = {
+		...(options.workspaceRoot ? { workspaceRoot: options.workspaceRoot } : {}),
+		...(options.userHome ? { userHome: options.userHome } : {}),
+	};
+	const watchFile: WatchFileFn =
+		options.watchFile ??
+		((path, watchOptions, listener) => watch(path, watchOptions, listener));
+	let closed = false;
+	let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+	let watchers: CloseableWatcher[] = [];
+	let activeWatchKey = "";
+	let activeWatchedPaths: string[] = [];
+
+	const closeActiveWatchers = () => {
+		for (const watcher of watchers) {
+			watcher.close();
+		}
+		watchers = [];
+		activeWatchedPaths = [];
+		activeWatchKey = "";
+	};
+
+	const armWatchers = () => {
+		if (closed) {
+			return;
+		}
+		const targets = uniqueMcpWatchTargets(getMcpWatchTargets(sourceOptions));
+		const nextWatchKey = targets
+			.map((target) => `${target.watchPath}\0${target.fileName}`)
+			.sort()
+			.join("\n");
+		if (nextWatchKey === activeWatchKey) {
+			return;
+		}
+
+		closeActiveWatchers();
+		const activeTargets: WatchTarget[] = [];
+		for (const target of targets) {
+			try {
+				const watcher = watchFile(
+					target.watchPath,
+					{ persistent: false },
+					(eventType, fileName) => {
+						if (isMcpWatchEventRelevant(target, fileName)) {
+							scheduleChange(eventType || "change");
+						}
+					},
+				);
+				watcher.on?.("error", (error) => {
+					options.onError?.(
+						error instanceof Error ? error : new Error(String(error)),
+						target.watchPath,
+					);
+				});
+				watchers.push(watcher);
+				activeTargets.push(target);
+			} catch (error) {
+				options.onError?.(
+					error instanceof Error ? error : new Error(String(error)),
+					target.watchPath,
+				);
+			}
+		}
+		activeWatchKey = activeTargets
+			.map((target) => `${target.watchPath}\0${target.fileName}`)
+			.sort()
+			.join("\n");
+		activeWatchedPaths = activeTargets
+			.map((target) => target.watchPath)
+			.filter((path, index, paths) => paths.indexOf(path) === index)
+			.sort();
+	};
+
+	const scheduleChange = (reason: string) => {
+		if (closed) {
+			return;
+		}
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+		debounceTimer = setTimeout(() => {
+			debounceTimer = undefined;
+			if (closed) {
+				return;
+			}
+			armWatchers();
+			options.onChange(mcpServersChangedPayload(reason, sourceOptions));
+		}, debounceMs);
+	};
+
+	armWatchers();
+
+	return {
+		close() {
+			closed = true;
+			if (debounceTimer) {
+				clearTimeout(debounceTimer);
+				debounceTimer = undefined;
+			}
+			closeActiveWatchers();
+		},
+		watchedPaths() {
+			return [...activeWatchedPaths];
+		},
 	};
 }
 
@@ -153,6 +315,75 @@ function getCursorMcpUserHome(
 		process.env.CODEVIBE_CURSOR_HOME?.trim() ||
 		undefined
 	);
+}
+
+function getMcpSourcePathTargets(
+	options: ReadMcpServersResponseOptions = {},
+): McpSourcePathTarget[] {
+	const root = options.workspaceRoot?.trim() || workspaceRoot;
+	const userHome = getCursorMcpUserHome(options);
+	return [
+		{
+			settingsPath: resolveMcpSettingsPath(),
+			settingsSource: "cline",
+		},
+		{
+			settingsPath: resolveCursorMcpSettingsPath(root),
+			settingsSource: "cursor-workspace",
+		},
+		{
+			settingsPath: resolveGlobalCursorMcpSettingsPath(userHome),
+			settingsSource: "cursor-global",
+		},
+	];
+}
+
+function getMcpWatchTargets(
+	options: ReadMcpServersResponseOptions = {},
+): WatchTarget[] {
+	const targets: WatchTarget[] = [];
+	for (const source of getMcpSourcePathTargets(options)) {
+		const settingsDir = dirname(source.settingsPath);
+		if (existsSync(settingsDir)) {
+			targets.push({
+				watchPath: settingsDir,
+				fileName: basename(source.settingsPath),
+			});
+			continue;
+		}
+		const parentDir = dirname(settingsDir);
+		if (existsSync(parentDir)) {
+			targets.push({
+				watchPath: parentDir,
+				fileName: basename(settingsDir),
+			});
+		}
+	}
+	return targets;
+}
+
+function uniqueMcpWatchTargets(targets: WatchTarget[]): WatchTarget[] {
+	const seen = new Set<string>();
+	const unique: WatchTarget[] = [];
+	for (const target of targets) {
+		const key = `${target.watchPath}\0${target.fileName}`;
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		unique.push(target);
+	}
+	return unique;
+}
+
+function isMcpWatchEventRelevant(
+	target: WatchTarget,
+	fileName: string | Buffer | null,
+): boolean {
+	if (!fileName) {
+		return true;
+	}
+	return fileName.toString() === target.fileName;
 }
 
 function getCursorMcpSourcePath(input: {

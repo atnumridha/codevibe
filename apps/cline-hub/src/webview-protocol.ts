@@ -282,6 +282,17 @@ export type WebviewOutboundMessage =
 	| { type: "status"; text: string }
 	| { type: "error"; text: string }
 	| {
+			type: "mcp_servers_changed";
+			reason: string;
+			timestamp: number;
+			settingsPath: string;
+			hasSettingsFile: boolean;
+			servers: Array<Record<string, unknown>>;
+			sources?: Array<Record<string, unknown>>;
+			skippedServers?: Array<Record<string, unknown>>;
+			sourceErrors?: Array<Record<string, unknown>>;
+	  }
+	| {
 			type: "desktopCommandResult";
 			id: string;
 			ok: true;

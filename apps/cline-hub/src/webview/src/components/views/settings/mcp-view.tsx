@@ -44,6 +44,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { desktopClient } from "@/lib/desktop-client";
 import { cn } from "@/lib/utils";
+import type { WebviewOutboundMessage } from "../../../../../webview-protocol";
 
 type McpTransportType = "stdio" | "sse" | "streamableHttp";
 type CursorMcpImportSource = "workspace" | "global";
@@ -259,6 +260,26 @@ export function McpServersContent() {
 		}, 0);
 		return () => window.clearTimeout(timeoutId);
 	}, [refreshServers]);
+
+	useEffect(() => {
+		const handleMessage = (event: MessageEvent<WebviewOutboundMessage>) => {
+			const message = event.data;
+			if (
+				!message ||
+				typeof message !== "object" ||
+				message.type !== "mcp_servers_changed"
+			) {
+				return;
+			}
+			applyResponse({
+				settingsPath: message.settingsPath,
+				hasSettingsFile: message.hasSettingsFile,
+				servers: message.servers as unknown as McpServer[],
+			});
+		};
+		window.addEventListener("message", handleMessage);
+		return () => window.removeEventListener("message", handleMessage);
+	}, [applyResponse]);
 
 	const toggleServer = async (server: McpServer, disabled: boolean) => {
 		setBusyServerName(server.name);
