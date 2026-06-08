@@ -768,7 +768,7 @@ describe("HubServerTransport boundaries", () => {
 						provider: input.config.providerId,
 						model: input.config.modelId,
 						cwd: input.config.cwd,
-						workspace_root: input.config.workspaceRoot,
+						workspace_root: input.config.workspaceRoot ?? input.config.cwd,
 						enable_tools: input.config.enableTools,
 						enable_spawn: input.config.enableSpawnAgent,
 						enable_teams: input.config.enableAgentTeams,
@@ -980,9 +980,11 @@ describe("HubServerTransport boundaries", () => {
 				runTurn: vi.fn(),
 				abort: vi.fn(),
 				dispose: vi.fn(),
-				getSession: vi.fn().mockImplementation(async (sessionId: string) =>
-					sessionId === "session-peer" ? sessionRecord : undefined,
-				),
+				getSession: vi
+					.fn()
+					.mockImplementation(async (sessionId: string) =>
+						sessionId === "session-peer" ? sessionRecord : undefined,
+					),
 				listSessions: vi.fn().mockResolvedValue([sessionRecord]),
 				deleteSession: vi.fn(),
 				updateSession: vi.fn(),
@@ -1093,9 +1095,11 @@ describe("HubServerTransport boundaries", () => {
 				runTurn: vi.fn(),
 				abort: vi.fn(),
 				dispose: vi.fn(),
-				getSession: vi.fn().mockImplementation(async (sessionId: string) =>
-					sessionId === "session-proxy" ? sessionRecord : undefined,
-				),
+				getSession: vi
+					.fn()
+					.mockImplementation(async (sessionId: string) =>
+						sessionId === "session-proxy" ? sessionRecord : undefined,
+					),
 				listSessions: vi.fn().mockResolvedValue([sessionRecord]),
 				deleteSession: vi.fn(),
 				updateSession: vi.fn(),

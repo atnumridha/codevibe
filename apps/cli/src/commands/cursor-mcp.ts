@@ -1,36 +1,36 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
 import {
-	buildCursorAutomationIngestRouteRequest,
+	type BackgroundAgentTaskRecord,
 	buildCursorAgentTaskRouteRequest,
+	buildCursorAutomationIngestRouteRequest,
 	buildCursorGlassRouteMetadata,
+	buildCursorMcpInstallRequest,
 	buildCursorPluginAddRouteRequest,
 	buildCursorRuleRouteRequest,
 	buildCursorSettingsRouteRequest,
-	buildCursorMcpInstallRequest,
-	getCursorCompatibleUriPath,
-	ClineCore,
-	DefaultToolNames,
-	formatCursorMcpInstallDetail,
-	HubSessionClient,
-	installPlugin,
-	launchCursorBackgroundAgent,
-	loadMcpSettingsFile,
-	resolveCursorMcpSettingsPath,
-	resolveGlobalCursorMcpSettingsPath,
-	resolveCursorCommandFileRouteRequest,
-	resolveBackgroundAgentRecordsPath,
-	resolveClineDataDir,
-	upsertBackgroundAgentTaskRecordFile,
-	createBackgroundAgentWorktree as createSharedBackgroundAgentWorktree,
 	type ClineAutomationNdjsonIngestOptions,
 	type ClineAutomationNdjsonIngressResult,
+	ClineCore,
 	type ClineCoreAutomationApi,
 	type CursorAutomationEventSummary,
 	type CursorAutomationIngestRouteRequest,
 	type CursorAutomationRejectedLineSummary,
-	type BackgroundAgentTaskRecord,
 	type CursorBackgroundAgentLaunchRequest,
+	createBackgroundAgentWorktree as createSharedBackgroundAgentWorktree,
+	DefaultToolNames,
+	formatCursorMcpInstallDetail,
+	getCursorCompatibleUriPath,
+	HubSessionClient,
+	installPlugin,
+	launchCursorBackgroundAgent,
+	loadMcpSettingsFile,
+	resolveBackgroundAgentRecordsPath,
+	resolveClineDataDir,
+	resolveCursorCommandFileRouteRequest,
+	resolveCursorMcpSettingsPath,
+	resolveGlobalCursorMcpSettingsPath,
+	upsertBackgroundAgentTaskRecordFile,
 	type WorktreeResult,
 } from "@cline/core";
 import type {
@@ -38,14 +38,14 @@ import type {
 	ChatStartSessionRequest,
 } from "@cline/shared";
 import { resolveGlobalSettingsPath } from "@cline/shared/storage";
+import { ensureCliHubServer } from "../utils/hub-runtime";
+import type { CreateTaskWorktreeResult } from "../utils/worktree";
 import {
-	addServerRecords,
 	addServerRecord,
+	addServerRecords,
 	getSettingsPath,
 	loadServers,
 } from "../wizards/mcp/settings";
-import { ensureCliHubServer } from "../utils/hub-runtime";
-import type { CreateTaskWorktreeResult } from "../utils/worktree";
 
 const BACKGROUND_AGENT_DISPATCH_ACK_TIMEOUT_MS = 5_000;
 
@@ -291,7 +291,7 @@ function toAutomationIngestOptions(
 			? { defaultSource: request.options.defaultSource }
 			: {}),
 		...(request.options.allowedSources
-			? { allowedSources: request.options.allowedSources }
+			? { allowedSources: [...request.options.allowedSources] }
 			: {}),
 		...(request.options.maxLineBytes !== undefined
 			? { maxLineBytes: request.options.maxLineBytes }
@@ -334,7 +334,7 @@ function buildAutomationIngestReport(
 			? { defaultSource: request.options.defaultSource }
 			: {}),
 		...(request.options.allowedSources
-			? { allowedSources: request.options.allowedSources }
+			? { allowedSources: [...request.options.allowedSources] }
 			: {}),
 		...(request.options.maxLineBytes !== undefined
 			? { maxLineBytes: request.options.maxLineBytes }
@@ -365,7 +365,9 @@ function writeAutomationIngestTextReport(
 		}
 	}
 	if (report.strictFailed) {
-		options.io.writeln("Strict mode blocked ingest because one or more lines were rejected.");
+		options.io.writeln(
+			"Strict mode blocked ingest because one or more lines were rejected.",
+		);
 	}
 	if (!report.ingested && report.valid) {
 		options.io.writeln("Re-run with --yes to ingest these automation events.");
@@ -443,7 +445,9 @@ function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
 			);
 		} else {
 			options.io.writeln(request.reason);
-			options.io.writeln("Start an agent task with this deeplink before writing rule content.");
+			options.io.writeln(
+				"Start an agent task with this deeplink before writing rule content.",
+			);
 		}
 		return 0;
 	}
@@ -470,7 +474,9 @@ function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
 		} else {
 			options.io.writeln(`Cursor rule: ${request.filename}`);
 			options.io.writeln(`File: ${filePath}`);
-			options.io.writeln("Re-run with --yes to create or reuse this rule file.");
+			options.io.writeln(
+				"Re-run with --yes to create or reuse this rule file.",
+			);
 		}
 		return 0;
 	}
@@ -526,7 +532,9 @@ async function writeCursorPluginAddRoute(
 			);
 		} else {
 			options.io.writeln(request.detail);
-			options.io.writeln("Review this Cursor plugin deeplink before installing.");
+			options.io.writeln(
+				"Review this Cursor plugin deeplink before installing.",
+			);
 		}
 		return 0;
 	}
@@ -541,7 +549,9 @@ async function writeCursorPluginAddRoute(
 					requiresConfirmation: true,
 					source: request.source,
 					sourceParam: request.sourceParam,
-					...(request.sourceConfigKey ? { sourceConfigKey: request.sourceConfigKey } : {}),
+					...(request.sourceConfigKey
+						? { sourceConfigKey: request.sourceConfigKey }
+						: {}),
 					detail: request.detail,
 				}),
 			);
@@ -566,7 +576,9 @@ async function writeCursorPluginAddRoute(
 				installed: true,
 				source: result.source,
 				sourceParam: request.sourceParam,
-				...(request.sourceConfigKey ? { sourceConfigKey: request.sourceConfigKey } : {}),
+				...(request.sourceConfigKey
+					? { sourceConfigKey: request.sourceConfigKey }
+					: {}),
 				installPath: result.installPath,
 				entryPaths: result.entryPaths,
 			}),
@@ -621,7 +633,9 @@ function buildCursorBackgroundAgentLaunchRequest(
 	};
 }
 
-function backgroundAgentRecordsPath(options: CursorMcpInstallCommandOptions): string {
+function backgroundAgentRecordsPath(
+	options: CursorMcpInstallCommandOptions,
+): string {
 	return (
 		options.backgroundAgentRecordsPath ??
 		resolveBackgroundAgentRecordsPath(resolveClineDataDir())
@@ -648,15 +662,11 @@ function toBackgroundAgentLifecycleReport(
 			: {}),
 		...(record.workspaceRoot ? { workspaceRoot: record.workspaceRoot } : {}),
 		...(record.worktreePath ? { worktreePath: record.worktreePath } : {}),
-		...(record.worktreeBranch
-			? { worktreeBranch: record.worktreeBranch }
-			: {}),
+		...(record.worktreeBranch ? { worktreeBranch: record.worktreeBranch } : {}),
 		...(record.worktreeBaseRef
 			? { worktreeBaseRef: record.worktreeBaseRef }
 			: {}),
-		...(record.fallbackReason
-			? { fallbackReason: record.fallbackReason }
-			: {}),
+		...(record.fallbackReason ? { fallbackReason: record.fallbackReason } : {}),
 		...(record.warning ? { warning: record.warning } : {}),
 		...(record.taskId ? { taskId: record.taskId } : {}),
 		...(record.errorMessage ? { errorMessage: record.errorMessage } : {}),
@@ -856,9 +866,7 @@ function writeAgentTaskRoutePreview(
 				...(request.kind === "background-agent" && options.worktree
 					? { worktree: { requested: true, created: false } }
 					: {}),
-				...(resolved.commandFile
-					? { commandFile: resolved.commandFile }
-					: {}),
+				...(resolved.commandFile ? { commandFile: resolved.commandFile } : {}),
 			}),
 		);
 		return 0;
@@ -955,14 +963,8 @@ async function launchCursorAgentTask(
 			new HubSessionClient({
 				address: clientOptions.address,
 				authToken: clientOptions.authToken,
-				clientType:
-					request.kind === "background-agent"
-						? "cli-cursor-background-agent"
-						: "cli-cursor-agent-task",
-				displayName:
-					request.kind === "background-agent"
-						? "CodeVibe CLI (Cursor background agent)"
-						: "CodeVibe CLI (Cursor agent task)",
+				clientType: "cli-cursor-agent-task",
+				displayName: "CodeVibe CLI (Cursor agent task)",
 				workspaceRoot: clientOptions.workspaceRoot,
 				cwd: clientOptions.cwd,
 			}));
@@ -985,10 +987,7 @@ async function launchCursorAgentTask(
 		enableTeams: false,
 		autoApproveTools: false,
 		toolPolicies: getCursorQueuedAgentToolPolicies(),
-		source:
-			request.kind === "background-agent"
-				? "cline-cli-cursor-background-agent"
-				: "cline-cli-cursor-agent-task",
+		source: "codevibe-cli-cursor-agent-task",
 		interactive: false,
 	};
 
@@ -1013,8 +1012,7 @@ async function launchCursorAgentTask(
 					path: request.path,
 					started: true,
 					sessionId: started.sessionId,
-					workspaceRoot,
-					cwd,
+					...(resolved.commandFile ? {} : { workspaceRoot, cwd }),
 					provider: providerId,
 					model: modelId,
 					delivery: "queue",
@@ -1111,7 +1109,9 @@ export function runCursorMcpImportCommand(
 						source:
 							sourceKind === "global" ? "global-cursor-mcp" : "workspace-mcp",
 						path:
-							sourceKind === "global" ? "~/.cursor/mcp.json" : ".cursor/mcp.json",
+							sourceKind === "global"
+								? "~/.cursor/mcp.json"
+								: ".cursor/mcp.json",
 						importedAt,
 					},
 				},
@@ -1154,6 +1154,8 @@ export async function runCursorMcpInstallCommand(
 			if (options.json) {
 				options.io.writeln(
 					JSON.stringify({
+						handled: true,
+						route: "mcp-install",
 						installed: false,
 						requiresConfirmation: true,
 						serverName: request.serverName,
@@ -1174,6 +1176,8 @@ export async function runCursorMcpInstallCommand(
 		if (options.json) {
 			options.io.writeln(
 				JSON.stringify({
+					handled: true,
+					route: "mcp-install",
 					installed: true,
 					serverName: request.serverName,
 					settingsPath,

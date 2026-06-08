@@ -157,6 +157,13 @@ vi.mock("./session/session", () => sessionMocks);
 vi.mock("@cline/core", () => {
 	return {
 		resolveProviderConfig: llmMocks.resolveProviderConfig,
+		Llms: {
+			BUILT_IN_PROVIDER: { OPENAI_CODEX: "openai-codex" },
+			MODEL_COLLECTIONS_BY_PROVIDER_ID: {
+				"openai-codex": { provider: { defaultModelId: "gpt-5.5" } },
+			},
+			normalizeProviderId: vi.fn((providerId: string) => providerId),
+		},
 		resolveCursorSandboxPolicy: cursorSandboxMocks.resolveCursorSandboxPolicy,
 		applyCursorSandboxToolPolicies:
 			cursorSandboxMocks.applyCursorSandboxToolPolicies,
@@ -886,11 +893,15 @@ describe("runCli lightweight command dispatch", () => {
 		};
 		cursorSandboxMocks.resolveCursorSandboxPolicy.mockResolvedValue(policy);
 		cursorSandboxMocks.applyCursorSandboxToolPolicies.mockImplementation(
-			(targetPolicies: Record<string, { autoApprove?: boolean }>, receivedPolicy) => {
+			(targetPolicies, receivedPolicy) => {
 				expect(receivedPolicy).toBe(policy);
-				targetPolicies["*"] = { autoApprove: false };
-				targetPolicies.read_files = { autoApprove: true };
-				targetPolicies.editor = { autoApprove: false };
+				const policies = targetPolicies as Record<
+					string,
+					{ autoApprove?: boolean }
+				>;
+				policies["*"] = { autoApprove: false };
+				policies.read_files = { autoApprove: true };
+				policies.editor = { autoApprove: false };
 			},
 		);
 		process.argv = ["bun", "src/index.ts"];

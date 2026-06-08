@@ -16,6 +16,10 @@ import {
 } from "./commands/update";
 import { CLI_DEFAULT_CHECKPOINT_CONFIG } from "./runtime/defaults";
 import {
+	resolveCodeVibeDir,
+	setCodeVibeDirEnvironment,
+} from "./utils/codevibe-env";
+import {
 	buildCliCompactionConfig,
 	CLI_COMPACTION_MODE_EXPECTED_TEXT,
 } from "./utils/compaction-mode";
@@ -25,10 +29,6 @@ import {
 	normalizeAutoApproveArgs,
 	resolveWorkspaceRoot,
 } from "./utils/helpers";
-import {
-	resolveCodeVibeDir,
-	setCodeVibeDirEnvironment,
-} from "./utils/codevibe-env";
 import {
 	c,
 	installStreamErrorGuards,
@@ -76,7 +76,9 @@ async function loadCliRuntimeModules() {
 		import("./runtime/run-agent"),
 	]);
 	return {
+		applyCursorSandboxToolPolicies: coreServer.applyCursorSandboxToolPolicies,
 		coreServer,
+		resolveCursorSandboxPolicy: coreServer.resolveCursorSandboxPolicy,
 		resolveSystemPrompt: prompt.resolveSystemPrompt,
 		runAgent: runAgentModule.runAgent,
 	};
@@ -929,7 +931,7 @@ export async function runCli(): Promise<void> {
 		workspaceRoot,
 		policySetting: process.env.CLINE_CURSOR_SANDBOX_POLICY?.trim() || "prompt",
 		logger: {
-			warn: (message) => {
+			warn: (message: string) => {
 				if (args.outputMode !== "json") {
 					writeln(`${c.dim}${message}${c.reset}`);
 				}

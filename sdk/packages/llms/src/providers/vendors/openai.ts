@@ -1,5 +1,5 @@
+import { randomUUID } from "node:crypto";
 import { createOpenAI } from "@ai-sdk/openai";
-import { randomUUID } from "crypto";
 import type {
 	GatewayProviderContext,
 	GatewayResolvedProviderConfig,
@@ -89,7 +89,10 @@ function wrapCodexFetch(
 			const url = tryParseUrl(input.url);
 			return innerFetch(
 				url
-					? new Request(withCodexClientVersion(url, clientVersion), input)
+					? new Request(
+							withCodexClientVersion(url, clientVersion).toString(),
+							input,
+						)
 					: input,
 				init,
 			);

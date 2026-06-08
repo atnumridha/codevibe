@@ -9,6 +9,13 @@ const mockEnsureCliHubServer = vi.hoisted(() => vi.fn());
 const mockParseAutomationEventNdjson = vi.hoisted(() => vi.fn());
 
 vi.mock("@cline/core", () => ({
+	Llms: {
+		BUILT_IN_PROVIDER: { OPENAI_CODEX: "openai-codex" },
+		MODEL_COLLECTIONS_BY_PROVIDER_ID: {
+			"openai-codex": { provider: { defaultModelId: "gpt-5.5" } },
+		},
+		normalizeProviderId: vi.fn((providerId: string) => providerId),
+	},
 	sendHubCommand: mockSendHubCommand,
 	parseAutomationEventNdjson: mockParseAutomationEventNdjson,
 }));
@@ -419,11 +426,12 @@ describe("runScheduleCommand event validate", () => {
 		const stdinSpy = vi
 			.spyOn(process.stdin, Symbol.asyncIterator)
 			.mockImplementation(() => {
-				async function* iterator() {
+				async function* iterator(): AsyncGenerator<Buffer, undefined, unknown> {
 					yield Buffer.from(
 						`${JSON.stringify({ id: "evt_stdin", type: "git.checkout.completed" })}\n`,
 						"utf8",
 					);
+					return undefined;
 				}
 				return iterator();
 			});

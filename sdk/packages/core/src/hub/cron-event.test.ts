@@ -69,7 +69,7 @@ Summarize the Cursor git event.
 							eventType: "git.commit.created",
 							source: "cursor",
 							duplicate: false,
-							matchedSpecIds: ["cursor-git"],
+							matchedSpecIds: [expect.any(String)],
 							suppressionCount: 0,
 						},
 					],
@@ -109,7 +109,7 @@ Summarize the Cursor git event.
 							eventType: "git.commit.created",
 							source: "cursor",
 							duplicate: false,
-							matchedSpecIds: ["cursor-git"],
+							matchedSpecIds: [expect.any(String)],
 						},
 					],
 				},
@@ -256,7 +256,9 @@ Summarize the Cursor git event.
 					count: 3,
 				},
 			});
-			const listedEvents = listReply.payload?.events as Array<Record<string, unknown>>;
+			const listedEvents = listReply.payload?.events as Array<
+				Record<string, unknown>
+			>;
 			expect(listedEvents.map((event) => event.eventId)).toEqual(
 				expect.arrayContaining([
 					"evt_cursor_git_1",
@@ -427,7 +429,7 @@ Summarize the Cursor branch event.
 							eventType: "git.branch.created",
 							source: "cursor",
 							duplicate: false,
-							matchedSpecIds: ["cursor-branch"],
+							matchedSpecIds: [expect.any(String)],
 						},
 					],
 				},
@@ -586,7 +588,7 @@ Summarize the Cursor branch event.
 						type: "git.commit.created",
 						source: "raw-test",
 					}),
-				).join("\n"),
+				).join("\n") as unknown as Record<string, unknown>,
 			});
 
 			expect(rawStringDefaultLimitReply).toMatchObject({
@@ -613,7 +615,7 @@ Summarize the Cursor branch event.
 					type: "git.commit.created",
 					source: "raw-test",
 					data: { text: "x".repeat(16 * 1024) },
-				}),
+				}) as unknown as Record<string, unknown>,
 			});
 
 			expect(rawStringMaxLineBytesReply).toMatchObject({

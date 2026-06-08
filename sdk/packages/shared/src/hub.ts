@@ -455,7 +455,8 @@ export interface HubPromptCommandListRequest extends Record<string, unknown> {
 	query?: string;
 }
 
-export interface HubPromptCommandExecuteRequest extends Record<string, unknown> {
+export interface HubPromptCommandExecuteRequest
+	extends Record<string, unknown> {
 	workspaceRoot?: string;
 	cwd?: string;
 	name?: string;

@@ -2,11 +2,22 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type {
+	AutomationIngestCore,
+	BackgroundAgentSessionClient,
+} from "./cursor-mcp";
 import {
 	runCursorMcpImportCommand,
 	runCursorMcpInstallCommand,
 	runCursorUriCommand,
 } from "./cursor-mcp";
+
+type BackgroundAgentSessionConnect = NonNullable<
+	BackgroundAgentSessionClient["connect"]
+>;
+type BackgroundAgentSessionDispose = NonNullable<
+	BackgroundAgentSessionClient["dispose"]
+>;
 
 function encodeConfig(config: Record<string, unknown>): string {
 	return Buffer.from(JSON.stringify(config), "utf8")
@@ -55,6 +66,19 @@ describe("Cursor MCP install command", () => {
 				writeErr: (text: string) => err.push(text),
 			},
 		};
+	}
+
+	function createMockBackgroundAgentSessionClient(sessionId: string) {
+		return {
+			connect: vi.fn<BackgroundAgentSessionConnect>(async () => {}),
+			startRuntimeSession: vi.fn<
+				BackgroundAgentSessionClient["startRuntimeSession"]
+			>(async () => ({ sessionId })),
+			sendRuntimeSession: vi.fn<
+				BackgroundAgentSessionClient["sendRuntimeSession"]
+			>(async () => ({})),
+			dispose: vi.fn<BackgroundAgentSessionDispose>(async () => {}),
+		} satisfies BackgroundAgentSessionClient;
 	}
 
 	it("previews Cursor MCP installs without writing settings", async () => {
@@ -328,8 +352,11 @@ describe("Cursor MCP install command", () => {
 			},
 		});
 		expect(
-			(parsed.mcpServers?.alpha?.metadata as { cursor?: { importedAt?: string } })
-				.cursor?.importedAt,
+			(
+				parsed.mcpServers?.alpha?.metadata as {
+					cursor?: { importedAt?: string };
+				}
+			).cursor?.importedAt,
 		).toEqual(expect.any(String));
 	});
 
@@ -539,12 +566,7 @@ describe("Cursor MCP install command", () => {
 			url: "ws://127.0.0.1:25463",
 			authToken: "hub-token",
 		}));
-		const sessionClient = {
-			connect: vi.fn(async () => {}),
-			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-bg" })),
-			sendRuntimeSession: vi.fn(async () => ({})),
-			dispose: vi.fn(async () => {}),
-		};
+		const sessionClient = createMockBackgroundAgentSessionClient("session-bg");
 		const createBackgroundAgentSessionClient = vi.fn(() => sessionClient);
 
 		const code = await runCursorUriCommand({
@@ -641,7 +663,9 @@ describe("Cursor MCP install command", () => {
 
 	it("creates a worktree before confirmed Cursor background-agent sessions when requested", async () => {
 		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-src-"));
-		const worktreeRoot = await mkdtemp(join(tmpdir(), "cline-bg-agent-worktree-"));
+		const worktreeRoot = await mkdtemp(
+			join(tmpdir(), "cline-bg-agent-worktree-"),
+		);
 		tempDirs.push(workspaceRoot, worktreeRoot);
 		const recordsPath = await useBackgroundAgentRecordsPath();
 		const { out, io } = createIo();
@@ -656,12 +680,9 @@ describe("Cursor MCP install command", () => {
 			taskId: "abc12",
 			repoRoot: workspaceRoot,
 		}));
-		const sessionClient = {
-			connect: vi.fn(async () => {}),
-			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-bg-worktree" })),
-			sendRuntimeSession: vi.fn(async () => ({})),
-			dispose: vi.fn(async () => {}),
-		};
+		const sessionClient = createMockBackgroundAgentSessionClient(
+			"session-bg-worktree",
+		);
 		const createBackgroundAgentSessionClient = vi.fn(() => sessionClient);
 
 		const code = await runCursorUriCommand({
@@ -678,7 +699,9 @@ describe("Cursor MCP install command", () => {
 		});
 
 		expect(code).toBe(0);
-		expect(createBackgroundAgentWorktree).toHaveBeenCalledWith({ cwd: workspaceRoot });
+		expect(createBackgroundAgentWorktree).toHaveBeenCalledWith({
+			cwd: workspaceRoot,
+		});
 		expect(ensureBackgroundAgentHub).toHaveBeenCalledWith(worktreeRoot);
 		expect(createBackgroundAgentSessionClient).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -745,12 +768,9 @@ describe("Cursor MCP install command", () => {
 			success: false,
 			message: "Not a git repository",
 		}));
-		const sessionClient = {
-			connect: vi.fn(async () => {}),
-			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-bg-fallback" })),
-			sendRuntimeSession: vi.fn(async () => ({})),
-			dispose: vi.fn(async () => {}),
-		};
+		const sessionClient = createMockBackgroundAgentSessionClient(
+			"session-bg-fallback",
+		);
 		const createBackgroundAgentSessionClient = vi.fn(() => sessionClient);
 
 		const code = await runCursorUriCommand({
@@ -806,12 +826,8 @@ describe("Cursor MCP install command", () => {
 			url: "ws://127.0.0.1:25463",
 			authToken: "hub-token",
 		}));
-		const sessionClient = {
-			connect: vi.fn(async () => {}),
-			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-task" })),
-			sendRuntimeSession: vi.fn(async () => ({})),
-			dispose: vi.fn(async () => {}),
-		};
+		const sessionClient =
+			createMockBackgroundAgentSessionClient("session-task");
 		const createBackgroundAgentSessionClient = vi.fn(() => sessionClient);
 
 		const code = await runCursorUriCommand({
@@ -839,7 +855,7 @@ describe("Cursor MCP install command", () => {
 			enableSpawn: false,
 			enableTeams: false,
 			autoApproveTools: false,
-			source: "cline-cli-cursor-agent-task",
+			source: "codevibe-cli-cursor-agent-task",
 			interactive: false,
 			toolPolicies: {
 				"*": { enabled: false, autoApprove: false },
@@ -981,7 +997,9 @@ describe("Cursor MCP install command", () => {
 			requiresReview: true,
 			name: "team-style",
 		});
-		await expect(readFile(join(workspace, ".cursor", "rules", "team-style.mdc"), "utf8")).rejects.toThrow();
+		await expect(
+			readFile(join(workspace, ".cursor", "rules", "team-style.mdc"), "utf8"),
+		).rejects.toThrow();
 	});
 
 	it("previews command deeplinks without executing them", async () => {
@@ -998,7 +1016,9 @@ describe("Cursor MCP install command", () => {
 			handled: true,
 			route: "command",
 			requiresAgent: true,
-			taskPrompt: expect.stringContaining("Review it with the user before running it"),
+			taskPrompt: expect.stringContaining(
+				"Review it with the user before running it",
+			),
 			paramKeys: ["command", "config"],
 		});
 		expect(out[0]).not.toContain("secret-value");
@@ -1096,9 +1116,9 @@ describe("Cursor MCP install command", () => {
 		});
 		expect(payload.installPath).toContain(join(workspace, ".cline", "plugins"));
 		expect(payload.entryPaths?.[0]).toContain("docs-plugin.js");
-		await expect(readFile(payload.entryPaths?.[0] ?? "", "utf8")).resolves.toContain(
-			"docs-plugin",
-		);
+		await expect(
+			readFile(payload.entryPaths?.[0] ?? "", "utf8"),
+		).resolves.toContain("docs-plugin");
 		expect(out[0]).not.toContain("secret-value");
 	});
 
@@ -1179,7 +1199,9 @@ describe("Cursor MCP install command", () => {
 	});
 
 	it("ingests confirmed Cursor automation URI events through ClineCore automation", async () => {
-		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-automation-"));
+		const workspaceRoot = await mkdtemp(
+			join(tmpdir(), "cline-cursor-automation-"),
+		);
 		tempDirs.push(workspaceRoot);
 		const { out, io } = createIo();
 		const event = {
@@ -1189,15 +1211,37 @@ describe("Cursor MCP install command", () => {
 			occurredAt: "2026-06-06T00:00:00.000Z",
 			payload: { branch: "main" },
 		};
-		const ingestNdjson = vi.fn(() => ({
+		const ingestNdjson = vi.fn<
+			AutomationIngestCore["automation"]["ingestNdjson"]
+		>(() => ({
 			events: [event],
 			rejected: [],
 			results: [
 				{
-					event: { eventId: "evt-1" },
+					event: {
+						...event,
+						receivedAt: "2026-06-06T00:00:00.000Z",
+						processingStatus: "queued",
+						matchedSpecCount: 1,
+						queuedRunCount: 1,
+						suppressedCount: 0,
+						createdAt: "2026-06-06T00:00:00.000Z",
+						updatedAt: "2026-06-06T00:00:00.000Z",
+					},
 					duplicate: false,
 					matchedSpecIds: ["spec-1"],
-					queuedRuns: [{ runId: "run-1" }],
+					queuedRuns: [
+						{
+							runId: "run-1",
+							specId: "spec-1",
+							specRevision: 1,
+							triggerKind: "event",
+							status: "queued",
+							attemptCount: 0,
+							createdAt: "2026-06-06T00:00:00.000Z",
+							updatedAt: "2026-06-06T00:00:00.000Z",
+						},
+					],
 					suppressions: [],
 				},
 			],
@@ -1225,9 +1269,12 @@ describe("Cursor MCP install command", () => {
 			workspaceRoot,
 			cwd: workspaceRoot,
 		});
-		expect(ingestNdjson).toHaveBeenCalledWith(JSON.stringify(event), {
-			defaultSource: "cursor",
-		});
+		expect(ingestNdjson).toHaveBeenCalledWith(
+			JSON.stringify(event),
+			expect.objectContaining({
+				defaultSource: "cursor",
+			}),
+		);
 		expect(dispose).toHaveBeenCalledWith("cursor_automation_ingest_done");
 		expect(JSON.parse(out[0] ?? "{}")).toMatchObject({
 			handled: true,
@@ -1275,7 +1322,9 @@ describe("Cursor MCP install command", () => {
 	});
 
 	it("previews Cursor command files for standalone agent task routes", async () => {
-		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-command-"));
+		const workspaceRoot = await mkdtemp(
+			join(tmpdir(), "cline-cursor-command-"),
+		);
 		tempDirs.push(workspaceRoot);
 		const commandsDir = join(workspaceRoot, ".cursor", "commands");
 		await mkdir(commandsDir, { recursive: true });
@@ -1312,7 +1361,9 @@ describe("Cursor MCP install command", () => {
 	});
 
 	it("starts confirmed Cursor command files without leaking absolute paths", async () => {
-		const workspaceRoot = await mkdtemp(join(tmpdir(), "cline-cursor-command-"));
+		const workspaceRoot = await mkdtemp(
+			join(tmpdir(), "cline-cursor-command-"),
+		);
 		tempDirs.push(workspaceRoot);
 		const commandsDir = join(workspaceRoot, ".cursor", "commands");
 		await mkdir(commandsDir, { recursive: true });
@@ -1326,12 +1377,8 @@ describe("Cursor MCP install command", () => {
 			url: "ws://127.0.0.1:25463",
 			authToken: "hub-token",
 		}));
-		const sessionClient = {
-			connect: vi.fn(async () => {}),
-			startRuntimeSession: vi.fn(async () => ({ sessionId: "session-command" })),
-			sendRuntimeSession: vi.fn(async () => ({})),
-			dispose: vi.fn(async () => {}),
-		};
+		const sessionClient =
+			createMockBackgroundAgentSessionClient("session-command");
 
 		const code = await runCursorUriCommand({
 			uri: "vscode://cline.cline/command?name=review-code",
@@ -1375,7 +1422,10 @@ describe("Cursor MCP install command", () => {
 
 	it("previews PR review and glass deeplinks", async () => {
 		for (const [uri, route] of [
-			["vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42", "pr-review"],
+			[
+				"vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42",
+				"pr-review",
+			],
 			["vscode://cline.cline/glass?text=Continue%20here", "glass"],
 		]) {
 			const { out, io } = createIo();
