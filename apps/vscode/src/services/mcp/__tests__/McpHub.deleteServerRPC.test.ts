@@ -51,16 +51,31 @@ describe("McpHub.deleteServerRPC", () => {
 		;(hub as any).getSettingsDirectoryPath = async () => tempDir
 		;(hub as any).isUpdatingClineSettings = false
 		;(hub as any).connections = [makeConnection("alpha"), makeConnection("beta")]
+		;(hub as any).serverSettingsFiles = new Map([
+			["alpha", settingsPath],
+			["beta", settingsPath],
+		])
+		;(hub as any).serverSettingsSources = new Map([
+			["alpha", "cline"],
+			["beta", "cline"],
+		])
+		;(hub as any).lastServerOrder = ["alpha", "beta"]
 		// clearOAuthForConnection touches the OAuth manager; stub it out.
 		sandbox.stub(hub as any, "clearOAuthForConnection").resolves()
-		// updateServerConnectionsRPC normally opens real transports; reproduce only
-		// the relevant behavior: drop connections no longer present in the new set.
-		sandbox.stub(hub as any, "updateServerConnectionsRPC").callsFake((...args: unknown[]) => {
-			const newServers = args[0] as Record<string, unknown>
+		// reloadMcpServersFromSettings normally opens real transports; reproduce only
+		// the relevant behavior: drop connections no longer present in persisted settings.
+		sandbox.stub(hub as any, "reloadMcpServersFromSettings").callsFake(async () => {
+			const persisted = JSON.parse(await fs.readFile(settingsPath, "utf-8")) as {
+				mcpServers?: Record<string, unknown>
+			}
+			const newServers = persisted.mcpServers ?? {}
+			const serverNames = Object.keys(newServers)
 			;(hub as any).connections = (hub as any).connections.filter((c: FakeConnection) =>
 				Object.hasOwn(newServers, c.server.name),
 			)
-			return Promise.resolve()
+			;(hub as any).serverSettingsFiles = new Map(serverNames.map((name) => [name, settingsPath]))
+			;(hub as any).serverSettingsSources = new Map(serverNames.map((name) => [name, "cline"]))
+			;(hub as any).lastServerOrder = serverNames
 		})
 	})
 

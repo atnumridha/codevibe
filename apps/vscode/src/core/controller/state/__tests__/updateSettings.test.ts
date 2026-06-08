@@ -15,6 +15,7 @@ describe("updateSettings", () => {
 			stateManager: {
 				setApiConfiguration,
 			},
+			postStateToWebview: sinon.stub().resolves(),
 		}
 
 		await updateSettings(

@@ -46,6 +46,7 @@ export const config = createVariant(ModelFamily.HERMES)
 		ClineDefaultTool.LIST_CODE_DEF,
 		ClineDefaultTool.BROWSER,
 		ClineDefaultTool.BROWSER_SNAPSHOT,
+		ClineDefaultTool.BROWSER_SCREENSHOT,
 		ClineDefaultTool.MCP_USE,
 		ClineDefaultTool.MCP_ACCESS,
 		ClineDefaultTool.ASK,

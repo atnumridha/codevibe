@@ -68,7 +68,13 @@ export function resetTelemetryService(): void {
 }
 
 export const telemetryService = new Proxy({} as TelemetryService, {
-	get(_target, prop, _receiver) {
+	get(target, prop, receiver) {
+		if (Reflect.has(target, prop)) {
+			const value = Reflect.get(target, prop, receiver)
+			if (value !== undefined) {
+				return value
+			}
+		}
 		// Return a function that will call the method on the actual service
 		return async (...args: any[]) => {
 			const service: TelemetryService = await getTelemetryService()
@@ -78,5 +84,21 @@ export const telemetryService = new Proxy({} as TelemetryService, {
 			}
 			return method
 		}
+	},
+	has(target, prop) {
+		return Reflect.has(target, prop) || prop in TelemetryService.prototype
+	},
+	getOwnPropertyDescriptor(target, prop) {
+		return (
+			Reflect.getOwnPropertyDescriptor(target, prop) ??
+			(prop in TelemetryService.prototype
+				? {
+						configurable: true,
+						enumerable: false,
+						writable: true,
+						value: undefined,
+					}
+				: undefined)
+		)
 	},
 })
