@@ -255,28 +255,28 @@
 			},
 			{
 				"command": "cursor.ndjsonIngest.start",
-				"title": "Cursor NDJSON Ingest: Start Server"
+				"title": "CodeVibe Compatibility NDJSON: Start Server"
 			},
 			{
 				"command": "cursor.ndjsonIngest.stop",
-				"title": "Cursor NDJSON Ingest: Stop Server"
+				"title": "CodeVibe Compatibility NDJSON: Stop Server"
 			},
 			{
 				"command": "cursor.ndjsonIngest.copyCurl",
-				"title": "Cursor NDJSON Ingest: Copy curl command"
+				"title": "CodeVibe Compatibility NDJSON: Copy curl command"
 			},
 			{
 				"command": "cursor.ndjsonIngest.reassignPort",
-				"title": "Cursor NDJSON Ingest: Reassign port and restart server"
+				"title": "CodeVibe Compatibility NDJSON: Reassign port and restart server"
 			},
 			{
 				"command": "cursor.ndjsonIngest.showStatus",
-				"title": "Cursor NDJSON Ingest: Show server info"
+				"title": "CodeVibe Compatibility NDJSON: Show server info"
 			},
 			{
 				"command": "cursor-deeplink.debug.triggerDeeplink",
 				"title": "Debug: Trigger Arbitrary Deeplink",
-				"category": "Cursor Deeplink"
+				"category": "CodeVibe Compatibility"
 			}
 		],
 		"keybindings": [
@@ -401,17 +401,17 @@
 				"cline.cursorCompatibility.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Enables Cursor-compatible workspace inputs such as .cursorrules, .cursor/rules, .cursorignore, .cursorindexingignore, .cursor/mcp.json, and .cursor/sandbox.json."
+					"description": "Enables CodeVibe compatibility inputs such as .cursorrules, .cursor/rules, .cursorignore, .cursorindexingignore, .cursor/mcp.json, and .cursor/sandbox.json."
 				},
 				"cline.cursorCompatibility.deepLinks.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Enables validation for Cursor-compatible deep-link route families before routing them into CodeVibe tasks."
+					"description": "Enables validation for compatible deep-link route families before routing them into CodeVibe tasks."
 				},
 				"cline.cursorCompatibility.retrievalIndexing.privacyGate": {
 					"type": "boolean",
 					"default": true,
-					"description": "Requires Cursor-compatible indexing and retrieval features to respect workspace ignore files and privacy gates."
+					"description": "Requires compatible indexing and retrieval features to respect workspace ignore files and privacy gates."
 				},
 				"cline.cursorCompatibility.sandboxPolicy": {
 					"type": "string",
@@ -428,24 +428,24 @@
 						"Disabled"
 					],
 					"default": "prompt",
-					"description": "Default policy for untrusted Cursor-compatible sandbox inputs such as .cursor/sandbox.json."
+					"description": "Default policy for untrusted compatibility sandbox inputs such as .cursor/sandbox.json."
 				},
 				"cline.cursorCompatibility.safeBrowserEvaluate.enabled": {
 					"type": "boolean",
 					"default": false,
-					"description": "Enables the same gated browser_action evaluate permission as Browser Settings > Allow browser JavaScript evaluation for Cursor-compatible browser automation flows. Keep disabled unless you trust the active task."
+					"description": "Enables the same gated browser_action evaluate permission as Browser Settings > Allow browser JavaScript evaluation for compatible browser automation flows. Keep disabled unless you trust the active task."
 				},
 				"ndjson.port": {
 					"type": "number",
 					"default": 0,
 					"minimum": 0,
 					"maximum": 65535,
-					"description": "Port for the Cursor-compatible NDJSON ingest server. Set to 0 for auto-allocation in range 7242-7942."
+					"description": "Port for the CodeVibe compatibility NDJSON ingest server. Set to 0 for auto-allocation in range 7242-7942."
 				},
 				"ndjson.bindAddress": {
 					"type": "string",
 					"default": "127.0.0.1",
-					"description": "Address to bind the Cursor-compatible NDJSON ingest server to. Non-localhost addresses require confirmation because they can expose the ingest endpoint to the network."
+					"description": "Address to bind the CodeVibe compatibility NDJSON ingest server to. Non-localhost addresses require confirmation because they can expose the ingest endpoint to the network."
 				}
 			}
 		}

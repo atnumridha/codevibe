@@ -75,7 +75,7 @@ const AutoApproveModal: React.FC<AutoApproveModalProps> = ({ isVisible, setIsVis
 					Let CodeVibe take these actions without asking for approval.{" "}
 					<a
 						className="text-link hover:text-link-hover"
-						href="https://docs.cline.bot/features/auto-approve#auto-approve"
+						href="https://github.com/atnumridha/codevibe#readme"
 						rel="noopener"
 						style={{ fontSize: "inherit" }}
 						target="_blank">

@@ -138,7 +138,7 @@ const ClineModelPicker: React.FC<ClineModelPickerProps> = ({ isPopup, currentMod
 			setClineFreeModels(free)
 			return true
 		} catch (error) {
-			console.error("Failed to refresh Cline recommended models:", error)
+			console.error("Failed to refresh CodeVibe recommended models:", error)
 			return false
 		}
 	}, [])

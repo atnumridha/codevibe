@@ -95,9 +95,9 @@ export const SETTINGS_TABS: SettingsTab[] = [
 	},
 	{
 		id: "cursor-compat",
-		name: "Cursor Links",
-		tooltipText: "Cursor-Compatible Links",
-		headerText: "Cursor-Compatible Links",
+		name: "Compatibility",
+		tooltipText: "Compatibility Links",
+		headerText: "Compatibility Links",
 		icon: Link2,
 	},
 	{

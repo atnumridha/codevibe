@@ -167,7 +167,7 @@ export function buildCursorUriPreview(input: string): CursorUriPreview {
 			ok: false,
 			paramKeys: [],
 			redacted: false,
-			text: "Enter a Cursor or CodeVibe URI.",
+			text: "Enter a CodeVibe or compatible URI.",
 			error: "URI is empty",
 		}
 	}

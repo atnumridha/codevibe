@@ -647,8 +647,7 @@ export function SettingsView({
 	);
 }
 
-const DEFAULT_CURSOR_URI =
-	"vscode://cline.cline/createchat?prompt=Review%20the%20diff";
+const DEFAULT_CURSOR_URI = "codevibe://createchat?prompt=Review%20the%20diff";
 const CURSOR_LINK_ROUTE_LABELS = [
 	{ label: "Chat", path: "/createchat" },
 	{ label: "MCP", path: "/mcp/install" },
@@ -688,7 +687,7 @@ const CURSOR_LINK_EXAMPLES = [
 	},
 	{
 		label: "MCP",
-		uri: "vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+		uri: "codevibe://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 	},
 	{
 		label: "Background",
@@ -696,8 +695,8 @@ const CURSOR_LINK_EXAMPLES = [
 	},
 	{
 		label: "NDJSON",
-		uri: `vscode://cline.cline/automation/ingest?ndjson=${encodeURIComponent(
-			JSON.stringify({ eventId: "evt-1", eventType: "cursor.demo" }),
+		uri: `codevibe://automation/ingest?ndjson=${encodeURIComponent(
+			JSON.stringify({ eventId: "evt-1", eventType: "codevibe.demo" }),
 		)}`,
 	},
 	{
@@ -884,7 +883,7 @@ function buildCursorUriLocalPreview(input: string): {
 		return {
 			paramKeys: [],
 			redacted: false,
-			text: "Enter a Cursor or CodeVibe URI.",
+			text: "Enter a CodeVibe or compatible URI.",
 		};
 	}
 
@@ -1340,10 +1339,10 @@ function CursorLinksContent({
 							))}
 						</div>
 						<Textarea
-							aria-label="Cursor-compatible URI"
+							aria-label="Compatibility URI"
 							className="min-h-28 resize-y font-mono text-xs"
 							onChange={(event) => updateCursorUri(event.target.value)}
-							placeholder="vscode://cline.cline/createchat?prompt=..."
+							placeholder="codevibe://createchat?prompt=..."
 							value={cursorUri}
 						/>
 						<div className="rounded-md border border-border/70 bg-muted/30 px-3 py-2">
@@ -1528,7 +1527,7 @@ function CursorLinksContent({
 							{canAddPlugin ? (
 								<div className="flex items-center gap-2 rounded-md border border-border/70 px-2.5 py-1.5">
 									<Switch
-										aria-label="Replace existing Cursor plugin"
+										aria-label="Replace existing compatible plugin"
 										checked={pluginForce}
 										disabled={pluginLoading}
 										onCheckedChange={setPluginForce}
@@ -1591,7 +1590,7 @@ function CursorLinksContent({
 				{launchResult ? (
 					<Alert className="mt-4">
 						<CheckCircle2 className="size-4" />
-						<AlertTitle>Cursor session launched</AlertTitle>
+						<AlertTitle>Compatibility session launched</AlertTitle>
 						<AlertDescription>
 							{[
 								launchResult.sessionId,
@@ -1716,7 +1715,7 @@ function CursorLinksContent({
 					<Alert className="mt-4">
 						<CheckCircle2 className="size-4" />
 						<AlertTitle>
-							{ruleResult.created ? "Cursor rule created" : "Cursor rule opened"}
+							{ruleResult.created ? "Compatible rule created" : "Compatible rule opened"}
 						</AlertTitle>
 						<AlertDescription>
 							{[
@@ -1750,8 +1749,8 @@ function CursorLinksContent({
 						)}
 						<AlertTitle>
 							{pluginResult.installed
-								? "Cursor plugin installed"
-								: "Cursor plugin blocked"}
+								? "Compatible plugin installed"
+								: "Compatible plugin blocked"}
 						</AlertTitle>
 						<AlertDescription>
 							{pluginResult.installed

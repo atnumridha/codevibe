@@ -438,6 +438,19 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 			if (typeof item?.command === "string" && item.command.startsWith("cline.")) {
 				throw new Error(`${label} menu ${menuId} must not reference legacy Cline command ${item.command}`)
 			}
+			if (
+				menuId === "view/title" &&
+				[
+					"codevibe.plusButtonClicked",
+					"codevibe.mcpButtonClicked",
+					"codevibe.historyButtonClicked",
+					"codevibe.accountButtonClicked",
+					"codevibe.settingsButtonClicked",
+					"codevibe.worktreesButtonClicked",
+				].includes(item?.command)
+			) {
+				throw new Error(`${label} must not contribute duplicate CodeVibe navigation actions to view/title`)
+			}
 			if (typeof item?.when === "string" && item.when.includes("claude-dev.SidebarProvider")) {
 				throw new Error(`${label} menu ${menuId} must not target legacy claude-dev.SidebarProvider`)
 			}

@@ -17,19 +17,19 @@ interface CursorCompatibilitySectionProps {
 const EXAMPLES = [
 	{
 		label: "Chat",
-		uri: "vscode://cline.cline/createchat?prompt=Review%20the%20current%20diff",
+		uri: "codevibe://createchat?prompt=Review%20the%20current%20diff",
 	},
 	{
 		label: "MCP",
-		uri: "vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+		uri: "codevibe://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 	},
 	{
 		label: "Background",
-		uri: "vscode://cline.cline/background-agent?prompt=Investigate%20flaky%20tests&repo=owner%2Frepo",
+		uri: "codevibe://background-agent?prompt=Investigate%20flaky%20tests&repo=owner%2Frepo",
 	},
 	{
 		label: "Plugin",
-		uri: "vscode://cline.cline/plugin/add?id=docs-helper&replace=true",
+		uri: "codevibe://plugin/add?id=docs-helper&replace=true",
 	},
 	{
 		label: "Git",
@@ -50,7 +50,7 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 	const launchUri = useCallback(async () => {
 		const trimmedUri = uri.trim()
 		if (!trimmedUri) {
-			setStatus({ kind: "error", message: "Enter a Cursor or CodeVibe URI." })
+			setStatus({ kind: "error", message: "Enter a CodeVibe or compatible URI." })
 			return
 		}
 
@@ -98,7 +98,7 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 								setUri((event.target as HTMLTextAreaElement).value)
 								setStatus(null)
 							}}
-							placeholder="vscode://cline.cline/createchat?prompt=..."
+							placeholder="codevibe://createchat?prompt=..."
 							rows={4}
 							value={uri}
 						/>
