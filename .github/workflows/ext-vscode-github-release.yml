@@ -215,11 +215,20 @@ jobs:
                   fi
                   node scripts/package-github-vsix.mjs "${package_args[@]}"
 
+            - name: Setup Bun for standalone evidence
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: 1.3.13
+
+            - name: Install standalone workspace dependencies
+              working-directory: ${{ github.workspace }}
+              run: bun install --frozen-lockfile
+
             - name: Collect Cursor-Parity Evidence
               if: ${{ always() }}
               working-directory: ${{ github.workspace }}
               run: |
-                  node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth --run-standalone-ui --out-file apps/vscode/cursor-parity-evidence.md || true
+                  node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth --run-standalone-ui --run-sandbox-policy --out-file apps/vscode/cursor-parity-evidence.md
 
             - name: Get Previous Tag
               id: prev_tag

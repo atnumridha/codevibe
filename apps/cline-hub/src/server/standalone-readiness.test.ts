@@ -29,6 +29,7 @@ test("standalone readiness exposes VS-Code-free Cursor/Codex surfaces", () => {
 	for (const route of CURSOR_COMPATIBLE_WEBVIEW_ROUTES) {
 		assert.ok(payload.cursorCompatibility.routes.includes(route), route);
 	}
+	assert.ok(payload.cursorCompatibility.routes.includes("/settings"));
 	for (const command of [
 		"cursor_uri_preview",
 		"cursor_uri_launch",

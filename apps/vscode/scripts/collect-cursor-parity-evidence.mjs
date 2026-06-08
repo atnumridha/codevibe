@@ -191,8 +191,30 @@ const standaloneUiCommands = [
 	},
 ]
 
+const sandboxPolicyCommands = [
+	{
+		label: "Cursor sandbox policy unit tests",
+		command: "npm",
+		args: [
+			"--prefix",
+			"apps/vscode",
+			"run",
+			"test:unit",
+			"--",
+			"src/core/config/cursor-sandbox.test.ts",
+			"src/core/task/tools/__tests__/ToolValidator.cursorSandbox.test.ts",
+			"src/core/task/tools/utils/__tests__/PathResolver.cursorSandbox.test.ts",
+			"src/core/task/tools/handlers/__tests__/PathToolHandlers.gracefulErrors.test.ts",
+			"--grep",
+			"cursor-sandbox config|ToolValidator Cursor sandbox|PathResolver Cursor sandbox|Cursor sandbox",
+		],
+		cwd: repoRoot,
+		category: "sandbox-policy",
+	},
+]
+
 function usage() {
-	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [--run-retrieval-indexing] [--run-mcp-oauth] [--run-standalone-ui]
+	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [--run-retrieval-indexing] [--run-mcp-oauth] [--run-standalone-ui] [--run-sandbox-policy]
 
 Generates a local Markdown evidence log for the Cursor-parity release gate.
 
@@ -202,7 +224,8 @@ where npm install, build, test, e2e, package, and VSIX smoke install are expecte
 to run. Use --run-retrieval-indexing to execute focused retrieval/indexing
 privacy evidence without running the full dependency/build/e2e gate. Use
 --run-mcp-oauth to execute focused Cursor MCP import/install/OAuth evidence.
-Use --run-standalone-ui to execute focused standalone UI/readiness evidence.`)
+Use --run-standalone-ui to execute focused standalone UI/readiness evidence.
+Use --run-sandbox-policy to execute focused .cursor/sandbox.json policy evidence.`)
 }
 
 function parseArgs(argv) {
@@ -212,6 +235,7 @@ function parseArgs(argv) {
 		runRetrievalIndexing: false,
 		runMcpOAuth: false,
 		runStandaloneUi: false,
+		runSandboxPolicy: false,
 	}
 
 	for (let index = 0; index < argv.length; index++) {
@@ -227,12 +251,15 @@ function parseArgs(argv) {
 			options.runRetrievalIndexing = true
 			options.runMcpOAuth = true
 			options.runStandaloneUi = true
+			options.runSandboxPolicy = true
 		} else if (arg === "--run-retrieval-indexing") {
 			options.runRetrievalIndexing = true
 		} else if (arg === "--run-mcp-oauth") {
 			options.runMcpOAuth = true
 		} else if (arg === "--run-standalone-ui") {
 			options.runStandaloneUi = true
+		} else if (arg === "--run-sandbox-policy") {
+			options.runSandboxPolicy = true
 		} else if (arg === "-h" || arg === "--help") {
 			usage()
 			process.exit(0)
@@ -313,6 +340,13 @@ function skippedMcpOAuthCommand(command) {
 function skippedStandaloneUiCommand(command) {
 	return {
 		...skippedCommand(command, "Skipped by default; rerun with --run-standalone-ui or --run-required."),
+		category: command.category,
+	}
+}
+
+function skippedSandboxPolicyCommand(command) {
+	return {
+		...skippedCommand(command, "Skipped by default; rerun with --run-sandbox-policy or --run-required."),
 		category: command.category,
 	}
 }
@@ -462,6 +496,23 @@ function renderStandaloneUiEvidence(results) {
 	].join("\n")
 }
 
+function renderSandboxPolicyEvidence(results) {
+	const sandboxResults = results.filter((result) => result.category === "sandbox-policy")
+	if (sandboxResults.length === 0) {
+		return "_No sandbox policy evidence commands were configured._"
+	}
+	const rows = sandboxResults.map(
+		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
+	)
+	return [
+		"| Status | Check | Command |",
+		"| --- | --- | --- |",
+		...rows,
+		"",
+		"Focused evidence covers Cursor-compatible `.cursor/sandbox.json` parsing, conservative defaults, read/write path enforcement, network allow/deny validation, and path-handler blocking before filesystem, tree-sitter, or ripgrep work starts.",
+	].join("\n")
+}
+
 function renderPrereqTable(summary) {
 	if (!summary?.checks) {
 		return "_Prerequisite JSON was unavailable._"
@@ -479,7 +530,16 @@ function renderPrereqTable(summary) {
 	].join("\n")
 }
 
-function renderEvidence({ metadata, results, prereqSummary, runRequired, runRetrievalIndexing, runMcpOAuth, runStandaloneUi }) {
+function renderEvidence({
+	metadata,
+	results,
+	prereqSummary,
+	runRequired,
+	runRetrievalIndexing,
+	runMcpOAuth,
+	runStandaloneUi,
+	runSandboxPolicy,
+}) {
 	const generatedAt = new Date().toISOString()
 	return `# CodeVibe Cursor-Parity Evidence
 
@@ -503,6 +563,7 @@ ${fenced(metadata.vsCodeVersion)}
 - Focused retrieval/indexing evidence executed: ${runRetrievalIndexing ? "yes" : "no"}
 - Focused MCP install/OAuth evidence executed: ${runMcpOAuth ? "yes" : "no"}
 - Focused standalone UI evidence executed: ${runStandaloneUi ? "yes" : "no"}
+- Focused sandbox policy evidence executed: ${runSandboxPolicy ? "yes" : "no"}
 
 ## Preflight Summary
 
@@ -519,6 +580,10 @@ ${renderMcpOAuthEvidence(results)}
 ## Standalone UI Evidence
 
 ${renderStandaloneUiEvidence(results)}
+
+## Sandbox Policy Evidence
+
+${renderSandboxPolicyEvidence(results)}
 
 ## Command Evidence
 
@@ -649,6 +714,18 @@ function main() {
 			results.push(skippedStandaloneUiCommand(command))
 		}
 	}
+	if (options.runSandboxPolicy) {
+		for (const command of sandboxPolicyCommands) {
+			results.push({
+				...runCommand(command),
+				category: command.category,
+			})
+		}
+	} else {
+		for (const command of sandboxPolicyCommands) {
+			results.push(skippedSandboxPolicyCommand(command))
+		}
+	}
 
 	const evidence = renderEvidence({
 		metadata,
@@ -658,6 +735,7 @@ function main() {
 		runRetrievalIndexing: options.runRetrievalIndexing,
 		runMcpOAuth: options.runMcpOAuth,
 		runStandaloneUi: options.runStandaloneUi,
+		runSandboxPolicy: options.runSandboxPolicy,
 	})
 
 	fs.mkdirSync(path.dirname(options.outFile), { recursive: true })
@@ -668,7 +746,11 @@ function main() {
 	console.log(`${failed} failed command(s), ${skipped} not run command(s).`)
 	process.exit(
 		failed === 0 &&
-			(skipped === 0 || options.runRetrievalIndexing || options.runMcpOAuth || options.runStandaloneUi)
+			(skipped === 0 ||
+				options.runRetrievalIndexing ||
+				options.runMcpOAuth ||
+				options.runStandaloneUi ||
+				options.runSandboxPolicy)
 			? 0
 			: 1,
 	)

@@ -6,7 +6,23 @@ const { CURSOR_COMPATIBLE_WEBVIEW_ROUTES, isWebviewRoute } = (await import(
 )) as typeof import("./http");
 
 test("Cursor-compatible standalone routes are served by the SPA", () => {
+	assert.equal(CURSOR_COMPATIBLE_WEBVIEW_ROUTES.includes("/settings"), true);
+	assert.equal(isWebviewRoute("/settings"), true);
 	for (const pathname of CURSOR_COMPATIBLE_WEBVIEW_ROUTES) {
+		assert.equal(isWebviewRoute(pathname), true, pathname);
+	}
+});
+
+test("standalone settings subroutes are served by the SPA", () => {
+	for (const pathname of [
+		"/settings/providers",
+		"/settings/customizations",
+		"/settings/mcp",
+		"/settings/cursor-links",
+		"/settings/channels",
+		"/settings/schedules",
+		"/settings/account",
+	]) {
 		assert.equal(isWebviewRoute(pathname), true, pathname);
 	}
 });
