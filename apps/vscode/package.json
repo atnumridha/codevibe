@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe Cursor-parity coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.1",
+	"version": "3.88.2",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -194,7 +194,7 @@
 			},
 			{
 				"command": "codevibe.openLegacyWebview",
-				"title": "Show CodeVibe Panel",
+				"title": "Show CodeVibe Legacy Panel",
 				"category": "CodeVibe"
 			},
 			{
@@ -444,6 +444,11 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Enables the same gated browser_action evaluate permission as Browser Settings > Allow browser JavaScript evaluation for compatible browser automation flows. Keep disabled unless you trust the active task."
+				},
+				"codevibe.ui.preferOpenAiCodexSidebar": {
+					"type": "boolean",
+					"default": true,
+					"description": "Opens the installed OpenAI Codex sidebar by default instead of the legacy CodeVibe webview panel, preventing duplicate agent UIs when Codex is available."
 				},
 				"ndjson.port": {
 					"type": "number",

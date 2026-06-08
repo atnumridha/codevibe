@@ -68,6 +68,10 @@ import { redactUriForLogging } from "./services/uri/UriRedaction"
 import { ShowMessageType } from "./shared/proto/host/window"
 import { fileExistsAtPath } from "./utils/fs"
 
+const OPENAI_CODEX_EXTENSION_ID = "openai.chatgpt"
+const OPENAI_CODEX_OPEN_SIDEBAR_COMMAND = "chatgpt.openSidebar"
+const LEGACY_CODEVIBE_PANEL_VIEW_TYPE = "codevibe.agentPanel"
+
 // This method is called when the VS Code extension is activated.
 // NOTE: This is VS Code specific - services that should be registered
 // for all-platform should be registered in common.ts.
@@ -92,6 +96,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	// 4. Register services and perform common initialization
 	// IMPORTANT: Must be done after host provider is setup and migrations are complete
 	const webview = (await initialize(storageContext)) as VscodeWebviewProvider
+	await closeLegacyCodeVibePanels()
 
 	// 5. Register services and commands specific to VS Code
 	// Initialize test mode and add disposables to context
@@ -481,7 +486,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.FocusChatInput, async (preserveEditorFocus = false) => {
-			const webview = await showCodeVibeSurface(preserveEditorFocus)
+			const webview = await showPreferredCodeVibeSurface(preserveEditorFocus)
 			await sendShowWebviewEvent(preserveEditorFocus)
 			telemetryService.captureButtonClick("command_focusChatInput", webview.controller?.task?.ulid)
 		}),
@@ -773,26 +778,78 @@ async function showCursorNdjsonStatus(status: CursorNdjsonIngestServerStatus, ti
 }
 
 async function openCodeVibeSurfaceForTaskUri(): Promise<void> {
-	const sidebarWaitTimeoutMs = 3000
-	const sidebarWaitIntervalMs = 50
-
-	await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview, true)
-
-	const startedAt = Date.now()
-	while (Date.now() - startedAt < sidebarWaitTimeoutMs) {
-		if (WebviewProvider.getVisibleInstance()) {
-			return
-		}
-		await new Promise((resolve) => setTimeout(resolve, sidebarWaitIntervalMs))
-	}
-
-	Logger.warn("Task URI handling timed out waiting for CodeVibe surface visibility")
+	await showPreferredCodeVibeSurface(true, { allowLegacyFallback: false })
 }
 
 async function showCodeVibeSurface(preserveEditorFocus: boolean): Promise<VscodeWebviewProvider> {
 	const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
 	await webview.show(preserveEditorFocus)
 	return webview
+}
+
+async function showPreferredCodeVibeSurface(
+	preserveEditorFocus: boolean,
+	options: { allowLegacyFallback?: boolean } = {},
+): Promise<VscodeWebviewProvider> {
+	const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
+	const allowLegacyFallback = options.allowLegacyFallback ?? true
+
+	await closeLegacyCodeVibePanels()
+
+	if (shouldPreferOpenAiCodexSidebar() && (await openOpenAiCodexSidebar())) {
+		return webview
+	}
+
+	if (!allowLegacyFallback) {
+		return webview
+	}
+
+	await webview.show(preserveEditorFocus)
+	return webview
+}
+
+function shouldPreferOpenAiCodexSidebar(): boolean {
+	return getCodeVibeConfigurationValue<boolean>("ui.preferOpenAiCodexSidebar", true)
+}
+
+async function openOpenAiCodexSidebar(): Promise<boolean> {
+	const codexExtension = vscode.extensions.getExtension(OPENAI_CODEX_EXTENSION_ID)
+	if (!codexExtension) {
+		return false
+	}
+
+	try {
+		if (!codexExtension.isActive) {
+			await codexExtension.activate()
+		}
+		await vscode.commands.executeCommand(OPENAI_CODEX_OPEN_SIDEBAR_COMMAND)
+		return true
+	} catch (error) {
+		Logger.warn(`Failed to open OpenAI Codex sidebar: ${error instanceof Error ? error.message : String(error)}`)
+		return false
+	}
+}
+
+function isLegacyCodeVibePanelTab(tab: vscode.Tab): boolean {
+	const input = tab.input as { viewType?: string } | undefined
+	return input?.viewType === LEGACY_CODEVIBE_PANEL_VIEW_TYPE
+}
+
+async function closeLegacyCodeVibePanels(): Promise<void> {
+	try {
+		const tabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter(isLegacyCodeVibePanelTab)
+		if (tabs.length > 0) {
+			await vscode.window.tabGroups.close(tabs)
+		}
+	} catch (error) {
+		Logger.warn(`Failed to close restored CodeVibe legacy panels: ${error instanceof Error ? error.message : String(error)}`)
+	}
+
+	try {
+		;(WebviewProvider.getInstance() as VscodeWebviewProvider).closePanel()
+	} catch {
+		// The provider is not initialized during early activation paths.
+	}
 }
 
 async function getBinaryLocation(name: string): Promise<string> {
