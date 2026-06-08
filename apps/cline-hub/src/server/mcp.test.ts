@@ -529,6 +529,39 @@ test("upsertMcpServer preserves OAuth state for the same URL server", (t) => {
 	assert.equal(JSON.stringify(response).includes("secret-token"), false);
 });
 
+test("installCursorMcpServer preserves OAuth state when reinstalling the same remote server", (t) => {
+	const settingsPath = withMcpSettingsFile(t, {
+		mcpServers: {
+			docs: {
+				transport: {
+					type: "streamableHttp",
+					url: "https://mcp.example.test/context",
+				},
+				oauth: {
+					tokens: {
+						access_token: "secret-token",
+					},
+					lastAuthenticatedAt: 1_780_884_800_000,
+				},
+			},
+		},
+	});
+
+	const response = mcpModule.installCursorMcpServer({
+		uri: "cursor://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.test%2Fcontext",
+		confirmed: true,
+	});
+	const settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+	const remote = (response.servers as Array<Record<string, unknown>>).find(
+		(server) => server.name === "docs",
+	);
+
+	assert.equal(settings.mcpServers.docs.oauth.tokens.access_token, "secret-token");
+	assert.equal(remote?.oauthConfigured, true);
+	assert.equal(remote?.oauthStatus, "authenticated");
+	assert.equal(JSON.stringify(response).includes("secret-token"), false);
+});
+
 test("upsertMcpServer rejects names already owned by Cursor sources", (t) => {
 	const dir = withTempDir(t);
 	const nativePath = join(dir, "settings", "cline_mcp_settings.json");

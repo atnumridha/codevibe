@@ -216,7 +216,7 @@ jobs:
               if: ${{ always() }}
               working-directory: ${{ github.workspace }}
               run: |
-                  node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --out-file apps/vscode/cursor-parity-evidence.md || true
+                  node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth --out-file apps/vscode/cursor-parity-evidence.md || true
 
             - name: Get Previous Tag
               id: prev_tag

@@ -5,12 +5,13 @@ import {
 	watch,
 	writeFileSync,
 } from "node:fs";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname } from "node:path";
 import {
 	authorizeMcpServerOAuth,
 	buildCursorMcpInstallRequest,
 	type CursorMcpInstallRequest,
 	normalizeCursorMcpSettingsObject,
+	resolveCursorMcpSettingsPath,
 	resolveGlobalCursorMcpSettingsPath,
 } from "@cline/core";
 import { resolveMcpSettingsPath } from "@cline/shared/storage";
@@ -624,10 +625,6 @@ function inferMcpOAuthStatus(input: {
 		: "error";
 }
 
-function resolveCursorMcpSettingsPath(root: string): string {
-	return join(resolve(root), ".cursor", "mcp.json");
-}
-
 function readCursorMcpImportSource(args?: JsonRecord): {
 	source: CursorMcpImportSource;
 	userHome?: string;
@@ -903,7 +900,13 @@ export function installCursorMcpServer(args?: JsonRecord): JsonRecord {
 		});
 	}
 
-	servers[request.serverName] = request.serverConfig;
+	const currentServer = getRecordValue(servers[request.serverName]);
+	const nextServer = { ...request.serverConfig };
+	const preservedOAuth = getPreservedOAuthState(currentServer, nextServer);
+	if (preservedOAuth) {
+		nextServer.oauth = preservedOAuth;
+	}
+	servers[request.serverName] = nextServer;
 	writeMcpServersMap(servers);
 	return buildCursorMcpInstallResponse(request, {
 		confirmed: true,

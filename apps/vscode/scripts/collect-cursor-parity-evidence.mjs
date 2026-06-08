@@ -117,8 +117,44 @@ const retrievalIndexingCommands = [
 	},
 ]
 
+const mcpOAuthCommands = [
+	{
+		label: "MCP install/OAuth VS Code unit tests",
+		command: "npm",
+		args: [
+			"--prefix",
+			"apps/vscode",
+			"run",
+			"test:unit",
+			"--",
+			"--grep",
+			"CursorMcpInstall|MCP OAuth callback handling|McpOAuthRedirectResolver|authenticateMcpServer|installCursorMcpServer",
+		],
+		cwd: repoRoot,
+		category: "mcp-oauth",
+	},
+	{
+		label: "Hub MCP import/install/OAuth tests",
+		command: "npm",
+		args: [
+			"exec",
+			"--package",
+			"tsx",
+			"--",
+			"tsx",
+			"--tsconfig",
+			"apps/cline-hub/tsconfig.json",
+			"--test",
+			"apps/cline-hub/src/server/mcp.test.ts",
+			"apps/cline-hub/src/server/desktop-commands.mcp.test.ts",
+		],
+		cwd: repoRoot,
+		category: "mcp-oauth",
+	},
+]
+
 function usage() {
-	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [--run-retrieval-indexing]
+	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [--run-retrieval-indexing] [--run-mcp-oauth]
 
 Generates a local Markdown evidence log for the Cursor-parity release gate.
 
@@ -126,7 +162,8 @@ Default mode records safe, non-mutating probes and marks dependency/build/test
 commands as not run. Use --run-required only in a dependency-equipped checkout
 where npm install, build, test, e2e, package, and VSIX smoke install are expected
 to run. Use --run-retrieval-indexing to execute focused retrieval/indexing
-privacy evidence without running the full dependency/build/e2e gate.`)
+privacy evidence without running the full dependency/build/e2e gate. Use
+--run-mcp-oauth to execute focused Cursor MCP import/install/OAuth evidence.`)
 }
 
 function parseArgs(argv) {
@@ -134,6 +171,7 @@ function parseArgs(argv) {
 		outFile: defaultOutFile,
 		runRequired: false,
 		runRetrievalIndexing: false,
+		runMcpOAuth: false,
 	}
 
 	for (let index = 0; index < argv.length; index++) {
@@ -147,8 +185,11 @@ function parseArgs(argv) {
 		} else if (arg === "--run-required") {
 			options.runRequired = true
 			options.runRetrievalIndexing = true
+			options.runMcpOAuth = true
 		} else if (arg === "--run-retrieval-indexing") {
 			options.runRetrievalIndexing = true
+		} else if (arg === "--run-mcp-oauth") {
+			options.runMcpOAuth = true
 		} else if (arg === "-h" || arg === "--help") {
 			usage()
 			process.exit(0)
@@ -215,6 +256,13 @@ function skippedCommand({ label, command, args }, reason) {
 function skippedRetrievalIndexingCommand(command) {
 	return {
 		...skippedCommand(command, "Skipped by default; rerun with --run-retrieval-indexing or --run-required."),
+		category: command.category,
+	}
+}
+
+function skippedMcpOAuthCommand(command) {
+	return {
+		...skippedCommand(command, "Skipped by default; rerun with --run-mcp-oauth or --run-required."),
 		category: command.category,
 	}
 }
@@ -328,6 +376,23 @@ function renderRetrievalIndexingEvidence(results) {
 	].join("\n")
 }
 
+function renderMcpOAuthEvidence(results) {
+	const mcpResults = results.filter((result) => result.category === "mcp-oauth")
+	if (mcpResults.length === 0) {
+		return "_No MCP install/OAuth evidence commands were configured._"
+	}
+	const rows = mcpResults.map(
+		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
+	)
+	return [
+		"| Status | Check | Command |",
+		"| --- | --- | --- |",
+		...rows,
+		"",
+		"Focused evidence covers Cursor-compatible MCP install routes, OAuth callback handling, hub `.cursor/mcp.json` import/source ownership, sanitized OAuth status, and standalone MCP authorization wiring.",
+	].join("\n")
+}
+
 function renderPrereqTable(summary) {
 	if (!summary?.checks) {
 		return "_Prerequisite JSON was unavailable._"
@@ -345,7 +410,7 @@ function renderPrereqTable(summary) {
 	].join("\n")
 }
 
-function renderEvidence({ metadata, results, prereqSummary, runRequired, runRetrievalIndexing }) {
+function renderEvidence({ metadata, results, prereqSummary, runRequired, runRetrievalIndexing, runMcpOAuth }) {
 	const generatedAt = new Date().toISOString()
 	return `# CodeVibe Cursor-Parity Evidence
 
@@ -367,6 +432,7 @@ ${fenced(metadata.vsCodeVersion)}
 - Validation date: ${generatedAt.slice(0, 10)}
 - Required dependency/build commands executed: ${runRequired ? "yes" : "no"}
 - Focused retrieval/indexing evidence executed: ${runRetrievalIndexing ? "yes" : "no"}
+- Focused MCP install/OAuth evidence executed: ${runMcpOAuth ? "yes" : "no"}
 
 ## Preflight Summary
 
@@ -375,6 +441,10 @@ ${renderPrereqTable(prereqSummary)}
 ## Retrieval/Indexing Evidence
 
 ${renderRetrievalIndexingEvidence(results)}
+
+## MCP Install/OAuth Evidence
+
+${renderMcpOAuthEvidence(results)}
 
 ## Command Evidence
 
@@ -480,6 +550,18 @@ function main() {
 			results.push(skippedRetrievalIndexingCommand(command))
 		}
 	}
+	if (options.runMcpOAuth) {
+		for (const command of mcpOAuthCommands) {
+			results.push({
+				...runCommand(command),
+				category: command.category,
+			})
+		}
+	} else {
+		for (const command of mcpOAuthCommands) {
+			results.push(skippedMcpOAuthCommand(command))
+		}
+	}
 
 	const evidence = renderEvidence({
 		metadata,
@@ -487,6 +569,7 @@ function main() {
 		prereqSummary: parsePrereqSummary(results),
 		runRequired: options.runRequired,
 		runRetrievalIndexing: options.runRetrievalIndexing,
+		runMcpOAuth: options.runMcpOAuth,
 	})
 
 	fs.mkdirSync(path.dirname(options.outFile), { recursive: true })
@@ -495,7 +578,7 @@ function main() {
 	const failed = results.filter((result) => result.status === "failed").length
 	const skipped = results.filter((result) => result.status === "not run").length
 	console.log(`${failed} failed command(s), ${skipped} not run command(s).`)
-	process.exit(failed === 0 && (skipped === 0 || options.runRetrievalIndexing) ? 0 : 1)
+	process.exit(failed === 0 && (skipped === 0 || options.runRetrievalIndexing || options.runMcpOAuth) ? 0 : 1)
 }
 
 try {

@@ -350,7 +350,7 @@ export function McpServersContent() {
 		try {
 			const response = await desktopClient.invoke<
 				McpServersResponse & { message?: string }
-			>("authenticate_mcp_server", {
+			>("authorize_mcp_server_oauth", {
 				name: server.name,
 			});
 			applyResponse(response);
