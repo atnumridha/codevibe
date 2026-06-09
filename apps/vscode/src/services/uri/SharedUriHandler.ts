@@ -14,6 +14,7 @@ import {
 	buildCursorCompatibleAutomationIngestRequest,
 	buildCursorCompatibleBackgroundAgentLaunchRequest,
 	buildCursorCompatibleGlassRouteMetadata,
+	buildCursorCompatiblePrReviewRequest,
 	buildCursorCompatibleTaskPrompt,
 	getCursorCompatibleUriPath,
 	parseCursorCompatibleUri,
@@ -469,17 +470,14 @@ function formatCursorUrlForDisplay(source: string): string | undefined {
 }
 
 function buildCursorPrReviewDetail(route: CursorCompatibleUriRoute): string {
-	const url = getRouteStringParam(route, "url")
-	const repo = getRouteStringParam(route, "repo") || getRouteStringParam(route, "repository")
-	const number = getRouteStringParam(route, "number") || getRouteStringParam(route, "pullRequest")
-	const instructions = getRouteStringParam(route, "instructions")
-	const config = route.params.config
-	const configKeys = config && typeof config === "object" && !Array.isArray(config) ? Object.keys(config).sort() : []
-	const target = url ? formatCursorUrlForDisplay(url) || "[provided url]" : repo && number ? `${repo}#${number}` : undefined
+	const request = buildCursorCompatiblePrReviewRequest(route)
 	return [
-		`Pull request: ${target ?? "unknown"}`,
-		...(instructions ? [`Instructions: ${instructions}`] : []),
-		...(configKeys.length > 0 ? [`Config keys: ${configKeys.join(", ")}`] : []),
+		`Pull request: ${request.displayTarget}`,
+		...(request.safeUrl ? [`URL: ${request.safeUrl}`] : []),
+		...(request.fromRef ? [`From ref: ${request.fromRef}`] : []),
+		...(request.toRef ? [`To ref: ${request.toRef}`] : []),
+		...(request.instructions ? [`Instructions: ${request.instructions}`] : []),
+		...(request.configKeys.length > 0 ? [`Config keys: ${request.configKeys.join(", ")}`] : []),
 		"This will start an agent task. Git, network, terminal, and file changes still require the normal approvals.",
 	].join("\n")
 }

@@ -902,16 +902,23 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: "Start Review" })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42&instructions=focus%20tests",
+					"vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42&base=origin%2Fmain&head=pr-42&instructions=focus%20tests",
 				)
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Start CodeVibe PR review?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("owner/repo#42")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("From ref: origin/main")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("To ref: pr-42")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("focus tests")
 				sinon.assert.calledOnce(handleTaskCreationStub)
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("pull request review")
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("repo: owner/repo")
+				const prompt = handleTaskCreationStub.firstCall.args[0]
+				expect(prompt).to.contain("CodeVibe's review workflow")
+				expect(prompt).to.contain("focus tests")
+				expect(prompt).to.contain("generate_explanation")
+				expect(prompt).to.contain("<from_ref>origin/main</from_ref>")
+				expect(prompt).to.contain("<to_ref>pr-42</to_ref>")
+				expect(prompt).to.contain("repo: owner/repo")
 			})
 
 			it("should redact Cursor PR review URL query values in modal details and task prompts", async () => {

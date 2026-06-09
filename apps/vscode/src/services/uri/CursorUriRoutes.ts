@@ -96,6 +96,17 @@ export interface CursorCompatibleAutomationIngestRequest {
 	configKeys: string[]
 }
 
+export interface CursorCompatiblePrReviewRequest {
+	displayTarget: string
+	repository?: string
+	number?: string
+	safeUrl?: string
+	fromRef?: string
+	toRef?: string
+	instructions?: string
+	configKeys: string[]
+}
+
 export interface CursorCompatibleGlassRouteMetadata {
 	glass: true
 	mode: "overlay"
@@ -237,6 +248,14 @@ const prReviewSchema = z
 		repository: optionalBoundedString,
 		number: optionalBoundedString,
 		pullRequest: optionalBoundedString,
+		base: optionalBoundedString,
+		baseBranch: optionalBoundedString,
+		from_ref: optionalBoundedString,
+		fromRef: optionalBoundedString,
+		head: optionalBoundedString,
+		branch: optionalBoundedString,
+		to_ref: optionalBoundedString,
+		toRef: optionalBoundedString,
 		instructions: optionalBoundedString,
 		config: configSchema,
 	})
@@ -245,7 +264,10 @@ const prReviewSchema = z
 		(value) =>
 			hasNonBlankString(value.url) ||
 			((hasNonBlankString(value.repo) || hasNonBlankString(value.repository)) &&
-				(hasNonBlankString(value.number) || hasNonBlankString(value.pullRequest))),
+				(hasNonBlankString(value.number) || hasNonBlankString(value.pullRequest))) ||
+			hasStringConfigValue(value.config, "url") ||
+			((hasStringConfigValue(value.config, "repo") || hasStringConfigValue(value.config, "repository")) &&
+				(hasStringConfigValue(value.config, "number") || hasStringConfigValue(value.config, "pullRequest"))),
 		"PR URL or repository plus PR number is required",
 	)
 
@@ -502,6 +524,84 @@ function getConfigRecord(route: CursorCompatibleUriRoute): Record<string, unknow
 	return config as Record<string, unknown>
 }
 
+function getRouteOrConfigString(route: CursorCompatibleUriRoute, keys: readonly string[]): string | undefined {
+	for (const key of keys) {
+		const value = getStringParam(route, key) || getConfigString(route, key)
+		if (value) {
+			return value
+		}
+	}
+	return undefined
+}
+
+function decodeUrlPathSegment(value: string): string {
+	try {
+		return decodeURIComponent(value)
+	} catch {
+		return value
+	}
+}
+
+function parsePullRequestUrlTarget(value: string): {
+	repository?: string
+	number?: string
+	safeUrl?: string
+} {
+	const safeUrl = formatUrlForDisplay(value) ?? "[provided url]"
+	try {
+		const url = new URL(value)
+		const match = url.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/|$)/)
+		if (match && /(^|\.)github\.com$/i.test(url.hostname)) {
+			return {
+				repository: `${decodeUrlPathSegment(match[1])}/${decodeUrlPathSegment(match[2])}`,
+				number: match[3],
+				safeUrl,
+			}
+		}
+	} catch {
+		// Fall through to the redacted display URL.
+	}
+	return { safeUrl }
+}
+
+function escapeXmlText(value: string): string {
+	return value
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&apos;")
+}
+
+export function buildCursorCompatiblePrReviewRequest(
+	route: CursorCompatibleUriRoute,
+): CursorCompatiblePrReviewRequest {
+	if (route.kind !== "pr-review") {
+		throw new Error(`Expected pr-review route, received ${route.kind}`)
+	}
+
+	const url = getRouteOrConfigString(route, ["url"])
+	const parsedUrlTarget = url ? parsePullRequestUrlTarget(url) : undefined
+	const repository = getRouteOrConfigString(route, ["repo", "repository"]) || parsedUrlTarget?.repository
+	const number = getRouteOrConfigString(route, ["number", "pullRequest"]) || parsedUrlTarget?.number
+	const safeUrl = parsedUrlTarget?.safeUrl
+	const displayTarget = repository && number ? `${repository}#${number}` : safeUrl || "provided pull request"
+	const fromRef = getRouteOrConfigString(route, ["from_ref", "fromRef", "base", "baseBranch"])
+	const toRef = getRouteOrConfigString(route, ["to_ref", "toRef", "head", "branch"])
+	const instructions = getRouteOrConfigString(route, ["instructions"])
+
+	return {
+		displayTarget,
+		...(repository ? { repository } : {}),
+		...(number ? { number } : {}),
+		...(safeUrl ? { safeUrl } : {}),
+		...(fromRef ? { fromRef } : {}),
+		...(toRef ? { toRef } : {}),
+		...(instructions ? { instructions } : {}),
+		configKeys: Object.keys(getConfigRecord(route) ?? {}).sort(),
+	}
+}
+
 export function buildCursorCompatibleGlassRouteMetadata(
 	route: CursorCompatibleUriRoute,
 ): CursorCompatibleGlassRouteMetadata | undefined {
@@ -563,6 +663,44 @@ function buildPromptLikeTaskPrompt(route: CursorCompatibleUriRoute): string {
 		"",
 		"Compatible route context:",
 		formatRouteDetails(route, promptKeys),
+	].join("\n")
+}
+
+function buildCursorPrReviewTaskPrompt(route: CursorCompatibleUriRoute): string {
+	const request = buildCursorCompatiblePrReviewRequest(route)
+	const hasRefs = Boolean(request.fromRef && request.toRef)
+	const title = `PR review: ${request.displayTarget}`
+
+	return [
+		`A compatible pull request review deeplink was opened for ${request.displayTarget}. Use CodeVibe's review workflow instead of treating it as a generic chat task.`,
+		"",
+		"Review target:",
+		`- pull request: ${request.displayTarget}`,
+		...(request.safeUrl ? [`- url: ${request.safeUrl}`] : []),
+		...(request.fromRef ? [`- from_ref: ${request.fromRef}`] : []),
+		...(request.toRef ? [`- to_ref: ${request.toRef}`] : []),
+		...(request.instructions ? ["", "User review instructions:", request.instructions] : []),
+		"",
+		"Expected workflow:",
+		"- Inspect the current repository status and confirm the PR target matches the open workspace before reviewing.",
+		hasRefs
+			? `- Use the generate_explanation tool with title "${title}", from_ref "${request.fromRef}", and to_ref "${request.toRef}" to open the multi-file diff review with inline comments.`
+			: "- If base/head refs are not already available, ask for approval before running network or terminal commands to fetch PR metadata or refs. Do not checkout, reset, stage, commit, or push as part of review setup without explicit confirmation.",
+		"- Summarize risks, test gaps, and requested follow-up after the diff review is available.",
+		...(hasRefs
+			? [
+					"",
+					"Suggested tool call:",
+					"<generate_explanation>",
+					`<title>${escapeXmlText(title)}</title>`,
+					`<from_ref>${escapeXmlText(request.fromRef || "")}</from_ref>`,
+					`<to_ref>${escapeXmlText(request.toRef || "")}</to_ref>`,
+					"</generate_explanation>",
+				]
+			: []),
+		"",
+		"Route details:",
+		formatRouteDetails(route, ["instructions"]),
 	].join("\n")
 }
 
@@ -652,12 +790,15 @@ export function buildCursorCompatibleTaskPrompt(route: CursorCompatibleUriRoute)
 		return buildCursorAutomationIngestPrompt(route)
 	}
 
+	if (route.kind === "pr-review") {
+		return buildCursorPrReviewTaskPrompt(route)
+	}
+
 	const title = {
 		"mcp-install": "MCP install",
 		"background-agent": "background agent",
 		settings: "settings",
 		rule: "rule",
-		"pr-review": "pull request review",
 		"plugin-add": "plugin add",
 		"automation-ingest": "automation NDJSON ingest",
 	}[route.kind]
