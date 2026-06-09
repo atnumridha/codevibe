@@ -1,6 +1,6 @@
 # Copilot Instructions for CodeVibe
 
-This is a VS Code extension. Read `.clinerules/general.md` for tribal knowledge and nuanced patterns.
+This is the CodeVibe VS Code extension. Read `.codevibe/rules/` first when present, then legacy `.clinerules/general.md` for upstream compatibility patterns.
 
 ## Architecture
 - **Core** (`src/`): `extension.ts` → `WebviewProvider` → `Controller` (single source of truth) → `Task` (agent loop).
@@ -15,11 +15,11 @@ This is a VS Code extension. Read `.clinerules/general.md` for tribal knowledge 
 - **Tests**: `npm run test:unit`. After prompt/tool changes: `UPDATE_SNAPSHOTS=true npm run test:unit`.
 
 ## Protobuf RPC Workflow (4 steps)
-1. **Define** in `proto/cline/*.proto`. Naming: `PascalCaseService`, `camelCase` RPCs, `PascalCase` Messages. Use `common.proto` shared types for simple data.
+1. **Define** in `proto/cline/*.proto`. The `cline` package name is a compatibility protocol namespace; visible product copy should say CodeVibe. Naming: `PascalCaseService`, `camelCase` RPCs, `PascalCase` Messages. Use `common.proto` shared types for simple data.
 2. **Generate**: `npm run protos`.
 3. **Backend handler**: `src/core/controller/<domain>/`. 
 4. **Frontend call**: `UiServiceClient.myMethod(Request.create({...}))`.
-- Adding enums (e.g. `ClineSay`) → also update `src/shared/proto-conversions/cline-message.ts`.
+- Adding enums (e.g. legacy `ClineSay`) → also update `src/shared/proto-conversions/cline-message.ts`.
 
 ## Adding API Providers (silent failure risk)
 Three proto conversion updates are **required** or the provider silently resets to Anthropic:
@@ -32,12 +32,12 @@ Also update: `src/shared/api.ts`, `src/shared/providers/providers.json`, `src/co
 For Responses API providers: add to `isNextGenModelProvider()` in `src/utils/model-utils.ts` and set `apiFormat: ApiFormat.OPENAI_RESPONSES` on models.
 
 ## Adding Tools to System Prompt (5+ file chain)
-1. Add enum to `ClineDefaultTool` in `src/shared/tools.ts`.
+1. Add enum to legacy-compatible `ClineDefaultTool` in `src/shared/tools.ts`.
 2. Create definition in `src/core/prompts/system-prompt/tools/` (export `[GENERIC]` minimum).
 3. Register in `src/core/prompts/system-prompt/tools/init.ts`.
 4. Whitelist in `src/core/prompts/system-prompt/variants/*/config.ts` for each model family.
 5. Handler in `src/core/task/tools/handlers/`, wire in `ToolExecutor.ts`.
-6. If tool has UI: add `ClineSay` enum in proto → `ExtensionMessage.ts` → `cline-message.ts` → `ChatRow.tsx`.
+6. If tool has UI: add legacy-compatible `ClineSay` enum in proto → `ExtensionMessage.ts` → `cline-message.ts` → `ChatRow.tsx`.
 7. Regenerate snapshots: `UPDATE_SNAPSHOTS=true npm run test:unit`.
 
 ## Modifying System Prompt
@@ -52,6 +52,7 @@ Adding a key requires updating the typed storage definitions in `src/shared/stor
 - `webview-ui/src/utils/slash-commands.ts` — webview autocomplete.
 
 ## Conventions
+- **Branding**: User-facing strings, docs, marketplace copy, and screenshots should say CodeVibe. Keep Cline names only for protocol, storage, provider-id, and upstream patch compatibility.
 - **Paths**: Always use `src/utils/path` helpers (`toPosixString`) for cross-platform compatibility.
 - **Logging**: `src/shared/services/Logger.ts`.
 - **Feature flags**: See PR #7566 as reference pattern.

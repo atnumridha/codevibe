@@ -17,7 +17,7 @@ permissions: {}
 
 jobs:
   test:
-    if: github.repository == 'cline/cline' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dpc/sdk-migration-simpler-login')
+    if: github.repository == 'atnumridha/codevibe' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cursor-parity')
     permissions:
       contents: read
       pull-requests: read
@@ -27,8 +27,8 @@ jobs:
     needs: test
     permissions:
       contents: write
-    name: Publish Cline (Nightly) Extension
-    if: github.repository == 'cline/cline' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dpc/sdk-migration-simpler-login')
+    name: Publish CodeVibe (Nightly) Extension
+    if: github.repository == 'atnumridha/codevibe' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cursor-parity')
     runs-on: ubuntu-latest
     environment: PublishNightly
     defaults:
@@ -96,7 +96,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Cline Nightly published from ${GITHUB_REF_NAME} at ${GITHUB_SHA}"
+          git tag -a "$TAG" -m "CodeVibe Nightly published from ${GITHUB_REF_NAME} at ${GITHUB_SHA}"
           # Use an explicit HTTPS remote with GH_TOKEN because checkout was run with
           # persist-credentials: false, so actions/checkout did not persist a git credential helper.
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${TAG}"
