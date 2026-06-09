@@ -33,6 +33,7 @@ const requiredCursorParityCommands = [
 	"cursor.ndjsonIngest.reassignPort",
 	"cursor.ndjsonIngest.showStatus",
 	"cursor-deeplink.debug.triggerDeeplink",
+	"codevibe.nativeAgentDiagnostics",
 ]
 
 const expectedManifestAssetPaths = [

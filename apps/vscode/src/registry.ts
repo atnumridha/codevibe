@@ -16,6 +16,7 @@ const CodeVibeCommands = {
 	HistoryButton: prefix + ".historyButtonClicked",
 	AccountButton: prefix + ".accountButtonClicked",
 	WorktreesButton: prefix + ".worktreesButtonClicked",
+	NativeAgentDiagnostics: prefix + ".nativeAgentDiagnostics",
 	TerminalOutput: prefix + ".addTerminalOutputToChat",
 	AddToChat: prefix + ".addToChat",
 	FixWithCodeVibe: prefix + ".fixWithCodeVibe",

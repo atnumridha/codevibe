@@ -57,6 +57,7 @@
 		"onCommand:codevibe.historyButtonClicked",
 		"onCommand:codevibe.accountButtonClicked",
 		"onCommand:codevibe.settingsButtonClicked",
+		"onCommand:codevibe.nativeAgentDiagnostics",
 		"onCommand:codevibe.dev.createTestTasks",
 		"onCommand:codevibe.dev.expireMcpOAuthTokens",
 		"onCommand:codevibe.addToChat",
@@ -252,6 +253,12 @@
 				"title": "Settings",
 				"category": "CodeVibe",
 				"icon": "$(settings-gear)"
+			},
+			{
+				"command": "codevibe.nativeAgentDiagnostics",
+				"title": "Show Native Agent Diagnostics",
+				"category": "CodeVibe",
+				"icon": "$(pulse)"
 			},
 			{
 				"command": "codevibe.dev.createTestTasks",
