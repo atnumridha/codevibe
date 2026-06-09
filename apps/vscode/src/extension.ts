@@ -25,7 +25,7 @@ import { readTextFromClipboard, writeTextToClipboard } from "@/utils/env"
 import { initialize, tearDown } from "./common"
 import { addToCline } from "./core/controller/commands/addToCline"
 import { explainWithCline } from "./core/controller/commands/explainWithCline"
-import { fixWithCline } from "./core/controller/commands/fixWithCline"
+import { fixWithCodeVibe } from "./core/controller/commands/fixWithCline"
 import { improveWithCline } from "./core/controller/commands/improveWithCline"
 import { sendAddToInputEvent } from "./core/controller/ui/subscribeToAddToInput"
 import { sendShowWebviewEvent } from "./core/controller/ui/subscribeToShowWebview"
@@ -425,7 +425,7 @@ export async function activate(context: vscode.ExtensionContext) {
 						const fixAction = new vscode.CodeAction("Fix with CodeVibe", vscode.CodeActionKind.QuickFix)
 						fixAction.isPreferred = true
 						fixAction.command = {
-							command: commands.FixWithCline,
+							command: commands.FixWithCodeVibe,
 							title: "Fix with CodeVibe",
 							arguments: [expandedRange, context.diagnostics],
 						}
@@ -455,13 +455,28 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	)
 	context.subscriptions.push(
-		vscode.commands.registerCommand(commands.FixWithCline, async (range: vscode.Range, diagnostics: vscode.Diagnostic[]) => {
-			const context = await getContextForCommand(range, diagnostics)
-			if (!context) {
-				return
-			}
-			await fixWithCline(context.controller, context.commandContext)
-		}),
+		vscode.commands.registerCommand(
+			commands.FixWithCodeVibe,
+			async (range: vscode.Range, diagnostics: vscode.Diagnostic[]) => {
+				const context = await getContextForCommand(range, diagnostics)
+				if (!context) {
+					return
+				}
+				await fixWithCodeVibe(context.controller, context.commandContext)
+			},
+		),
+	)
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			commands.LegacyFixWithCline,
+			async (range: vscode.Range, diagnostics: vscode.Diagnostic[]) => {
+				const context = await getContextForCommand(range, diagnostics)
+				if (!context) {
+					return
+				}
+				await fixWithCodeVibe(context.controller, context.commandContext)
+			},
+		),
 	)
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.ExplainCode, async (range: vscode.Range) => {

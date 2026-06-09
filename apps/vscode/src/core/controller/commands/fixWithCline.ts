@@ -5,7 +5,7 @@ import { CommandContext, Empty } from "@/shared/proto/index.cline"
 import { Logger } from "@/shared/services/Logger"
 import { Controller } from "../index"
 
-export async function fixWithCline(controller: Controller, request: CommandContext): Promise<Empty> {
+export async function fixWithCodeVibe(controller: Controller, request: CommandContext): Promise<Empty> {
 	const filePath = request.filePath || ""
 	const fileMention = await getFileMentionFromPath(filePath)
 	const problemsString = await singleFileDiagnosticsToProblemsString(filePath, request.diagnostics)
@@ -14,8 +14,10 @@ export async function fixWithCline(controller: Controller, request: CommandConte
 		`Fix the following code in ${fileMention}
 \`\`\`\n${request.selectedText}\n\`\`\`\n\nProblems:\n${problemsString}`,
 	)
-	Logger.log("fixWithCline", request.selectedText, request.filePath, request.language, problemsString)
+	Logger.log("fixWithCodeVibe", request.selectedText, request.filePath, request.language, problemsString)
 
-	telemetryService.captureButtonClick("codeAction_fixWithCline", controller.task?.ulid)
+	telemetryService.captureButtonClick("codeAction_fixWithCodeVibe", controller.task?.ulid)
 	return {}
 }
+
+export const fixWithCline = fixWithCodeVibe

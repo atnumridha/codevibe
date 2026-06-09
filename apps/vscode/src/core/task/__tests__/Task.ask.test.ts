@@ -188,7 +188,7 @@ describe("Task.ask", () => {
 			assert.equal(clineMessages.length, 1)
 			assert.equal(clineMessages[0].ask, "completion_result")
 
-			const rejectionPromise = assert.rejects(askPromise, /Cline instance aborted/)
+			const rejectionPromise = assert.rejects(askPromise, /CodeVibe task aborted/)
 			taskState.abort = true
 
 			await clock.tickAsync(100)

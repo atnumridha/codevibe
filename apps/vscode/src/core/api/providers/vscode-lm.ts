@@ -157,7 +157,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			this.dispose()
 
 			throw new Error(
-				`Cline <Language Model API>: Failed to initialize handler: ${error instanceof Error ? error.message : "Unknown error"}`,
+				`CodeVibe <Language Model API>: Failed to initialize handler: ${error instanceof Error ? error.message : "Unknown error"}`,
 			)
 		}
 	}
@@ -207,7 +207,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			}
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : "Unknown error"
-			throw new Error(`Cline <Language Model API>: Failed to select model: ${errorMessage}`)
+			throw new Error(`CodeVibe <Language Model API>: Failed to select model: ${errorMessage}`)
 		}
 	}
 
@@ -280,7 +280,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 
 	private async getClient(): Promise<vscode.LanguageModelChat> {
 		if (!this.client) {
-			Logger.debug("Cline <Language Model API>: Getting client with options:", {
+			Logger.debug("CodeVibe <Language Model API>: Getting client with options:", {
 				vsCodeLmModelSelector: this.options.vsCodeLmModelSelector,
 				hasOptions: !!this.options,
 				selectorKeys: this.options.vsCodeLmModelSelector ? Object.keys(this.options.vsCodeLmModelSelector) : [],
@@ -289,12 +289,12 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			try {
 				// Use default empty selector if none provided to get all available models
 				const selector = this.options?.vsCodeLmModelSelector || {}
-				Logger.debug("Cline <Language Model API>: Creating client with selector:", selector)
+				Logger.debug("CodeVibe <Language Model API>: Creating client with selector:", selector)
 				this.client = await this.createClient(selector)
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "Unknown error"
-				Logger.error("Cline <Language Model API>: Client creation failed:", message)
-				throw new Error(`Cline <Language Model API>: Failed to create client: ${message}`)
+				Logger.error("CodeVibe <Language Model API>: Client creation failed:", message)
+				throw new Error(`CodeVibe <Language Model API>: Failed to create client: ${message}`)
 			}
 		}
 
@@ -414,7 +414,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 				if (chunk instanceof vscode.LanguageModelTextPart) {
 					// Validate text part value
 					if (typeof chunk.value !== "string") {
-						Logger.warn("Cline <Language Model API>: Invalid text part value received:", chunk.value)
+						Logger.warn("CodeVibe <Language Model API>: Invalid text part value received:", chunk.value)
 						continue
 					}
 
@@ -427,18 +427,18 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 					try {
 						// Validate tool call parameters
 						if (!chunk.name || typeof chunk.name !== "string") {
-							Logger.warn("Cline <Language Model API>: Invalid tool name received:", chunk.name)
+							Logger.warn("CodeVibe <Language Model API>: Invalid tool name received:", chunk.name)
 							continue
 						}
 
 						if (!chunk.callId || typeof chunk.callId !== "string") {
-							Logger.warn("Cline <Language Model API>: Invalid tool callId received:", chunk.callId)
+							Logger.warn("CodeVibe <Language Model API>: Invalid tool callId received:", chunk.callId)
 							continue
 						}
 
 						// Ensure input is a valid object
 						if (!chunk.input || typeof chunk.input !== "object") {
-							Logger.warn("Cline <Language Model API>: Invalid tool input received:", chunk.input)
+							Logger.warn("CodeVibe <Language Model API>: Invalid tool input received:", chunk.input)
 							continue
 						}
 
@@ -454,7 +454,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 						accumulatedText += toolCallText
 
 						// Log tool call for debugging
-						Logger.debug("Cline <Language Model API>: Processing tool call:", {
+						Logger.debug("CodeVibe <Language Model API>: Processing tool call:", {
 							name: chunk.name,
 							callId: chunk.callId,
 							inputSize: JSON.stringify(chunk.input).length,
@@ -465,10 +465,10 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 							text: toolCallText,
 						}
 					} catch (error) {
-						Logger.error("Cline <Language Model API>: Failed to process tool call:", error)
+						Logger.error("CodeVibe <Language Model API>: Failed to process tool call:", error)
 					}
 				} else {
-					Logger.warn("Cline <Language Model API>: Unknown chunk type received:", chunk)
+					Logger.warn("CodeVibe <Language Model API>: Unknown chunk type received:", chunk)
 				}
 			}
 
@@ -486,11 +486,11 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			this.ensureCleanState()
 
 			if (error instanceof vscode.CancellationError) {
-				throw new Error("Cline <Language Model API>: Request cancelled by user")
+				throw new Error("CodeVibe <Language Model API>: Request cancelled by user")
 			}
 
 			if (error instanceof Error) {
-				Logger.error("Cline <Language Model API>: Stream error details:", {
+				Logger.error("CodeVibe <Language Model API>: Stream error details:", {
 					message: error.message,
 					stack: error.stack,
 					name: error.name,
@@ -501,13 +501,13 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			} else if (typeof error === "object" && error !== null) {
 				// Handle error-like objects
 				const errorDetails = JSON.stringify(error, null, 2)
-				Logger.error("Cline <Language Model API>: Stream error object:", errorDetails)
-				throw new Error(`Cline <Language Model API>: Response stream error: ${errorDetails}`)
+				Logger.error("CodeVibe <Language Model API>: Stream error object:", errorDetails)
+				throw new Error(`CodeVibe <Language Model API>: Response stream error: ${errorDetails}`)
 			} else {
 				// Fallback for unknown error types
 				const errorMessage = String(error)
-				Logger.error("Cline <Language Model API>: Unknown stream error:", errorMessage)
-				throw new Error(`Cline <Language Model API>: Response stream error: ${errorMessage}`)
+				Logger.error("CodeVibe <Language Model API>: Unknown stream error:", errorMessage)
+				throw new Error(`CodeVibe <Language Model API>: Response stream error: ${errorMessage}`)
 			}
 		}
 	}
@@ -527,7 +527,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			// Log any missing properties for debugging
 			for (const [prop, value] of Object.entries(requiredProps)) {
 				if (!value && value !== 0) {
-					Logger.warn(`Cline <Language Model API>: Client missing ${prop} property`)
+					Logger.warn(`CodeVibe <Language Model API>: Client missing ${prop} property`)
 				}
 			}
 
@@ -558,7 +558,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			? stringifyVsCodeLmModelSelector(this.options.vsCodeLmModelSelector)
 			: "vscode-lm"
 
-		Logger.debug("Cline <Language Model API>: No client available, using fallback model info")
+		Logger.debug("CodeVibe <Language Model API>: No client available, using fallback model info")
 
 		return {
 			id: fallbackId,

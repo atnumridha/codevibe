@@ -102,14 +102,14 @@ async function fetchAndCacheClineRecommendedModels(): Promise<ClineRecommendedMo
 		const response = await axios.get(`${apiBaseUrl}/api/v1/ai/cline/recommended-models`, getAxiosSettings())
 		const normalized = normalizeRecommendedModelsResponse(response.data)
 		if (!normalized) {
-			throw new Error("Invalid response data when fetching Cline recommended models")
+			throw new Error("Invalid response data when fetching CodeVibe recommended models")
 		}
 
 		result = normalized
 		await fs.writeFile(clineRecommendedModelsFilePath, JSON.stringify(result))
-		Logger.log("Cline recommended models fetched and saved")
+		Logger.log("CodeVibe recommended models fetched and saved")
 	} catch (error) {
-		Logger.error("Error fetching Cline recommended models:", error)
+		Logger.error("Error fetching CodeVibe recommended models:", error)
 
 		try {
 			const fileExists = await fs
@@ -121,11 +121,11 @@ async function fetchAndCacheClineRecommendedModels(): Promise<ClineRecommendedMo
 				const parsed = JSON.parse(fileContents)
 				if (parsed) {
 					result = parsed
-					Logger.log("Loaded Cline recommended models from cache")
+					Logger.log("Loaded CodeVibe recommended models from cache")
 				}
 			}
 		} catch (cacheError) {
-			Logger.error("Error reading Cline recommended models from cache:", cacheError)
+			Logger.error("Error reading CodeVibe recommended models from cache:", cacheError)
 		}
 	}
 

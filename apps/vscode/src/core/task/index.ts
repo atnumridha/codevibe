@@ -688,7 +688,7 @@ export class Task {
 	}> {
 		// Allow resume asks even when aborted to enable resume button after cancellation
 		if (this.taskState.abort && type !== "resume_task" && type !== "resume_completed_task") {
-			throw new Error("Cline instance aborted")
+			throw new Error("CodeVibe task aborted")
 		}
 		let askTs: number
 		if (partial !== undefined) {
@@ -815,7 +815,7 @@ export class Task {
 			{ interval: 100 },
 		)
 		if (shouldWakeOnAbort && this.taskState.abort) {
-			throw new Error("Cline instance aborted")
+			throw new Error("CodeVibe task aborted")
 		}
 		if (this.taskState.lastMessageTs !== askTs) {
 			throw new Error("Current ask promise was ignored") // could happen if we send multiple asks in a row i.e. with command_output. It's important that when we know an ask could fail, it is handled gracefully
@@ -849,7 +849,7 @@ export class Task {
 	): Promise<number | undefined> {
 		// Allow hook messages even when aborted to enable proper cleanup
 		if (this.taskState.abort && type !== "hook_status" && type !== "hook_output_stream") {
-			throw new Error("Cline instance aborted")
+			throw new Error("CodeVibe task aborted")
 		}
 
 		const providerInfo = this.getCurrentProviderInfo()
@@ -2235,7 +2235,7 @@ export class Task {
 
 	async presentAssistantMessage() {
 		if (this.taskState.abort) {
-			throw new Error("Cline instance aborted")
+			throw new Error("CodeVibe task aborted")
 		}
 
 		// If we're locked, mark pending and return
@@ -3116,7 +3116,7 @@ export class Task {
 
 			// need to call here in case the stream was aborted
 			if (this.taskState.abort) {
-				throw new Error("Cline instance aborted")
+				throw new Error("CodeVibe task aborted")
 			}
 
 			// Stored the assistant API response immediately after the stream finishes in the same turn

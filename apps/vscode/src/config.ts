@@ -108,7 +108,7 @@ class ClineEndpoint {
 	 */
 	public static isBundledConfig(): boolean {
 		if (!ClineEndpoint._initialized || !ClineEndpoint._instance) {
-			throw new Error("CodeVibe endpoint configuration is not initialized. Call ClineEndpoint.initialize() first.")
+			throw new Error("CodeVibe endpoint configuration is not initialized. Call CodeVibeEndpoint.initialize() first.")
 		}
 		return ClineEndpoint._instance.isBundled
 	}
@@ -119,7 +119,7 @@ class ClineEndpoint {
 	 */
 	public static get instance(): ClineEndpoint {
 		if (!ClineEndpoint._initialized || !ClineEndpoint._instance) {
-			throw new Error("CodeVibe endpoint configuration is not initialized. Call ClineEndpoint.initialize() first.")
+			throw new Error("CodeVibe endpoint configuration is not initialized. Call CodeVibeEndpoint.initialize() first.")
 		}
 		return ClineEndpoint._instance
 	}
@@ -358,7 +358,7 @@ class ClineEndpoint {
  * - ClineEnv.config() to get the current config.
  * - ClineEnv.setEnvironment(Environment.local) to change the environment.
  *
- * IMPORTANT: ClineEndpoint.initialize() must be called before using ClineEnv.
+ * IMPORTANT: CodeVibeEndpoint.initialize() must be called before using ClineEnv.
  */
 export const ClineEnv = {
 	config: () => ClineEndpoint.config,
@@ -368,3 +368,4 @@ export const ClineEnv = {
 
 // Export the class for initialization
 export { ClineEndpoint }
+export const CodeVibeEndpoint = ClineEndpoint

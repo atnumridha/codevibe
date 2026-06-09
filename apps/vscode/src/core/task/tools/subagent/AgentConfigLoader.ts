@@ -43,7 +43,7 @@ function normalizeToolName(toolName: string): ClineDefaultTool {
 	}
 
 	throw new Error(
-		`Unknown tool '${trimmed}'. Expected a ClineDefaultTool value (for example: read_file, list_files, search_files).`,
+		`Unknown tool '${trimmed}'. Expected a CodeVibe tool value (for example: read_file, list_files, search_files).`,
 	)
 }
 

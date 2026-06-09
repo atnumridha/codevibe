@@ -14,13 +14,15 @@ export interface ClineUser {
 	appBaseUrl?: string
 }
 
-export interface ClineAuthContextType {
+export interface CodeVibeAuthContextType {
 	clineUser: ClineUser | null
 	organizations: UserOrganization[] | null
 	activeOrganization: UserOrganization | null
 }
 
-export const ClineAuthContext = createContext<ClineAuthContextType | undefined>(undefined)
+export const CodeVibeAuthContext = createContext<CodeVibeAuthContextType | undefined>(undefined)
+export type ClineAuthContextType = CodeVibeAuthContextType
+export const ClineAuthContext = CodeVibeAuthContext
 
 export const ClineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 	const [user, setUser] = useState<ClineUser | null>(null)
@@ -46,7 +48,7 @@ export const ClineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 	}, [userOrganizations])
 
 	useEffect(() => {
-		console.log("Extension: ClineAuthContext: user updated:", user?.uid)
+		console.log("Extension: CodeVibeAuthContext: user updated:", user?.uid)
 	}, [user?.uid])
 
 	// Handle auth status update events
@@ -84,21 +86,21 @@ export const ClineAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 	}, [getUserOrganizations])
 
 	return (
-		<ClineAuthContext.Provider
+		<CodeVibeAuthContext.Provider
 			value={{
 				clineUser: user,
 				organizations: userOrganizations,
 				activeOrganization,
 			}}>
 			{children}
-		</ClineAuthContext.Provider>
+		</CodeVibeAuthContext.Provider>
 	)
 }
 
 export const useClineAuth = () => {
-	const context = useContext(ClineAuthContext)
+	const context = useContext(CodeVibeAuthContext)
 	if (context === undefined) {
-		throw new Error("useClineAuth must be used within a ClineAuthProvider")
+		throw new Error("CodeVibe auth context must be used within a CodeVibe auth provider")
 	}
 	return context
 }
