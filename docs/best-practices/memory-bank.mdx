@@ -1,20 +1,20 @@
 ---
 title: "Memory Bank"
 sidebarTitle: "Memory Bank"
-description: "A structured documentation system that helps Cline maintain context across sessions."
+description: "A structured documentation system that helps CodeVibe maintain context across sessions."
 ---
 
-Memory Bank is a documentation methodology that transforms Cline from a stateless assistant into a persistent development partner. Through structured markdown files, Cline can "remember" your project details across sessions.
+Memory Bank is a documentation methodology that transforms CodeVibe from a stateless assistant into a persistent development partner. Through structured markdown files, CodeVibe can "remember" your project details across sessions.
 
 ## Quick Setup
 
 1. Copy the [custom instructions below](#memory-bank-custom-instructions)
-2. Add them to a [Cline Rules file](/customization/cline-rules), such as `.clinerules/memory-bank.md`
-3. Ask Cline to "initialize memory bank"
+2. Add them to a [CodeVibe Rules file](/customization/cline-rules), such as the legacy-compatible `.clinerules/memory-bank.md`
+3. Ask CodeVibe to "initialize memory bank"
 
 ## How It Works
 
-Memory Bank files are regular markdown files in your project that both you and Cline can access. They're organized hierarchically to build a complete picture of your project:
+Memory Bank files are regular markdown files in your project that both you and CodeVibe can access. They're organized hierarchically to build a complete picture of your project:
 
 ```text
 memory-bank/
@@ -25,10 +25,6 @@ memory-bank/
 ├── techContext.md       # Tech stack & setup
 └── progress.md          # Status & milestones
 ```
-
-<Frame>
-	<img src="https://storage.googleapis.com/cline_public_images/docs/assets/image%20(16).png" alt="Memory Bank file hierarchy showing projectbrief.md at the top flowing into productContext, systemPatterns, and techContext, which feed into activeContext and progress" />
-</Frame>
 
 ## Core Files
 
@@ -43,11 +39,11 @@ memory-bank/
 
 ## Key Commands
 
-- **"follow your custom instructions"** - Tells Cline to read Memory Bank and continue where you left off
+- **"follow your custom instructions"** - Tells CodeVibe to read Memory Bank and continue where you left off
 - **"initialize memory bank"** - Creates the initial structure for a new project
 - **"update memory bank"** - Triggers a full documentation review and update
 
-These work alongside Cline's built-in [slash commands](/core-workflows/using-commands). In particular, [`/newtask`](/core-workflows/using-commands#newtask) and [`/smol`](/core-workflows/using-commands#smol) help you manage context windows without losing progress.
+These work alongside CodeVibe's built-in [slash commands](/core-workflows/using-commands). In particular, [`/newtask`](/core-workflows/using-commands#newtask) and [`/smol`](/core-workflows/using-commands#smol) help you manage context windows without losing progress.
 
 ## Managing Context Windows
 
@@ -57,31 +53,31 @@ Every AI model has a [context window](/core-workflows/task-management#context-wi
 
 When your context window fills up:
 
-1. Ask Cline to "update memory bank" to document the current state
+1. Ask CodeVibe to "update memory bank" to document the current state
 2. Start a new conversation
-3. Ask Cline to "follow your custom instructions"
+3. Ask CodeVibe to "follow your custom instructions"
 
 This preserves important context in your Memory Bank files before the window clears, letting you continue seamlessly in a fresh conversation.
 
 ## Best Practices
 
 - Start with a basic project brief and let structure evolve
-- Let Cline help create the initial structure
+- Let CodeVibe help create the initial structure
 - `activeContext.md` changes most frequently; update it after each session
 - `progress.md` tracks milestones; review it when resuming work
 - Update after significant milestones or direction changes
-- Use [Cline Rules](/customization/cline-rules) to store the Memory Bank instructions per project
+- Use [CodeVibe Rules](/customization/cline-rules) to store the Memory Bank instructions per project
 
 ---
 
 ## Memory Bank Custom Instructions
 
-Copy this into a Cline Rules file (for example, `.clinerules/memory-bank.md`) or your global custom instructions:
+Copy this into a CodeVibe Rules file (for example, the legacy-compatible `.clinerules/memory-bank.md`) or your global custom instructions:
 
 ```markdown
-# Cline's Memory Bank
+# CodeVibe's Memory Bank
 
-I am Cline, an expert software engineer with a unique characteristic: my memory resets completely between sessions. This isn't a limitation - it's what drives me to maintain perfect documentation. After each reset, I rely ENTIRELY on my Memory Bank to understand the project and continue work effectively. I MUST read ALL memory bank files at the start of EVERY task - this is not optional.
+I am CodeVibe, an expert software engineer with a unique characteristic: my memory resets completely between sessions. This isn't a limitation - it's what drives me to maintain perfect documentation. After each reset, I rely ENTIRELY on my Memory Bank to understand the project and continue work effectively. I MUST read ALL memory bank files at the start of EVERY task - this is not optional.
 
 ## Memory Bank Structure
 
@@ -150,8 +146,8 @@ REMEMBER: After every memory reset, I begin completely fresh. The Memory Bank is
 
 ## FAQ
 
-**Custom instructions or Cline Rules?**
-Either works. Custom instructions apply globally across all projects. A [Cline Rules file](/customization/cline-rules) is project-specific and stored in your repo, which makes it easy to share with collaborators. You can also use [conditional rules](/customization/cline-rules#conditional-rules) to activate Memory Bank instructions only when working with `memory-bank/` files.
+**Custom instructions or CodeVibe Rules?**
+Either works. Custom instructions apply globally across all projects. A [CodeVibe Rules file](/customization/cline-rules) is project-specific and stored in your repo, which makes it easy to share with collaborators. You can also use [conditional rules](/customization/cline-rules#conditional-rules) to activate Memory Bank instructions only when working with `memory-bank/` files.
 
 **How often should I update?**
 After significant milestones or direction changes. For active development, every few sessions. You can also let [Auto Compact](/features/auto-compact) handle routine context management and reserve manual "update memory bank" for important checkpoints.
