@@ -26,6 +26,7 @@ export class E2ETestHelper {
 	private static readonly TEARDOWN_TIMEOUT_MS = 10_000
 	private static readonly WINDOW_DIAGNOSTIC_TIMEOUT_MS = 1_000
 	private static readonly PROCESS_EXIT_TIMEOUT_MS = 2_000
+	private static readonly SIDEBAR_DISCOVERY_TIMEOUT_MS = 60_000
 
 	// Instance properties for caching
 	private cachedFrame: Frame | null = null
@@ -244,7 +245,7 @@ export class E2ETestHelper {
 		return matchedSidebar
 	}
 
-	public async getSidebar(page: Page): Promise<Frame> {
+	public async getSidebar(page: Page, maxDelay = E2ETestHelper.SIDEBAR_DISCOVERY_TIMEOUT_MS): Promise<Frame> {
 		const findSidebarFrame = async (): Promise<Frame | null> => {
 			// Check cached frame first
 			if (this.cachedFrame && !this.cachedFrame.isDetached()) {
@@ -274,24 +275,28 @@ export class E2ETestHelper {
 			return null
 		}
 
-		// Use longer timeout (30s) for the webview - macOS CI runners can be slow
+		// macOS CI runners can be slow to materialize the webview frame after the command reports success.
 		let sidebarFrame: Frame | null = null
 		await E2ETestHelper.waitUntil(async () => {
 			sidebarFrame = await findSidebarFrame()
 			return sidebarFrame !== null
-		}, 30000)
+		}, maxDelay)
 		if (!sidebarFrame) {
 			throw new Error("CodeVibe webview frame was not found")
 		}
 		return sidebarFrame
 	}
 
-	public async getReadySidebar(page: Page, requireSendEnabled = false): Promise<Frame> {
+	public async getReadySidebar(
+		page: Page,
+		requireSendEnabled = false,
+		maxDelay = E2ETestHelper.SIDEBAR_DISCOVERY_TIMEOUT_MS,
+	): Promise<Frame> {
 		let readySidebar: Frame | null = null
 		await E2ETestHelper.waitUntil(async () => {
 			try {
 				this.clearCachedFrame()
-				const sidebar = await this.getSidebar(page)
+				const sidebar = await this.getSidebar(page, 5_000)
 				const chatInput = await this.getChatInput(sidebar)
 				await expect(chatInput).toBeVisible({ timeout: 500 })
 				if (requireSendEnabled) {
@@ -309,7 +314,7 @@ export class E2ETestHelper {
 				}
 				return false
 			}
-		}, 30000)
+		}, maxDelay)
 		if (!readySidebar) {
 			throw new Error("CodeVibe webview frame was not ready")
 		}
@@ -503,6 +508,25 @@ export class E2ETestHelper {
 		return webview
 	}
 
+	public async openSidebar(page: Page): Promise<Frame> {
+		let lastError: unknown
+
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				this.clearCachedFrame()
+				await E2ETestHelper.openClineSidebar(page)
+				return await this.getSidebar(page)
+			} catch (error: any) {
+				lastError = error
+				if (!this.isRetryableSidebarError(error)) {
+					break
+				}
+			}
+		}
+
+		throw lastError instanceof Error ? lastError : new Error(String(lastError))
+	}
+
 	public static async openClineSidebar(page: Page): Promise<void> {
 		await page.bringToFront()
 		await E2ETestHelper.waitUntil(async () => {
@@ -516,7 +540,7 @@ export class E2ETestHelper {
 			} catch {
 				return false
 			}
-		}, 30000)
+		}, E2ETestHelper.SIDEBAR_DISCOVERY_TIMEOUT_MS)
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {
@@ -754,8 +778,7 @@ export const e2e = test
 	})
 	.extend<{ sidebar: Frame }>({
 		sidebar: async ({ page, helper, server }, use) => {
-			await E2ETestHelper.openClineSidebar(page)
-			const sidebar = await helper.getSidebar(page)
+			const sidebar = await helper.openSidebar(page)
 			await use(sidebar)
 		},
 	})
