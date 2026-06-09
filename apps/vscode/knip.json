@@ -1,7 +1,7 @@
 {
 	"entry": [
 		"src/extension.ts",
-		"src/standalone/cline-core.ts",
+		"src/standalone/codevibe-core.ts",
 		"src/generated/hosts/standalone/protobus-server-setup.ts",
 		"src/generated/hosts/standalone/host-bridge-clients.ts",
 		"src/generated/hosts/vscode/protobus-services.ts",

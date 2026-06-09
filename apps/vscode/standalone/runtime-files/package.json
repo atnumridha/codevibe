@@ -2,7 +2,7 @@
 	"name": "codevibe-core",
 	"version": "0.0.1",
 	"description": "CodeVibe standalone core runtime",
-	"main": "cline-core.js",
+	"main": "codevibe-core.js",
 	"dependencies": {
 		"@grpc/grpc-js": "^1.13.3",
 		"@grpc/reflection": "^1.0.4",

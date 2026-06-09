@@ -11,21 +11,16 @@ import { AuthHandler } from "@/hosts/external/AuthHandler"
 import { HostProvider } from "@/hosts/host-provider"
 import { DiffViewProvider } from "@/integrations/editor/DiffViewProvider"
 import { StandaloneTerminalManager } from "@/integrations/terminal"
-import { Logger } from "@/shared/services/Logger"
 import { createStorageContext } from "@/shared/storage/storage-context"
 import { HOSTBRIDGE_PORT, waitForHostBridgeReady } from "./hostbridge-client"
 import { setLockManager } from "./lock-manager"
 import { startMemoryMonitoring, stopMemoryMonitoring } from "./memory-monitor"
 import { PROTOBUS_PORT, startProtobusService } from "./protobus-service"
 import { log } from "./utils"
-import { initializeContext } from "./vscode-context"
 
 let globalLockManager: SqliteLockManager | undefined
 
 async function main() {
-	log("\n\n\nStarting CodeVibe core service...\n\n\n")
-	log(`Environment variables: ${JSON.stringify(process.env)}`)
-
 	// Parse command line arguments
 	const args = parseArgs()
 
@@ -34,6 +29,9 @@ async function main() {
 		showHelp()
 		process.exit(0)
 	}
+
+	log("\n\n\nStarting CodeVibe core service...\n\n\n")
+	log(`Environment variables: ${JSON.stringify(process.env)}`)
 
 	// Resource loading assumes cwd is the installation directory
 	process.chdir(__dirname)
@@ -44,6 +42,7 @@ async function main() {
 	log(`Heap snapshots (if triggered near OOM) will be written to: ${process.cwd()}`)
 
 	// Initialize context with optional custom directory from CLI
+	const { initializeContext } = await import("./vscode-context")
 	const { extensionContext, CODEVIBE_DIR, DATA_DIR, EXTENSION_DIR } = initializeContext(args.config)
 
 	// Configure ports - CLI args override everything
@@ -124,7 +123,7 @@ function setupHostProvider(extensionContext: any, extensionDir: string, dataDir:
 	const getCallbackUrl = (path: string, preferredPort?: number): Promise<string> => {
 		return AuthHandler.getInstance().getCallbackUrl(path, preferredPort)
 	}
-	// cline-core expects the binaries to be unpacked in the directory where it is running.
+	// CodeVibe core expects the binaries to be unpacked in the directory where it is running.
 	const getBinaryLocation = async (name: string): Promise<string> => path.join(process.cwd(), name)
 
 	HostProvider.initialize(
@@ -228,7 +227,7 @@ async function requestHostBridgeShutdown(): Promise<void> {
 }
 
 /**
- * Gracefully shutdown the cline-core process by:
+ * Gracefully shutdown the CodeVibe core process by:
  * 1. Calling shutdown RPC on the paired host bridge
  * 2. Cleaning up the lock manager entry
  * 3. Tearing down services
@@ -315,10 +314,10 @@ function parseArgs(): CliArgs {
 }
 
 function showHelp() {
-	Logger.log(`
+	console.log(`
 CodeVibe Core - Standalone Server
 
-Usage: node cline-core.js [options]
+Usage: node codevibe-core.js [options]
 
 Options:
   -p, --port <port>              Port for the main gRPC service (default: ${PROTOBUS_PORT})

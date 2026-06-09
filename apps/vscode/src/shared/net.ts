@@ -76,7 +76,7 @@
  *
  * 1. Verify proxy env vars: `echo $http_proxy $https_proxy`
  * 2. Check certificates: `echo $NODE_EXTRA_CA_CERTS` (should point to PEM file)
- * 3. View logs: Check ~/.cline/cline-core-service.log for network-related
+ * 3. View logs: Check ~/.codevibe/codevibe-core-service.log for network-related
  *    failures.
  * 4. Test connection: Use `curl -x host:port` etc. to isolate proxy
  *    configuration versus client issues.

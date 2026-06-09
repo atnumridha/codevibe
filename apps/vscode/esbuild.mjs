@@ -200,8 +200,8 @@ const extensionConfig = {
 // Standalone-specific configuration
 const standaloneConfig = {
 	...baseConfig,
-	entryPoints: ["src/standalone/cline-core.ts"],
-	outfile: `${destDir}/cline-core.js`,
+	entryPoints: ["src/standalone/codevibe-core.ts"],
+	outfile: `${destDir}/codevibe-core.js`,
 	// These modules need to load files from the module directory at runtime,
 	// so they cannot be bundled.
 	external: ["vscode", "@grpc/reflection", "grpc-health-check", "better-sqlite3"],

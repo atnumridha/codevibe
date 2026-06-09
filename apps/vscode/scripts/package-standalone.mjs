@@ -60,7 +60,7 @@ async function installNodeDependencies() {
  * to download the binary.
  *
  * The modules are downloaded to dist-standalone/binaries/{os}-{platform}/.
- * When cline-core is installed, the installer should use the correct module for the current platform.
+ * When CodeVibe core is installed, the installer should use the correct module for the current platform.
  */
 async function packageAllBinaryDeps() {
 	// Check for native .node modules.

@@ -9,9 +9,14 @@ import {
 } from "@/hosts/vscode/native-chat-registration"
 
 const packagePath = path.join(__dirname, "..", "..", "package.json")
+const vscodeRoot = path.join(__dirname, "..", "..")
 
 async function readPackageManifest(): Promise<Record<string, any>> {
 	return JSON.parse(await readFile(packagePath, "utf8"))
+}
+
+async function readJsonFile(filePath: string): Promise<Record<string, any>> {
+	return JSON.parse(await readFile(filePath, "utf8"))
 }
 
 describe("Package manifest", () => {
@@ -88,5 +93,22 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state.hidden'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.numberOfVisibleViews'"), true)
+	})
+
+	it("brands the standalone runtime entrypoint as CodeVibe core", async () => {
+		const runtimePackage = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package.json"))
+		const runtimePackageLock = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package-lock.json"))
+		const esbuildScript = await readFile(path.join(vscodeRoot, "esbuild.mjs"), "utf8")
+		const standaloneServerScript = await readFile(path.join(vscodeRoot, "scripts", "test-standalone-core-api-server.ts"), "utf8")
+
+		assert.equal(runtimePackage.name, "codevibe-core")
+		assert.equal(runtimePackage.main, "codevibe-core.js")
+		assert.equal(runtimePackageLock.name, "codevibe-core")
+		assert.equal(runtimePackageLock.packages?.[""]?.name, "codevibe-core")
+		assert.equal(esbuildScript.includes('entryPoints: ["src/standalone/codevibe-core.ts"]'), true)
+		assert.equal(esbuildScript.includes("codevibe-core.js"), true)
+		assert.equal(esbuildScript.includes("src/standalone/cline-core.ts"), false)
+		assert.equal(standaloneServerScript.includes("CODEVIBE_CORE_FILE"), true)
+		assert.equal(standaloneServerScript.includes('"codevibe-core.js"'), true)
 	})
 })

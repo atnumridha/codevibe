@@ -69,8 +69,8 @@ export enum TerminalHangStage {
 
 export type TelemetryMetadata = {
 	/**
-	 * The extension or cline-core version. JetBrains and CLI have different
-	 * versioning than the VSCode Extension, but on those platforms this will be the _cline-core version_
+	 * The extension or CodeVibe core version. JetBrains and CLI have different
+	 * versioning than the VSCode Extension, but on those platforms this will be the _CodeVibe core version_
 	 * which uses the same as the versioning as the VSCode extension.
 	 */
 	extension_version: string
