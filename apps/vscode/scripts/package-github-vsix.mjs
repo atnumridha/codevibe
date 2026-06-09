@@ -27,13 +27,22 @@ const requiredCursorParityConfigKeys = [
 ]
 
 const requiredCursorParityCommands = [
+	"codevibe.compatibility.ndjson.start",
+	"codevibe.compatibility.ndjson.stop",
+	"codevibe.compatibility.ndjson.copyCurl",
+	"codevibe.compatibility.ndjson.reassignPort",
+	"codevibe.compatibility.ndjson.showStatus",
+	"codevibe.compatibility.deeplink.debug.trigger",
+	"codevibe.nativeAgentDiagnostics",
+]
+
+const requiredCursorParityLegacyActivationCommands = [
 	"cursor.ndjsonIngest.start",
 	"cursor.ndjsonIngest.stop",
 	"cursor.ndjsonIngest.copyCurl",
 	"cursor.ndjsonIngest.reassignPort",
 	"cursor.ndjsonIngest.showStatus",
 	"cursor-deeplink.debug.triggerDeeplink",
-	"codevibe.nativeAgentDiagnostics",
 ]
 
 const expectedManifestAssetPaths = [
@@ -882,6 +891,9 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
 	}
+	for (const command of requiredCursorParityLegacyActivationCommands) {
+		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
+	}
 
 	const properties = packageJson.contributes?.configuration?.properties
 	for (const key of requiredCursorParityConfigKeys) {
@@ -892,6 +904,11 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 		: []
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(commands, command, `${label} contributes.commands`)
+	}
+	for (const command of requiredCursorParityLegacyActivationCommands) {
+		if (commands.includes(command)) {
+			throw new Error(`${label} contributes.commands must not expose legacy compatibility command ${command}`)
+		}
 	}
 
 	const codexAuth = properties["codevibe.openAiCodex.authSource"]

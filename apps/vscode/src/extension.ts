@@ -253,56 +253,77 @@ export async function activate(context: vscode.ExtensionContext) {
 			: await cursorNdjsonIngestServer.start(settings)
 		await showCursorNdjsonStatus(
 			status,
-			forceAutoPort ? "Cursor NDJSON ingest server reassigned" : "Cursor NDJSON ingest server started",
+			forceAutoPort
+				? "CodeVibe compatibility NDJSON ingest server reassigned"
+				: "CodeVibe compatibility NDJSON ingest server started",
 		)
 		return status
 	}
+	const stopCursorNdjsonIngestServer = async () => {
+		const status = await cursorNdjsonIngestServer.stop()
+		await showCursorNdjsonStatus(status, "CodeVibe compatibility NDJSON ingest server stopped")
+	}
+	const showCursorNdjsonIngestStatus = async () => {
+		await showCursorNdjsonStatus(
+			cursorNdjsonIngestServer.getStatus(),
+			"CodeVibe compatibility NDJSON ingest server status",
+		)
+	}
+	const copyCursorNdjsonIngestCurlCommand = async () => {
+		let status = cursorNdjsonIngestServer.getStatus()
+		if (!status.running) {
+			status = (await startCursorNdjsonIngestServer(false)) ?? status
+		}
+		if (!status.running) {
+			return
+		}
+		const command = cursorNdjsonIngestServer.buildCurlCommand()
+		await vscode.env.clipboard.writeText(command)
+		await vscode.window.showInformationMessage("Copied CodeVibe compatibility NDJSON ingest curl command.")
+	}
+	const triggerCursorCompatibleDeeplink = async () => {
+		const uri = await vscode.window.showInputBox({
+			placeHolder: "cursor://createchat?prompt=Review%20this",
+			prompt: "Enter a Cursor-compatible deeplink to route through CodeVibe.",
+			ignoreFocusOut: true,
+		})
+		if (!uri?.trim()) {
+			return
+		}
+		const success = await SharedUriHandler.handleUri(uri.trim(), {
+			cursorCompatibleDeepLinksEnabled: getCodeVibeConfigurationValue<boolean>(
+				"cursorCompatibility.deepLinks.enabled",
+				true,
+			),
+		})
+		if (!success) {
+			await vscode.window.showWarningMessage("CodeVibe could not process that deeplink.")
+		}
+	}
 
 	context.subscriptions.push(
+		vscode.commands.registerCommand(commands.CompatibilityNdjsonStart, async () => {
+			await startCursorNdjsonIngestServer(false)
+		}),
+		vscode.commands.registerCommand(commands.CompatibilityNdjsonStop, stopCursorNdjsonIngestServer),
+		vscode.commands.registerCommand(commands.CompatibilityNdjsonReassignPort, async () => {
+			await startCursorNdjsonIngestServer(true)
+		}),
+		vscode.commands.registerCommand(commands.CompatibilityNdjsonShowStatus, showCursorNdjsonIngestStatus),
+		vscode.commands.registerCommand(commands.CompatibilityNdjsonCopyCurl, copyCursorNdjsonIngestCurlCommand),
+		vscode.commands.registerCommand(commands.CompatibilityDeeplinkDebugTrigger, triggerCursorCompatibleDeeplink),
+		// Legacy command IDs remain callable for existing automation and Cursor-compatible scripts,
+		// but they are no longer contributed to visible command surfaces.
 		vscode.commands.registerCommand("cursor.ndjsonIngest.start", async () => {
 			await startCursorNdjsonIngestServer(false)
 		}),
-		vscode.commands.registerCommand("cursor.ndjsonIngest.stop", async () => {
-			const status = await cursorNdjsonIngestServer.stop()
-			await showCursorNdjsonStatus(status, "Cursor NDJSON ingest server stopped")
-		}),
+		vscode.commands.registerCommand("cursor.ndjsonIngest.stop", stopCursorNdjsonIngestServer),
 		vscode.commands.registerCommand("cursor.ndjsonIngest.reassignPort", async () => {
 			await startCursorNdjsonIngestServer(true)
 		}),
-		vscode.commands.registerCommand("cursor.ndjsonIngest.showStatus", async () => {
-			await showCursorNdjsonStatus(cursorNdjsonIngestServer.getStatus(), "Cursor NDJSON ingest server status")
-		}),
-		vscode.commands.registerCommand("cursor.ndjsonIngest.copyCurl", async () => {
-			let status = cursorNdjsonIngestServer.getStatus()
-			if (!status.running) {
-				status = (await startCursorNdjsonIngestServer(false)) ?? status
-			}
-			if (!status.running) {
-				return
-			}
-			const command = cursorNdjsonIngestServer.buildCurlCommand()
-			await vscode.env.clipboard.writeText(command)
-			await vscode.window.showInformationMessage("Copied Cursor NDJSON ingest curl command.")
-		}),
-		vscode.commands.registerCommand("cursor-deeplink.debug.triggerDeeplink", async () => {
-			const uri = await vscode.window.showInputBox({
-				placeHolder: "cursor://createchat?prompt=Review%20this",
-				prompt: "Enter a Cursor-compatible deeplink to route through CodeVibe.",
-				ignoreFocusOut: true,
-			})
-			if (!uri?.trim()) {
-				return
-			}
-			const success = await SharedUriHandler.handleUri(uri.trim(), {
-				cursorCompatibleDeepLinksEnabled: getCodeVibeConfigurationValue<boolean>(
-					"cursorCompatibility.deepLinks.enabled",
-					true,
-				),
-			})
-			if (!success) {
-				await vscode.window.showWarningMessage("CodeVibe could not process that deeplink.")
-			}
-		}),
+		vscode.commands.registerCommand("cursor.ndjsonIngest.showStatus", showCursorNdjsonIngestStatus),
+		vscode.commands.registerCommand("cursor.ndjsonIngest.copyCurl", copyCursorNdjsonIngestCurlCommand),
+		vscode.commands.registerCommand("cursor-deeplink.debug.triggerDeeplink", triggerCursorCompatibleDeeplink),
 	)
 
 	// Register size testing commands in development mode
@@ -797,7 +818,7 @@ async function confirmCursorNdjsonBindAddress(bindAddress: string): Promise<bool
 		return true
 	}
 	const choice = await vscode.window.showWarningMessage(
-		`Cursor NDJSON ingest is configured to bind to ${bindAddress}. This can expose the ingest endpoint beyond this machine.`,
+		`CodeVibe compatibility NDJSON ingest is configured to bind to ${bindAddress}. This can expose the ingest endpoint beyond this machine.`,
 		{ modal: true },
 		"Start Server",
 	)

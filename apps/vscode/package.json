@@ -50,6 +50,12 @@
 		"onCommand:cursor.ndjsonIngest.reassignPort",
 		"onCommand:cursor.ndjsonIngest.showStatus",
 		"onCommand:cursor-deeplink.debug.triggerDeeplink",
+		"onCommand:codevibe.compatibility.ndjson.start",
+		"onCommand:codevibe.compatibility.ndjson.stop",
+		"onCommand:codevibe.compatibility.ndjson.copyCurl",
+		"onCommand:codevibe.compatibility.ndjson.reassignPort",
+		"onCommand:codevibe.compatibility.ndjson.showStatus",
+		"onCommand:codevibe.compatibility.deeplink.debug.trigger",
 		"onStartupFinished",
 		"workspaceContains:evals.env",
 		"onCommand:codevibe.plusButtonClicked",
@@ -355,27 +361,27 @@
 				"icon": "$(link-external)"
 			},
 			{
-				"command": "cursor.ndjsonIngest.start",
+				"command": "codevibe.compatibility.ndjson.start",
 				"title": "CodeVibe Compatibility NDJSON: Start Server"
 			},
 			{
-				"command": "cursor.ndjsonIngest.stop",
+				"command": "codevibe.compatibility.ndjson.stop",
 				"title": "CodeVibe Compatibility NDJSON: Stop Server"
 			},
 			{
-				"command": "cursor.ndjsonIngest.copyCurl",
+				"command": "codevibe.compatibility.ndjson.copyCurl",
 				"title": "CodeVibe Compatibility NDJSON: Copy curl command"
 			},
 			{
-				"command": "cursor.ndjsonIngest.reassignPort",
+				"command": "codevibe.compatibility.ndjson.reassignPort",
 				"title": "CodeVibe Compatibility NDJSON: Reassign port and restart server"
 			},
 			{
-				"command": "cursor.ndjsonIngest.showStatus",
+				"command": "codevibe.compatibility.ndjson.showStatus",
 				"title": "CodeVibe Compatibility NDJSON: Show server info"
 			},
 			{
-				"command": "cursor-deeplink.debug.triggerDeeplink",
+				"command": "codevibe.compatibility.deeplink.debug.trigger",
 				"title": "Debug: Trigger Arbitrary Deeplink",
 				"category": "CodeVibe Compatibility"
 			}

@@ -192,7 +192,9 @@ async function listenAuto(server: Server, bindAddress: string, excludedPort?: nu
 			}
 		}
 	}
-	throw lastError instanceof Error ? lastError : new Error("No free Cursor NDJSON ingest port was found")
+	throw lastError instanceof Error
+		? lastError
+		: new Error("No free CodeVibe compatibility NDJSON ingest port was found")
 }
 
 export class CursorNdjsonIngestServer {
@@ -269,7 +271,7 @@ export class CursorNdjsonIngestServer {
 
 	buildCurlCommand(): string {
 		if (!this.status.running || !this.status.url || !this.status.sessionId) {
-			throw new Error("Cursor NDJSON ingest server is not running")
+			throw new Error("CodeVibe compatibility NDJSON ingest server is not running")
 		}
 		return [
 			"curl",

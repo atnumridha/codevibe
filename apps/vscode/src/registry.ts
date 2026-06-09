@@ -29,6 +29,12 @@ const CodeVibeCommands = {
 	Walkthrough: prefix + ".openWalkthrough",
 	GenerateCommit: prefix + ".generateGitCommitMessage",
 	AbortCommit: prefix + ".abortGitCommitMessage",
+	CompatibilityNdjsonStart: prefix + ".compatibility.ndjson.start",
+	CompatibilityNdjsonStop: prefix + ".compatibility.ndjson.stop",
+	CompatibilityNdjsonCopyCurl: prefix + ".compatibility.ndjson.copyCurl",
+	CompatibilityNdjsonReassignPort: prefix + ".compatibility.ndjson.reassignPort",
+	CompatibilityNdjsonShowStatus: prefix + ".compatibility.ndjson.showStatus",
+	CompatibilityDeeplinkDebugTrigger: prefix + ".compatibility.deeplink.debug.trigger",
 	ReconstructTaskHistory: prefix + ".reconstructTaskHistory",
 	// Jupyter Notebook commands
 	JupyterGenerateCell: prefix + ".jupyterGenerateCell",
