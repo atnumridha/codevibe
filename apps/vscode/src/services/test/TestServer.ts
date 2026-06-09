@@ -1,7 +1,7 @@
 import { getSavedApiConversationHistory, getSavedClineMessages } from "@core/storage/disk"
 import { WebviewProvider } from "@core/webview"
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
-import { ApiProvider } from "@shared/api"
+import type { ApiProvider, ModelInfo } from "@shared/api"
 import { HistoryItem } from "@shared/HistoryItem"
 import { execa } from "execa"
 import * as fs from "fs"
@@ -42,6 +42,32 @@ function createTaskCompletionTracker(): Promise<void> {
 
 let testServer: http.Server | undefined
 let messageCatcherDisposable: vscode.Disposable | undefined
+
+const E2E_CLINE_TEST_API_KEY = "test-personal-token"
+const E2E_CLINE_TEST_ACCOUNT_ID = "test-member-789"
+const E2E_CLINE_TEST_MODEL_ID = "z-ai/glm-5"
+const E2E_CLINE_TEST_MODEL_INFO = {
+	name: E2E_CLINE_TEST_MODEL_ID,
+	maxTokens: 8_192,
+	contextWindow: 131_072,
+	supportsPromptCache: false,
+	inputPrice: 0,
+	outputPrice: 0,
+	description: "Free model for e2e onboarding",
+} satisfies ModelInfo
+const E2E_SEEDED_TASK_HISTORY: HistoryItem[] = [
+	"Seeded review task",
+	"Seeded planning task",
+	"Seeded hardening task",
+].map((task, index) => ({
+	id: `e2e-seeded-${index + 1}`,
+	ts: 1_700_000_000_000 - index,
+	task,
+	tokensIn: 0,
+	tokensOut: 0,
+	totalCost: 0,
+	modelId: E2E_CLINE_TEST_MODEL_ID,
+}))
 
 /**
  * Updates the auto approval settings to enable all actions
@@ -136,6 +162,67 @@ export async function createTestServer(controller: Controller): Promise<http.Ser
 				shutdownTestServer()
 			}, 100)
 
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/open-legacy-webview") {
+			;(async () => {
+				try {
+					const webviewProvider = WebviewProvider.getInstance() as WebviewProvider & {
+						show?: (preserveEditorFocus?: boolean) => Promise<void>
+						showPanel?: (preserveEditorFocus?: boolean) => Promise<void>
+					}
+					if (typeof webviewProvider.showPanel === "function") {
+						await webviewProvider.showPanel(false)
+					} else if (typeof webviewProvider.show === "function") {
+						await webviewProvider.show(false)
+					} else {
+						await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview)
+					}
+					await new Promise((resolve) => setTimeout(resolve, 250))
+					const visible = webviewProvider.isVisible()
+					res.writeHead(200, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: true, visible }))
+				} catch (error) {
+					res.writeHead(500)
+					res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
+				}
+			})()
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/seed-signed-in") {
+			;(async () => {
+				try {
+					await controller.clearTask()
+					const apiConfiguration = controller.stateManager.getApiConfiguration()
+					const testProvider: ApiProvider = "cline"
+					controller.stateManager.setSecret("clineAccountId", E2E_CLINE_TEST_ACCOUNT_ID)
+					controller.stateManager.setSecret("clineApiKey", E2E_CLINE_TEST_API_KEY)
+					controller.stateManager.setApiConfiguration({
+						...apiConfiguration,
+						clineAccountId: E2E_CLINE_TEST_ACCOUNT_ID,
+						clineApiKey: E2E_CLINE_TEST_API_KEY,
+						planModeApiProvider: testProvider,
+						actModeApiProvider: testProvider,
+						planModeClineModelId: E2E_CLINE_TEST_MODEL_ID,
+						actModeClineModelId: E2E_CLINE_TEST_MODEL_ID,
+						planModeClineModelInfo: E2E_CLINE_TEST_MODEL_INFO,
+						actModeClineModelInfo: E2E_CLINE_TEST_MODEL_INFO,
+					})
+					controller.stateManager.setSessionOverride("planModeApiProvider", testProvider)
+					controller.stateManager.setSessionOverride("actModeApiProvider", testProvider)
+					controller.stateManager.setGlobalState("welcomeViewCompleted", true)
+					controller.stateManager.setGlobalState("isNewUser", false)
+					controller.stateManager.setGlobalState("taskHistory", E2E_SEEDED_TASK_HISTORY)
+					await controller.postStateToWebview()
+					res.writeHead(200, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: true }))
+				} catch (error) {
+					res.writeHead(500)
+					res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
+				}
+			})()
 			return
 		}
 
@@ -267,11 +354,17 @@ export async function createTestServer(controller: Controller): Promise<http.Ser
 						const updatedConfig = {
 							...apiConfiguration,
 							apiProvider: "cline" as ApiProvider,
-							clineAccountId: apiKey,
+							clineAccountId: E2E_CLINE_TEST_ACCOUNT_ID,
+							clineApiKey: apiKey,
+							planModeClineModelId: E2E_CLINE_TEST_MODEL_ID,
+							actModeClineModelId: E2E_CLINE_TEST_MODEL_ID,
+							planModeClineModelInfo: E2E_CLINE_TEST_MODEL_INFO,
+							actModeClineModelInfo: E2E_CLINE_TEST_MODEL_INFO,
 						}
 
 						// Store the API key securely
-						visibleWebview.controller.stateManager.setSecret("clineAccountId", apiKey)
+						visibleWebview.controller.stateManager.setSecret("clineAccountId", E2E_CLINE_TEST_ACCOUNT_ID)
+						visibleWebview.controller.stateManager.setSecret("clineApiKey", apiKey)
 
 						visibleWebview.controller.stateManager.setApiConfiguration(updatedConfig)
 

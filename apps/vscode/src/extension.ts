@@ -13,7 +13,7 @@ import { sendSettingsButtonClickedEvent } from "./core/controller/ui/subscribeTo
 import { sendWorktreesButtonClickedEvent } from "./core/controller/ui/subscribeToWorktreesButtonClicked"
 import { WebviewProvider } from "./core/webview"
 import { createCodeVibeAPI } from "./exports"
-import { initializeTestMode } from "./services/test/TestMode"
+import { initializeTestMode, isInTestMode } from "./services/test/TestMode"
 import "./utils/path" // necessary to have access to String.prototype.toPosix
 import path from "node:path"
 import type { ExtensionContext } from "vscode"
@@ -564,7 +564,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.FocusChatInput, async (preserveEditorFocus = false) => {
-			const webview = await showPreferredCodeVibeSurface(preserveEditorFocus)
+			const webview = isInTestMode()
+				? await showCodeVibeSurface(preserveEditorFocus)
+				: await showPreferredCodeVibeSurface(preserveEditorFocus)
 			await sendShowWebviewEvent(preserveEditorFocus)
 			telemetryService.captureButtonClick("command_focusChatInput", webview.controller?.task?.ulid)
 		}),

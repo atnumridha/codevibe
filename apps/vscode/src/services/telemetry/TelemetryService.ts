@@ -401,7 +401,7 @@ export class TelemetryService {
 		const hostSetting = await HostProvider.env.getTelemetrySettings({})
 		if (hostSetting.isEnabled === Setting.DISABLED) {
 			// Only show warning if user has opted in to CodeVibe telemetry but host telemetry is disabled
-			if (didUserOptIn) {
+			if (didUserOptIn && process.env.E2E_TEST !== "true") {
 				void HostProvider.window
 					.showMessage({
 						type: ShowMessageType.WARNING,

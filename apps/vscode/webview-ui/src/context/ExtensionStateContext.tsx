@@ -363,8 +363,10 @@ export const ExtensionStateContextProvider: React.FC<{
 							const incomingVersion = stateData.autoApprovalSettings?.version ?? 1
 							const currentVersion = prevState.autoApprovalSettings?.version ?? 1
 							const shouldUpdateAutoApproval = incomingVersion > currentVersion
-							// HACK: Preserve clineMessages if currentTaskItem is the same
-							if (stateData.currentTaskItem?.id === prevState.currentTaskItem?.id) {
+							// Preserve clineMessages while the same active task streams updates.
+							// Treat "no task" as a distinct empty state so cleared panels do not
+							// keep stale messages from the previous task.
+							if (stateData.currentTaskItem?.id && stateData.currentTaskItem.id === prevState.currentTaskItem?.id) {
 								stateData.clineMessages = stateData.clineMessages?.length
 									? stateData.clineMessages
 									: prevState.clineMessages

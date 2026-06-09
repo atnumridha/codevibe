@@ -542,7 +542,7 @@
 				},
 				{
 					"command": "codevibe.openLegacyWebview",
-					"when": "false"
+					"when": "codevibe.isTestMode"
 				},
 				{
 					"command": "codevibe.reviewComment.reply",

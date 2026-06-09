@@ -87,17 +87,20 @@ export class E2ETestHelper {
 				}
 
 				try {
-					const title = await frame.title()
 					const hasCodeVibeSurface =
-						(await frame.getByTestId("chat-input").count()) > 0 ||
-						(await frame.getByRole("button", { name: "Login to CodeVibe" }).count()) > 0 ||
-						(await frame.getByText("Bring my own API key").count()) > 0
-					if (hasCodeVibeSurface || title.startsWith("CodeVibe")) {
+						(await frame.getByTestId("chat-input").isVisible()) ||
+						(await frame.getByRole("button", { name: "Login to CodeVibe" }).isVisible()) ||
+						(await frame.getByText("Bring my own API key").isVisible())
+					if (hasCodeVibeSurface) {
 						this.cachedFrame = frame
 						return frame
 					}
 				} catch (error: any) {
-					if (!error.message.includes("detached") && !error.message.includes("navigation")) {
+					if (
+						!error.message.includes("detached") &&
+						!error.message.includes("navigation") &&
+						!error.message.includes("closed")
+					) {
 						throw error
 					}
 				}
@@ -115,6 +118,39 @@ export class E2ETestHelper {
 			throw new Error("CodeVibe webview frame was not found")
 		}
 		return sidebarFrame
+	}
+
+	public async getReadySidebar(page: Page, requireSendEnabled = false): Promise<Frame> {
+		let readySidebar: Frame | null = null
+		await E2ETestHelper.waitUntil(async () => {
+			try {
+				this.clearCachedFrame()
+				const sidebar = await this.getSidebar(page)
+				await expect(sidebar.getByTestId("chat-input")).toBeVisible({ timeout: 500 })
+				if (requireSendEnabled) {
+					await expect(sidebar.getByTestId("send-button")).toBeEnabled({ timeout: 500 })
+				}
+				if (sidebar.isDetached()) {
+					return false
+				}
+				readySidebar = sidebar
+				return true
+			} catch (error: any) {
+				if (
+					error.message?.includes("detached") ||
+					error.message?.includes("navigation") ||
+					error.message?.includes("closed") ||
+					error.message?.includes("Target page")
+				) {
+					return false
+				}
+				return false
+			}
+		}, 30000)
+		if (!readySidebar) {
+			throw new Error("CodeVibe webview frame was not ready")
+		}
+		return readySidebar
 	}
 
 	public static async rmForRetries(path: PathLike, options?: RmOptions): Promise<void> {
@@ -265,11 +301,17 @@ export class E2ETestHelper {
 		}
 	}
 
-	public async signin(webview: Frame): Promise<void> {
-		await webview.getByRole("button", { name: "Login to CodeVibe" }).click({ delay: 100 })
-
-		// Verify start up page is no longer visible
-		await expect(webview.getByRole("button", { name: "Login to CodeVibe" })).not.toBeVisible()
+	public async signin(webview: Frame, page?: Page): Promise<Frame> {
+		const response = await fetch("http://127.0.0.1:9876/seed-signed-in", { method: "POST" })
+		if (!response.ok) {
+			throw new Error(`Failed to seed signed-in e2e state: ${response.status} ${await response.text()}`)
+		}
+		if (page) {
+			await E2ETestHelper.openClineSidebar(page)
+			webview = await this.getReadySidebar(page)
+			return webview
+		}
+		await expect(webview.getByTestId("chat-input")).toBeVisible()
 
 		const closeButton = webview.getByRole("button", { name: "Close" })
 		let shouldCloseModal = false
@@ -282,10 +324,23 @@ export class E2ETestHelper {
 		if (shouldCloseModal) {
 			await closeButton.click({ delay: 50 })
 		}
+		return webview
 	}
 
 	public static async openClineSidebar(page: Page): Promise<void> {
-		await E2ETestHelper.runCommandPalette(page, "CodeVibe: Open CodeVibe")
+		await page.bringToFront()
+		await E2ETestHelper.waitUntil(async () => {
+			try {
+				const response = await fetch("http://127.0.0.1:9876/open-legacy-webview", { method: "POST" })
+				if (!response.ok) {
+					return false
+				}
+				const result = (await response.json()) as { visible?: boolean }
+				return result.visible === true
+			} catch {
+				return false
+			}
+		}, 30000)
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {
@@ -308,7 +363,6 @@ export class E2ETestHelper {
 					await showAllCommands.click({ delay: 50 })
 				}
 			},
-			async () => page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+A" : "Control+Shift+P"),
 			async () => page.keyboard.press(process.platform === "darwin" ? "Meta+Shift+P" : "F1"),
 			async () => page.keyboard.press("F1"),
 		]

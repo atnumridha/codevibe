@@ -95,7 +95,7 @@ async function showVersionUpdateAnnouncement(stateManager: StateManager) {
 			const lastShownAnnouncementId = stateManager.getGlobalStateKey("lastShownAnnouncementId")
 			const latestAnnouncementId = getLatestAnnouncementId()
 
-			if (lastShownAnnouncementId !== latestAnnouncementId) {
+			if (lastShownAnnouncementId !== latestAnnouncementId && process.env.E2E_TEST !== "true") {
 				// Show notification when there's a new announcement (major/minor updates or fresh installs)
 				const message = previousVersion
 					? `CodeVibe has been updated to v${currentVersion}`

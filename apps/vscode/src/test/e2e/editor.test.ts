@@ -7,7 +7,7 @@ e2e.describe("Code Actions and Editor Panel", () => {
 		e2e.extend({
 			workspaceType,
 		})(title, async ({ helper, page, sidebar }) => {
-			await helper.signin(sidebar)
+			sidebar = await helper.signin(sidebar, page)
 			// Sidebar - input should start empty
 			const sidebarInput = sidebar.getByTestId("chat-input")
 			await sidebarInput.click()

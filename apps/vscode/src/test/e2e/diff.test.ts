@@ -6,7 +6,7 @@ e2e.describe("Diff Editor", () => {
 		e2e.extend({
 			workspaceType,
 		})(title, async ({ helper, page, sidebar }) => {
-			await helper.signin(sidebar)
+			sidebar = await helper.signin(sidebar, page)
 
 			const inputbox = sidebar.getByTestId("chat-input")
 			await expect(inputbox).toBeVisible()
