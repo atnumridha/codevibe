@@ -65,6 +65,7 @@ interface SharedUriController {
 	}
 	mcpHub: {
 		addServerFromConfig(serverName: string, serverConfig: CursorMcpServerConfig): Promise<McpServer[]>
+		initiateOAuth(serverName: string): Promise<void>
 	}
 }
 
@@ -692,7 +693,8 @@ export class SharedUriHandler {
 						const installedServer = servers.find((server) => server.name === installRequest.serverName)
 						const oauthSummary = getInstalledServerOAuthSummary(installedServer)
 						await controller.postStateToWebview()
-						await HostProvider.window.showMessage({
+						const authenticateOption = "Authenticate"
+						const postInstallChoice = await HostProvider.window.showMessage({
 							type:
 								oauthSummary.oauthNextAction === "authenticate"
 									? ShowMessageType.WARNING
@@ -701,13 +703,17 @@ export class SharedUriHandler {
 								oauthSummary.oauthNextAction === "authenticate"
 									? `Installed MCP server "${installRequest.serverName}". Authentication required.`
 									: `Installed MCP server "${installRequest.serverName}".`,
-							options: oauthSummary.oauthDetail
+							options: oauthSummary.oauthDetail || oauthSummary.oauthNextAction === "authenticate"
 								? {
-										items: [],
+										items:
+											oauthSummary.oauthNextAction === "authenticate" ? [authenticateOption] : [],
 										detail: oauthSummary.oauthDetail,
 									}
 								: undefined,
 						})
+						if (postInstallChoice?.selectedOption === authenticateOption) {
+							await controller.mcpHub.initiateOAuth(installRequest.serverName)
+						}
 						return true
 					}
 					if (cursorRoute.route.kind === "background-agent") {

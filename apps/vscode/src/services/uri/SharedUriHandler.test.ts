@@ -48,6 +48,7 @@ describe("SharedUriHandler", () => {
 	let handleCursorPluginAddStub: sinon.SinonStub
 	let handleMcpOAuthCallbackStub: sinon.SinonStub
 	let addServerFromConfigStub: sinon.SinonStub
+	let initiateOAuthStub: sinon.SinonStub
 	let postStateToWebviewStub: sinon.SinonStub
 	let showMessageStub: sinon.SinonStub
 	let openSettingsStub: sinon.SinonStub
@@ -100,6 +101,7 @@ describe("SharedUriHandler", () => {
 		})
 		handleMcpOAuthCallbackStub = sandbox.stub().resolves()
 		addServerFromConfigStub = sandbox.stub().resolves([])
+		initiateOAuthStub = sandbox.stub().resolves()
 		postStateToWebviewStub = sandbox.stub().resolves()
 		showMessageStub = sandbox.stub()
 		showMessageStub.onFirstCall().resolves({ selectedOption: "Install" })
@@ -122,6 +124,7 @@ describe("SharedUriHandler", () => {
 				},
 				mcpHub: {
 					addServerFromConfig: addServerFromConfigStub,
+					initiateOAuth: initiateOAuthStub,
 				},
 			},
 		} as any
@@ -334,8 +337,32 @@ describe("SharedUriHandler", () => {
 					type: ShowMessageType.WARNING,
 					message: 'Installed MCP server "docs". Authentication required.',
 				})
+				expect(showMessageStub.secondCall.args[0].options.items).to.deep.equal(["Authenticate"])
 				expect(showMessageStub.secondCall.args[0].options.detail).to.contain("Authenticate this MCP server")
 				sinon.assert.calledOnce(addServerFromConfigStub)
+				sinon.assert.calledOnce(postStateToWebviewStub)
+				expect(initiateOAuthStub.called).to.be.false
+			})
+
+			it("should initiate OAuth when Authenticate is selected after installing a Cursor MCP route", async () => {
+				addServerFromConfigStub.resolves([
+					{
+						name: "docs",
+						config: '{"type":"streamableHttp","url":"https://mcp.example.com"}',
+						status: "disconnected",
+						error: "Authenticate this MCP server before using tools.",
+						oauthRequired: true,
+						oauthAuthStatus: "unauthenticated",
+					},
+				])
+				showMessageStub.onSecondCall().resolves({ selectedOption: "Authenticate" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				)
+
+				expect(result).to.be.true
+				sinon.assert.calledOnceWithExactly(initiateOAuthStub, "docs")
 				sinon.assert.calledOnce(postStateToWebviewStub)
 			})
 
