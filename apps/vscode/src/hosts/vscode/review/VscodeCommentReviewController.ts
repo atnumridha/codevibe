@@ -5,11 +5,6 @@ import { Logger } from "@/shared/services/Logger"
 import { DIFF_VIEW_URI_SCHEME, isDiffViewUriScheme } from "../VscodeDiffViewProvider"
 
 /**
- * Upstream avatar used for inherited review metadata.
- */
-const CLINE_AVATAR_URL = "https://avatars.githubusercontent.com/u/184127137"
-
-/**
  * VS Code implementation of CommentReviewController.
  *
  * Uses VS Code's Comment API to create inline comment threads on files.
@@ -20,6 +15,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 	private threads: Map<string, vscode.CommentThread> = new Map()
 	/** Maps thread to its absolute file path (needed because virtual URIs don't contain the full path) */
 	private threadFilePaths: Map<vscode.CommentThread, string> = new Map()
+	private codeVibeAuthor: vscode.CommentAuthorInformation
 	private onReplyCallback?: OnReplyCallback
 	private disposables: vscode.Disposable[] = []
 
@@ -27,8 +23,12 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 	private streamingThread: vscode.CommentThread | null = null
 	private streamingContent: string = ""
 
-	constructor() {
+	constructor(extensionUri?: vscode.Uri) {
 		super()
+		this.codeVibeAuthor = {
+			name: "CodeVibe",
+			...(extensionUri ? { iconPath: vscode.Uri.joinPath(extensionUri, "assets", "icons", "icon.png") } : {}),
+		}
 		// Create the comment controller
 		this.commentController = vscode.comments.createCommentController("codevibe-ai-review", "CodeVibe Review")
 
@@ -69,6 +69,10 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 		this.onReplyCallback = callback
 	}
 
+	private getCodeVibeAuthor(): vscode.CommentAuthorInformation {
+		return this.codeVibeAuthor
+	}
+
 	/**
 	 * Ensure the comments.openView setting is set to "never" to prevent
 	 * the Comments panel from auto-opening when comments are added.
@@ -104,10 +108,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 		const commentObj: vscode.Comment = {
 			body: new vscode.MarkdownString(comment.comment),
 			mode: vscode.CommentMode.Preview,
-			author: {
-				name: "CodeVibe",
-				iconPath: vscode.Uri.parse(CLINE_AVATAR_URL),
-			},
+			author: this.getCodeVibeAuthor(),
 		}
 
 		// Create the thread
@@ -151,10 +152,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 		const commentObj: vscode.Comment = {
 			body: new vscode.MarkdownString("_Thinking..._"),
 			mode: vscode.CommentMode.Preview,
-			author: {
-				name: "CodeVibe",
-				iconPath: vscode.Uri.parse(CLINE_AVATAR_URL),
-			},
+			author: this.getCodeVibeAuthor(),
 		}
 
 		// Create the thread
@@ -217,10 +215,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 		const commentObj: vscode.Comment = {
 			body: new vscode.MarkdownString(this.streamingContent || "_Thinking..._"),
 			mode: vscode.CommentMode.Preview,
-			author: {
-				name: "CodeVibe",
-				iconPath: vscode.Uri.parse(CLINE_AVATAR_URL),
-			},
+			author: this.getCodeVibeAuthor(),
 		}
 		// Create a new array to ensure VS Code detects the change
 		this.streamingThread.comments = [...[commentObj]]
@@ -239,10 +234,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 		const commentObj: vscode.Comment = {
 			body: new vscode.MarkdownString(finalContent),
 			mode: vscode.CommentMode.Preview,
-			author: {
-				name: "CodeVibe",
-				iconPath: vscode.Uri.parse(CLINE_AVATAR_URL),
-			},
+			author: this.getCodeVibeAuthor(),
 		}
 		this.streamingThread.comments = [commentObj]
 
@@ -330,10 +322,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 				const streamingComment: vscode.Comment = {
 					body: new vscode.MarkdownString(content || "_Thinking..._"),
 					mode: vscode.CommentMode.Preview,
-					author: {
-						name: "CodeVibe",
-						iconPath: vscode.Uri.parse(CLINE_AVATAR_URL),
-					},
+					author: this.getCodeVibeAuthor(),
 				}
 				thread.comments = [...thread.comments.slice(0, -1), streamingComment]
 			}
@@ -342,10 +331,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 			const thinkingComment: vscode.Comment = {
 				body: new vscode.MarkdownString("_Thinking..._"),
 				mode: vscode.CommentMode.Preview,
-				author: {
-					name: "CodeVibe",
-					iconPath: vscode.Uri.parse(CLINE_AVATAR_URL),
-				},
+				author: this.getCodeVibeAuthor(),
 			}
 			thread.comments = [...thread.comments, thinkingComment]
 
@@ -368,10 +354,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 							`_Error getting response: ${error instanceof Error ? error.message : "Unknown error"}_`,
 						),
 						mode: vscode.CommentMode.Preview,
-						author: {
-							name: "CodeVibe",
-							iconPath: vscode.Uri.parse(CLINE_AVATAR_URL),
-						},
+						author: this.getCodeVibeAuthor(),
 					}
 					thread.comments = [...thread.comments.slice(0, -1), errorComment]
 				})
@@ -455,9 +438,9 @@ let instance: VscodeCommentReviewController | undefined
 /**
  * Get or create the VscodeCommentReviewController singleton
  */
-export function getVscodeCommentReviewController(): VscodeCommentReviewController {
+export function getVscodeCommentReviewController(extensionUri?: vscode.Uri): VscodeCommentReviewController {
 	if (!instance) {
-		instance = new VscodeCommentReviewController()
+		instance = new VscodeCommentReviewController(extensionUri)
 	}
 	return instance
 }

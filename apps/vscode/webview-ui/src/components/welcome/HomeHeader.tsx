@@ -49,7 +49,7 @@ const HomeHeader = ({ shouldShowStarterWorkflows = false }: HomeHeaderProps) => 
 				<div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--vscode-panel-border)] pt-3 text-[11px] text-[var(--vscode-descriptionForeground)]">
 					<span>Codex-first</span>
 					<span>Plan/Act</span>
-					<span>Cursor inputs</span>
+					<span>Compatible inputs</span>
 				</div>
 				{shouldShowStarterWorkflows && (
 					<button

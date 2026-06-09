@@ -1,7 +1,7 @@
 {
 	"name": "codevibe",
 	"displayName": "CodeVibe",
-	"description": "CodeVibe Cursor-parity coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
+	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
 	"version": "3.88.5",
 	"icon": "assets/icons/icon.png",
 	"engines": {
@@ -185,9 +185,10 @@
 				"welcomeTitle": "CodeVibe Agent",
 				"welcomeMessage": "Plan, edit, review, run tools, apply diffs, use terminal approvals, MCP, browser automation, and Codex auth.",
 				"inputPlaceholder": "Ask CodeVibe to build, fix, review, or plan",
-				"order": -1000,
+				"order": 0,
 				"canDelegate": true,
 				"description": "Run local coding-agent tasks with CodeVibe",
+				"customAgentTarget": "codevibe",
 				"capabilities": {
 					"supportsFileAttachments": true,
 					"supportsProblemAttachments": true,

@@ -1,6 +1,6 @@
 # CodeVibe
 
-CodeVibe is a Cursor-parity coding agent for VS Code with Codex auth by default, planning-first task execution, MCP, browser automation, retrieval controls, worktrees, background workstreams, and deep-link compatibility.
+CodeVibe is an editor-native coding agent for VS Code with Codex auth by default, planning-first task execution, MCP, browser automation, retrieval controls, worktrees, background workstreams, and deep-link compatibility.
 
 ## What CodeVibe Does
 
@@ -9,7 +9,7 @@ CodeVibe is a Cursor-parity coding agent for VS Code with Codex auth by default,
 - Reads, edits, and reviews files through VS Code-native diffs and approval flows.
 - Runs terminal commands with human-in-the-loop controls and auto-approval policies.
 - Connects MCP servers, browser tools, retrieval/indexing controls, rules, skills, hooks, and worktrees.
-- Accepts Cursor-compatible inputs such as `.cursorrules`, `.cursor/rules`, `.cursorignore`, `.cursorindexingignore`, `.cursor/mcp.json`, `.cursor/sandbox.json`, NDJSON ingest, and compatible deep links.
+- Accepts project compatibility inputs such as `.cursorrules`, `.cursor/rules`, `.cursorignore`, `.cursorindexingignore`, `.cursor/mcp.json`, `.cursor/sandbox.json`, NDJSON ingest, and compatible deep links.
 
 ## Getting Started
 

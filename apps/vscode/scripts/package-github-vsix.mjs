@@ -110,7 +110,7 @@ const githubVsixManifestOverrides = {
 	name: "codevibe",
 	displayName: "CodeVibe",
 	description:
-		"CodeVibe Cursor-parity coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
+		"CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
 	publisher: "atnumridha",
 	author: {
 		name: "CodeVibe",
@@ -871,8 +871,11 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (codeVibeSession.name !== "CodeVibe Agent" || codeVibeSession.displayName !== "CodeVibe Agent") {
 		throw new Error(`${label} codevibe-agent chat session must display as CodeVibe Agent`)
 	}
-	if (typeof codeVibeSession.order !== "number" || codeVibeSession.order > -1000) {
+	if (typeof codeVibeSession.order !== "number" || codeVibeSession.order >= 1) {
 		throw new Error(`${label} codevibe-agent chat session must be ordered before Copilot-style providers`)
+	}
+	if (codeVibeSession.customAgentTarget !== "codevibe") {
+		throw new Error(`${label} codevibe-agent chat session must target CodeVibe custom agents`)
 	}
 	const newSessionMenu = Array.isArray(packageJson.contributes?.menus?.["chatSessions/newSession"])
 		? packageJson.contributes.menus["chatSessions/newSession"]
@@ -972,8 +975,8 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (packageJson.homepage !== "https://github.com/atnumridha/codevibe") {
 		throw new Error(`${label} must point homepage at https://github.com/atnumridha/codevibe`)
 	}
-	if (typeof packageJson.description !== "string" || !packageJson.description.includes("Cursor-parity")) {
-		throw new Error(`${label} description must mention Cursor-parity`)
+	if (typeof packageJson.description !== "string" || !packageJson.description.includes("editor-native")) {
+		throw new Error(`${label} description must mention editor-native positioning`)
 	}
 	if (packageJson.main !== "./dist/extension.js") {
 		throw new Error(`${label} must point main at ./dist/extension.js`)

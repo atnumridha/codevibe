@@ -293,7 +293,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const triggerCursorCompatibleDeeplink = async () => {
 		const uri = await vscode.window.showInputBox({
 			placeHolder: "cursor://createchat?prompt=Review%20this",
-			prompt: "Enter a Cursor-compatible deeplink to route through CodeVibe.",
+			prompt: "Enter a compatible deeplink to route through CodeVibe.",
 			ignoreFocusOut: true,
 		})
 		if (!uri?.trim()) {
@@ -321,7 +321,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand(commands.CompatibilityNdjsonShowStatus, showCursorNdjsonIngestStatus),
 		vscode.commands.registerCommand(commands.CompatibilityNdjsonCopyCurl, copyCursorNdjsonIngestCurlCommand),
 		vscode.commands.registerCommand(commands.CompatibilityDeeplinkDebugTrigger, triggerCursorCompatibleDeeplink),
-		// Legacy command IDs remain callable for existing automation and Cursor-compatible scripts,
+		// Legacy command IDs remain callable for existing automation and compatibility scripts,
 		// but they are no longer contributed to visible command surfaces.
 		vscode.commands.registerCommand("cursor.ndjsonIngest.start", async () => {
 			await startCursorNdjsonIngestServer(false)
@@ -768,7 +768,7 @@ function setupHostProvider(context: ExtensionContext) {
 
 	const createWebview = () => new VscodeWebviewProvider(context)
 	const createDiffView = () => new VscodeDiffViewProvider()
-	const createCommentReview = () => getVscodeCommentReviewController()
+	const createCommentReview = () => getVscodeCommentReviewController(context.extensionUri)
 	const createTerminalManager = () => new VscodeTerminalManager()
 
 	const getCallbackUrl = async (path: string, _preferredPort?: number) => {
@@ -851,6 +851,10 @@ type NativeChatApi = {
 		defaultChatParticipant: NativeChatParticipant,
 		capabilities?: Record<string, unknown>,
 	) => vscode.Disposable
+	registerChatSessionItemProvider?: (
+		chatSessionType: string,
+		provider: CodeVibeChatSessionItemProvider,
+	) => vscode.Disposable
 	createChatSessionItemController?: (
 		chatSessionType: string,
 		refreshHandler: (token: vscode.CancellationToken) => unknown,
@@ -889,6 +893,11 @@ type CodeVibeChatSessionContentProvider = {
 
 type CodeVibeChatSessionContentContext = {
 	inputState?: CodeVibeChatSessionInputState
+}
+
+type CodeVibeChatSessionItemProvider = {
+	onDidChangeChatSessionItems?: vscode.Event<void>
+	provideChatSessionItems: (token: vscode.CancellationToken) => Promise<CodeVibeChatSessionItem[]> | CodeVibeChatSessionItem[]
 }
 
 type CodeVibeChatSessionInputState = {
@@ -931,6 +940,7 @@ type CodeVibeNativeAgentRegistrationState = {
 	chatParticipantRegistered: boolean
 	customAgentProviderRegistered: boolean
 	chatSessionProviderRegistered: boolean
+	chatSessionItemProviderRegistered: boolean
 	chatSessionItemControllerRegistered: boolean
 	failures: string[]
 }
@@ -940,6 +950,7 @@ function createCodeVibeNativeAgentRegistrationState(): CodeVibeNativeAgentRegist
 		chatParticipantRegistered: false,
 		customAgentProviderRegistered: false,
 		chatSessionProviderRegistered: false,
+		chatSessionItemProviderRegistered: false,
 		chatSessionItemControllerRegistered: false,
 		failures: [],
 	}
@@ -985,12 +996,14 @@ function buildCodeVibeNativeAgentDiagnostics(
 			createChatParticipant: Boolean(chatApi?.createChatParticipant),
 			registerCustomAgentProvider: Boolean(chatApi?.registerCustomAgentProvider),
 			registerChatSessionContentProvider: Boolean(chatApi?.registerChatSessionContentProvider),
+			registerChatSessionItemProvider: Boolean(chatApi?.registerChatSessionItemProvider),
 			createChatSessionItemController: Boolean(chatApi?.createChatSessionItemController),
 		},
 		registration: {
 			chatParticipant: registration.chatParticipantRegistered,
 			customAgentProvider: registration.customAgentProviderRegistered,
 			chatSessionProvider: registration.chatSessionProviderRegistered,
+			chatSessionItemProvider: registration.chatSessionItemProviderRegistered,
 			chatSessionItemController: registration.chatSessionItemControllerRegistered,
 		},
 		failures: registration.failures,
@@ -999,7 +1012,12 @@ function buildCodeVibeNativeAgentDiagnostics(
 
 function isCodeVibeNativeAgentReady(diagnostics: Record<string, unknown>): boolean {
 	const registration = diagnostics.registration as Record<string, unknown> | undefined
-	return Boolean(registration?.customAgentProvider && registration?.chatSessionProvider)
+	return Boolean(
+		registration?.chatSessionProvider &&
+			(registration?.customAgentProvider ||
+				registration?.chatSessionItemProvider ||
+				registration?.chatSessionItemController),
+	)
 }
 
 function formatCodeVibeNativeAgentDiagnostics(diagnostics: Record<string, unknown>): string {
@@ -1222,6 +1240,20 @@ function registerCodeVibeNativeChatSessionProvider(
 			}
 			context.subscriptions.push(controller)
 			registration.chatSessionItemControllerRegistered = true
+		} else if (chatApi.registerChatSessionItemProvider) {
+			const itemProviderChangeEmitter = new vscode.EventEmitter<void>()
+			context.subscriptions.push(itemProviderChangeEmitter)
+			const itemProvider: CodeVibeChatSessionItemProvider = {
+				onDidChangeChatSessionItems: itemProviderChangeEmitter.event,
+				provideChatSessionItems: async (token) => {
+					if (token.isCancellationRequested) {
+						return []
+					}
+					return []
+				},
+			}
+			context.subscriptions.push(chatApi.registerChatSessionItemProvider(CODEVIBE_CHAT_SESSION_TYPE, itemProvider))
+			registration.chatSessionItemProviderRegistered = true
 		}
 	} catch (error) {
 		registration.failures.push(
