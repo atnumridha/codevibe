@@ -91,6 +91,9 @@ describe("Package manifest", () => {
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
 		const packageScript = await readFile(path.join(__dirname, "..", "..", "scripts", "package-github-vsix.mjs"), "utf8")
 
+		assert.equal(packageScript.includes("pruneInstalledCodeVibeExtensionVersions"), true)
+		assert.equal(packageScript.includes("resolveVsCodeExtensionsDir"), true)
+		assert.equal(packageScript.includes("fs.rmSync(extensionPath, { recursive: true, force: true })"), true)
 		assert.equal(packageScript.includes("workbench.view.extension.codevibe.agent"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state.hidden'"), true)

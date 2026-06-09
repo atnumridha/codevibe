@@ -589,6 +589,41 @@ function resolveVsCodeUserStorageDir() {
 	return path.join(configHome, "Code", "User")
 }
 
+function resolveVsCodeExtensionsDir() {
+	if (process.env.CODEVIBE_VSCODE_EXTENSIONS_DIR?.trim()) {
+		return path.resolve(process.env.CODEVIBE_VSCODE_EXTENSIONS_DIR.trim())
+	}
+	if (process.env.VSCODE_PORTABLE) {
+		return path.join(process.env.VSCODE_PORTABLE, "extensions")
+	}
+	return path.join(os.homedir(), ".vscode", "extensions")
+}
+
+function pruneInstalledCodeVibeExtensionVersions(metadata) {
+	const extensionsDir = resolveVsCodeExtensionsDir()
+	if (!fs.existsSync(extensionsDir)) {
+		return
+	}
+	const extensionPrefix = `${metadata.extensionId.toLowerCase()}-`
+	const currentExtensionDir = `${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`
+	let removed = 0
+	for (const entry of fs.readdirSync(extensionsDir, { withFileTypes: true })) {
+		if (!entry.isDirectory()) {
+			continue
+		}
+		const entryName = entry.name.toLowerCase()
+		if (!entryName.startsWith(extensionPrefix) || entryName === currentExtensionDir) {
+			continue
+		}
+		const extensionPath = path.join(extensionsDir, entry.name)
+		fs.rmSync(extensionPath, { recursive: true, force: true })
+		removed++
+	}
+	if (removed > 0) {
+		console.log(`Removed ${removed} stale CodeVibe extension version folder(s) from ${extensionsDir}`)
+	}
+}
+
 function runSqlite(databasePath, sql) {
 	return spawnSync("sqlite3", [databasePath, sql], {
 		cwd: projectRoot,
@@ -1583,6 +1618,7 @@ async function main() {
 
 		if (options.install) {
 			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
+			pruneInstalledCodeVibeExtensionVersions(metadata)
 			try {
 				cleanLegacyCodeVibeViewState()
 			} catch (error) {
