@@ -39,7 +39,25 @@ Required inputs:
 The workflow packages `apps/vscode/*.vsix`, smoke-installs it with VS Code, and uploads it to the GitHub Release. If `prerelease` is true, the VSIX is packaged with `--pre-release`.
 Each GitHub Release also attaches `cursor-parity-evidence.md`, a generated snapshot of the release prerequisite checks and local validation checklist state from the workflow runner.
 
-If `gh` is unavailable locally, dispatch the workflow from GitHub:
+If `gh` is unavailable locally, either use the token-based local uploader or dispatch the workflow from GitHub.
+
+Token-based local candidate release:
+
+```sh
+export GITHUB_TOKEN="..."
+node apps/vscode/scripts/release-github-vsix.mjs \
+  --repo atnumridha/codevibe \
+  --tag vX.Y.Z-rc.N \
+  --vsix apps/vscode/dist/codevibe-X.Y.Z.vsix \
+  --title "CodeVibe vX.Y.Z RC N" \
+  --notes "Candidate VSIX for installed VS Code validation. Final parity evidence is pending." \
+  --prerelease \
+  --draft
+```
+
+Dry-run the same command with `--dry-run` to validate the tag, VSIX path, and asset metadata without network access or a token.
+
+GitHub Actions candidate release:
 
 1. Open `https://github.com/atnumridha/codevibe/actions/workflows/ext-vscode-github-release.yml`.
 2. Choose **Run workflow** on the release commit or release branch.

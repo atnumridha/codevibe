@@ -48,7 +48,7 @@ const CodeVibeCommands = {
  * These should match the name + view IDs defined in package.json.
  */
 const CodeVibeViewIds = {
-	AgentContainer: prefix + ".agent",
+	AgentContainer: name === "codevibe" ? "codevibe-agent" : prefix + ".agent",
 	Sidebar: prefix + ".agent.chat",
 	LegacySidebar: name + ".SidebarProvider",
 }

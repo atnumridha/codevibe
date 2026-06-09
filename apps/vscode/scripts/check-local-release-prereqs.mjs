@@ -336,6 +336,29 @@ function checkReleaseGate(checks, requireGate, releaseStage) {
 	}
 }
 
+function checkGithubReleasePublishing(checks) {
+	if (commandOk("gh", ["--version"])) {
+		add(checks, "pass", "GitHub Release publishing", "gh is available on PATH")
+		return
+	}
+	if ((process.env.GITHUB_TOKEN || process.env.GH_TOKEN || "").trim()) {
+		add(
+			checks,
+			"pass",
+			"GitHub Release publishing",
+			"GITHUB_TOKEN/GH_TOKEN is available for npm run release:github-vsix",
+		)
+		return
+	}
+	add(
+		checks,
+		"fail",
+		"GitHub Release publishing",
+		"gh is not on PATH and GITHUB_TOKEN/GH_TOKEN is not set",
+		"Install gh, set GITHUB_TOKEN or GH_TOKEN for npm run release:github-vsix, or dispatch .github/workflows/ext-vscode-github-release.yml",
+	)
+}
+
 function checkPackageVersion(checks) {
 	const packageJson = readPackageJson(path.join(projectRoot, "package.json"))
 	const version = packageJson.version
@@ -408,12 +431,7 @@ function main() {
 	checkReleaseGate(checks, options.release, options.releaseStage)
 
 	if (options.githubRelease) {
-		checkCommand(
-			checks,
-			"gh",
-			"GitHub CLI",
-			"Install gh or use .github/workflows/ext-vscode-github-release.yml",
-		)
+		checkGithubReleasePublishing(checks)
 	}
 
 	const summary = summarize(checks)

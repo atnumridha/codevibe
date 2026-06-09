@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.17",
+	"version": "3.88.18",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -678,6 +678,7 @@
 		"package:github-vsix:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight:release": "node scripts/check-local-release-prereqs.mjs --release --github-release",
+		"release:github-vsix": "node scripts/release-github-vsix.mjs",
 		"release:cursor-parity:evidence": "node scripts/collect-cursor-parity-evidence.mjs",
 		"release:cursor-parity:evidence:fast": "node scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth --run-standalone-ui --run-sandbox-policy",
 		"release:cursor-parity:evidence:retrieval": "node scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing",

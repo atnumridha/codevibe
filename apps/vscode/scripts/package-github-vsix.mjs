@@ -1351,12 +1351,36 @@ function assertNativeChatRegistrationSource() {
 	}
 }
 
+function assertNativeViewRegistrySource(packageJson) {
+	const registrySource = fs.readFileSync(path.join(projectRoot, "src", "registry.ts"), "utf8")
+	const activityBarContainers = packageJson.contributes?.viewsContainers?.activitybar ?? []
+	const codeVibeContainer = activityBarContainers.find((container) => container?.id === "codevibe-agent")
+	if (!codeVibeContainer) {
+		throw new Error("package.json must contribute the codevibe-agent activity bar container")
+	}
+	const codeVibeAgentViews = Array.isArray(packageJson.contributes?.views?.["codevibe-agent"])
+		? packageJson.contributes.views["codevibe-agent"]
+		: []
+	if (!codeVibeAgentViews.some((view) => view?.id === "codevibe.agent.chat")) {
+		throw new Error("package.json must register codevibe.agent.chat under the codevibe-agent container")
+	}
+	if (!registrySource.includes('AgentContainer: name === "codevibe" ? "codevibe-agent" : prefix + ".agent"')) {
+		throw new Error(
+			"ExtensionRegistryInfo.views.AgentContainer must match the contributed codevibe-agent container",
+		)
+	}
+	if (!registrySource.includes('Sidebar: prefix + ".agent.chat"')) {
+		throw new Error("ExtensionRegistryInfo.views.Sidebar must match the contributed codevibe.agent.chat view")
+	}
+}
+
 function assertPackageInputs(packageJson) {
 	assertFileExists(path.join(projectRoot, "README.md"), "packaged README.md", { nonEmpty: true })
 	assertManifestAssets(packageJson)
 	assertCursorParityManifest(packageJson)
 	assertPackagedMarkdownAssetsBranded()
 	assertNativeChatRegistrationSource()
+	assertNativeViewRegistrySource(packageJson)
 }
 
 function assertManifestInputs(packageJson) {
