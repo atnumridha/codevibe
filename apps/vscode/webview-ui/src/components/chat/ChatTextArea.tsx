@@ -92,7 +92,7 @@ interface GitCommit {
 }
 
 const PLAN_MODE_COLOR = "var(--vscode-activityWarningBadge-background)"
-const ACT_MODE_COLOR = "var(--vscode-focusBorder)"
+const ACT_MODE_COLOR = "var(--color-codevibe, var(--vscode-focusBorder))"
 
 const SwitchContainer = styled.div<{ disabled: boolean }>`
 	display: flex;
@@ -1610,7 +1610,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 										role="button"
 										tabIndex={0}
 										title="Open API Settings">
-										<ModelButtonContent className="text-xs">CodeVibe / {modelDisplayName}</ModelButtonContent>
+										<ModelButtonContent className="text-xs">CodeVibe Agent / {modelDisplayName}</ModelButtonContent>
 									</ModelDisplayButton>
 								</ModelButtonWrapper>
 							</ModelContainer>

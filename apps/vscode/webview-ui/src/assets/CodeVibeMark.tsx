@@ -4,7 +4,8 @@ import { getEnvironmentColor } from "../utils/environmentColors"
 
 const CodeVibeMark = (props: SVGProps<SVGSVGElement> & { environment?: Environment }) => {
 	const { environment, ...svgProps } = props
-	const accentColor = environment ? getEnvironmentColor(environment) : "var(--vscode-textLink-foreground)"
+	const accentColor =
+		environment === "local" || environment === "staging" ? getEnvironmentColor(environment) : "var(--color-codevibe, #2f8cff)"
 	const lineColor = "var(--vscode-icon-foreground)"
 
 	return (

@@ -293,6 +293,9 @@ service UiService {
   // Handles Cline and Cursor-compatible deep links from external/standalone clients
   rpc handleUri(StringRequest) returns (BooleanResponse);
 
-  // Opens the Cline walkthrough
+  // Opens the preferred CodeVibe native agent session
+  rpc openNativeAgentSession(EmptyRequest) returns (Empty);
+
+  // Opens the CodeVibe walkthrough
   rpc openWalkthrough(EmptyRequest) returns (Empty);
 }

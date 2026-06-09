@@ -30,6 +30,9 @@ service WorkspaceService {
   // Opens and focuses the Cline sidebar panel in the host IDE.
   rpc openClineSidebarPanel(OpenClineSidebarPanelRequest) returns (OpenClineSidebarPanelResponse);
 
+  // Opens CodeVibe's preferred native agent session in the host IDE.
+  rpc openNativeAgentSession(OpenNativeAgentSessionRequest) returns (OpenNativeAgentSessionResponse);
+
   // Opens and focuses the terminal panel.
   rpc openTerminalPanel(OpenTerminalRequest) returns (OpenTerminalResponse);
 
@@ -113,6 +116,8 @@ message OpenInFileExplorerPanelRequest {
 message OpenInFileExplorerPanelResponse {}
 message OpenClineSidebarPanelRequest {}
 message OpenClineSidebarPanelResponse {}
+message OpenNativeAgentSessionRequest {}
+message OpenNativeAgentSessionResponse {}
 message OpenTerminalRequest {}
 message OpenTerminalResponse {}
 

@@ -17,7 +17,7 @@ export const SuggestedTasks: React.FC<{ shouldShowStarterWorkflows: boolean }> =
 		<div className="select-none px-4 pb-3 pt-2">
 			<h2 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
 				<span className="codicon codicon-sparkle text-[13px]!" />
-				<span>Start</span>
+				<span>Start with CodeVibe</span>
 			</h2>
 			<div className="grid gap-2">
 				{quickWinTasks.map((task: QuickWinTask) => (
