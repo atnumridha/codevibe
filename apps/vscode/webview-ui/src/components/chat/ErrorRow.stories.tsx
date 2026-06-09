@@ -267,7 +267,7 @@ export const InteractiveSignIn: Story = {
 		message: createMockMessage(),
 		errorType: "error",
 		apiRequestFailedMessage: JSON.stringify({
-			message: "Please sign in to access Cline services.",
+			message: "Please sign in to access CodeVibe services.",
 			code: "ERR_BAD_REQUEST",
 			request_id: "req_signin_test",
 			providerId: "cline",

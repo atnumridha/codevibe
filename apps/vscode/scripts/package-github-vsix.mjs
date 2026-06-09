@@ -81,6 +81,33 @@ const disallowedPackagedMarkdownFragments = [
 	"saoudrizwan.claude-dev",
 ]
 
+const disallowedPackagedVisibleTextFragments = [
+	"Launch Cursor",
+	"Choose Cursor",
+	"Import Cursor",
+	"Global Cursor",
+	"Start Cursor",
+	"Cursor automation",
+	"Cursor background",
+	"Cursor git helper",
+	"Run Cursor",
+	"Create Cursor",
+	"Install Cursor plugin",
+	"Direct push from Cursor",
+	"recognized Cursor",
+	"Failed to install Cursor",
+	"Open in Cursor",
+	"Cursor rule",
+	"Cursor-parity",
+	"Cursor inputs",
+	"cline-bot",
+	"https://avatars.githubusercontent.com/u/184127137",
+	"Please sign in to access Cline services.",
+	"Open in Cline",
+	"submits a prompt to Cline",
+	"when Cline reaches a user-attention boundary",
+]
+
 const disallowedVsixEntryPrefixes = [
 	"extension/testing-platform/",
 	"extension/tests/",
@@ -864,18 +891,28 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		throw new Error(`${label} CodeVibe chat agent contribution must be named and described as CodeVibe Agent`)
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
-	const codeVibeSession = chatSessions.find((session) => session?.type === "codevibe-agent")
+	const codeVibeSession = chatSessions.find((session) => session?.type === "agent-host-codevibe")
 	if (!codeVibeSession) {
-		throw new Error(`${label} must contribute the native codevibe-agent chat session`)
+		throw new Error(`${label} must contribute the native agent-host-codevibe chat session`)
+	}
+	if (codeVibeSession !== chatSessions[0]) {
+		throw new Error(`${label} must list agent-host-codevibe before Copilot-style providers`)
 	}
 	if (codeVibeSession.name !== "CodeVibe Agent" || codeVibeSession.displayName !== "CodeVibe Agent") {
-		throw new Error(`${label} codevibe-agent chat session must display as CodeVibe Agent`)
+		throw new Error(`${label} agent-host-codevibe chat session must display as CodeVibe Agent`)
 	}
-	if (typeof codeVibeSession.order !== "number" || codeVibeSession.order >= 1) {
-		throw new Error(`${label} codevibe-agent chat session must be ordered before Copilot-style providers`)
+	if (typeof codeVibeSession.order !== "number" || codeVibeSession.order >= 0) {
+		throw new Error(`${label} agent-host-codevibe chat session must be ordered before Copilot-style providers`)
 	}
 	if (codeVibeSession.customAgentTarget !== "codevibe") {
-		throw new Error(`${label} codevibe-agent chat session must target CodeVibe custom agents`)
+		throw new Error(`${label} agent-host-codevibe chat session must target CodeVibe custom agents`)
+	}
+	const codeVibeLegacySession = chatSessions.find((session) => session?.type === "codevibe-agent")
+	if (!codeVibeLegacySession) {
+		throw new Error(`${label} must keep the legacy codevibe-agent chat session alias`)
+	}
+	if (typeof codeVibeLegacySession.order !== "number" || codeVibeLegacySession.order <= codeVibeSession.order) {
+		throw new Error(`${label} legacy codevibe-agent chat session must remain after agent-host-codevibe`)
 	}
 	const newSessionMenu = Array.isArray(packageJson.contributes?.menus?.["chatSessions/newSession"])
 		? packageJson.contributes.menus["chatSessions/newSession"]
@@ -884,8 +921,11 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (!codeVibeNewSessionMenu) {
 		throw new Error(`${label} must contribute a CodeVibe command to chatSessions/newSession`)
 	}
-	if (codeVibeNewSessionMenu.when !== "chatSessionType == codevibe-agent") {
-		throw new Error(`${label} CodeVibe chatSessions/newSession menu must target codevibe-agent`)
+	if (
+		codeVibeNewSessionMenu.when !==
+		"chatSessionType == agent-host-codevibe || chatSessionType == codevibe-agent"
+	) {
+		throw new Error(`${label} CodeVibe chatSessions/newSession menu must target CodeVibe native session types`)
 	}
 	if ("codevibe-ActivityBar" in views) {
 		throw new Error(`${label} must not contribute views under legacy codevibe-ActivityBar`)
@@ -986,6 +1026,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe.agent", `${label} activationEvents`)
+	assertArrayIncludes(packageJson.activationEvents, "onChatSession:agent-host-codevibe", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatSession:codevibe-agent", `${label} activationEvents`)
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
@@ -1068,6 +1109,33 @@ function assertPackagedMarkdownAssetsBranded() {
 		const filePath = path.join(projectRoot, assetPath)
 		assertFileExists(filePath, `packaged markdown asset "${assetPath}"`, { nonEmpty: true })
 		assertPackagedMarkdownTextBranded(fs.readFileSync(filePath, "utf8"), `packaged markdown asset "${assetPath}"`)
+	}
+}
+
+function isPackagedTextEntry(entryName) {
+	if (
+		entryName.startsWith("extension/dist/") ||
+		entryName.startsWith("extension/webview-ui/build/") ||
+		entryName === "extension.vsixmanifest" ||
+		entryName === "extension/package.json" ||
+		entryName === "extension/readme.md"
+	) {
+		return /\.(?:css|html|js|json|md|txt)$/i.test(entryName)
+	}
+	return packagedMarkdownAssetPaths.some((assetPath) => entryName === `extension/${assetPath.replace(/\\/g, "/")}`)
+}
+
+function assertPackagedVisibleTextBranded(zip) {
+	for (const entryName of zip.entries.keys()) {
+		if (!isPackagedTextEntry(entryName)) {
+			continue
+		}
+		const text = readZipEntry(zip, entryName).toString("utf8")
+		for (const fragment of disallowedPackagedVisibleTextFragments) {
+			if (text.includes(fragment)) {
+				throw new Error(`VSIX artifact ${entryName} includes stale visible branding fragment: ${fragment}`)
+			}
+		}
 	}
 }
 
@@ -1264,6 +1332,7 @@ function assertPackagedVsix(outPath) {
 		const text = readZipEntry(zip, entryName).toString("utf8")
 		assertPackagedMarkdownTextBranded(text, `VSIX markdown asset ${entryName}`)
 	}
+	assertPackagedVisibleTextBranded(zip)
 }
 
 async function verifyInstallWithCode(outPath, metadata, codePath) {
