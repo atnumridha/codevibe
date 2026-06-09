@@ -866,8 +866,13 @@ function assertVisibleManifestStringsBranded(value, label, pathParts = []) {
 function assertNativeCodeVibeContributionIds(packageJson, label) {
 	const activityBarContainers = packageJson.contributes?.viewsContainers?.activitybar ?? []
 	const activityBarIds = activityBarContainers.map((container) => container?.id).filter(Boolean)
-	if (!activityBarIds.includes("codevibe.agent")) {
-		throw new Error(`${label} must contribute the native codevibe.agent activity bar container`)
+	for (const id of activityBarIds) {
+		if (!/^[A-Za-z0-9_-]+$/.test(id)) {
+			throw new Error(`${label} activity bar container '${id}' must use only alphanumeric characters, '_' or '-'`)
+		}
+	}
+	if (!activityBarIds.includes("codevibe-agent")) {
+		throw new Error(`${label} must contribute the native codevibe-agent activity bar container`)
 	}
 	if (activityBarIds.includes("codevibe-ActivityBar")) {
 		throw new Error(`${label} must not contribute the legacy CodeVibe activity bar container`)
@@ -877,7 +882,7 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 
 	const views = packageJson.contributes?.views ?? {}
-	const codeVibeAgentViews = Array.isArray(views["codevibe.agent"]) ? views["codevibe.agent"] : []
+	const codeVibeAgentViews = Array.isArray(views["codevibe-agent"]) ? views["codevibe-agent"] : []
 	const codeVibeAgentViewIds = codeVibeAgentViews.map((view) => view?.id).filter(Boolean)
 	if (!codeVibeAgentViewIds.includes("codevibe.agent.chat")) {
 		throw new Error(`${label} must contribute the native codevibe.agent.chat webview`)

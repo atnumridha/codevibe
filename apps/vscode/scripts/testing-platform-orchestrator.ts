@@ -30,6 +30,7 @@ let showServerLogs = false
 let fix = false
 let coverage = false
 const WAIT_SERVER_DEFAULT_TIMEOUT = 15000
+const WAIT_SERVER_COVERAGE_TIMEOUT = 60000
 const usedPorts = new Set<number>()
 
 /**
@@ -104,11 +105,17 @@ async function startServer(): Promise<{ server: ChildProcess; grpcPort: string }
 		},
 	})
 
-	// Wait for either the server to become ready or fail on spawn error
-	await Promise.race([
-		waitForPort(Number(grpcPort), "127.0.0.1", WAIT_SERVER_DEFAULT_TIMEOUT),
-		new Promise((_, reject) => server.once("error", reject)),
-	])
+	// Wait for either the server to become ready or fail on spawn error.
+	// Coverage instrumentation can add tens of seconds to standalone startup on CI.
+	try {
+		await Promise.race([
+			waitForPort(Number(grpcPort), "127.0.0.1", coverage ? WAIT_SERVER_COVERAGE_TIMEOUT : WAIT_SERVER_DEFAULT_TIMEOUT),
+			new Promise((_, reject) => server.once("error", reject)),
+		])
+	} catch (error) {
+		await stopServer(server)
+		throw error
+	}
 
 	return { server, grpcPort }
 }

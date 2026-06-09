@@ -32,11 +32,11 @@ import { mkdtempSync } from "fs"
 import os from "os"
 import path from "path"
 import { _electron } from "playwright"
-import { ClineApiServerMock } from "../src/test/e2e/fixtures/server"
+import { CodeVibeApiServerMock } from "../src/test/e2e/fixtures/server"
 import { E2ETestHelper } from "../src/test/e2e/utils/helpers"
 
 async function main() {
-	await ClineApiServerMock.startGlobalServer()
+	await CodeVibeApiServerMock.startGlobalServer()
 
 	const userDataDir = mkdtempSync(path.join(os.tmpdir(), "vsce-interactive"))
 	const executablePath = await downloadAndUnzipVSCode("stable", undefined, new SilentReporter())
@@ -79,7 +79,7 @@ async function main() {
 		console.log("Cleaning up resources...")
 		try {
 			await app?.close()
-			await ClineApiServerMock.stopGlobalServer?.()
+			await CodeVibeApiServerMock.stopGlobalServer?.()
 			await E2ETestHelper.rmForRetries(userDataDir, { recursive: true })
 		} catch (e) {
 			console.log(`We could teardown interactive playwright properly, error:${e}`)

@@ -8,6 +8,7 @@
 .codex/**
 CLAUDE.local.md
 out/
+coverage/
 dist-standalone/
 node_modules/
 src/**

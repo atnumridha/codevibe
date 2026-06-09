@@ -12,7 +12,7 @@
  *
  * The following components are started automatically:
  *   1. HostBridge test server
- *   2. ClineApiServerMock (mock implementation of the Cline API)
+ *   2. CodeVibeApiServerMock (mock implementation of the CodeVibe API)
  *   3. AuthServiceMock (activated if E2E_TEST="true")
  *
  * Environment Variables for Customization:
@@ -33,7 +33,7 @@ import { mkdtempSync, rmSync } from "node:fs"
 import * as os from "node:os"
 import { ChildProcess, execSync, spawn } from "child_process"
 import * as path from "path"
-import { ClineApiServerMock } from "../src/test/e2e/fixtures/server/index"
+import { CodeVibeApiServerMock } from "../src/test/e2e/fixtures/server/index"
 
 const PROTOBUS_PORT = process.env.PROTOBUS_PORT || "26040"
 const HOSTBRIDGE_PORT = process.env.HOSTBRIDGE_PORT || "26041"
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
 	}
 
 	try {
-		await ClineApiServerMock.startGlobalServer()
+		await CodeVibeApiServerMock.startGlobalServer()
 		console.log("Cline API Server started in-process")
 	} catch (error) {
 		console.error("Failed to start Cline API Server:", error)
@@ -146,7 +146,7 @@ async function main(): Promise<void> {
 			if (child && !child.killed) child.kill("SIGINT")
 		}
 
-		await ClineApiServerMock.stopGlobalServer()
+		await CodeVibeApiServerMock.stopGlobalServer()
 
 		try {
 			rmSync(userDataDir, { recursive: true, force: true })
