@@ -97,9 +97,9 @@ const ACT_MODE_COLOR = "var(--vscode-focusBorder)"
 const SwitchContainer = styled.div<{ disabled: boolean }>`
 	display: flex;
 	align-items: center;
-	background-color: transparent;
-	border: 1px solid var(--vscode-input-border);
-	border-radius: 12px;
+	background-color: var(--vscode-editor-background);
+	border: 1px solid var(--vscode-panel-border);
+	border-radius: 8px;
 	overflow: hidden;
 	cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
 	opacity: ${(props) => (props.disabled ? 0.5 : 1)};
@@ -152,12 +152,12 @@ const ModelButtonWrapper = styled.div`
 `
 
 const ModelDisplayButton = styled.a<{ isActive?: boolean; disabled?: boolean }>`
-	padding: 0px 0px;
+	padding: 0px 4px;
 	height: 20px;
 	width: 100%;
 	min-width: 0;
 	cursor: ${(props) => (props.disabled ? "not-allowed" : "pointer")};
-	text-decoration: ${(props) => (props.isActive ? "underline" : "none")};
+	text-decoration: none;
 	color: ${(props) => (props.isActive ? "var(--vscode-foreground)" : "var(--vscode-descriptionForeground)")};
 	display: flex;
 	align-items: center;
@@ -170,13 +170,13 @@ const ModelDisplayButton = styled.a<{ isActive?: boolean; disabled?: boolean }>`
 	&:hover,
 	&:focus {
 		color: ${(props) => (props.disabled ? "var(--vscode-descriptionForeground)" : "var(--vscode-foreground)")};
-		text-decoration: ${(props) => (props.disabled ? "none" : "underline")};
+		text-decoration: none;
 		outline: none;
 	}
 
 	&:active {
 		color: ${(props) => (props.disabled ? "var(--vscode-descriptionForeground)" : "var(--vscode-foreground)")};
-		text-decoration: ${(props) => (props.disabled ? "none" : "underline")};
+		text-decoration: none;
 		outline: none;
 	}
 
@@ -1365,7 +1365,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		return (
 			<div>
 				<div
-					className="relative flex transition-colors ease-in-out duration-100 px-3.5 py-2.5"
+					className="relative mx-3 mt-1 flex rounded-md border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] transition-colors duration-100 ease-in-out"
 					onDragEnter={handleDragEnter}
 					onDragLeave={handleDragLeave}
 					onDragOver={onDragOver}
@@ -1414,8 +1414,8 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 					)}
 					<div
 						className={cn(
-							"absolute bottom-2.5 top-2.5 whitespace-pre-wrap break-words rounded-xs overflow-hidden bg-input-background",
-							isTextAreaFocused ? "left-3.5 right-3.5" : "left-3.5 right-3.5 border border-input-border",
+							"absolute bottom-0 top-0 whitespace-pre-wrap break-words rounded-md overflow-hidden bg-transparent",
+							isTextAreaFocused ? "left-0 right-0" : "left-0 right-0",
 						)}
 						ref={highlightLayerRef}
 						style={{
@@ -1428,12 +1428,12 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							fontFamily: "var(--vscode-font-family)",
 							fontSize: "var(--vscode-editor-font-size)",
 							lineHeight: "var(--vscode-editor-line-height)",
-							borderRadius: 2,
+							borderRadius: 6,
 							borderLeft: isTextAreaFocused ? 0 : undefined,
 							borderRight: isTextAreaFocused ? 0 : undefined,
 							borderTop: isTextAreaFocused ? 0 : undefined,
 							borderBottom: isTextAreaFocused ? 0 : undefined,
-							padding: `9px 28px ${9 + thumbnailsHeight}px 9px`,
+							padding: `12px 36px ${12 + thumbnailsHeight}px 12px`,
 						}}
 					/>
 					<DynamicTextArea
@@ -1477,7 +1477,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							backgroundColor: "transparent",
 							color: "var(--vscode-input-foreground)",
 							//border: "1px solid var(--vscode-input-border)",
-							borderRadius: 2,
+							borderRadius: 6,
 							fontFamily: "var(--vscode-font-family)",
 							fontSize: "var(--vscode-editor-font-size)",
 							lineHeight: "var(--vscode-editor-line-height)",
@@ -1496,7 +1496,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							// borderLeft: "9px solid transparent", // NOTE: react-textarea-autosize doesn't calculate correct height when using borderLeft/borderRight so we need to use horizontal padding instead
 							// Instead of using boxShadow, we use a div with a border to better replicate the behavior when the textarea is focused
 							// boxShadow: "0px 0px 0px 1px var(--vscode-input-border)",
-							padding: "9px 28px 9px 9px",
+							padding: "12px 36px 12px 12px",
 							cursor: "text",
 							flex: 1,
 							zIndex: 1,
@@ -1511,8 +1511,8 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						value={inputValue}
 					/>
 					{!inputValue && selectedImages.length === 0 && selectedFiles.length === 0 && (
-						<div className="text-xs absolute bottom-5 left-6.5 right-16 text-(--vscode-input-placeholderForeground)/50 whitespace-nowrap overflow-hidden text-ellipsis pointer-events-none z-1">
-							Type @ for context, / for slash commands & workflows, hold shift to drag in files/images
+						<div className="text-xs absolute bottom-4.5 left-4 right-14 text-(--vscode-input-placeholderForeground)/55 whitespace-nowrap overflow-hidden text-ellipsis pointer-events-none z-1">
+							@ context, / workflows, + files
 						</div>
 					)}
 					{(selectedImages.length > 0 || selectedFiles.length > 0) && (
@@ -1526,30 +1526,37 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 								position: "absolute",
 								paddingTop: 4,
 								bottom: 14,
-								left: 22,
+								left: 14,
 								right: 47, // (54 + 9) + 4 extra padding
 								zIndex: 2,
 							}}
 						/>
 					)}
 					<div
-						className="absolute flex items-end bottom-4.5 right-5 z-10 h-8 text-xs"
+						className="absolute flex items-end bottom-3.5 right-3 z-10 h-8 text-xs"
 						style={{ height: textAreaBaseHeight }}>
 						<div className="flex flex-row items-center">
-							<div
-								className={cn("input-icon-button", { disabled: sendingDisabled }, "codicon codicon-send text-sm")}
+							<button
+								aria-label="Send message"
+								className={cn(
+									"input-icon-button border-0 bg-transparent p-0",
+									{ disabled: sendingDisabled },
+									"codicon codicon-send text-sm",
+								)}
 								data-testid="send-button"
+								disabled={sendingDisabled}
 								onClick={() => {
 									if (!sendingDisabled) {
 										setIsTextAreaFocused(false)
 										onSend()
 									}
 								}}
+								type="button"
 							/>
 						</div>
 					</div>
 				</div>
-				<div className="flex justify-between items-center -mt-[2px] px-3 pb-2">
+				<div className="flex justify-between items-center px-3 pb-2 pt-1.5">
 					{/* Always render both components, but control visibility with CSS */}
 					<div className="relative flex-1 min-w-0 h-5">
 						{/* ButtonGroup - always in DOM but visibility controlled */}
@@ -1603,7 +1610,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 										role="button"
 										tabIndex={0}
 										title="Open API Settings">
-										<ModelButtonContent className="text-xs">{modelDisplayName}</ModelButtonContent>
+										<ModelButtonContent className="text-xs">CodeVibe / {modelDisplayName}</ModelButtonContent>
 									</ModelDisplayButton>
 								</ModelButtonWrapper>
 							</ModelContainer>
@@ -1621,18 +1628,29 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							</p>
 						</TooltipContent>
 						<TooltipTrigger>
-							<SwitchContainer data-testid="mode-switch" disabled={false} onClick={onModeToggle}>
+							<SwitchContainer
+								data-testid="mode-switch"
+								disabled={false}
+								onClick={onModeToggle}
+								onKeyDown={(event) => {
+									if (event.key === "Enter" || event.key === " ") {
+										event.preventDefault()
+										onModeToggle()
+									}
+								}}
+								role="button"
+								tabIndex={0}>
 								<Slider isAct={mode === "act"} isPlan={mode === "plan"} />
 								{["Plan", "Act"].map((m) => (
 									<div
-										aria-checked={mode === m.toLowerCase()}
+										aria-current={mode === m.toLowerCase() ? "true" : undefined}
 										className={cn(
 											"pt-0.5 pb-px px-2 z-10 text-xs w-1/2 text-center bg-transparent",
 											mode === m.toLowerCase() ? "text-white" : "text-input-foreground",
 										)}
+										key={m}
 										onMouseLeave={() => setShownTooltipMode(null)}
-										onMouseOver={() => setShownTooltipMode(m.toLowerCase() === "plan" ? "plan" : "act")}
-										role="switch">
+										onMouseOver={() => setShownTooltipMode(m.toLowerCase() === "plan" ? "plan" : "act")}>
 										{m}
 									</div>
 								))}

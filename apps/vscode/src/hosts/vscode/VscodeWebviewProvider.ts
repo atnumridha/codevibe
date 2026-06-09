@@ -208,7 +208,12 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	private registerConfigurationListener(disposables: vscode.Disposable[]) {
 		vscode.workspace.onDidChangeConfiguration(
 			async (e) => {
-				if (e && e.affectsConfiguration("cline.mcpMarketplace.enabled")) {
+				if (
+					e &&
+					(e.affectsConfiguration("codevibe.cursorCompatibility.enabled") ||
+						e.affectsConfiguration("codevibe.cursorCompatibility.safeBrowserEvaluate.enabled") ||
+						e.affectsConfiguration("cline.mcpMarketplace.enabled"))
+				) {
 					// Update state when marketplace tab setting changes
 					await this.controller.postStateToWebview()
 				}

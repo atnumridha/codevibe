@@ -111,10 +111,10 @@ export abstract class WebviewProvider {
 				<link rel="stylesheet" type="text/css" href="${stylesUrl}">
 				<link href="${codiconsUrl}" rel="stylesheet" />
 				<meta http-equiv="Content-Security-Policy" content="default-src 'none';
-					connect-src https://*.posthog.com https://*.cline.bot; 
-					font-src ${this.getCspSource()} data:; 
-					style-src ${this.getCspSource()} 'unsafe-inline'; 
-					img-src ${this.getCspSource()} https: data:; 
+					connect-src https://*.posthog.com https://*.codevibe.dev https://*.codevibe.ai https://*.cline.bot;
+					font-src ${this.getCspSource()} data:;
+					style-src ${this.getCspSource()} 'unsafe-inline';
+					img-src ${this.getCspSource()} https: data:;
 					script-src ${this.getCspSource()} 'nonce-${nonce}' 'unsafe-eval';">
 				<title>CodeVibe</title>
 			</head>

@@ -7,8 +7,9 @@ import { type IgnoreRule, isPathIgnored, parseIgnoreContent } from "@/services/w
 import { Logger } from "@/shared/services/Logger"
 
 export const LOCK_TEXT_SYMBOL = "\u{1F512}"
-const DIRECT_ACCESS_IGNORE_FILES = [".clineignore", ".cursorignore"] as const
-const RETRIEVAL_IGNORE_FILES = [".clineignore", ".cursorignore", ".cursorindexingignore"] as const
+const CODEVIBE_IGNORE_FILES = [".codevibeignore", ".clineignore"] as const
+const DIRECT_ACCESS_IGNORE_FILES = [...CODEVIBE_IGNORE_FILES, ".cursorignore"] as const
+const RETRIEVAL_IGNORE_FILES = [...CODEVIBE_IGNORE_FILES, ".cursorignore", ".cursorindexingignore"] as const
 
 /**
  * Controls LLM access to files and retrieval context by enforcing ignore patterns.
@@ -79,9 +80,9 @@ export class ClineIgnoreController {
 	}
 
 	/**
-	 * Load custom patterns from .clineignore and Cursor ignore files if they exist.
+	 * Load custom patterns from CodeVibe, legacy upstream, and Cursor ignore files if they exist.
 	 * .cursorindexingignore applies to retrieval/indexing contexts, not explicit file reads or file-reading commands.
-	 * Supports "!include <filename>" in .clineignore to load additional ignore patterns from other files.
+	 * Supports "!include <filename>" in CodeVibe ignore files to load additional ignore patterns from other files.
 	 */
 	private async loadClineIgnore(): Promise<void> {
 		try {
@@ -99,7 +100,7 @@ export class ClineIgnoreController {
 				}
 
 				const content = await fs.readFile(ignorePath, "utf8")
-				if (ignoreFileName === ".clineignore") {
+				if (CODEVIBE_IGNORE_FILES.includes(ignoreFileName as (typeof CODEVIBE_IGNORE_FILES)[number])) {
 					const processedContent = await this.resolveIgnoreContent(content, { allowIncludes: true })
 					this.hasDirectIgnoreRules = true
 					this.hasRetrievalIgnoreRules = true

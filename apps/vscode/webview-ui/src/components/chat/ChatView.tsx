@@ -323,7 +323,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 	const scrollBehavior = useScrollBehavior(messages, visibleMessages, groupedMessages, expandedRows, setExpandedRows)
 
 	const placeholderText = useMemo(() => {
-		const text = task ? "Type a message..." : "Type your task here..."
+		const text = task ? "Message CodeVibe..." : "Start a CodeVibe task..."
 		return text
 	}, [task])
 
@@ -366,29 +366,35 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 					/>
 				)}
 			</div>
-			<footer className="bg-(--vscode-sidebar-background)" style={{ gridRow: "2" }}>
-				<AutoApproveBar />
-				<ActionButtons
-					chatState={chatState}
-					messageHandlers={messageHandlers}
-					messages={messages}
-					mode={mode}
-					scrollBehavior={{
-						scrollToBottomSmooth: scrollBehavior.scrollToBottomSmooth,
-						disableAutoScrollRef: scrollBehavior.disableAutoScrollRef,
-						showScrollToBottom: scrollBehavior.showScrollToBottom,
-						virtuosoRef: scrollBehavior.virtuosoRef,
-					}}
-					task={task}
-				/>
-				<InputSection
-					chatState={chatState}
-					messageHandlers={messageHandlers}
-					placeholderText={placeholderText}
-					scrollBehavior={scrollBehavior}
-					selectFilesAndImages={selectFilesAndImages}
-					shouldDisableFilesAndImages={shouldDisableFilesAndImages}
-				/>
+			<footer
+				className="border-t border-[var(--vscode-panel-border)] bg-[var(--vscode-sideBar-background)]"
+				style={{ gridRow: "2" }}>
+				<div className="px-3 pt-2">
+					<AutoApproveBar />
+				</div>
+				<div className="pb-1">
+					<ActionButtons
+						chatState={chatState}
+						messageHandlers={messageHandlers}
+						messages={messages}
+						mode={mode}
+						scrollBehavior={{
+							scrollToBottomSmooth: scrollBehavior.scrollToBottomSmooth,
+							disableAutoScrollRef: scrollBehavior.disableAutoScrollRef,
+							showScrollToBottom: scrollBehavior.showScrollToBottom,
+							virtuosoRef: scrollBehavior.virtuosoRef,
+						}}
+						task={task}
+					/>
+					<InputSection
+						chatState={chatState}
+						messageHandlers={messageHandlers}
+						placeholderText={placeholderText}
+						scrollBehavior={scrollBehavior}
+						selectFilesAndImages={selectFilesAndImages}
+						shouldDisableFilesAndImages={shouldDisableFilesAndImages}
+					/>
+				</div>
 			</footer>
 		</ChatLayout>
 	)

@@ -6,6 +6,7 @@ import { HistoryItem } from "@shared/HistoryItem"
 import { RemoteConfig } from "@shared/remote-config/schema"
 import { GlobalState, Settings } from "@shared/storage/state-keys"
 import { fileExistsAtPath, isDirectory } from "@utils/fs"
+import fsSync from "fs"
 import fs from "fs/promises"
 import os from "os"
 import * as path from "path"
@@ -52,11 +53,13 @@ export const GlobalFileNames = {
 	groqModels: "groq_models.json",
 	basetenModels: "baseten_models.json",
 	hicapModels: "hicap_models.json",
-	mcpSettings: "cline_mcp_settings.json",
+	mcpSettings: "codevibe_mcp_settings.json",
+	legacyMcpSettings: "cline_mcp_settings.json",
 	clineRules: ".clinerules",
 	workflows: ".clinerules/workflows",
 	hooksDir: ".clinerules/hooks",
 	clineruleSkillsDir: ".clinerules/skills",
+	codevibeSkillsDir: ".codevibe/skills",
 	clineSkillsDir: ".cline/skills",
 	claudeSkillsDir: ".claude/skills",
 	agentsSkillsDir: ".agents/skills",
@@ -107,16 +110,30 @@ export async function getDocumentsPath(): Promise<string> {
 }
 
 /**
- * Returns the cross-platform path to the Cline home directory (~/.cline).
- * This works on macOS, Linux, and Windows:
- * - macOS: /Users/username/.cline
- * - Linux: /home/username/.cline
- * - Windows: C:\Users\username\.cline
+ * Returns the cross-platform path to the CodeVibe home directory (~/.codevibe).
+ * Existing CLINE_DIR overrides remain supported so upstream-compatible installs can keep their data.
  *
- * This is intended to eventually replace ~/Documents/Cline as the global config location.
+ * This is intended to replace upstream ~/.cline as the global config location for new installs.
  */
+export function getCodeVibeHomePath(): string {
+	if (process.env.CODEVIBE_DIR?.trim()) {
+		return process.env.CODEVIBE_DIR.trim()
+	}
+	if (process.env.CLINE_DIR?.trim()) {
+		return process.env.CLINE_DIR.trim()
+	}
+
+	const primaryPath = path.join(os.homedir(), ".codevibe")
+	const legacyPath = path.join(os.homedir(), ".cline")
+	return fsSync.existsSync(legacyPath) && !fsSync.existsSync(primaryPath) ? legacyPath : primaryPath
+}
+
 export function getClineHomePath(): string {
-	return path.join(os.homedir(), ".cline")
+	return getCodeVibeHomePath()
+}
+
+function getLegacyClineHomePath(): string {
+	return process.env.CLINE_DIR?.trim() || path.join(os.homedir(), ".cline")
 }
 
 export async function ensureTaskDirectoryExists(taskId: string): Promise<string> {
@@ -167,11 +184,13 @@ export async function ensureHooksDirectoryExists(): Promise<string> {
 	return clineHooksDir
 }
 
-/**
- * Returns the global skills directory path (~/.cline/skills) without creating it.
- */
+/** Returns the global skills directory path without creating it. */
 function getClineSkillsDirectoryPath(): string {
 	return path.join(getClineHomePath(), "skills")
+}
+
+function getLegacyClineSkillsDirectoryPath(): string {
+	return path.join(getLegacyClineHomePath(), "skills")
 }
 
 function getAgentSkillsDirectoryPath(): string {
@@ -208,10 +227,12 @@ export type SkillsScanDirectory = {
 export function getSkillsDirectoriesForScan(cwd: string): SkillsScanDirectory[] {
 	return [
 		{ path: path.join(cwd, GlobalFileNames.clineruleSkillsDir), source: "project" },
+		{ path: path.join(cwd, GlobalFileNames.codevibeSkillsDir), source: "project" },
 		{ path: path.join(cwd, GlobalFileNames.clineSkillsDir), source: "project" },
 		{ path: path.join(cwd, GlobalFileNames.claudeSkillsDir), source: "project" },
 		{ path: path.join(cwd, GlobalFileNames.agentsSkillsDir), source: "project" },
 		{ path: getClineSkillsDirectoryPath(), source: "global" },
+		{ path: getLegacyClineSkillsDirectoryPath(), source: "global" },
 		{ path: getAgentSkillsDirectoryPath(), source: "global" },
 	]
 }
@@ -229,7 +250,13 @@ export async function getMcpSettingsFilePath(settingsDirectoryPath: string): Pro
 	const mcpSettingsFilePath = path.join(settingsDirectoryPath, GlobalFileNames.mcpSettings)
 	const fileExists = await fileExistsAtPath(mcpSettingsFilePath)
 	if (!fileExists) {
-		await fs.writeFile(mcpSettingsFilePath, JSON.stringify({ mcpServers: {} }, null, 2))
+		const legacyMcpSettingsFilePath = path.join(settingsDirectoryPath, GlobalFileNames.legacyMcpSettings)
+		const legacyFileExists = await fileExistsAtPath(legacyMcpSettingsFilePath)
+		if (legacyFileExists) {
+			await fs.copyFile(legacyMcpSettingsFilePath, mcpSettingsFilePath)
+		} else {
+			await fs.writeFile(mcpSettingsFilePath, JSON.stringify({ mcpServers: {} }, null, 2))
+		}
 	}
 	return mcpSettingsFilePath
 }

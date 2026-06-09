@@ -16,9 +16,14 @@ interface EndpointsFileSchema {
 	mcpBaseUrl: string
 }
 
+function endpointUrl(envName: string, fallback: string): string {
+	const value = process?.env?.[envName]?.trim()
+	return value || fallback
+}
+
 /**
- * Error thrown when the Cline configuration file exists but is invalid.
- * This error prevents Cline from starting to avoid misconfiguration in enterprise environments.
+ * Error thrown when the CodeVibe configuration file exists but is invalid.
+ * This error prevents CodeVibe from starting to avoid misconfiguration in enterprise environments.
  */
 export class ClineConfigurationError extends Error {
 	constructor(message: string) {
@@ -40,7 +45,11 @@ class ClineEndpoint {
 
 	private constructor() {
 		// Set environment at module load. Use override if provided.
-		const _env = process?.env?.CLINE_ENVIRONMENT_OVERRIDE || process?.env?.CLINE_ENVIRONMENT
+		const _env =
+			process?.env?.CODEVIBE_ENVIRONMENT_OVERRIDE ||
+			process?.env?.CODEVIBE_ENVIRONMENT ||
+			process?.env?.CLINE_ENVIRONMENT_OVERRIDE ||
+			process?.env?.CLINE_ENVIRONMENT
 		if (_env && Object.values(Environment).includes(_env as Environment)) {
 			this.environment = _env as Environment
 		}
@@ -66,7 +75,7 @@ class ClineEndpoint {
 		const endpointsConfig = await ClineEndpoint.loadEndpointsFile()
 		if (endpointsConfig) {
 			ClineEndpoint._instance.onPremiseConfig = endpointsConfig
-			Logger.log("Cline running in self-hosted mode with custom endpoints")
+			Logger.log("CodeVibe running in self-hosted mode with custom endpoints")
 		}
 
 		ClineEndpoint._initialized = true
@@ -99,7 +108,7 @@ class ClineEndpoint {
 	 */
 	public static isBundledConfig(): boolean {
 		if (!ClineEndpoint._initialized || !ClineEndpoint._instance) {
-			throw new Error("ClineEndpoint not initialized. Call ClineEndpoint.initialize() first.")
+			throw new Error("CodeVibe endpoint configuration is not initialized. Call ClineEndpoint.initialize() first.")
 		}
 		return ClineEndpoint._instance.isBundled
 	}
@@ -110,7 +119,7 @@ class ClineEndpoint {
 	 */
 	public static get instance(): ClineEndpoint {
 		if (!ClineEndpoint._initialized || !ClineEndpoint._instance) {
-			throw new Error("ClineEndpoint not initialized. Call ClineEndpoint.initialize() first.")
+			throw new Error("CodeVibe endpoint configuration is not initialized. Call ClineEndpoint.initialize() first.")
 		}
 		return ClineEndpoint._instance
 	}
@@ -125,9 +134,16 @@ class ClineEndpoint {
 
 	/**
 	 * Returns the path to the endpoints.json configuration file.
-	 * Located at ~/.cline/endpoints.json
+	 * Located at ~/.codevibe/endpoints.json by default.
 	 */
 	private static getEndpointsFilePath(): string {
+		return path.join(os.homedir(), ".codevibe", "endpoints.json")
+	}
+
+	/**
+	 * Legacy upstream path retained as a read-only compatibility fallback.
+	 */
+	private static getLegacyEndpointsFilePath(): string {
 		return path.join(os.homedir(), ".cline", "endpoints.json")
 	}
 
@@ -142,7 +158,7 @@ class ClineEndpoint {
 	/**
 	 * Loads and validates the endpoints.json file.
 	 * Checks bundled location first, then falls back to user directory.
-	 * Priority: bundled endpoints.json → ~/.cline/endpoints.json → null (standard mode)
+	 * Priority: bundled endpoints.json → ~/.codevibe/endpoints.json → ~/.cline/endpoints.json → null (standard mode)
 	 * @returns The validated endpoints config, or null if no file exists
 	 * @throws ClineConfigurationError if a file exists but is invalid
 	 */
@@ -174,37 +190,39 @@ class ClineEndpoint {
 			// Bundled file doesn't exist or is not accessible, try user file
 		}
 
-		// 2. Try ~/.cline/endpoints.json
-		const userPath = ClineEndpoint.getEndpointsFilePath()
-		try {
-			await fs.access(userPath)
-		} catch {
-			// File doesn't exist - not on-premise mode
-			return null
-		}
-
-		// File exists, must be valid or we fail
-		try {
-			const fileContent = await fs.readFile(userPath, "utf8")
-			let data: unknown
-
+		// 2. Try user-level CodeVibe path, then legacy upstream path.
+		for (const userPath of [ClineEndpoint.getEndpointsFilePath(), ClineEndpoint.getLegacyEndpointsFilePath()]) {
 			try {
-				data = JSON.parse(fileContent)
-			} catch (parseError) {
+				await fs.access(userPath)
+			} catch {
+				continue
+			}
+
+			// File exists, must be valid or we fail.
+			try {
+				const fileContent = await fs.readFile(userPath, "utf8")
+				let data: unknown
+
+				try {
+					data = JSON.parse(fileContent)
+				} catch (parseError) {
+					throw new ClineConfigurationError(
+						`Invalid JSON in user endpoints configuration file (${userPath}): ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+					)
+				}
+
+				return ClineEndpoint.validateEndpointsSchema(data, userPath)
+			} catch (error) {
+				if (error instanceof ClineConfigurationError) {
+					throw error
+				}
 				throw new ClineConfigurationError(
-					`Invalid JSON in user endpoints configuration file (${userPath}): ${parseError instanceof Error ? parseError.message : String(parseError)}`,
+					`Failed to read user endpoints configuration file (${userPath}): ${error instanceof Error ? error.message : String(error)}`,
 				)
 			}
-
-			return ClineEndpoint.validateEndpointsSchema(data, userPath)
-		} catch (error) {
-			if (error instanceof ClineConfigurationError) {
-				throw error
-			}
-			throw new ClineConfigurationError(
-				`Failed to read user endpoints configuration file (${userPath}): ${error instanceof Error ? error.message : String(error)}`,
-			)
 		}
+
+		return null
 	}
 
 	/**
@@ -274,7 +292,9 @@ class ClineEndpoint {
 	 */
 	public setEnvironment(env: string) {
 		if (this.onPremiseConfig) {
-			throw new Error("Cannot change environment in on-premise mode. Endpoints are configured via ~/.cline/endpoints.json")
+			throw new Error(
+				"Cannot change environment in self-hosted mode. Endpoints are configured via ~/.codevibe/endpoints.json",
+			)
 		}
 
 		switch (env.toLowerCase()) {
@@ -310,23 +330,23 @@ class ClineEndpoint {
 			case Environment.staging:
 				return {
 					environment: Environment.staging,
-					appBaseUrl: "https://staging-app.cline.bot",
-					apiBaseUrl: "https://core-api.staging.int.cline.bot",
-					mcpBaseUrl: "https://core-api.staging.int.cline.bot/v1/mcp",
+					appBaseUrl: endpointUrl("CODEVIBE_STAGING_APP_BASE_URL", "https://staging-app.cline.bot"),
+					apiBaseUrl: endpointUrl("CODEVIBE_STAGING_API_BASE_URL", "https://core-api.staging.int.cline.bot"),
+					mcpBaseUrl: endpointUrl("CODEVIBE_STAGING_MCP_BASE_URL", "https://core-api.staging.int.cline.bot/v1/mcp"),
 				}
 			case Environment.local:
 				return {
 					environment: Environment.local,
-					appBaseUrl: "http://localhost:3000",
-					apiBaseUrl: "http://localhost:7777",
-					mcpBaseUrl: "https://api.cline.bot/v1/mcp",
+					appBaseUrl: endpointUrl("CODEVIBE_LOCAL_APP_BASE_URL", "http://localhost:3000"),
+					apiBaseUrl: endpointUrl("CODEVIBE_LOCAL_API_BASE_URL", "http://localhost:7777"),
+					mcpBaseUrl: endpointUrl("CODEVIBE_LOCAL_MCP_BASE_URL", "https://api.cline.bot/v1/mcp"),
 				}
 			default:
 				return {
 					environment: Environment.production,
-					appBaseUrl: "https://app.cline.bot",
-					apiBaseUrl: "https://api.cline.bot",
-					mcpBaseUrl: "https://api.cline.bot/v1/mcp",
+					appBaseUrl: endpointUrl("CODEVIBE_APP_BASE_URL", "https://app.cline.bot"),
+					apiBaseUrl: endpointUrl("CODEVIBE_API_BASE_URL", "https://api.cline.bot"),
+					mcpBaseUrl: endpointUrl("CODEVIBE_MCP_BASE_URL", "https://api.cline.bot/v1/mcp"),
 				}
 		}
 	}
