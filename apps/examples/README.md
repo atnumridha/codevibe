@@ -1,9 +1,9 @@
-# Cline SDK Examples
+# CodeVibe SDK Examples
 
-Learn how to build with the Cline SDK through working examples, ordered from simple to complex.
+Learn how to build with the CodeVibe SDK through working examples, ordered from simple to complex.
 
 ## SDK Skill
-If you use a coding agent (Claude Code, Codex, Cline, etc.), install the [Cline SDK skill](https://github.com/cline/sdk-skill) to give your agent context on the SDK's APIs and best practices to help you build with the Cline SDK.
+If you use a coding agent (Claude Code, Codex, CodeVibe, etc.), install the [CodeVibe SDK skill](https://github.com/cline/sdk-skill) to give your agent context on the SDK's APIs and best practices to help you build with the CodeVibe SDK.
 
 ```bash
 npx skills add cline/sdk-skill
@@ -64,5 +64,5 @@ npm add @cline/sdk
 
 - [SDK package docs](../../sdk/packages/README.md)
 - [Architecture guide](../../ARCHITECTURE.md)
-- [Plugin examples](../../examples/plugins) - extend the Cline SDK and CLI with custom tools and event hooks
-- [Hook examples](../../examples/hooks) - lifecycle hooks for logging, blocking, and injection for Cline SDK and CLI
+- [Plugin examples](../../examples/plugins) - extend the CodeVibe SDK and CLI with custom tools and event hooks
+- [Hook examples](../../examples/hooks) - lifecycle hooks for logging, blocking, and injection for CodeVibe SDK and CLI

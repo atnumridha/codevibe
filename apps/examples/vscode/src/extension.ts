@@ -60,7 +60,7 @@ let extensionTelemetryHandle:
 	| undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-	const outputChannel = vscode.window.createOutputChannel("Cline");
+	const outputChannel = vscode.window.createOutputChannel("CodeVibe");
 	extensionTelemetryHandle = createVscodeTelemetry({
 		extensionVersion: version,
 		clineType: displayName,
@@ -76,14 +76,14 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		outputChannel,
 		vscode.window.registerWebviewViewProvider(
-			"clineVscode.chatView",
+			"codevibeVscode.chatView",
 			sidebarProvider,
 			{ webviewOptions: { retainContextWhenHidden: true } },
 		),
-		vscode.commands.registerCommand("clineVscode.openChat", () => {
+		vscode.commands.registerCommand("codevibeVscode.openChat", () => {
 			const panel = vscode.window.createWebviewPanel(
-				"clineChat",
-				"Cline Chat",
+				"codevibeChat",
+				"CodeVibe Chat",
 				vscode.ViewColumn.One,
 				{
 					enableScripts: true,
@@ -317,7 +317,7 @@ function createVsCodeTerminalTool(defaultCwd: string): AgentTool {
 				throw new Error("command is required.");
 			}
 			const terminal = vscode.window.createTerminal({
-				name: "Cline",
+				name: "CodeVibe",
 				cwd: cwd || defaultCwd,
 			});
 			terminal.show(true);
@@ -646,7 +646,7 @@ class CoreChatWebviewController implements vscode.Disposable {
 		try {
 			await this.ensureHub();
 			await this.getSessionHost();
-			await this.post({ type: "status", text: "Cline is Ready" });
+			await this.post({ type: "status", text: "CodeVibe is Ready" });
 			const defaults = this.resolveWorkspaceDefaults();
 			await this.post({ type: "defaults", defaults });
 			await this.loadProviders(defaults.provider);
@@ -1105,7 +1105,7 @@ class CoreChatWebviewController implements vscode.Disposable {
 	): Promise<StartConfig> {
 		const defaults = this.resolveWorkspaceDefaults();
 		const providerId = Llms.normalizeProviderId(
-			config?.provider?.trim() || "cline",
+			config?.provider?.trim() || "openai-codex",
 		);
 		const modelId = config?.model?.trim() || "openai/gpt-5.5";
 		const mode: "act" | "plan" = config?.mode === "plan" ? "plan" : "act";

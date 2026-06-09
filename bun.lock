@@ -270,7 +270,7 @@
       },
     },
     "apps/examples/vscode": {
-      "name": "@cline/vscode",
+      "name": "@codevibe/vscode",
       "version": "0.0.0",
       "dependencies": {
         "@ai-sdk/react": "^3.0.118",
@@ -688,7 +688,7 @@
 
     "@cline/shared": ["@cline/shared@workspace:sdk/packages/shared"],
 
-    "@cline/vscode": ["@cline/vscode@workspace:apps/examples/vscode"],
+    "@codevibe/vscode": ["@codevibe/vscode@workspace:apps/examples/vscode"],
 
     "@codevibe/code": ["@codevibe/code@workspace:apps/examples/desktop-app"],
 

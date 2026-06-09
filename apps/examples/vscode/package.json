@@ -1,10 +1,10 @@
 {
-	"name": "@cline/vscode",
-	"displayName": "Cline Chat",
-	"description": "Autonomous coding agent right in your IDE, capable of creating/editing files, running commands, using the browser, and more with your permission every step of the way. Backed by the Cline CLI runtime.",
+	"name": "@codevibe/vscode",
+	"displayName": "CodeVibe Chat",
+	"description": "Autonomous coding agent right in your IDE, capable of creating/editing files, running commands, using the browser, and more with your permission every step of the way. Backed by the CodeVibe CLI runtime.",
 	"version": "0.0.0",
 	"private": true,
-	"publisher": "cline",
+	"publisher": "codevibe",
 	"icon": "src/webview/public/icon.png",
 	"license": "Apache-2.0",
 	"engines": {
@@ -17,24 +17,24 @@
 	"contributes": {
 		"commands": [
 			{
-				"command": "clineVscode.openChat",
-				"title": "Cline: Open Chat in Editor"
+				"command": "codevibeVscode.openChat",
+				"title": "CodeVibe: Open Chat in Editor"
 			}
 		],
 		"viewsContainers": {
 			"activitybar": [
 				{
-					"id": "cline",
-					"title": "Cline",
+					"id": "codevibe",
+					"title": "CodeVibe",
 					"icon": "src/webview/public/icon.svg"
 				}
 			]
 		},
 		"views": {
-			"cline": [
+			"codevibe": [
 				{
 					"type": "webview",
-					"id": "clineVscode.chatView",
+					"id": "codevibeVscode.chatView",
 					"name": "Chat",
 					"icon": "src/webview/public/icon.svg"
 				}
