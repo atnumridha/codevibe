@@ -314,7 +314,7 @@ function formatClientLabel(clientType: string | undefined): string {
 		return "Client";
 	}
 	if (normalized.includes("cline")) {
-		return "Cline";
+		return "CodeVibe";
 	}
 	return normalized
 		.split(/[-_\s]+/)
@@ -524,13 +524,13 @@ async function main(): Promise<void> {
 		address: hubUrl,
 		authToken: hubAuthToken,
 		clientType: "menubar-app",
-		displayName: "Cline Menu Bar App",
+		displayName: "CodeVibe Menu Bar App",
 	});
 	const sessionClient = new HubSessionClient({
 		address: hubUrl,
 		authToken: hubAuthToken,
 		clientType: "menubar-background-client",
-		displayName: "Cline Background Client",
+		displayName: "CodeVibe Background Client",
 	});
 
 	await uiClient.connect();

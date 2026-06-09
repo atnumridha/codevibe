@@ -677,7 +677,7 @@ fn build_tray_menu(
         None::<&str>,
     )?;
     let sep2 = PredefinedMenuItem::separator(app)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit Cline Hub", true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", "Quit CodeVibe Hub", true, None::<&str>)?;
 
     items.push(Box::new(notif_item));
     items.push(Box::new(sep2));

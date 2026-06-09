@@ -5,11 +5,15 @@ import {
 	type ToolApprovalRequest,
 } from "@cline/sdk";
 
-// ClineCore does not choose a model automatically; each session config must provide one.
-// These example defaults use the Cline gateway with Claude Sonnet, and can be overridden with env vars.
-const providerId = process.env.CLINE_PROVIDER_ID ?? "cline";
-const modelId = process.env.CLINE_MODEL_ID ?? "anthropic/claude-sonnet-4.6";
-const apiKey = process.env.CLINE_API_KEY;
+// The upstream-compatible ClineCore runtime requires each session config to provide a model.
+// These CodeVibe example defaults use the gateway provider with Claude Sonnet, and can be overridden with env vars.
+const providerId =
+	process.env.CODEVIBE_PROVIDER_ID ?? process.env.CLINE_PROVIDER_ID ?? "cline";
+const modelId =
+	process.env.CODEVIBE_MODEL_ID ??
+	process.env.CLINE_MODEL_ID ??
+	"anthropic/claude-sonnet-4.6";
+const apiKey = process.env.CODEVIBE_API_KEY ?? process.env.CLINE_API_KEY;
 const cwd = process.cwd();
 
 const systemPrompt = `You are a helpful assistant in an interactive terminal chat.
@@ -77,7 +81,7 @@ async function ensureCline(): Promise<ClineCore> {
 	}
 
 	cline = await ClineCore.create({
-		clientName: "cline-core-cli-agent",
+		clientName: "codevibe-core-cli-agent",
 		backendMode: "local",
 		capabilities: {
 			requestToolApproval,
@@ -156,7 +160,7 @@ async function runTurn(input: string): Promise<void> {
 	console.log();
 }
 
-console.log("ClineCore CLI Agent (type 'exit' to quit)\n");
+console.log("CodeVibe Core CLI Agent (type 'exit' to quit)\n");
 console.log(`Provider: ${providerId}`);
 console.log(`Model:    ${modelId}`);
 console.log(`CWD:      ${cwd}`);

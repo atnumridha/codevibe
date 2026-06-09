@@ -68,7 +68,7 @@ function prompt(): Promise<string> {
 	});
 }
 
-console.log("Cline CLI Agent (type 'exit' to quit)\n");
+console.log("CodeVibe CLI Agent (type 'exit' to quit)\n");
 
 let isFirstMessage = true;
 while (true) {

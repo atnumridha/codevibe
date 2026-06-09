@@ -16,6 +16,7 @@ export {
 	resolveAgentsConfigDirPath,
 	resolveClineDataDir,
 	resolveClineDir,
+	resolveCodeVibeDir,
 	resolveConfiguredPluginModulePaths,
 	resolveCronDbPath,
 	resolveCronEventsDir,

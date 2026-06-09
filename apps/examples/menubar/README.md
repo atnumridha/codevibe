@@ -1,6 +1,6 @@
 ### Preview
 
-![Cline Hub Monitor preview](./assets/hub-monitor-preview.jpg)
+![CodeVibe Hub Monitor preview](./assets/hub-monitor-preview.jpg)
 
 ### Architecture Overview
 
@@ -30,7 +30,7 @@ Rust Tauri App (apps/examples/menubar/src-tauri/src/main.rs)
     │     ─────────────────
     │     5 notifications
     │     ─────────────────
-    │     Quit Cline Hub
+    │     Quit CodeVibe Hub
     │
     └── Logs notifications to stderr (with severity)
 ```

@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>Cline Hub Monitor</title>
+		<title>CodeVibe Hub Monitor</title>
 		<style>
 			:root {
 				color-scheme: dark;
@@ -742,7 +742,7 @@
 				<header class="system-bar" data-tauri-drag-region>
 					<div class="menu-left">
 						<span class="apple-dot">C</span>
-						<span>Cline</span>
+						<span>CodeVibe</span>
 						<span>File</span>
 						<span>Edit</span>
 						<span>View</span>
@@ -760,7 +760,7 @@
 				<section class="stage">
 					<aside class="hub-card" id="hubCard">
 					<div class="card-top">
-						<div class="card-title">Cline Hub Monitor</div>
+						<div class="card-title">CodeVibe Hub Monitor</div>
 						<div style="display: flex; align-items: center; gap: 10px">
 							<div class="status-pill" id="hubStatus">
 								<span class="dot green"></span>
@@ -915,8 +915,8 @@
 				connected: true,
 				hubUptime: "3h 42m 18s",
 				clientSummaries: [
-					{ label: "Cline", name: "ara-mbp", sessionCount: 2 },
-					{ label: "Cline", name: "dev-studio", sessionCount: 2 },
+					{ label: "CodeVibe", name: "ara-mbp", sessionCount: 2 },
+					{ label: "CodeVibe", name: "dev-studio", sessionCount: 2 },
 					{ label: "Runner", name: "ci-runner-01", sessionCount: 1 },
 					{ label: "Laptop", name: "laptop-16", sessionCount: 1 },
 				],
@@ -1295,7 +1295,7 @@
 			}
 
 			document.getElementById("newSession").addEventListener("click", async () => {
-				const prompt = window.prompt("Start a background Cline session", "Summarize the current workspace and suggest the next code task.");
+				const prompt = window.prompt("Start a background CodeVibe session", "Summarize the current workspace and suggest the next code task.");
 				if (!prompt) return;
 				if (!invoke) {
 					addLocalSession(prompt);
