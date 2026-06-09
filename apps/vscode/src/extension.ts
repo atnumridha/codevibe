@@ -33,6 +33,7 @@ import { HookDiscoveryCache } from "./core/hooks/HookDiscoveryCache"
 import {
 	cleanupMcpMarketplaceCatalogFromGlobalState,
 	cleanupOldApiKey,
+	hasLegacyVSCodeStorageMigrationCompleted,
 	migrateCustomInstructionsToGlobalRules,
 	migrateTaskHistoryToFile,
 	migrateWelcomeViewCompleted,
@@ -82,6 +83,8 @@ const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe.agent"
 const CODEVIBE_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_LEGACY_CHAT_SESSION_TYPE = "codevibe-agent"
 const CODEVIBE_NATIVE_CHAT_SESSION_TYPES = [CODEVIBE_CHAT_SESSION_TYPE, CODEVIBE_LEGACY_CHAT_SESSION_TYPE] as const
+const CODEVIBE_OPEN_NATIVE_CHAT_SIDEBAR_COMMAND = `workbench.action.chat.openNewSessionSidebar.${CODEVIBE_CHAT_SESSION_TYPE}`
+const CODEVIBE_OPEN_NATIVE_CHAT_EDITOR_COMMAND = `workbench.action.chat.openNewSessionEditor.${CODEVIBE_CHAT_SESSION_TYPE}`
 const CODEVIBE_NATIVE_AGENT_CACHE_DIR = "native-agents"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const LEGACY_CODEVIBE_PANEL_VIEW_TYPE = "codevibe.agentPanel"
@@ -205,6 +208,9 @@ export async function activate(context: vscode.ExtensionContext) {
 	)
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.NewNativeAgentSession, async () => {
+			if (await openCodeVibeNativeChatSession("sidebar")) {
+				return
+			}
 			const webview = await showPreferredCodeVibeSurface(false, { allowOpenAiCodexSidebar: false })
 			await webview.controller.clearTask()
 			await webview.controller.postStateToWebview()
@@ -1381,6 +1387,24 @@ async function showCodeVibeSurface(preserveEditorFocus: boolean): Promise<Vscode
 	return webview
 }
 
+async function openCodeVibeNativeChatSession(position: "sidebar" | "editor"): Promise<boolean> {
+	const command = position === "editor" ? CODEVIBE_OPEN_NATIVE_CHAT_EDITOR_COMMAND : CODEVIBE_OPEN_NATIVE_CHAT_SIDEBAR_COMMAND
+
+	try {
+		const commands = await vscode.commands.getCommands(true)
+		if (!commands.includes(command)) {
+			Logger.warn(`CodeVibe native chat command is unavailable: ${command}`)
+			return false
+		}
+
+		await vscode.commands.executeCommand(command)
+		return true
+	} catch (error) {
+		Logger.warn(`Failed to open CodeVibe native chat session: ${error instanceof Error ? error.message : String(error)}`)
+		return false
+	}
+}
+
 async function showPreferredCodeVibeSurface(
 	preserveEditorFocus: boolean,
 	options: { allowLegacyFallback?: boolean; allowOpenAiCodexSidebar?: boolean } = {},
@@ -1530,8 +1554,7 @@ async function cleanupLegacyVSCodeStorage(context: ExtensionContext): Promise<vo
 	try {
 		await cleanupOldApiKey(context)
 		// Migrate is not done if the new storage does not have the lastShownAnnouncementId flag
-		const hasMigrated = context.globalState.get("lastShownAnnouncementId")
-		if (hasMigrated !== undefined) {
+		if (hasLegacyVSCodeStorageMigrationCompleted(context)) {
 			return
 		}
 

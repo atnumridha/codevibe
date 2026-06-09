@@ -109,6 +109,7 @@ const disallowedPackagedVisibleTextFragments = [
 	"Open in Cline",
 	"submits a prompt to Cline",
 	"when Cline reaches a user-attention boundary",
+	"proto/cline/state.proto",
 ]
 
 const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
@@ -502,7 +503,7 @@ function brandVisibleManifestStrings(value, key) {
 }
 
 function createGithubVsixPackageJson(packageJson) {
-	return brandVisibleManifestStrings(
+	const githubVsixPackageJson = brandVisibleManifestStrings(
 		{
 			...packageJson,
 			...githubVsixManifestOverrides,
@@ -510,6 +511,8 @@ function createGithubVsixPackageJson(packageJson) {
 		},
 		"",
 	)
+	delete githubVsixPackageJson["lint-staged"]
+	return githubVsixPackageJson
 }
 
 function readPackageMetadata(packageJson = readPackageJson()) {
@@ -886,6 +889,15 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (codeVibeAgentParticipant.name !== "codevibe" || codeVibeAgentParticipant.fullName !== "CodeVibe Agent") {
 		throw new Error(`${label} codevibe.agent chat participant must be named CodeVibe Agent`)
 	}
+	if (codeVibeAgentParticipant.isDefault !== true) {
+		throw new Error(`${label} codevibe.agent chat participant must be the default agent-mode participant`)
+	}
+	if (!Array.isArray(codeVibeAgentParticipant.locations) || !codeVibeAgentParticipant.locations.includes("panel")) {
+		throw new Error(`${label} codevibe.agent chat participant must target the native Chat panel`)
+	}
+	if (!Array.isArray(codeVibeAgentParticipant.modes) || !codeVibeAgentParticipant.modes.includes("agent")) {
+		throw new Error(`${label} codevibe.agent chat participant must register for native agent mode`)
+	}
 	const chatAgents = Array.isArray(packageJson.contributes?.chatAgents) ? packageJson.contributes.chatAgents : []
 	const codeVibeAgent = chatAgents.find((agent) => agent?.path === "agents/00-codevibe-agent.agent.md")
 	if (!codeVibeAgent) {
@@ -928,8 +940,11 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (!codeVibeNewSessionMenu) {
 		throw new Error(`${label} must contribute a CodeVibe command to chatSessions/newSession`)
 	}
-	if (codeVibeNewSessionMenu.when !== "chatSessionType == agent-host-codevibe || chatSessionType == codevibe-agent") {
-		throw new Error(`${label} CodeVibe chatSessions/newSession menu must target CodeVibe native session types`)
+	if (codeVibeNewSessionMenu !== newSessionMenu[0] || codeVibeNewSessionMenu.group !== "navigation@-1000") {
+		throw new Error(`${label} CodeVibe chatSessions/newSession menu must be first in navigation`)
+	}
+	if (codeVibeNewSessionMenu.when !== undefined) {
+		throw new Error(`${label} CodeVibe chatSessions/newSession menu must be visible before Copilot sessions`)
 	}
 	if ("codevibe-ActivityBar" in views) {
 		throw new Error(`${label} must not contribute views under legacy codevibe-ActivityBar`)
@@ -1027,6 +1042,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	}
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatParticipantAdditions", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatPromptFiles", `${label} enabledApiProposals`)
+	assertArrayIncludes(packageJson.enabledApiProposals, "defaultChatParticipant", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionCustomizationProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)

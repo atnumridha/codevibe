@@ -5,6 +5,10 @@ import { HistoryItem } from "@/shared/HistoryItem"
 import { Logger } from "@/shared/services/Logger"
 import { ensureRulesDirectoryExists, readTaskHistoryFromState, writeTaskHistoryToState } from "./disk"
 
+export function hasLegacyVSCodeStorageMigrationCompleted(context: vscode.ExtensionContext): boolean {
+	return context.globalState.get("lastShownAnnouncementId") !== undefined
+}
+
 export async function migrateWorkspaceToGlobalStorage(context: vscode.ExtensionContext) {
 	// Keys to migrate from workspace storage back to global storage
 	const keysToMigrate = [
