@@ -38,7 +38,7 @@ You are a code reviewer.`
 		assert.equal(parsed.systemPrompt, "You are a code reviewer.")
 	})
 
-	it("supports raw Cline tool ids in tools", () => {
+	it("supports raw tool ids in tools", () => {
 		const content = `---
 name: cli-agent
 description: Uses internal ids
@@ -75,7 +75,7 @@ Prompt body`
 		assert.equal(result.size, 0)
 	})
 
-	it("loads all yaml/yml files from homeDir/.cline/data/agents", async () => {
+	it("loads all yaml/yml files from homeDir/Documents/CodeVibe/Agents", async () => {
 		const tempHome = await createTempHomeDir()
 		tempDirs.push(tempHome)
 

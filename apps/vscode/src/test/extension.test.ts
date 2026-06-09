@@ -6,7 +6,7 @@ import * as vscode from "vscode"
 
 const packagePath = path.join(__dirname, "..", "..", "package.json")
 
-describe("Cline Extension", () => {
+describe("CodeVibe Extension", () => {
 	after(() => {
 		vscode.window.showInformationMessage("All tests done!")
 	})
@@ -17,6 +17,20 @@ describe("Cline Extension", () => {
 		const clineExtensionApi = vscode.extensions.getExtension(id)
 
 		clineExtensionApi?.id.should.equal(id)
+	})
+
+	it("declares valid CodeVibe native agent contributions", async () => {
+		const packageJSON = JSON.parse(await readFile(packagePath, "utf8"))
+		const participant = packageJSON.contributes.chatParticipants?.[0]
+		const activitybarContainers = packageJSON.contributes.viewsContainers?.activitybar ?? []
+		const activitybarContainerIds = activitybarContainers.map((container: { id: string }) => container.id)
+		const views = packageJSON.contributes.views ?? {}
+
+		participant.id.should.equal("codevibe")
+		participant.id.should.match(/^[A-Za-z0-9_-]+$/)
+		activitybarContainerIds.should.containEql("codevibe-agent")
+		views.should.have.property("codevibe-agent")
+		views.should.not.have.property("codevibe.agent")
 	})
 
 	it("should successfully execute the plus button command", async () => {
