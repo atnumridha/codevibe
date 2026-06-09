@@ -44,6 +44,7 @@ const RuleRow: React.FC<{
 	// For remote rules, the rulePath is already the display name
 	const finalDisplayName = isRemote ? rulePath : ruleType === "skill" ? skillDisplayName : displayName
 	const isDisabled = isRemote && alwaysEnabled
+	const ruleTypeLabel = ruleType === "cline" ? "rule" : ruleType
 
 	const getRuleTypeIcon = () => {
 		switch (ruleType) {
@@ -164,19 +165,19 @@ const RuleRow: React.FC<{
 						title={isDisabled ? "This rule is required and cannot be disabled" : undefined}
 					/>
 					<Button
-						aria-label={isRemote ? `View ${ruleType} file` : `Edit ${ruleType} file`}
+						aria-label={isRemote ? `View ${ruleTypeLabel} file` : `Edit ${ruleTypeLabel} file`}
 						onClick={handleEditClick}
 						size="xs"
-						title={isRemote ? `View ${ruleType} file (read-only)` : `Edit ${ruleType} file`}
+						title={isRemote ? `View ${ruleTypeLabel} file (read-only)` : `Edit ${ruleTypeLabel} file`}
 						variant="icon">
 						{isRemote ? <EyeIcon /> : <PenIcon />}
 					</Button>
 					<Button
-						aria-label={`Delete ${ruleType} file`}
+						aria-label={`Delete ${ruleTypeLabel} file`}
 						disabled={isRemote}
 						onClick={handleDeleteClick}
 						size="xs"
-						title={`Delete ${ruleType} file`}
+						title={`Delete ${ruleTypeLabel} file`}
 						variant="icon">
 						<Trash2Icon />
 					</Button>

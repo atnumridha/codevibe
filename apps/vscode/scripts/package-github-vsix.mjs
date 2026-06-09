@@ -998,25 +998,22 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
-		const sessionId = session?.id
-		if (typeof sessionId !== "string" || sessionId.trim() === "") {
-			throw new Error(`${label} chatSessions[${index}] must declare a non-empty id`)
+		if (Object.hasOwn(session ?? {}, "id")) {
+			throw new Error(`${label} chatSessions[${index}] must not declare unsupported id property`)
 		}
-		if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) {
+		const sessionType = session?.type
+		if (typeof sessionType !== "string" || sessionType.trim() === "") {
+			throw new Error(`${label} chatSessions[${index}] must declare a non-empty type`)
+		}
+		if (!/^[A-Za-z0-9_-]+$/.test(sessionType)) {
 			throw new Error(
-				`${label} chatSessions[${index}] id '${sessionId}' must use only alphanumeric characters, '_' or '-'`,
+				`${label} chatSessions[${index}] type '${sessionType}' must use only alphanumeric characters, '_' or '-'`,
 			)
-		}
-		if (typeof session?.type === "string" && session.type !== sessionId) {
-			throw new Error(`${label} chatSessions[${index}] id must match type '${session.type}'`)
 		}
 	}
 	const codeVibeSession = chatSessions.find((session) => session?.type === "agent-host-codevibe")
 	if (!codeVibeSession) {
 		throw new Error(`${label} must contribute the native agent-host-codevibe chat session`)
-	}
-	if (codeVibeSession.id !== "agent-host-codevibe") {
-		throw new Error(`${label} agent-host-codevibe chat session must declare a matching id`)
 	}
 	if (codeVibeSession !== chatSessions[0]) {
 		throw new Error(`${label} must list agent-host-codevibe before Copilot-style providers`)
@@ -1033,9 +1030,6 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	const codeVibeLegacySession = chatSessions.find((session) => session?.type === "codevibe-agent")
 	if (!codeVibeLegacySession) {
 		throw new Error(`${label} must keep the legacy codevibe-agent chat session alias`)
-	}
-	if (codeVibeLegacySession.id !== "codevibe-agent") {
-		throw new Error(`${label} legacy codevibe-agent chat session must declare a matching id`)
 	}
 	if (typeof codeVibeLegacySession.order !== "number" || codeVibeLegacySession.order <= codeVibeSession.order) {
 		throw new Error(`${label} legacy codevibe-agent chat session must remain after agent-host-codevibe`)
