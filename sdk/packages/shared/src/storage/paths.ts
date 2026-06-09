@@ -482,14 +482,14 @@ export function resolvePluginConfigSearchPaths(
 	workspacePath?: string,
 ): string[] {
 	return dedupePaths([
-		workspacePath ? join(workspacePath, ".cline", PLUGINS_DIRECTORY_NAME) : "",
-		join(resolveLegacyClineDir(), PLUGINS_DIRECTORY_NAME),
-		resolveDocumentsClineExtensionPath("Plugins"),
-		resolveDocumentsExtensionPath("Plugins"),
-		join(resolveCodeVibeDir(), PLUGINS_DIRECTORY_NAME),
 		workspacePath
 			? join(workspacePath, ".codevibe", PLUGINS_DIRECTORY_NAME)
 			: "",
+		join(resolveCodeVibeDir(), PLUGINS_DIRECTORY_NAME),
+		resolveDocumentsExtensionPath("Plugins"),
+		workspacePath ? join(workspacePath, ".cline", PLUGINS_DIRECTORY_NAME) : "",
+		join(resolveLegacyClineDir(), PLUGINS_DIRECTORY_NAME),
+		resolveDocumentsClineExtensionPath("Plugins"),
 	]);
 }
 

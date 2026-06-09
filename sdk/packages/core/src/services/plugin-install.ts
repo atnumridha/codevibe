@@ -24,7 +24,7 @@ import {
 import { readCodeVibeEnv } from "@cline/shared";
 import {
 	isPluginModulePath,
-	resolveClineDir,
+	resolveCodeVibeDir,
 	resolvePluginModuleEntries,
 } from "@cline/shared/storage";
 
@@ -79,6 +79,9 @@ export type ParsedPluginSource =
 export type PluginInstallSourceType = "npm" | "git" | "local" | "remote";
 
 interface PluginPackageManifest {
+	codevibe?: {
+		plugins?: Array<{ paths?: string[] } | string>;
+	};
 	cline?: {
 		plugins?: Array<{ paths?: string[] } | string>;
 	};
@@ -102,8 +105,11 @@ const DEPENDENCY_FIELDS = [
 	"peerDependencies",
 ] as const;
 const WRAPPER_PACKAGE_JSON = {
-	name: "cline-installed-plugin",
+	name: "codevibe-installed-plugin",
 	private: true,
+	codevibe: {
+		plugins: [] as Array<{ paths: string[] }>,
+	},
 	cline: {
 		plugins: [] as Array<{ paths: string[] }>,
 	},
@@ -407,8 +413,8 @@ export function parsePluginSource(
 
 function getPluginRoot(cwd: string | undefined): string {
 	return cwd
-		? join(cwd, ".cline", "plugins")
-		: join(resolveClineDir(), "plugins");
+		? join(cwd, ".codevibe", "plugins")
+		: join(resolveCodeVibeDir(), "plugins");
 }
 
 function getInstallPath(
@@ -544,7 +550,7 @@ function readPackageManifest(
 }
 
 function getManifestPaths(manifest: PluginPackageManifest | null): string[] {
-	const entries = manifest?.cline?.plugins;
+	const entries = manifest?.codevibe?.plugins ?? manifest?.cline?.plugins;
 	if (!Array.isArray(entries)) {
 		return [];
 	}
@@ -701,6 +707,9 @@ async function writeWrapperManifest(
 			{
 				...WRAPPER_PACKAGE_JSON,
 				name: packageName,
+				codevibe: {
+					plugins: [{ paths: entryPaths }],
+				},
 				cline: {
 					plugins: [{ paths: entryPaths }],
 				},
@@ -722,7 +731,7 @@ async function installNpmPackage(
 	await mkdir(packageRoot, { recursive: true });
 	await writeFile(
 		join(packageRoot, "package.json"),
-		JSON.stringify({ name: "cline-plugin-install", private: true }, null, 2),
+		JSON.stringify({ name: "codevibe-plugin-install", private: true }, null, 2),
 		"utf8",
 	);
 	await runCommand(npmCommand, [
@@ -1023,7 +1032,10 @@ export async function installPlugin(
 		`${Date.now()}-${process.pid}-${hashSource(`${source}:${Math.random()}`)}`,
 	);
 	const npmCommand =
-		options.npmCommand ?? (readCodeVibeEnv("CLINE_NPM_COMMAND") || "npm");
+		options.npmCommand ??
+		(readCodeVibeEnv("CODEVIBE_NPM_COMMAND") ||
+			readCodeVibeEnv("CLINE_NPM_COMMAND") ||
+			"npm");
 
 	const force = options.force === true;
 	assertCanInstall(installPath, force);

@@ -10,13 +10,15 @@ interface PluginPackageManifest {
 	plugins?: PluginManifest[]
 }
 
-export function resolveClineDir(): string {
-	const envDir = process.env.CLINE_DIR?.trim()
+export function resolveCodeVibeDir(): string {
+	const envDir = process.env.CODEVIBE_DIR?.trim() || process.env.CLINE_DIR?.trim()
 	if (envDir) {
 		return envDir
 	}
-	return join(homedir(), ".cline")
+	return join(homedir(), ".codevibe")
 }
+
+export const resolveClineDir = resolveCodeVibeDir
 
 export function isPluginModulePath(path: string): boolean {
 	const dot = path.lastIndexOf(".")
@@ -29,7 +31,11 @@ export function isPluginModulePath(path: string): boolean {
 function readPluginPackageManifest(packageJsonPath: string): PluginPackageManifest | null {
 	try {
 		const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
+			codevibe?: PluginPackageManifest
 			cline?: PluginPackageManifest
+		}
+		if (packageJson.codevibe && typeof packageJson.codevibe === "object") {
+			return packageJson.codevibe
 		}
 		return packageJson.cline && typeof packageJson.cline === "object" ? packageJson.cline : null
 	} catch {

@@ -4,6 +4,7 @@
 	],
 	"spec": [
 		"src/**/__tests__/*.ts",
+		"src/services/plugins/*.test.ts",
 		"src/test/services/**/*.test.ts"
 	],
 	"require": [

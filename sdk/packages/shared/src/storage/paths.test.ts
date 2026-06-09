@@ -16,6 +16,7 @@ import {
 	resolveGlobalSettingsPath,
 	resolveHooksConfigSearchPaths,
 	resolveMcpSettingsPath,
+	resolvePluginConfigSearchPaths,
 	resolveProviderSettingsPath,
 	resolveRulesConfigSearchPaths,
 	resolveSessionDataDir,
@@ -275,5 +276,29 @@ describe("storage path resolution", () => {
 			join("/tmp/home", ".codevibe", "workflows"),
 			join(workspacePath, ".codevibe", "workflows"),
 		]);
+	});
+
+	it("prefers CodeVibe plugin paths before legacy Cline plugin paths", () => {
+		startTestEnv();
+		process.env.CODEVIBE_DIR = "/tmp/home/.codevibe";
+		process.env.CLINE_DIR = "/tmp/home/.cline";
+		const workspacePath = "/repo/demo";
+
+		const paths = resolvePluginConfigSearchPaths(workspacePath);
+		const workspaceCodeVibePlugins = join(workspacePath, ".codevibe", "plugins");
+		const globalCodeVibePlugins = join("/tmp/home", ".codevibe", "plugins");
+		const workspaceLegacyPlugins = join(workspacePath, ".cline", "plugins");
+		const globalLegacyPlugins = join("/tmp/home", ".cline", "plugins");
+
+		expect(paths[0]).toBe(workspaceCodeVibePlugins);
+		expect(paths[1]).toBe(globalCodeVibePlugins);
+		expect(paths).toContain(workspaceLegacyPlugins);
+		expect(paths).toContain(globalLegacyPlugins);
+		expect(paths.indexOf(workspaceCodeVibePlugins)).toBeLessThan(
+			paths.indexOf(workspaceLegacyPlugins),
+		);
+		expect(paths.indexOf(globalCodeVibePlugins)).toBeLessThan(
+			paths.indexOf(globalLegacyPlugins),
+		);
 	});
 });

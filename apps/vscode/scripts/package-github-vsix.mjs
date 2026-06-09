@@ -34,6 +34,7 @@ const requiredCursorParityCommands = [
 	"codevibe.compatibility.ndjson.showStatus",
 	"codevibe.compatibility.deeplink.debug.trigger",
 	"codevibe.nativeAgentDiagnostics",
+	"codevibe.newNativeAgentSession",
 ]
 
 const requiredCursorParityLegacyActivationCommands = [
@@ -125,7 +126,7 @@ const visibleManifestStringKeys = new Set(["category", "description", "title"])
 
 function usage() {
 	console.error(
-		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--write-native-agent-launcher] [--code <path>] [--print-metadata] [--preflight] [--require-release-gate]",
+		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--write-native-agent-launcher] [--enable-native-agent-argv] [--code <path>] [--print-metadata] [--preflight] [--require-release-gate]",
 	)
 }
 
@@ -136,6 +137,7 @@ function parseArgs(argv) {
 		install: false,
 		verifyInstall: false,
 		writeNativeAgentLauncher: false,
+		enableNativeAgentArgv: false,
 		code: undefined,
 		preRelease: false,
 		printMetadata: false,
@@ -165,6 +167,8 @@ function parseArgs(argv) {
 			options.verifyInstall = true
 		} else if (arg === "--write-native-agent-launcher") {
 			options.writeNativeAgentLauncher = true
+		} else if (arg === "--enable-native-agent-argv") {
+			options.enableNativeAgentArgv = true
 		} else if (arg === "--code") {
 			const code = argv[++index]
 			if (!code) {
@@ -318,6 +322,62 @@ function writeNativeAgentLauncher(outPath, metadata, codePath) {
 	fs.chmodSync(launcherPath, 0o755)
 	console.log(`Native agent launcher written to ${launcherPath}`)
 	return launcherPath
+}
+
+function resolveVSCodeArgvJsonPath() {
+	if (process.env.CODEVIBE_VSCODE_ARGV_JSON?.trim()) {
+		return path.resolve(process.env.CODEVIBE_VSCODE_ARGV_JSON.trim())
+	}
+	if (process.platform === "darwin") {
+		return path.join(os.homedir(), "Library", "Application Support", "Code", "argv.json")
+	}
+	if (process.platform === "win32") {
+		const appData = process.env.APPDATA?.trim() || path.join(os.homedir(), "AppData", "Roaming")
+		return path.join(appData, "Code", "argv.json")
+	}
+	const configHome = process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), ".config")
+	return path.join(configHome, "Code", "argv.json")
+}
+
+function stripJsonComments(text) {
+	return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1")
+}
+
+function readVSCodeArgvJson(argvPath) {
+	if (!fs.existsSync(argvPath)) {
+		return {}
+	}
+	const text = fs.readFileSync(argvPath, "utf8")
+	if (!text.trim()) {
+		return {}
+	}
+	try {
+		return JSON.parse(stripJsonComments(text))
+	} catch (error) {
+		throw new Error(
+			`Unable to parse VS Code argv.json at ${argvPath}. Please fix it or set CODEVIBE_VSCODE_ARGV_JSON to a writable test file. Cause: ${
+				error instanceof Error ? error.message : String(error)
+			}`,
+		)
+	}
+}
+
+function enableNativeAgentInVSCodeArgv(metadata) {
+	const argvPath = resolveVSCodeArgvJsonPath()
+	const argv = readVSCodeArgvJson(argvPath)
+	const existing = Array.isArray(argv["enable-proposed-api"])
+		? argv["enable-proposed-api"].filter((value) => typeof value === "string")
+		: []
+	const enabled = Array.from(new Set([...existing, metadata.extensionId])).sort()
+	if (existing.length === enabled.length && existing.every((value, index) => value === enabled[index])) {
+		console.log(`VS Code argv already enables proposed API for ${metadata.extensionId}: ${argvPath}`)
+		return argvPath
+	}
+
+	fs.mkdirSync(path.dirname(argvPath), { recursive: true })
+	fs.writeFileSync(argvPath, `${JSON.stringify({ ...argv, "enable-proposed-api": enabled }, null, "\t")}\n`, "utf8")
+	console.log(`VS Code argv enables proposed API for ${metadata.extensionId}: ${argvPath}`)
+	return argvPath
 }
 
 function runCommand(candidates, args, options = {}) {
@@ -803,6 +863,27 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (codeVibeAgent.name !== "codevibe" || !String(codeVibeAgent.description ?? "").includes("CodeVibe Agent")) {
 		throw new Error(`${label} CodeVibe chat agent contribution must be named and described as CodeVibe Agent`)
 	}
+	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
+	const codeVibeSession = chatSessions.find((session) => session?.type === "codevibe-agent")
+	if (!codeVibeSession) {
+		throw new Error(`${label} must contribute the native codevibe-agent chat session`)
+	}
+	if (codeVibeSession.name !== "CodeVibe Agent" || codeVibeSession.displayName !== "CodeVibe Agent") {
+		throw new Error(`${label} codevibe-agent chat session must display as CodeVibe Agent`)
+	}
+	if (typeof codeVibeSession.order !== "number" || codeVibeSession.order > -1000) {
+		throw new Error(`${label} codevibe-agent chat session must be ordered before Copilot-style providers`)
+	}
+	const newSessionMenu = Array.isArray(packageJson.contributes?.menus?.["chatSessions/newSession"])
+		? packageJson.contributes.menus["chatSessions/newSession"]
+		: []
+	const codeVibeNewSessionMenu = newSessionMenu.find((item) => item?.command === "codevibe.newNativeAgentSession")
+	if (!codeVibeNewSessionMenu) {
+		throw new Error(`${label} must contribute a CodeVibe command to chatSessions/newSession`)
+	}
+	if (codeVibeNewSessionMenu.when !== "chatSessionType == codevibe-agent") {
+		throw new Error(`${label} CodeVibe chatSessions/newSession menu must target codevibe-agent`)
+	}
 	if ("codevibe-ActivityBar" in views) {
 		throw new Error(`${label} must not contribute views under legacy codevibe-ActivityBar`)
 	}
@@ -902,6 +983,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe.agent", `${label} activationEvents`)
+	assertArrayIncludes(packageJson.activationEvents, "onChatSession:codevibe-agent", `${label} activationEvents`)
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
 	}
@@ -1271,6 +1353,9 @@ async function main() {
 		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
 		if (options.writeNativeAgentLauncher) {
 			writeNativeAgentLauncher(outPath, metadata, options.code)
+		}
+		if (options.enableNativeAgentArgv) {
+			enableNativeAgentInVSCodeArgv(metadata)
 		}
 
 		if (options.install) {

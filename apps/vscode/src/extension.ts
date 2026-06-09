@@ -187,6 +187,15 @@ export async function activate(context: vscode.ExtensionContext) {
 			await showCodeVibeNativeAgentDiagnostics(context, nativeAgentRegistration)
 		}),
 	)
+	context.subscriptions.push(
+		vscode.commands.registerCommand(commands.NewNativeAgentSession, async () => {
+			const webview = await showPreferredCodeVibeSurface(false, { allowOpenAiCodexSidebar: false })
+			await webview.controller.clearTask()
+			await webview.controller.postStateToWebview()
+			await sendChatButtonClickedEvent()
+			await sendShowWebviewEvent(false)
+		}),
+	)
 
 	/*
 	We use the text document content provider API to show the left side for diff view by creating a

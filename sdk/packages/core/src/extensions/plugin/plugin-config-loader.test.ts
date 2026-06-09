@@ -70,25 +70,36 @@ describe("plugin-config-loader", () => {
 		}
 	});
 
-	it("prefers package manifest plugin entries for configured directories", async () => {
+	it("prefers CodeVibe package manifest plugin entries for configured directories", async () => {
 		const root = await mkdtemp(join(tmpdir(), "core-plugin-config-loader-"));
 		try {
 			process.env.HOME = root;
 			setHomeDir(root);
 			const pluginDir = join(root, "plugin-package");
 			const srcDir = join(pluginDir, "src");
+			const legacyDir = join(pluginDir, "legacy");
 			await mkdir(srcDir, { recursive: true });
+			await mkdir(legacyDir, { recursive: true });
 			const declaredEntry = join(srcDir, "index.ts");
+			const legacyEntry = join(legacyDir, "index.ts");
 			const ignoredEntry = join(pluginDir, "ignored.js");
 			await writeFile(
 				join(pluginDir, "package.json"),
 				JSON.stringify({
 					name: "plugin-package",
 					private: true,
-					cline: {
+					codevibe: {
 						plugins: [
 							{
 								paths: ["./src/index.ts"],
+								capabilities: ["tools"],
+							},
+						],
+					},
+					cline: {
+						plugins: [
+							{
+								paths: ["./legacy/index.ts"],
 								capabilities: ["tools"],
 							},
 						],
@@ -97,6 +108,7 @@ describe("plugin-config-loader", () => {
 				"utf8",
 			);
 			await writeFile(declaredEntry, "export default {}", "utf8");
+			await writeFile(legacyEntry, "export default {}", "utf8");
 			await writeFile(ignoredEntry, "export default {}", "utf8");
 
 			const resolved = resolveAgentPluginPaths({
@@ -106,6 +118,7 @@ describe("plugin-config-loader", () => {
 			});
 
 			expect(resolved).toContain(declaredEntry);
+			expect(resolved).not.toContain(legacyEntry);
 			expect(resolved).not.toContain(ignoredEntry);
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -278,7 +291,7 @@ describe("plugin-config-loader", () => {
 			setHomeDir(home);
 			const installRoot = join(
 				workspace,
-				".cline",
+				".codevibe",
 				"plugins",
 				"_installed",
 				"local",
@@ -290,8 +303,11 @@ describe("plugin-config-loader", () => {
 			await writeFile(
 				join(installRoot, "package.json"),
 				JSON.stringify({
-					name: "cline-installed-plugin-demo",
+					name: "codevibe-installed-plugin-demo",
 					private: true,
+					codevibe: {
+						plugins: [{ paths: ["./package/index.ts"] }],
+					},
 					cline: {
 						plugins: [{ paths: ["./package/index.ts"] }],
 					},
@@ -331,26 +347,64 @@ describe("plugin-config-loader", () => {
 		try {
 			process.env.HOME = home;
 			setHomeDir(home);
+			const workspaceCodeVibePlugins = join(workspace, ".codevibe", "plugins");
+			const userCodeVibePlugins = join(home, ".codevibe", "plugins");
+			const documentsCodeVibePlugins = join(
+				home,
+				"Documents",
+				"CodeVibe",
+				"Plugins",
+			);
 			const workspacePlugins = join(workspace, ".cline", "plugins");
 			const userPlugins = join(home, ".cline", "plugins");
 			const documentsPlugins = join(home, "Documents", "Cline", "Plugins");
-			await mkdir(workspacePlugins, { recursive: true });
-			await mkdir(userPlugins, { recursive: true });
-			await mkdir(documentsPlugins, { recursive: true });
+			for (const dir of [
+				workspaceCodeVibePlugins,
+				userCodeVibePlugins,
+				documentsCodeVibePlugins,
+				workspacePlugins,
+				userPlugins,
+				documentsPlugins,
+			]) {
+				await mkdir(dir, { recursive: true });
+			}
+			const workspaceCodeVibePlugin = join(
+				workspaceCodeVibePlugins,
+				"workspace-codevibe.js",
+			);
+			const userCodeVibePlugin = join(userCodeVibePlugins, "user-codevibe.js");
+			const documentsCodeVibePlugin = join(
+				documentsCodeVibePlugins,
+				"documents-codevibe.js",
+			);
 			const workspacePlugin = join(workspacePlugins, "workspace.js");
 			const userPlugin = join(userPlugins, "user.js");
 			const documentsPlugin = join(documentsPlugins, "documents.js");
+			await writeFile(workspaceCodeVibePlugin, "export default {}", "utf8");
+			await writeFile(userCodeVibePlugin, "export default {}", "utf8");
+			await writeFile(
+				documentsCodeVibePlugin,
+				"export default {}",
+				"utf8",
+			);
 			await writeFile(workspacePlugin, "export default {}", "utf8");
 			await writeFile(userPlugin, "export default {}", "utf8");
 			await writeFile(documentsPlugin, "export default {}", "utf8");
 
 			const searchPaths = resolvePluginConfigSearchPaths(workspace);
-			expect(searchPaths).toHaveLength(3);
-			expect(searchPaths).toContain(workspacePlugins);
-			expect(searchPaths).toContain(userPlugins);
-			expect(searchPaths).toContain(documentsPlugins);
+			expect(searchPaths).toEqual([
+				workspaceCodeVibePlugins,
+				userCodeVibePlugins,
+				documentsCodeVibePlugins,
+				workspacePlugins,
+				userPlugins,
+				documentsPlugins,
+			]);
 
 			const resolved = resolveAgentPluginPaths({ workspacePath: workspace });
+			expect(resolved).toContain(workspaceCodeVibePlugin);
+			expect(resolved).toContain(userCodeVibePlugin);
+			expect(resolved).toContain(documentsCodeVibePlugin);
 			expect(resolved).toContain(workspacePlugin);
 			expect(resolved).toContain(userPlugin);
 			expect(resolved).toContain(documentsPlugin);
