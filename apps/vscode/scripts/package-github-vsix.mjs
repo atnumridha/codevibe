@@ -326,23 +326,21 @@ function writeNativeAgentLauncher(outPath, metadata, codePath) {
 
 	const defaultCodeCli =
 		codePath ||
-		(process.platform === "darwin"
-			? "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
-			: "code")
+		(process.platform === "darwin" ? "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" : "code")
 	const content = [
 		"#!/usr/bin/env bash",
 		"set -euo pipefail",
 		`CODEVIBE_VSIX=${shellQuote(outPath)}`,
 		`CODEVIBE_EXTENSION_ID=${shellQuote(metadata.extensionId)}`,
 		`CODE_BIN=\${CODEVIBE_VSCODE_CLI:-${shellQuote(defaultCodeCli)}}`,
-		"if [[ ! -x \"$CODE_BIN\" && \"$CODE_BIN\" == /* ]]; then",
+		'if [[ ! -x "$CODE_BIN" && "$CODE_BIN" == /* ]]; then',
 		"  CODE_BIN=code",
 		"fi",
-		"\"$CODE_BIN\" --install-extension \"$CODEVIBE_VSIX\" --force",
+		'"$CODE_BIN" --install-extension "$CODEVIBE_VSIX" --force',
 		"if [[ $# -eq 0 ]]; then",
-		"  set -- \"$PWD\"",
+		'  set -- "$PWD"',
 		"fi",
-		"exec \"$CODE_BIN\" --enable-proposed-api \"$CODEVIBE_EXTENSION_ID\" \"$@\"",
+		'exec "$CODE_BIN" --enable-proposed-api "$CODEVIBE_EXTENSION_ID" "$@"',
 		"",
 	].join("\n")
 	fs.writeFileSync(launcherPath, content, { mode: 0o755 })
@@ -869,6 +867,10 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (!codeVibeAgentViewIds.includes("codevibe.agent.chat")) {
 		throw new Error(`${label} must contribute the native codevibe.agent.chat webview`)
 	}
+	const codeVibeAgentWebview = codeVibeAgentViews.find((view) => view?.id === "codevibe.agent.chat")
+	if (codeVibeAgentWebview?.visibility !== "hidden") {
+		throw new Error(`${label} codevibe.agent.chat webview must be hidden by default so native VS Code Chat is primary`)
+	}
 	const chatParticipants = Array.isArray(packageJson.contributes?.chatParticipants)
 		? packageJson.contributes.chatParticipants
 		: []
@@ -921,10 +923,7 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (!codeVibeNewSessionMenu) {
 		throw new Error(`${label} must contribute a CodeVibe command to chatSessions/newSession`)
 	}
-	if (
-		codeVibeNewSessionMenu.when !==
-		"chatSessionType == agent-host-codevibe || chatSessionType == codevibe-agent"
-	) {
+	if (codeVibeNewSessionMenu.when !== "chatSessionType == agent-host-codevibe || chatSessionType == codevibe-agent") {
 		throw new Error(`${label} CodeVibe chatSessions/newSession menu must target CodeVibe native session types`)
 	}
 	if ("codevibe-ActivityBar" in views) {
@@ -1023,11 +1022,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	}
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatParticipantAdditions", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatPromptFiles", `${label} enabledApiProposals`)
-	assertArrayIncludes(
-		packageJson.enabledApiProposals,
-		"chatSessionCustomizationProvider",
-		`${label} enabledApiProposals`,
-	)
+	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionCustomizationProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe.agent", `${label} activationEvents`)

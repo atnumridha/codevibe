@@ -18,7 +18,7 @@ interface ClineProviderProps {
 export const ClineProvider = ({ showModelOptions, isPopup, currentMode, initialModelTab }: ClineProviderProps) => {
 	return (
 		<div>
-			{/* Cline Account Info Card */}
+			{/* CodeVibe Cloud account info */}
 			<div style={{ marginBottom: 14, marginTop: 4 }}>
 				<ClineAccountInfoCard />
 			</div>

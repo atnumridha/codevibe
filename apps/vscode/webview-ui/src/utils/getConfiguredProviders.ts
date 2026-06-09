@@ -17,10 +17,13 @@ export function getConfiguredProviders(
 	const configured: ApiProvider[] = []
 
 	if (!apiConfiguration) {
-		return ["cline"] // Cline is always available
+		return ["openai-codex", "cline"]
 	}
 
-	// Cline - always available (uses account-based auth)
+	// OpenAI Codex is the default CodeVibe path and can import ~/.codex/auth.json.
+	configured.push("openai-codex")
+
+	// CodeVibe Cloud remains available as the legacy account-backed provider.
 	configured.push("cline")
 
 	// Anthropic - requires API key
@@ -52,9 +55,6 @@ export function getConfiguredProviders(
 	if (apiConfiguration.openAiNativeApiKey) {
 		configured.push("openai-native")
 	}
-
-	// OpenAI Codex - subscription-based OAuth, always available
-	configured.push("openai-codex")
 
 	// DeepSeek - requires API key
 	if (apiConfiguration.deepSeekApiKey) {
