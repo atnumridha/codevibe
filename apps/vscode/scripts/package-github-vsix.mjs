@@ -1023,6 +1023,11 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	}
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatParticipantAdditions", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatPromptFiles", `${label} enabledApiProposals`)
+	assertArrayIncludes(
+		packageJson.enabledApiProposals,
+		"chatSessionCustomizationProvider",
+		`${label} enabledApiProposals`,
+	)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe.agent", `${label} activationEvents`)
