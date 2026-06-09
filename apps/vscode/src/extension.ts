@@ -51,6 +51,18 @@ import {
 	buildCodeVibeNativeChatTaskText,
 } from "./hosts/vscode/native-chat-adapter"
 import {
+	canRegisterCodeVibeNativeChatSessions,
+	CODEVIBE_CHAT_PARTICIPANT_ID,
+	CODEVIBE_CHAT_SESSION_TYPE,
+	CODEVIBE_NATIVE_AGENT_CACHE_DIR,
+	CODEVIBE_NATIVE_AGENT_FILE_NAME,
+	CODEVIBE_NATIVE_CHAT_SESSION_TYPES,
+	CODEVIBE_OPEN_NATIVE_CHAT_EDITOR_COMMAND,
+	CODEVIBE_OPEN_NATIVE_CHAT_SIDEBAR_COMMAND,
+	getCodeVibeNativeCustomAgentSessionTypes,
+	registerCodeVibeNativeChatSessionTypes,
+} from "./hosts/vscode/native-chat-registration"
+import {
 	buildCodeVibeChatSessionLabel,
 	buildCodeVibeNativeChatSessionHistory,
 	buildCodeVibeNativeSessionDescriptors,
@@ -79,14 +91,6 @@ import { fileExistsAtPath } from "./utils/fs"
 
 const OPENAI_CODEX_EXTENSION_ID = "openai.chatgpt"
 const OPENAI_CODEX_OPEN_SIDEBAR_COMMAND = "chatgpt.openSidebar"
-const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
-const CODEVIBE_CHAT_SESSION_TYPE = "agent-host-codevibe"
-const CODEVIBE_LEGACY_CHAT_SESSION_TYPE = "codevibe-agent"
-const CODEVIBE_NATIVE_CHAT_SESSION_TYPES = [CODEVIBE_CHAT_SESSION_TYPE, CODEVIBE_LEGACY_CHAT_SESSION_TYPE] as const
-const CODEVIBE_OPEN_NATIVE_CHAT_SIDEBAR_COMMAND = `workbench.action.chat.openNewSessionSidebar.${CODEVIBE_CHAT_SESSION_TYPE}`
-const CODEVIBE_OPEN_NATIVE_CHAT_EDITOR_COMMAND = `workbench.action.chat.openNewSessionEditor.${CODEVIBE_CHAT_SESSION_TYPE}`
-const CODEVIBE_NATIVE_AGENT_CACHE_DIR = "native-agents"
-const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const LEGACY_CODEVIBE_PANEL_VIEW_TYPE = "codevibe.agentPanel"
 
 // This method is called when the VS Code extension is activated.
@@ -1178,7 +1182,7 @@ function registerCodeVibeNativeAgentProvider(
 				return []
 			}
 			await writeCodeVibeNativeAgentFile(agentDirUri, agentUri)
-			return [{ uri: agentUri, sessionTypes: [...CODEVIBE_NATIVE_CHAT_SESSION_TYPES, "local"] }]
+			return [{ uri: agentUri, sessionTypes: getCodeVibeNativeCustomAgentSessionTypes() }]
 		},
 	}
 
@@ -1230,13 +1234,20 @@ function registerCodeVibeNativeChatSessionProvider(
 	defaultChatParticipant: NativeChatParticipant | undefined,
 ): void {
 	const chatApi = getNativeChatApi()
-	if (!chatApi?.registerChatSessionContentProvider || !defaultChatParticipant) {
+	if (
+		!canRegisterCodeVibeNativeChatSessions({
+			hasChatSessionContentProvider: Boolean(chatApi?.registerChatSessionContentProvider),
+			hasDefaultChatParticipant: Boolean(defaultChatParticipant),
+		}) ||
+		!chatApi?.registerChatSessionContentProvider ||
+		!defaultChatParticipant
+	) {
 		return
 	}
 
-	for (const chatSessionType of CODEVIBE_NATIVE_CHAT_SESSION_TYPES) {
+	registerCodeVibeNativeChatSessionTypes((chatSessionType) => {
 		registerCodeVibeNativeChatSessionType(context, registration, chatApi, chatSessionType, defaultChatParticipant)
-	}
+	})
 }
 
 function registerCodeVibeNativeChatSessionType(

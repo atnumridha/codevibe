@@ -1,6 +1,12 @@
 import { strict as assert } from "node:assert"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
+import {
+	CODEVIBE_CHAT_PARTICIPANT_ID,
+	CODEVIBE_CHAT_SESSION_TYPE,
+	CODEVIBE_LEGACY_CHAT_SESSION_TYPE,
+	CODEVIBE_NATIVE_AGENT_FILE_NAME,
+} from "@/hosts/vscode/native-chat-registration"
 
 const packagePath = path.join(__dirname, "..", "..", "package.json")
 
@@ -18,7 +24,7 @@ describe("Package manifest", () => {
 		const codeVibeAgentViews = views["codevibe-agent"] ?? []
 		const nativeAgentView = codeVibeAgentViews.find((view: { id?: string }) => view.id === "codevibe.agent.chat")
 
-		assert.equal(participant.id, "codevibe")
+		assert.equal(participant.id, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.match(participant.id, /^[A-Za-z0-9_-]+$/)
 		assert.deepEqual(activitybarContainerIds, ["codevibe-agent"])
 		assert.ok(Object.hasOwn(views, "codevibe-agent"))
@@ -40,12 +46,12 @@ describe("Package manifest", () => {
 		const [chatSession, legacyAliasSession] = packageJSON.contributes.chatSessions ?? []
 		const [newSessionMenu] = packageJSON.contributes.menus?.["chatSessions/newSession"] ?? []
 
-		assert.equal(chatAgent?.id, "codevibe")
-		assert.equal(chatAgent?.path, "agents/00-codevibe-agent.agent.md")
-		assert.equal(chatSession?.type, "agent-host-codevibe")
-		assert.equal(chatSession?.customAgentTarget, "codevibe")
+		assert.equal(chatAgent?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
+		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
+		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)
+		assert.equal(chatSession?.customAgentTarget, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.equal(chatSession?.order, -1000)
-		assert.equal(legacyAliasSession?.type, "codevibe-agent")
+		assert.equal(legacyAliasSession?.type, CODEVIBE_LEGACY_CHAT_SESSION_TYPE)
 		assert.equal(legacyAliasSession?.order, -999)
 		assert.equal(newSessionMenu?.command, "codevibe.newNativeAgentSession")
 		assert.equal(newSessionMenu?.group, "navigation@-1000")
