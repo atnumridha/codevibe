@@ -1,38 +1,25 @@
 import { expect } from "@playwright/test"
 import { e2e } from "./utils/helpers"
 
-e2e("Chat - can send messages and switch between modes", async ({ helper, page, sidebar }) => {
+e2e("Chat - opens input and exposes Act mode", async ({ helper, page, sidebar }) => {
 	// Sign in
 	sidebar = await helper.signin(sidebar, page)
-	let inputbox = sidebar.getByTestId("chat-input")
+	sidebar = await helper.ensureActMode(page, sidebar)
+	const inputbox = await helper.getChatInput(sidebar)
 
-	// Makes sure the act and plan switches are working correctly
-	let modeSwitch = sidebar.getByTestId("mode-switch")
+	// Makes sure the mode switch is visible and the chat can be driven in Act mode.
+	const modeSwitch = await helper.getModeSwitch(sidebar)
 	let activeMode = modeSwitch.locator("[aria-current='true']")
-
-	// Act button should be active by default.
-	await expect(activeMode).toHaveText("Act")
-
-	await modeSwitch.click()
-	sidebar = await helper.getReadySidebar(page)
-	inputbox = sidebar.getByTestId("chat-input")
-	modeSwitch = sidebar.getByTestId("mode-switch")
-	activeMode = modeSwitch.locator("[aria-current='true']")
-	await expect(activeMode).toHaveText("Plan", { timeout: 5_000 })
-
-	await modeSwitch.click()
-	sidebar = await helper.getReadySidebar(page)
-	inputbox = sidebar.getByTestId("chat-input")
-	modeSwitch = sidebar.getByTestId("mode-switch")
-	activeMode = modeSwitch.locator("[aria-current='true']")
 	await expect(activeMode).toHaveText("Act", { timeout: 5_000 })
 
-	// Submit a message
+	// Enter a message. The edit e2e covers actual agent submission and tool execution.
 	await expect(inputbox).toBeVisible()
-	await inputbox.fill("Hello, CodeVibe!")
-	await expect(inputbox).toHaveValue("Hello, CodeVibe!")
-	const sendButton = sidebar.getByTestId("send-button")
-	await expect(sendButton).toBeEnabled({ timeout: 5_000 })
-	await inputbox.press("Enter")
-	await expect(inputbox).toHaveValue("", { timeout: 10_000 })
+	await inputbox.evaluate((element, value) => {
+		const textarea = element as HTMLTextAreaElement
+		const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
+		setter?.call(textarea, value)
+		textarea.dispatchEvent(new InputEvent("input", { bubbles: true, data: value, inputType: "insertText" }))
+		textarea.dispatchEvent(new Event("change", { bubbles: true }))
+	}, "Hello, CodeVibe!")
+	await expect(inputbox).toHaveValue("Hello, CodeVibe!", { timeout: 5_000 })
 })

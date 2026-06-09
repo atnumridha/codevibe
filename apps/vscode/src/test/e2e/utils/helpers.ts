@@ -2,7 +2,7 @@ import type { ChildProcess } from "node:child_process"
 import { mkdirSync, mkdtempSync, type PathLike, type RmOptions, readdirSync, rmSync, writeFileSync } from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
-import { type ElectronApplication, expect, type Frame, type Page, test } from "@playwright/test"
+import { type ElectronApplication, expect, type Frame, type Locator, type Page, test } from "@playwright/test"
 import { downloadAndUnzipVSCode, SilentReporter } from "@vscode/test-electron"
 import { _electron } from "playwright"
 import { CodeVibeApiServerMock } from "../fixtures/server"
@@ -74,6 +74,176 @@ export class E2ETestHelper {
 		}
 	}
 
+	private async isLocatorVisible(locator: Locator): Promise<boolean> {
+		return locator.isVisible().catch(() => false)
+	}
+
+	private async firstVisibleLocator(candidates: Locator[]): Promise<Locator> {
+		for (const candidate of candidates) {
+			if (await this.isLocatorVisible(candidate)) {
+				return candidate
+			}
+		}
+		return candidates[0]
+	}
+
+	public async getChatInput(webview: Frame): Promise<Locator> {
+		return this.firstVisibleLocator([
+			webview.getByTestId("chat-input"),
+			webview.getByPlaceholder(/Start a CodeVibe task|Message CodeVibe/i),
+		])
+	}
+
+	public async getSendButton(webview: Frame): Promise<Locator> {
+		return this.firstVisibleLocator([
+			webview.getByTestId("send-button"),
+			webview.getByRole("button", { name: /send message/i }),
+		])
+	}
+
+	public async getModeSwitch(webview: Frame): Promise<Locator> {
+		return this.firstVisibleLocator([
+			webview.getByTestId("mode-switch"),
+			webview.getByRole("button").filter({ hasText: /Plan.*Act|Act.*Plan/ }),
+		])
+	}
+
+	public async ensureActMode(page: Page, webview: Frame): Promise<Frame> {
+		let sidebar = webview
+		let lastError: unknown
+
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				let modeSwitch = await this.getModeSwitch(sidebar)
+				let activeMode = modeSwitch.locator("[aria-current='true']")
+				await expect(activeMode).toHaveText(/^(Plan|Act)$/)
+				if (((await activeMode.textContent())?.trim() ?? "") === "Act") {
+					return sidebar
+				}
+
+				await modeSwitch.click()
+				sidebar = await this.getReadySidebar(page)
+				modeSwitch = await this.getModeSwitch(sidebar)
+				activeMode = modeSwitch.locator("[aria-current='true']")
+				await expect(activeMode).toHaveText("Act", { timeout: 5_000 })
+				return sidebar
+			} catch (error: any) {
+				lastError = error
+				if (!this.isTransientWebviewError(error) && !error.message?.includes("toHaveText")) {
+					break
+				}
+				this.clearCachedFrame()
+				await E2ETestHelper.openClineSidebar(page)
+				sidebar = await this.getReadySidebar(page)
+			}
+		}
+
+		throw lastError instanceof Error ? lastError : new Error(String(lastError))
+	}
+
+	private isTransientWebviewError(error: any): boolean {
+		return (
+			error.message?.includes("detached") ||
+			error.message?.includes("navigation") ||
+			error.message?.includes("closed") ||
+			error.message?.includes("Target page") ||
+			error.message?.includes("Timeout")
+		)
+	}
+
+	private isRetryableSidebarError(error: any): boolean {
+		return (
+			this.isTransientWebviewError(error) ||
+			error.message?.includes("waitUntil timeout") ||
+			error.message?.includes("webview frame was not ready") ||
+			error.message?.includes("webview frame was not found")
+		)
+	}
+
+	public async submitChatMessage(page: Page, webview: Frame, message: string): Promise<Frame> {
+		let sidebar = webview
+		let lastError: unknown
+
+		for (let attempt = 0; attempt < 4; attempt++) {
+			try {
+				if (sidebar.isDetached()) {
+					this.clearCachedFrame()
+					sidebar = await this.getReadySidebar(page)
+				}
+
+				const input = await this.getChatInput(sidebar)
+				await expect(input).toBeVisible({ timeout: 2_000 })
+				await input.click()
+				await input.evaluate((element, value) => {
+					const textarea = element as HTMLTextAreaElement
+					const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
+					setter?.call(textarea, value)
+					textarea.dispatchEvent(new InputEvent("input", { bubbles: true, data: value, inputType: "insertText" }))
+					textarea.dispatchEvent(new Event("change", { bubbles: true }))
+				}, message)
+				await expect(input).toHaveValue(message, { timeout: 5_000 })
+				const sendButton = await this.getSendButton(sidebar)
+				await expect(sendButton).toBeEnabled({ timeout: 5_000 })
+				await sendButton.evaluate((button) => {
+					;(button as HTMLButtonElement).click()
+				})
+				return sidebar
+			} catch (error: any) {
+				lastError = error
+				if (!this.isTransientWebviewError(error) || attempt === 3) {
+					break
+				}
+				this.clearCachedFrame()
+				await E2ETestHelper.openClineSidebar(page)
+				sidebar = await this.getReadySidebar(page)
+			}
+		}
+
+		throw lastError instanceof Error ? lastError : new Error(String(lastError))
+	}
+
+	private async isCodeVibeSurface(frame: Frame): Promise<boolean> {
+		return (
+			(await this.isLocatorVisible(frame.getByTestId("chat-input"))) ||
+			(await this.isLocatorVisible(frame.getByPlaceholder(/Start a CodeVibe task|Message CodeVibe/i))) ||
+			(await this.isLocatorVisible(frame.getByText("AGENT CONSOLE"))) ||
+			(await this.isLocatorVisible(frame.getByRole("button", { name: "Login to CodeVibe" }))) ||
+			(await this.isLocatorVisible(frame.getByText("Bring my own API key")))
+		)
+	}
+
+	public async waitForSidebarText(page: Page, text: string | RegExp, maxDelay = 30000): Promise<Frame> {
+		let matchedSidebar: Frame | null = null
+		await E2ETestHelper.waitUntil(async () => {
+			try {
+				for (const frame of page.frames()) {
+					if (frame.isDetached()) {
+						continue
+					}
+					if (await this.isLocatorVisible(frame.getByText(text))) {
+						this.cachedFrame = frame
+						matchedSidebar = frame
+						return true
+					}
+				}
+			} catch (error: any) {
+				if (
+					!error.message?.includes("detached") &&
+					!error.message?.includes("navigation") &&
+					!error.message?.includes("closed") &&
+					!error.message?.includes("Target page")
+				) {
+					throw error
+				}
+			}
+			return false
+		}, maxDelay)
+		if (!matchedSidebar) {
+			throw new Error(`CodeVibe sidebar text was not found: ${text.toString()}`)
+		}
+		return matchedSidebar
+	}
+
 	public async getSidebar(page: Page): Promise<Frame> {
 		const findSidebarFrame = async (): Promise<Frame | null> => {
 			// Check cached frame first
@@ -87,11 +257,7 @@ export class E2ETestHelper {
 				}
 
 				try {
-					const hasCodeVibeSurface =
-						(await frame.getByTestId("chat-input").isVisible()) ||
-						(await frame.getByRole("button", { name: "Login to CodeVibe" }).isVisible()) ||
-						(await frame.getByText("Bring my own API key").isVisible())
-					if (hasCodeVibeSurface) {
+					if (await this.isCodeVibeSurface(frame)) {
 						this.cachedFrame = frame
 						return frame
 					}
@@ -126,9 +292,11 @@ export class E2ETestHelper {
 			try {
 				this.clearCachedFrame()
 				const sidebar = await this.getSidebar(page)
-				await expect(sidebar.getByTestId("chat-input")).toBeVisible({ timeout: 500 })
+				const chatInput = await this.getChatInput(sidebar)
+				await expect(chatInput).toBeVisible({ timeout: 500 })
 				if (requireSendEnabled) {
-					await expect(sidebar.getByTestId("send-button")).toBeEnabled({ timeout: 500 })
+					const sendButton = await this.getSendButton(sidebar)
+					await expect(sendButton).toBeEnabled({ timeout: 500 })
 				}
 				if (sidebar.isDetached()) {
 					return false
@@ -136,12 +304,7 @@ export class E2ETestHelper {
 				readySidebar = sidebar
 				return true
 			} catch (error: any) {
-				if (
-					error.message?.includes("detached") ||
-					error.message?.includes("navigation") ||
-					error.message?.includes("closed") ||
-					error.message?.includes("Target page")
-				) {
+				if (this.isTransientWebviewError(error)) {
 					return false
 				}
 				return false
@@ -307,11 +470,24 @@ export class E2ETestHelper {
 			throw new Error(`Failed to seed signed-in e2e state: ${response.status} ${await response.text()}`)
 		}
 		if (page) {
-			await E2ETestHelper.openClineSidebar(page)
-			webview = await this.getReadySidebar(page)
-			return webview
+			let lastError: unknown
+			for (let attempt = 0; attempt < 3; attempt++) {
+				try {
+					this.clearCachedFrame()
+					await E2ETestHelper.openClineSidebar(page)
+					webview = await this.getReadySidebar(page)
+					return webview
+				} catch (error: any) {
+					lastError = error
+					if (!this.isRetryableSidebarError(error)) {
+						break
+					}
+				}
+			}
+			throw lastError instanceof Error ? lastError : new Error(String(lastError))
 		}
-		await expect(webview.getByTestId("chat-input")).toBeVisible()
+		const chatInput = await this.getChatInput(webview)
+		await expect(chatInput).toBeVisible()
 
 		const closeButton = webview.getByRole("button", { name: "Close" })
 		let shouldCloseModal = false

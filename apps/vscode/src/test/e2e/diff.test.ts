@@ -1,33 +1,27 @@
+import { readFile, writeFile } from "node:fs/promises"
+import path from "node:path"
 import { expect } from "@playwright/test"
 import { E2E_WORKSPACE_TYPES, e2e } from "./utils/helpers"
 
-e2e.describe("Diff Editor", () => {
+e2e.describe("Auto-Applied File Edit", () => {
 	E2E_WORKSPACE_TYPES.forEach(({ title, workspaceType }) => {
 		e2e.extend({
 			workspaceType,
-		})(title, async ({ helper, page, sidebar }) => {
-			sidebar = await helper.signin(sidebar, page)
+		})(title, async ({ helper, page, sidebar, workspaceDir }) => {
+			const testFilePath = path.join(workspaceDir, "test.ts")
+			await writeFile(testFilePath, 'export const name = "john"\n', "utf8")
 
-			const inputbox = sidebar.getByTestId("chat-input")
-			await expect(inputbox).toBeVisible()
+			sidebar = await helper.signin(sidebar, page)
+			sidebar = await helper.ensureActMode(page, sidebar)
 
 			// Submit a file edit request
-			await inputbox.click()
-			await inputbox.fill("edit_request")
-			await sidebar.getByTestId("send-button").click({ delay: 50 })
+			await helper.submitChatMessage(page, sidebar, "edit_request")
 
-			// Wait for the sidebar to load the file edit request
-			await sidebar.waitForSelector('span:has-text("CodeVibe wants to edit this file:")')
-
-			// Cline Diff Editor should open with the file name and diff
-			await expect(page.getByText("test.ts: Original ↔ CodeVibe's")).toBeVisible()
-
-			// Diff editor should show the original and modified content
-			const diffEditor = page.locator(
-				".monaco-editor.modified-in-monaco-diff-editor > .overflow-guard > .monaco-scrollable-element.editor-scrollable > .lines-content > div:nth-child(4)",
-			)
-			await diffEditor.click()
-			await expect(diffEditor).toBeVisible()
+			await expect
+				.poll(async () => readFile(testFilePath, "utf8"), {
+					timeout: 30_000,
+				})
+				.toContain('export const name = "cline"')
 		})
 	})
 })
