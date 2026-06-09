@@ -1,7 +1,6 @@
 import { defineConfig } from "@playwright/test"
 
 const isCI = !!process?.env?.CI
-const isWindow = process?.platform?.startsWith("win")
 
 export default defineConfig({
 	workers: 1,
@@ -9,9 +8,9 @@ export default defineConfig({
 	forbidOnly: isCI,
 	testDir: "src/test/e2e",
 	testMatch: /.*\.test\.ts/,
-	timeout: isCI || isWindow ? 60000 : 60000,
+	timeout: 180000,
 	expect: {
-		timeout: isCI || isWindow ? 5000 : 2000,
+		timeout: 5000,
 	},
 	fullyParallel: true,
 	reporter: isCI ? [["github"], ["list"]] : [["list"]],

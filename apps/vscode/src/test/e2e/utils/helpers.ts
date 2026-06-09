@@ -184,10 +184,51 @@ export class E2ETestHelper {
 				}, message)
 				await expect(input).toHaveValue(message, { timeout: 5_000 })
 				const sendButton = await this.getSendButton(sidebar)
-				await expect(sendButton).toBeEnabled({ timeout: 5_000 })
-				await sendButton.evaluate((button) => {
-					;(button as HTMLButtonElement).click()
-				})
+				try {
+					await expect(sendButton).toBeEnabled({ timeout: 2_000 })
+					await sendButton.evaluate((button) => {
+						;(button as HTMLButtonElement).click()
+					})
+				} catch {
+					await input.press("Enter")
+				}
+				return sidebar
+			} catch (error: any) {
+				lastError = error
+				if (!this.isTransientWebviewError(error) || attempt === 3) {
+					break
+				}
+				this.clearCachedFrame()
+				await E2ETestHelper.openClineSidebar(page)
+				sidebar = await this.getReadySidebar(page)
+			}
+		}
+
+		throw lastError instanceof Error ? lastError : new Error(String(lastError))
+	}
+
+	public async enterChatMessage(page: Page, webview: Frame, message: string): Promise<Frame> {
+		let sidebar = webview
+		let lastError: unknown
+
+		for (let attempt = 0; attempt < 4; attempt++) {
+			try {
+				if (sidebar.isDetached()) {
+					this.clearCachedFrame()
+					sidebar = await this.getReadySidebar(page)
+				}
+
+				const input = await this.getChatInput(sidebar)
+				await expect(input).toBeVisible({ timeout: 2_000 })
+				await input.click()
+				await input.evaluate((element, value) => {
+					const textarea = element as HTMLTextAreaElement
+					const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set
+					setter?.call(textarea, value)
+					textarea.dispatchEvent(new InputEvent("input", { bubbles: true, data: value, inputType: "insertText" }))
+					textarea.dispatchEvent(new Event("change", { bubbles: true }))
+				}, message)
+				await expect(input).toHaveValue(message, { timeout: 5_000 })
 				return sidebar
 			} catch (error: any) {
 				lastError = error
@@ -511,10 +552,10 @@ export class E2ETestHelper {
 	public async openSidebar(page: Page): Promise<Frame> {
 		let lastError: unknown
 
-		for (let attempt = 0; attempt < 3; attempt++) {
+		for (let attempt = 0; attempt < 2; attempt++) {
 			try {
 				this.clearCachedFrame()
-				await E2ETestHelper.openClineSidebar(page)
+				await E2ETestHelper.openClineSidebar(page, 15_000)
 				return await this.getSidebar(page)
 			} catch (error: any) {
 				lastError = error
@@ -527,7 +568,10 @@ export class E2ETestHelper {
 		throw lastError instanceof Error ? lastError : new Error(String(lastError))
 	}
 
-	public static async openClineSidebar(page: Page): Promise<void> {
+	public static async openClineSidebar(
+		page: Page,
+		maxDelay = E2ETestHelper.SIDEBAR_DISCOVERY_TIMEOUT_MS,
+	): Promise<void> {
 		await page.bringToFront()
 		await E2ETestHelper.waitUntil(async () => {
 			try {

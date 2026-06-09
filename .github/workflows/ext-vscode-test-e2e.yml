@@ -66,7 +66,7 @@ jobs:
         steps:
             - id: set-matrix
               run: |
-                  echo 'matrix=[{"runner":"ubuntu"},{"runner":"windows"},{"runner":"macos"}]' >> $GITHUB_OUTPUT
+                  echo 'matrix=[{"runner":"ubuntu-latest","name":"ubuntu"},{"runner":"windows-2022","name":"windows"},{"runner":"macos-latest","name":"macos"}]' >> $GITHUB_OUTPUT
 
     e2e:
         needs: [detect-changes, matrix_prep]
@@ -75,7 +75,7 @@ jobs:
             fail-fast: false
             matrix:
                 include: ${{ fromJson(needs.matrix_prep.outputs.matrix) }}
-        runs-on: ${{ matrix.runner }}-latest
+        runs-on: ${{ matrix.runner }}
         timeout-minutes: 20
         permissions:
             id-token: write
@@ -143,21 +143,21 @@ jobs:
               run: npm install -g @vscode/vsce
 
             - name: Install xvfb on Linux
-              if: matrix.runner == 'ubuntu'
+              if: matrix.name == 'ubuntu'
               run: sudo apt-get update && sudo apt-get install -y xvfb
 
             # Run optimized E2E tests (eliminates redundant builds)
             - name: Run E2E tests - Linux
-              if: matrix.runner == 'ubuntu'
+              if: matrix.name == 'ubuntu'
               run: xvfb-run -a npm run test:e2e:optimal
 
             - name: Run E2E tests - Non-Linux
-              if: matrix.runner != 'ubuntu'
+              if: matrix.name != 'ubuntu'
               run: npm run test:e2e:optimal
 
             - uses: actions/upload-artifact@v4
               if: ${{ failure() }}
               with:
-                  name: playwright-recordings-${{ matrix.runner }}
+                  name: playwright-recordings-${{ matrix.name }}
                   path: |
                       apps/vscode/test-results/playwright/
