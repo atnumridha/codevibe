@@ -173,6 +173,27 @@ const githubVsixManifestOverrides = {
 }
 
 const visibleManifestStringKeys = new Set(["category", "description", "title"])
+const defaultCommandTimeoutMs = readPositiveIntegerEnv("CODEVIBE_PACKAGE_COMMAND_TIMEOUT_MS", 10 * 60 * 1000)
+const vsCodeSmokeInstallTimeoutMs = readPositiveIntegerEnv("CODEVIBE_VSCODE_SMOKE_INSTALL_TIMEOUT_MS", 3 * 60 * 1000)
+
+function readPositiveIntegerEnv(name, fallback) {
+	const rawValue = process.env[name]
+	if (!rawValue?.trim()) {
+		return fallback
+	}
+	const value = Number(rawValue)
+	if (!Number.isFinite(value) || value <= 0) {
+		throw new Error(`${name} must be a positive integer number of milliseconds`)
+	}
+	return Math.trunc(value)
+}
+
+function formatDuration(ms) {
+	if (ms >= 1000 && ms % 1000 === 0) {
+		return `${ms / 1000}s`
+	}
+	return `${ms}ms`
+}
 
 function usage() {
 	console.error(
@@ -434,12 +455,14 @@ function enableNativeAgentInVSCodeArgv(metadata) {
 
 function runCommand(candidates, args, options = {}) {
 	let lastError
+	const timeoutMs = options.timeoutMs ?? defaultCommandTimeoutMs
 	for (const command of candidates) {
 		const result = spawnSync(command, args, {
 			cwd: projectRoot,
 			encoding: "utf8",
 			stdio: options.capture ? "pipe" : "inherit",
 			shell: shouldRunCommandViaShell(command),
+			timeout: timeoutMs,
 		})
 
 		if (!result.error) {
@@ -453,6 +476,9 @@ function runCommand(candidates, args, options = {}) {
 		}
 
 		lastError = result.error
+		if (result.error.code === "ETIMEDOUT") {
+			throw new Error(`${quoteCommand(command, args)} timed out after ${formatDuration(timeoutMs)}`)
+		}
 		if (result.error.code !== "ENOENT") {
 			throw result.error
 		}
@@ -1533,12 +1559,15 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 		const codeInvocation = await resolveCodeInvocation(codePath)
 		const codeCommand = [codeInvocation.command]
 		const isolatedArgs = ["--user-data-dir", userDataDir, "--extensions-dir", extensionsDir]
-		runCommand(codeCommand, [...codeInvocation.baseArgs, ...isolatedArgs, "--install-extension", outPath, "--force"])
+		runCommand(codeCommand, [...codeInvocation.baseArgs, ...isolatedArgs, "--install-extension", outPath, "--force"], {
+			timeoutMs: vsCodeSmokeInstallTimeoutMs,
+		})
 		const listResult = runCommand(
 			codeCommand,
 			[...codeInvocation.baseArgs, ...isolatedArgs, "--list-extensions", "--show-versions"],
 			{
 				capture: true,
+				timeoutMs: vsCodeSmokeInstallTimeoutMs,
 			},
 		)
 		const expectedExtension = `${metadata.extensionId}@${metadata.version}`

@@ -102,6 +102,25 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.numberOfVisibleViews'"), true)
 	})
 
+	it("keeps GitHub release packaging non-interactive", async () => {
+		const packageScript = await readFile(path.join(__dirname, "..", "..", "scripts", "package-github-vsix.mjs"), "utf8")
+		const candidateWorkflow = await readFile(
+			path.join(vscodeRoot, "..", "..", ".github", "workflows", "ext-vscode-github-release.yml"),
+			"utf8",
+		)
+		const stableWorkflow = await readFile(
+			path.join(vscodeRoot, "..", "..", ".github", "workflows", "ext-vscode-publish-stable.yml"),
+			"utf8",
+		)
+
+		assert.equal(packageScript.includes("CODEVIBE_PACKAGE_COMMAND_TIMEOUT_MS"), true)
+		assert.equal(packageScript.includes("CODEVIBE_VSCODE_SMOKE_INSTALL_TIMEOUT_MS"), true)
+		assert.equal(candidateWorkflow.includes("package_args=(--out-dir . --verify-install)"), false)
+		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --verify-install --require-release-gate)"), false)
+		assert.equal(candidateWorkflow.includes("package_args=(--out-dir .)"), true)
+		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --require-release-gate)"), true)
+	})
+
 	it("brands the standalone runtime entrypoint as CodeVibe core", async () => {
 		const runtimePackage = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package.json"))
 		const runtimePackageLock = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package-lock.json"))

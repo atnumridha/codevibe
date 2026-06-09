@@ -220,7 +220,11 @@ jobs:
                   RELEASE_STAGE: ${{ github.event.inputs.release_stage || 'candidate' }}
                   PRERELEASE: ${{ github.event.inputs.prerelease || 'true' }}
               run: |
-                  package_args=(--out-dir . --verify-install)
+                  # Installed-extension validation is covered by the required
+                  # cross-platform e2e workflow. Avoid running the GUI-backed
+                  # VS Code CLI smoke install in the release packager, where it
+                  # can hang on GitHub-hosted Linux.
+                  package_args=(--out-dir .)
                   if [[ "$RELEASE_STAGE" == "final" ]]; then
                     package_args+=(--require-release-gate)
                   fi

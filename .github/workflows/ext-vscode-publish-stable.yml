@@ -211,7 +211,11 @@ jobs:
                   # publish (npm run publish:marketplace below, which swaps
                   # internally as an idempotent no-op) ship the same README.
                   # Required to generate the GitHub Release .vsix
-                  package_args=(--out-dir . --verify-install --require-release-gate)
+                  # Installed-extension validation is covered by the required
+                  # cross-platform e2e workflow. Avoid running the GUI-backed
+                  # VS Code CLI smoke install in the release packager, where it
+                  # can hang on GitHub-hosted Linux.
+                  package_args=(--out-dir . --require-release-gate)
                   if [ "$RELEASE_TYPE" = "pre-release" ]; then
                     package_args+=(--pre-release)
                   fi
