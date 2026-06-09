@@ -1,5 +1,5 @@
 import { EmptyRequest } from "@shared/proto/cline/common"
-import { ArrowRightIcon } from "lucide-react"
+import { ArrowRightIcon, BotIcon, CheckCircle2Icon, GitBranchIcon, TerminalIcon } from "lucide-react"
 import CodeVibeMark from "@/assets/CodeVibeMark"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { UiServiceClient } from "@/services/grpc-client"
@@ -20,46 +20,48 @@ const HomeHeader = ({ shouldShowStarterWorkflows = false }: HomeHeaderProps) => 
 	}
 
 	return (
-		<div className="px-4 pt-4 pb-3 border-b border-[var(--vscode-panel-border)]">
-			<div className="rounded-md border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-3 py-3">
-				<div className="flex items-start gap-3">
-					<div className="shrink-0 rounded-md border border-[var(--vscode-panel-border)] bg-[var(--vscode-sideBar-background)] p-2">
-						<CodeVibeMark className="size-9" environment={environment} />
+		<div className="border-b border-[var(--vscode-panel-border)] px-4 pb-3 pt-4">
+			<div className="flex items-center justify-between gap-3">
+				<div className="flex min-w-0 items-center gap-3">
+					<div className="flex size-10 shrink-0 items-center justify-center rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-sideBar-background)]">
+						<CodeVibeMark className="size-7" environment={environment} />
 					</div>
-					<div className="min-w-0 flex-1">
-						<div className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
-							CodeVibe Agent
+					<div className="min-w-0">
+						<div className="truncate text-[11px] font-medium text-[var(--vscode-descriptionForeground)]">
+							CodeVibe
 						</div>
-						<h1 className="m-0 mt-1 text-xl font-semibold leading-tight text-[var(--vscode-foreground)]">
-							Workspace console
+						<h1 className="m-0 truncate text-lg font-semibold leading-tight text-[var(--vscode-foreground)]">
+							Agent console
 						</h1>
-						<div className="mt-3 grid grid-cols-3 gap-1.5 text-center text-[11px] font-medium text-[var(--vscode-foreground)]">
-							<span className="rounded-sm border border-[var(--vscode-panel-border)] bg-[var(--vscode-toolbar-hoverBackground)] px-2 py-1">
-								Explore
-							</span>
-							<span className="rounded-sm border border-[var(--vscode-panel-border)] bg-[var(--vscode-toolbar-hoverBackground)] px-2 py-1">
-								Patch
-							</span>
-							<span className="rounded-sm border border-[var(--vscode-panel-border)] bg-[var(--vscode-toolbar-hoverBackground)] px-2 py-1">
-								Verify
-							</span>
-						</div>
 					</div>
-				</div>
-				<div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--vscode-panel-border)] pt-3 text-[11px] text-[var(--vscode-descriptionForeground)]">
-					<span>Codex-first</span>
-					<span>Plan/Act</span>
-					<span>Compatible inputs</span>
 				</div>
 				{shouldShowStarterWorkflows && (
 					<button
-						className="mt-3 flex w-full items-center justify-between gap-2 rounded-md border border-[var(--vscode-panel-border)] bg-transparent px-3 py-2 text-left text-sm font-medium text-[var(--vscode-foreground)] transition-colors hover:bg-[var(--vscode-list-hoverBackground)]"
+						aria-label="Open walkthrough"
+						className="flex size-8 shrink-0 items-center justify-center rounded border border-[var(--vscode-panel-border)] bg-transparent text-[var(--vscode-icon-foreground)] transition-colors hover:bg-[var(--vscode-toolbar-hoverBackground)]"
 						onClick={handleTakeATour}
 						type="button">
-						Take a Tour
-						<ArrowRightIcon className="size-4 shrink-0" />
+						<ArrowRightIcon className="size-4" />
 					</button>
 				)}
+			</div>
+			<div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[var(--vscode-descriptionForeground)]">
+				<div className="flex items-center gap-2 rounded border border-[var(--vscode-panel-border)] px-2 py-1.5">
+					<BotIcon className="size-3.5 shrink-0" />
+					<span className="truncate">Native agent first</span>
+				</div>
+				<div className="flex items-center gap-2 rounded border border-[var(--vscode-panel-border)] px-2 py-1.5">
+					<CheckCircle2Icon className="size-3.5 shrink-0" />
+					<span className="truncate">Codex default</span>
+				</div>
+				<div className="flex items-center gap-2 rounded border border-[var(--vscode-panel-border)] px-2 py-1.5">
+					<TerminalIcon className="size-3.5 shrink-0" />
+					<span className="truncate">Terminal approval</span>
+				</div>
+				<div className="flex items-center gap-2 rounded border border-[var(--vscode-panel-border)] px-2 py-1.5">
+					<GitBranchIcon className="size-3.5 shrink-0" />
+					<span className="truncate">Worktree ready</span>
+				</div>
 			</div>
 		</div>
 	)

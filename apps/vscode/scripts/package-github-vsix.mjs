@@ -110,6 +110,9 @@ const disallowedPackagedVisibleTextFragments = [
 	"submits a prompt to Cline",
 	"when Cline reaches a user-attention boundary",
 	"proto/cline/state.proto",
+	"What can I do for you?",
+	"Workspace console",
+	"Starter workflows",
 ]
 
 const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
