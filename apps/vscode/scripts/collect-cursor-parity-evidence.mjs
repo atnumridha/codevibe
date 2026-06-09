@@ -490,9 +490,9 @@ function renderStandaloneUiEvidence(results) {
 		"| --- | --- | --- |",
 		...rows,
 		"",
-		"Focused evidence covers the VS-Code-free hub UI route surface, standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
+		"Focused evidence covers the VS-Code-free hub UI route surface, dynamic standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
 		"",
-		"Readiness endpoint: `GET /api/standalone-readiness` returns redacted capability metadata for CodeVibe standalone mode, Codex Home auth support, Cursor-compatible routes, desktop commands, and settings surfaces.",
+		"Readiness endpoint: `GET /api/standalone-readiness` returns redacted capability metadata for CodeVibe standalone mode, Codex Home auth support, live hub/UI-client availability, Cursor-compatible routes, desktop commands, and settings surfaces.",
 	].join("\n")
 }
 

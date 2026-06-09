@@ -97,7 +97,9 @@ export async function startClineHubDashboardServer(): Promise<ClineHubDashboardS
 				return createJsonResponse(hubStatusPayload(ctx));
 			}
 			if (url.pathname === "/api/standalone-readiness") {
-				return createJsonResponse(standaloneReadinessPayload(CORE_BUILD_VERSION));
+				return createJsonResponse(
+					standaloneReadinessPayload(CORE_BUILD_VERSION, ctx),
+				);
 			}
 			if (url.pathname === "/browser") {
 				if (!isAuthorizedBrowserRequest(url)) {

@@ -1,3 +1,7 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import process from "node:process";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -18,7 +22,15 @@ test("standalone readiness exposes VS-Code-free Cursor/Codex surfaces", () => {
 	assert.equal(payload.mode, "standalone");
 	assert.equal(payload.vscodeRequired, false);
 	assert.equal(payload.coreVersion, "test-core");
+	assert.equal(payload.runtime.ready, false);
+	assert.equal(payload.runtime.hubUrlPresent, false);
+	assert.equal(payload.runtime.hubHealthy, false);
+	assert.equal(payload.runtime.clineConnected, false);
+	assert.equal(payload.runtime.uiClientConnected, false);
 	assert.equal(payload.auth.defaultProvider, "openai-codex");
+	assert.equal(payload.auth.planProviderDefault, "openai-codex");
+	assert.equal(payload.auth.actProviderDefault, "openai-codex");
+	assert.equal(payload.auth.authSourceDefault, "codexHome");
 	assert.deepEqual(payload.auth.codexFiles, [
 		"auth.json",
 		"installation_id",
@@ -47,6 +59,20 @@ test("standalone readiness exposes VS-Code-free Cursor/Codex surfaces", () => {
 	]) {
 		assert.ok(payload.cursorCompatibility.desktopCommands.includes(command), command);
 	}
+	assert.equal(
+		payload.cursorCompatibility.commandAvailability.cursor_uri_preview
+			.available,
+		false,
+	);
+	assert.equal(
+		payload.cursorCompatibility.commandAvailability.cursor_uri_preview
+			.requiresUiClient,
+		true,
+	);
+	assert.equal(
+		payload.cursorCompatibility.commandAvailability.browser_snapshot.available,
+		true,
+	);
 	for (const surface of [
 		"Compatibility",
 		"Browser Tools",
@@ -70,9 +96,64 @@ test("standalone readiness does not expose secrets or legacy extension command I
 	assert.equal(payloadText.includes("Authorization"), false);
 	assert.equal(payloadText.includes("Bearer "), false);
 	assert.equal(payloadText.includes("cline.plusButtonClicked"), false);
+	assert.equal(payloadText.includes(process.env.HOME ?? ""), false);
 
 	assert.equal(
 		STANDALONE_DESKTOP_COMMANDS.some((command) => command.startsWith("cline.")),
 		false,
 	);
+});
+
+test("standalone readiness reports live hub availability without exposing local paths", async () => {
+	const originalCodexHome = process.env.CODEX_HOME;
+	const codexHome = await mkdtemp(join(tmpdir(), "codevibe-readiness-codex-"));
+	process.env.CODEX_HOME = codexHome;
+	try {
+		await writeFile(join(codexHome, "auth.json"), "{}");
+		await writeFile(join(codexHome, "installation_id"), "install-123\n");
+
+		const payload = standaloneReadinessPayload("test-core", {
+			hubUrl: "http://127.0.0.1:8765",
+			hubHealthy: true,
+			cline: {},
+			uiClient: {},
+			peers: { size: 1 },
+			clients: { size: 2 },
+			sessions: { size: 3 },
+		});
+
+		assert.deepEqual(payload.runtime, {
+			ready: true,
+			hubUrlPresent: true,
+			hubHealthy: true,
+			clineConnected: true,
+			uiClientConnected: true,
+			browserPeers: 1,
+			connectedClients: 2,
+			trackedSessions: 3,
+		});
+		assert.equal(payload.auth.codexHome.source, "CODEX_HOME");
+		assert.equal(payload.auth.codexHome.pathRedacted, true);
+		assert.equal(payload.auth.codexHome.authJsonPresent, true);
+		assert.equal(payload.auth.codexHome.installationIdPresent, true);
+		assert.equal(payload.auth.codexHome.modelsCachePresent, false);
+		assert.equal(payload.auth.codexHome.usable, true);
+		assert.equal(
+			payload.cursorCompatibility.commandAvailability.cursor_uri_preview
+				.available,
+			true,
+		);
+		assert.equal(
+			payload.cursorCompatibility.commandAvailability.search_workspace_files
+				.available,
+			true,
+		);
+		assert.equal(JSON.stringify(payload).includes(codexHome), false);
+	} finally {
+		if (originalCodexHome === undefined) {
+			delete process.env.CODEX_HOME;
+		} else {
+			process.env.CODEX_HOME = originalCodexHome;
+		}
+	}
 });
