@@ -82,6 +82,9 @@ const disallowedPackagedMarkdownFragments = [
 ]
 
 const disallowedPackagedVisibleTextFragments = [
+	"<title>Cline",
+	"<title>Antigravity",
+	"<title>VibeCode",
 	"Launch Cursor",
 	"Choose Cursor",
 	"Import Cursor",
@@ -107,6 +110,8 @@ const disallowedPackagedVisibleTextFragments = [
 	"submits a prompt to Cline",
 	"when Cline reaches a user-attention boundary",
 ]
+
+const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
 
 const disallowedVsixEntryPrefixes = [
 	"extension/testing-platform/",
@@ -1131,6 +1136,9 @@ function assertPackagedVisibleTextBranded(zip) {
 			continue
 		}
 		const text = readZipEntry(zip, entryName).toString("utf8")
+		if (entryName === "extension/webview-ui/build/index.html" && !packagedWebviewHtmlTitlePattern.test(text)) {
+			throw new Error("VSIX artifact extension/webview-ui/build/index.html must title the webview as CodeVibe")
+		}
 		for (const fragment of disallowedPackagedVisibleTextFragments) {
 			if (text.includes(fragment)) {
 				throw new Error(`VSIX artifact ${entryName} includes stale visible branding fragment: ${fragment}`)
@@ -1294,7 +1302,7 @@ function assertBuildOutputs() {
 	assertDirectoryHasFiles(path.join(projectRoot, "webview-ui", "build"), "webview-ui build")
 }
 
-function assertPackagedVsix(outPath) {
+function assertPackagedVsix(outPath, metadata) {
 	assertFileExists(outPath, "GitHub VSIX artifact", { nonEmpty: true })
 	if (fs.statSync(outPath).size < 1024) {
 		throw new Error(`GitHub VSIX artifact is unexpectedly small: ${outPath}`)
@@ -1320,6 +1328,11 @@ function assertPackagedVsix(outPath) {
 		}
 	}
 	const packagedPackageJson = JSON.parse(readZipEntry(zip, "extension/package.json").toString("utf8"))
+	if (packagedPackageJson.version !== metadata.version) {
+		throw new Error(
+			`VSIX artifact version mismatch: expected ${metadata.version}, found ${packagedPackageJson.version ?? "missing"}`,
+		)
+	}
 	assertCursorParityManifest(packagedPackageJson, "packaged VSIX manifest")
 	for (const assetPath of collectManifestAssetPaths(packagedPackageJson)) {
 		const entryName = `extension/${assetPath.replace(/\\/g, "/")}`
@@ -1421,7 +1434,7 @@ async function main() {
 		}
 		runCommand(commandCandidates("vsce"), packageArgs)
 		assertBuildOutputs()
-		assertPackagedVsix(outPath)
+		assertPackagedVsix(outPath, metadata)
 		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
 		if (options.writeNativeAgentLauncher) {
 			writeNativeAgentLauncher(outPath, metadata, options.code)
