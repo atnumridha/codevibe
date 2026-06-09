@@ -43,6 +43,12 @@ import { findMatchingNotebookCell, getContextForCommand, showWebview } from "./h
 import { abortCommitGeneration, generateCommitMsg } from "./hosts/vscode/commit-message-generator"
 import { registerClineOutputChannel } from "./hosts/vscode/hostbridge/env/debugLog"
 import {
+	buildCodeVibeNativeChatEmptyPromptMarkdown,
+	buildCodeVibeNativeChatFallbackMarkdown,
+	buildCodeVibeNativeChatStartedMarkdown,
+	buildCodeVibeNativeChatTaskText,
+} from "./hosts/vscode/native-chat-adapter"
+import {
 	disposeVscodeCommentReviewController,
 	getVscodeCommentReviewController,
 } from "./hosts/vscode/review/VscodeCommentReviewController"
@@ -275,10 +281,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		await showCursorNdjsonStatus(status, "CodeVibe compatibility NDJSON ingest server stopped")
 	}
 	const showCursorNdjsonIngestStatus = async () => {
-		await showCursorNdjsonStatus(
-			cursorNdjsonIngestServer.getStatus(),
-			"CodeVibe compatibility NDJSON ingest server status",
-		)
+		await showCursorNdjsonStatus(cursorNdjsonIngestServer.getStatus(), "CodeVibe compatibility NDJSON ingest server status")
 	}
 	const copyCursorNdjsonIngestCurlCommand = async () => {
 		let status = cursorNdjsonIngestServer.getStatus()
@@ -853,10 +856,7 @@ type NativeChatApi = {
 		defaultChatParticipant: NativeChatParticipant,
 		capabilities?: Record<string, unknown>,
 	) => vscode.Disposable
-	registerChatSessionItemProvider?: (
-		chatSessionType: string,
-		provider: CodeVibeChatSessionItemProvider,
-	) => vscode.Disposable
+	registerChatSessionItemProvider?: (chatSessionType: string, provider: CodeVibeChatSessionItemProvider) => vscode.Disposable
 	createChatSessionItemController?: (
 		chatSessionType: string,
 		refreshHandler: (token: vscode.CancellationToken) => unknown,
@@ -975,9 +975,7 @@ function getCodeVibePackageJson(context: vscode.ExtensionContext): Record<string
 function getCodeVibeNativeSessionContribution(context: vscode.ExtensionContext): Record<string, any> | undefined {
 	const packageJson = getCodeVibePackageJson(context)
 	const chatSessions = packageJson.contributes?.chatSessions
-	return Array.isArray(chatSessions)
-		? chatSessions.find((session) => session?.type === CODEVIBE_CHAT_SESSION_TYPE)
-		: undefined
+	return Array.isArray(chatSessions) ? chatSessions.find((session) => session?.type === CODEVIBE_CHAT_SESSION_TYPE) : undefined
 }
 
 function getCodeVibeNativeSessionContributions(context: vscode.ExtensionContext): Array<Record<string, any>> {
@@ -1062,33 +1060,11 @@ async function showCodeVibeNativeAgentDiagnostics(
 	const message = ready
 		? "CodeVibe native agent session provider is registered."
 		: `CodeVibe native agent session provider is not registered. Launch VS Code with --enable-proposed-api ${ExtensionRegistryInfo.id}.`
-	const choice = await vscode.window.showInformationMessage(
-		message,
-		{ modal: true, detail },
-		"Copy Details",
-		"Open CodeVibe",
-	)
+	const choice = await vscode.window.showInformationMessage(message, { modal: true, detail }, "Copy Details", "Open CodeVibe")
 	if (choice === "Copy Details") {
 		await vscode.env.clipboard.writeText(detail)
 	} else if (choice === "Open CodeVibe") {
 		await showPreferredCodeVibeSurface(false, { allowOpenAiCodexSidebar: false })
-	}
-}
-
-function buildCodeVibeNativeChatTaskText(request: NativeChatRequest): string {
-	const prompt = typeof request.prompt === "string" ? request.prompt.trim() : ""
-	const command = typeof request.command === "string" ? request.command.trim().toLowerCase() : ""
-	switch (command) {
-		case "plan":
-			return prompt
-				? `Plan this task first before editing.\n\n${prompt}`
-				: "Plan the next CodeVibe task first before editing."
-		case "review":
-			return prompt
-				? `Review this request and prioritize bugs, risks, regressions, and missing tests.\n\n${prompt}`
-				: "Review the current workspace and prioritize bugs, risks, regressions, and missing tests."
-		default:
-			return prompt
 	}
 }
 
@@ -1098,25 +1074,38 @@ function buildCodeVibeNativeChatRequestHandler() {
 		const responseStream = stream as NativeChatResponseStream
 		const taskText = buildCodeVibeNativeChatTaskText(chatRequest)
 
-		responseStream.progress?.("Opening CodeVibe Agent...")
+		responseStream.progress?.(taskText ? "Starting CodeVibe Agent task..." : "Preparing CodeVibe Agent...")
 		if (token.isCancellationRequested) {
 			return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID, cancelled: true } }
 		}
 
-		await showPreferredCodeVibeSurface(false, { allowOpenAiCodexSidebar: false })
-		await sendShowWebviewEvent(false)
 		if (taskText) {
-			await sendAddToInputEvent(taskText)
-			responseStream.markdown?.(
-				"Opened CodeVibe Agent and moved this prompt into the task box. Start the task there to use CodeVibe's planner, tools, diffs, terminal approvals, MCP, and browser automation.",
-			)
-		} else {
-			responseStream.markdown?.(
-				"Opened CodeVibe Agent. Start a task there to use CodeVibe's planner, tools, diffs, terminal approvals, MCP, and browser automation.",
-			)
+			try {
+				const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
+				const taskId = await webview.controller.initTask(taskText)
+				responseStream.progress?.("CodeVibe task started.")
+				responseStream.markdown?.(buildCodeVibeNativeChatStartedMarkdown(taskId))
+				return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID, taskId, startedInCodeVibe: true } }
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error)
+				Logger.warn(`Failed to start CodeVibe task from native chat: ${errorMessage}`)
+				responseStream.progress?.("Falling back to CodeVibe task input...")
+				await showPreferredCodeVibeSurface(false, { allowOpenAiCodexSidebar: false })
+				await sendShowWebviewEvent(false)
+				await sendAddToInputEvent(taskText)
+				responseStream.markdown?.(buildCodeVibeNativeChatFallbackMarkdown(errorMessage, true))
+				return {
+					metadata: {
+						routedTo: CODEVIBE_CHAT_PARTICIPANT_ID,
+						startedInCodeVibe: false,
+						fallbackToTaskInput: true,
+					},
+				}
+			}
 		}
 
-		return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID } }
+		responseStream.markdown?.(buildCodeVibeNativeChatEmptyPromptMarkdown())
+		return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID, startedInCodeVibe: false } }
 	}
 }
 
@@ -1130,17 +1119,12 @@ function registerCodeVibeChatParticipant(
 	}
 
 	try {
-		const participant = chatApi.createChatParticipant(
-			CODEVIBE_CHAT_PARTICIPANT_ID,
-			buildCodeVibeNativeChatRequestHandler(),
-		)
+		const participant = chatApi.createChatParticipant(CODEVIBE_CHAT_PARTICIPANT_ID, buildCodeVibeNativeChatRequestHandler())
 		participant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
 		context.subscriptions.push(participant)
 		registration.chatParticipantRegistered = true
 	} catch (error) {
-		registration.failures.push(
-			`chatParticipant: ${error instanceof Error ? error.message : String(error)}`,
-		)
+		registration.failures.push(`chatParticipant: ${error instanceof Error ? error.message : String(error)}`)
 		Logger.warn(
 			`Failed to register CodeVibe native chat participant: ${error instanceof Error ? error.message : String(error)}`,
 		)
@@ -1173,13 +1157,9 @@ function registerCodeVibeNativeAgentProvider(
 		context.subscriptions.push(chatApi.registerCustomAgentProvider(provider))
 		registration.customAgentProviderRegistered = true
 	} catch (error) {
-		registration.failures.push(
-			`customAgentProvider: ${error instanceof Error ? error.message : String(error)}`,
-		)
+		registration.failures.push(`customAgentProvider: ${error instanceof Error ? error.message : String(error)}`)
 		Logger.warn(
-			`Failed to register CodeVibe native custom agent provider: ${
-				error instanceof Error ? error.message : String(error)
-			}`,
+			`Failed to register CodeVibe native custom agent provider: ${error instanceof Error ? error.message : String(error)}`,
 		)
 	}
 }
