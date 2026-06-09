@@ -110,6 +110,8 @@ const disallowedPackagedVisibleTextFragments = [
 	"https://cline.bot",
 	"github.com/cline/plugins.git",
 	"cline-vscode-extension",
+	"~/.cline/data/tasks",
+	"~/.cline/data/checkpoints",
 	"https://avatars.githubusercontent.com/u/184127137",
 	"Please sign in to access Cline services.",
 	"Open in Cline",
@@ -890,6 +892,12 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 
 	const views = packageJson.contributes?.views ?? {}
+	const registeredViewContainerIds = new Set(activityBarIds)
+	for (const viewGroup of Object.keys(views)) {
+		if (viewGroup.startsWith("codevibe") && !registeredViewContainerIds.has(viewGroup)) {
+			throw new Error(`${label} contributes views under '${viewGroup}' without a matching view container`)
+		}
+	}
 	const codeVibeAgentViews = Array.isArray(views["codevibe-agent"]) ? views["codevibe-agent"] : []
 	const codeVibeAgentViewIds = codeVibeAgentViews.map((view) => view?.id).filter(Boolean)
 	if (!codeVibeAgentViewIds.includes("codevibe.agent.chat")) {

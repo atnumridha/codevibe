@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, it } from "mocha"
 import "should"
 import { ClineFileStorage } from "@shared/storage/ClineFileStorage"
-import { createStorageContext, type StorageContext } from "@shared/storage/storage-context"
+import { createStorageContext, resolveCodeVibeDataDir, type StorageContext } from "@shared/storage/storage-context"
 import fs from "fs"
 import os from "os"
 import path from "path"
@@ -388,12 +388,21 @@ describe("vscode-to-file-migration", () => {
 
 describe("createStorageContext", () => {
 	let tempDir: string
+	let originalCodeVibeDataDir: string | undefined
+	let originalCodeVibeDir: string | undefined
+	let originalClineDir: string | undefined
 
 	beforeEach(() => {
 		tempDir = path.join(os.tmpdir(), `storage-ctx-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+		originalCodeVibeDataDir = process.env.CODEVIBE_DATA_DIR
+		originalCodeVibeDir = process.env.CODEVIBE_DIR
+		originalClineDir = process.env.CLINE_DIR
 	})
 
 	afterEach(() => {
+		restoreEnv("CODEVIBE_DATA_DIR", originalCodeVibeDataDir)
+		restoreEnv("CODEVIBE_DIR", originalCodeVibeDir)
+		restoreEnv("CLINE_DIR", originalClineDir)
 		try {
 			fs.rmSync(tempDir, { recursive: true, force: true })
 		} catch {
@@ -454,4 +463,35 @@ describe("createStorageContext", () => {
 		const ws = ctx.workspaceState.get("wsKey") as any
 		ws.toggle.should.equal(true)
 	})
+
+	it("should use CODEVIBE_DATA_DIR as an exact data directory override", () => {
+		const dataDir = path.join(tempDir, "custom-data")
+		process.env.CODEVIBE_DATA_DIR = dataDir
+		delete process.env.CODEVIBE_DIR
+		delete process.env.CLINE_DIR
+
+		const ctx = createStorageContext({ workspacePath: "/test" })
+
+		ctx.dataDir.should.equal(dataDir)
+		resolveCodeVibeDataDir().should.equal(dataDir)
+		fs.existsSync(ctx.dataDir).should.be.true()
+	})
+
+	it("should derive data directory from CODEVIBE_DIR before CLINE_DIR", () => {
+		const codeVibeDir = path.join(tempDir, "codevibe-home")
+		const legacyDir = path.join(tempDir, "legacy-home")
+		process.env.CODEVIBE_DIR = codeVibeDir
+		process.env.CLINE_DIR = legacyDir
+		delete process.env.CODEVIBE_DATA_DIR
+
+		resolveCodeVibeDataDir().should.equal(path.join(codeVibeDir, "data"))
+	})
 })
+
+function restoreEnv(key: string, value: string | undefined) {
+	if (value === undefined) {
+		delete process.env[key]
+	} else {
+		process.env[key] = value
+	}
+}

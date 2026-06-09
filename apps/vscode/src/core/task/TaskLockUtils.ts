@@ -2,9 +2,12 @@ import { releaseFolderLock, tryAcquireFolderLockWithRetry } from "@/core/locks/F
 import type { FolderLockOptions, FolderLockWithRetryResult } from "@/core/locks/types"
 
 /**
- * Base path for task folders
+ * Logical lock target for task folders.
+ * Keep this path-free so logs and lock rows do not leak user home directories.
  */
-const TASKS_BASE_PATH = "~/.cline/data/tasks"
+export function getTaskLockTarget(taskId: string): string {
+	return `codevibe:task:${taskId}`
+}
 
 /**
  * Attempt to acquire task folder lock with retry logic.
@@ -16,7 +19,7 @@ const TASKS_BASE_PATH = "~/.cline/data/tasks"
  */
 export async function tryAcquireTaskLockWithRetry(taskId: string): Promise<FolderLockWithRetryResult> {
 	const options: FolderLockOptions = {
-		lockTarget: `${TASKS_BASE_PATH}/${taskId}`,
+		lockTarget: getTaskLockTarget(taskId),
 		heldBy: taskId, // will be automatically swapped for instance address in SqliteLockManager
 	}
 
@@ -32,5 +35,5 @@ export async function tryAcquireTaskLockWithRetry(taskId: string): Promise<Folde
  * @param taskId - The unique identifier for the task
  */
 export async function releaseTaskLock(taskId: string): Promise<void> {
-	await releaseFolderLock(taskId, `${TASKS_BASE_PATH}/${taskId}`)
+	await releaseFolderLock(taskId, getTaskLockTarget(taskId))
 }

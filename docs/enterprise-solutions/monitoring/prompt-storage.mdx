@@ -3,11 +3,11 @@ title: "Prompt Storage"
 description: "Backup conversation history to S3 or Cloudflare R2 for compliance, audit, and analysis"
 ---
 
-Prompt Storage allows enterprises to automatically back up Cline conversation history to cloud storage (AWS S3 or Cloudflare R2). This provides a centralized repository for compliance, audit trails, and usage analysis while maintaining local storage as the primary source of truth.
+Prompt Storage allows enterprises to automatically back up CodeVibe conversation history to cloud storage (AWS S3 or Cloudflare R2). This provides a centralized repository for compliance, audit trails, and usage analysis while maintaining local storage as the primary source of truth.
 
 ## Overview
 
-Every Cline task conversation is stored locally in `~/.cline/data/tasks/<taskId>/api_conversation_history.json`. When prompt storage is enabled, a background sync worker automatically uploads these conversation files to your configured S3 or R2 bucket.
+Every CodeVibe task conversation is stored locally in `~/.codevibe/data/tasks/<taskId>/api_conversation_history.json` by default. Existing legacy task history can still be imported during migration. When prompt storage is enabled, a background sync worker automatically uploads these conversation files to your configured S3 or R2 bucket.
 
 <CardGroup cols={2}>
   <Card title="Compliance Ready" icon="shield-check">
@@ -31,8 +31,8 @@ Every Cline task conversation is stored locally in `~/.cline/data/tasks/<taskId>
 
 ```mermaid
 graph LR
-    A[User] --> B[Cline Extension]
-    B --> C[Local Storage<br/>~/.cline/data/tasks/]
+    A[User] --> B[CodeVibe Extension]
+    B --> C[Local Storage<br/>~/.codevibe/data/tasks/]
     C --> D[Background Sync Worker]
     D --> E[S3/R2 Bucket]
     E --> F[Compliance/Analytics]
@@ -365,9 +365,9 @@ When an upload fails:
 
 When `backfillEnabled` is set to `true`:
 
-- On first startup, scans all existing tasks in `~/.cline/data/tasks/`
+- On first startup, scans all existing tasks in `~/.codevibe/data/tasks/` and any imported legacy task history
 - Queues conversation files that haven't been uploaded
-- Useful for enabling prompt storage on an existing Cline deployment
+- Useful for enabling prompt storage on an existing CodeVibe deployment
 - Can generate significant upload volume — monitor queue size
 
 <Warning>

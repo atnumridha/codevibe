@@ -45,6 +45,11 @@ export interface StorageContextOptions {
 	clineDir?: string
 
 	/**
+	 * Override the CodeVibe data directory directly. Defaults to CODEVIBE_DATA_DIR or <home>/data.
+	 */
+	dataDir?: string
+
+	/**
 	 * The workspace/project directory path. Used to compute a hash-based
 	 * workspace storage subdirectory. Defaults to process.cwd().
 	 */
@@ -62,6 +67,36 @@ export interface StorageContextOptions {
 }
 
 const SETTINGS_SUBFOLDER = "data"
+
+function expandHomeDir(dir: string): string {
+	if (dir === "~") {
+		return os.homedir()
+	}
+	if (dir.startsWith("~/")) {
+		return path.join(os.homedir(), dir.slice(2))
+	}
+	return dir
+}
+
+export function resolveCodeVibeHomeDir(opts: Pick<StorageContextOptions, "clineDir"> = {}): string {
+	const primaryDir = path.join(os.homedir(), ".codevibe")
+	const legacyDir = path.join(os.homedir(), ".cline")
+	const configuredDir =
+		opts.clineDir ||
+		process.env.CODEVIBE_DIR ||
+		process.env.CLINE_DIR ||
+		(fsSync.existsSync(legacyDir) && !fsSync.existsSync(primaryDir) ? legacyDir : primaryDir)
+
+	return path.resolve(expandHomeDir(configuredDir))
+}
+
+export function resolveCodeVibeDataDir(opts: Pick<StorageContextOptions, "clineDir" | "dataDir"> = {}): string {
+	const configuredDataDir = opts.dataDir || process.env.CODEVIBE_DATA_DIR
+	if (configuredDataDir?.trim()) {
+		return path.resolve(expandHomeDir(configuredDataDir.trim()))
+	}
+	return path.join(resolveCodeVibeHomeDir(opts), SETTINGS_SUBFOLDER)
+}
 
 /**
  * Create a short deterministic hash of a string for use in directory names.
@@ -92,14 +127,7 @@ function hashString(str: string): string {
  * @returns A StorageContext ready for use by StateManager
  */
 export function createStorageContext(opts: StorageContextOptions = {}): StorageContext {
-	const primaryDir = path.join(os.homedir(), ".codevibe")
-	const legacyDir = path.join(os.homedir(), ".cline")
-	const clineDir =
-		opts.clineDir ||
-		process.env.CODEVIBE_DIR ||
-		process.env.CLINE_DIR ||
-		(fsSync.existsSync(legacyDir) && !fsSync.existsSync(primaryDir) ? legacyDir : primaryDir)
-	const dataDir = path.join(clineDir, SETTINGS_SUBFOLDER)
+	const dataDir = resolveCodeVibeDataDir(opts)
 
 	// Resolve workspace storage directory
 	let workspaceDir: string

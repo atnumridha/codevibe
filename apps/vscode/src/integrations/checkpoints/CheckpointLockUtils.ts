@@ -2,9 +2,12 @@ import { releaseFolderLock, tryAcquireFolderLockWithRetry } from "@/core/locks/F
 import type { FolderLockOptions, FolderLockWithRetryResult } from "@/core/locks/types"
 
 /**
- * Base path for checkpoint folders
+ * Logical lock target for checkpoint folders.
+ * Keep this path-free so logs and lock rows do not leak user home directories.
  */
-const CHECKPOINTS_BASE_PATH = "~/.cline/data/checkpoints"
+export function getCheckpointLockTarget(cwdHash: string): string {
+	return `codevibe:checkpoint:${cwdHash}`
+}
 
 /**
  * Attempt to acquire checkpoint folder lock with retry logic.
@@ -17,7 +20,7 @@ const CHECKPOINTS_BASE_PATH = "~/.cline/data/checkpoints"
  */
 export async function tryAcquireCheckpointLockWithRetry(cwdHash: string, taskId: string): Promise<FolderLockWithRetryResult> {
 	const options: FolderLockOptions = {
-		lockTarget: `${CHECKPOINTS_BASE_PATH}/${cwdHash}`,
+		lockTarget: getCheckpointLockTarget(cwdHash),
 		heldBy: taskId,
 	}
 
@@ -33,5 +36,5 @@ export async function tryAcquireCheckpointLockWithRetry(cwdHash: string, taskId:
  * @param cwdHash - The hash of the working directory
  */
 export async function releaseCheckpointLock(cwdHash: string, taskId: string): Promise<void> {
-	await releaseFolderLock(taskId, `${CHECKPOINTS_BASE_PATH}/${cwdHash}`)
+	await releaseFolderLock(taskId, getCheckpointLockTarget(cwdHash))
 }

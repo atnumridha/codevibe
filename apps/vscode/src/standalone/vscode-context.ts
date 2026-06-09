@@ -30,12 +30,20 @@ export function resolveCodeVibeDir(configDir?: string) {
 	return path.resolve(expandHomeDir(configuredDir))
 }
 
+function resolveCodeVibeDataDir(codeVibeDir: string) {
+	const configuredDataDir = process.env.CODEVIBE_DATA_DIR
+	return configuredDataDir?.trim()
+		? path.resolve(expandHomeDir(configuredDataDir.trim()))
+		: path.join(codeVibeDir, SETTINGS_SUBFOLDER)
+}
+
 export function initializeContext(configDir?: string) {
 	const CODEVIBE_DIR = resolveCodeVibeDir(configDir)
 	process.env.CODEVIBE_DIR = CODEVIBE_DIR
 	process.env.CLINE_DIR = CODEVIBE_DIR
 
-	const DATA_DIR = path.join(CODEVIBE_DIR, SETTINGS_SUBFOLDER)
+	const DATA_DIR = resolveCodeVibeDataDir(CODEVIBE_DIR)
+	process.env.CODEVIBE_DATA_DIR = DATA_DIR
 	const INSTALL_DIR = process.env.INSTALL_DIR || __dirname
 	const WORKSPACE_STORAGE_DIR = process.env.WORKSPACE_STORAGE_DIR || path.join(DATA_DIR, "workspace")
 
