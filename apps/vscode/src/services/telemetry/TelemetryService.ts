@@ -75,11 +75,11 @@ export type TelemetryMetadata = {
 	 */
 	extension_version: string
 	/**
-	 * The type of cline distribution, e.g VSCode Extension, JetBrains Plugin or CLI. This
+	 * The type of CodeVibe distribution, e.g VSCode Extension, JetBrains Plugin or CLI. This
 	 * is different than the `platform` because there are many variants of VSCode and JetBrains but they
 	 * all use the same extension or plugin.
 	 */
-	cline_type: string
+	codevibe_type: string
 	/** The name of the host IDE or environment e.g. VSCode, Cursor, IntelliJ Professional Edition, etc. */
 	platform: string
 	/** The version of the host environment */
@@ -111,6 +111,9 @@ export interface TokenUsage {
  * Maximum length for error messages to prevent excessive data
  */
 const MAX_ERROR_MESSAGE_LENGTH = 500
+const LEGACY_PROVIDER_ID = "cline"
+const BRANDED_PROVIDER_ID = "codevibe"
+const LEGACY_TELEMETRY_TYPE_KEY = `${LEGACY_PROVIDER_ID}_type`
 
 /**
  * TelemetryService handles telemetry event tracking for the CodeVibe extension
@@ -139,59 +142,59 @@ export class TelemetryService {
 	private taskErrorCounts = new Map<string, number>()
 	public static readonly METRICS = {
 		TASK: {
-			TURNS_TOTAL: "cline.turns.total",
-			TURNS_PER_TASK: "cline.turns.per_task",
-			TOKENS_INPUT_TOTAL: "cline.tokens.input.total",
-			TOKENS_INPUT_PER_RESPONSE: "cline.tokens.input.per_response",
-			TOKENS_OUTPUT_TOTAL: "cline.tokens.output.total",
-			TOKENS_OUTPUT_PER_RESPONSE: "cline.tokens.output.per_response",
-			COST_TOTAL: "cline.cost.total",
-			COST_PER_EVENT: "cline.cost.per_event",
+			TURNS_TOTAL: "codevibe.turns.total",
+			TURNS_PER_TASK: "codevibe.turns.per_task",
+			TOKENS_INPUT_TOTAL: "codevibe.tokens.input.total",
+			TOKENS_INPUT_PER_RESPONSE: "codevibe.tokens.input.per_response",
+			TOKENS_OUTPUT_TOTAL: "codevibe.tokens.output.total",
+			TOKENS_OUTPUT_PER_RESPONSE: "codevibe.tokens.output.per_response",
+			COST_TOTAL: "codevibe.cost.total",
+			COST_PER_EVENT: "codevibe.cost.per_event",
 		},
 		CACHE: {
-			WRITE_TOTAL: "cline.cache.write.tokens.total",
-			WRITE_PER_EVENT: "cline.cache.write.tokens.per_event",
-			READ_TOTAL: "cline.cache.read.tokens.total",
-			READ_PER_EVENT: "cline.cache.read.tokens.per_event",
-			HITS_TOTAL: "cline.cache.hits.total",
+			WRITE_TOTAL: "codevibe.cache.write.tokens.total",
+			WRITE_PER_EVENT: "codevibe.cache.write.tokens.per_event",
+			READ_TOTAL: "codevibe.cache.read.tokens.total",
+			READ_PER_EVENT: "codevibe.cache.read.tokens.per_event",
+			HITS_TOTAL: "codevibe.cache.hits.total",
 		},
 		TOOLS: {
-			CALLS_TOTAL: "cline.tool.calls.total",
-			CALLS_PER_TASK: "cline.tool.calls.per_task",
+			CALLS_TOTAL: "codevibe.tool.calls.total",
+			CALLS_PER_TASK: "codevibe.tool.calls.per_task",
 		},
 		ERRORS: {
-			TOTAL: "cline.errors.total",
-			PER_TASK: "cline.errors.per_task",
+			TOTAL: "codevibe.errors.total",
+			PER_TASK: "codevibe.errors.per_task",
 		},
 		API: {
-			TTFT_SECONDS: "cline.api.ttft.seconds",
-			DURATION_SECONDS: "cline.api.duration.seconds",
-			THROUGHPUT_TOKENS_PER_SECOND: "cline.api.throughput.tokens_per_second",
+			TTFT_SECONDS: "codevibe.api.ttft.seconds",
+			DURATION_SECONDS: "codevibe.api.duration.seconds",
+			THROUGHPUT_TOKENS_PER_SECOND: "codevibe.api.throughput.tokens_per_second",
 		},
 		HOOKS: {
-			EXECUTIONS_TOTAL: "cline.hooks.executions.total",
-			DURATION_SECONDS: "cline.hooks.duration.seconds",
-			FAILURES_TOTAL: "cline.hooks.failures.total",
-			CANCELLATIONS_TOTAL: "cline.hooks.cancellations.total",
-			CONTEXT_MODIFICATIONS_TOTAL: "cline.hooks.context_modifications.total",
-			CACHE_ACCESSES_TOTAL: "cline.hooks.cache.accesses.total",
+			EXECUTIONS_TOTAL: "codevibe.hooks.executions.total",
+			DURATION_SECONDS: "codevibe.hooks.duration.seconds",
+			FAILURES_TOTAL: "codevibe.hooks.failures.total",
+			CANCELLATIONS_TOTAL: "codevibe.hooks.cancellations.total",
+			CONTEXT_MODIFICATIONS_TOTAL: "codevibe.hooks.context_modifications.total",
+			CACHE_ACCESSES_TOTAL: "codevibe.hooks.cache.accesses.total",
 		},
 		AI_OUTPUT: {
-			ACCEPTED_LINES_ADDED: "cline.ai_output.accepted.lines_added.total",
-			ACCEPTED_LINES_DELETED: "cline.ai_output.accepted.lines_deleted.total",
-			ACCEPTED_LINES_CHANGED: "cline.ai_output.accepted.lines_changed.total",
-			ACCEPTED_FILES_CREATED: "cline.ai_output.accepted.files_created.total",
-			ACCEPTED_FILES_DELETED: "cline.ai_output.accepted.files_deleted.total",
-			ACCEPTED_FILES_MOVED: "cline.ai_output.accepted.files_moved.total",
-			REJECTED_LINES_ADDED: "cline.ai_output.rejected.lines_added.total",
-			REJECTED_LINES_DELETED: "cline.ai_output.rejected.lines_deleted.total",
-			REJECTED_LINES_CHANGED: "cline.ai_output.rejected.lines_changed.total",
-			REJECTED_FILES_CREATED: "cline.ai_output.rejected.files_created.total",
-			REJECTED_FILES_DELETED: "cline.ai_output.rejected.files_deleted.total",
-			REJECTED_FILES_MOVED: "cline.ai_output.rejected.files_moved.total",
+			ACCEPTED_LINES_ADDED: "codevibe.ai_output.accepted.lines_added.total",
+			ACCEPTED_LINES_DELETED: "codevibe.ai_output.accepted.lines_deleted.total",
+			ACCEPTED_LINES_CHANGED: "codevibe.ai_output.accepted.lines_changed.total",
+			ACCEPTED_FILES_CREATED: "codevibe.ai_output.accepted.files_created.total",
+			ACCEPTED_FILES_DELETED: "codevibe.ai_output.accepted.files_deleted.total",
+			ACCEPTED_FILES_MOVED: "codevibe.ai_output.accepted.files_moved.total",
+			REJECTED_LINES_ADDED: "codevibe.ai_output.rejected.lines_added.total",
+			REJECTED_LINES_DELETED: "codevibe.ai_output.rejected.lines_deleted.total",
+			REJECTED_LINES_CHANGED: "codevibe.ai_output.rejected.lines_changed.total",
+			REJECTED_FILES_CREATED: "codevibe.ai_output.rejected.files_created.total",
+			REJECTED_FILES_DELETED: "codevibe.ai_output.rejected.files_deleted.total",
+			REJECTED_FILES_MOVED: "codevibe.ai_output.rejected.files_moved.total",
 		},
 		GRPC: {
-			RESPONSE_SIZE_BYTES: "cline.grpc.response.size_bytes",
+			RESPONSE_SIZE_BYTES: "codevibe.grpc.response.size_bytes",
 		},
 	}
 	// Event constants for tracking user interactions and system events
@@ -359,7 +362,7 @@ export class TelemetryService {
 			extension_version: extensionVersion,
 			platform: hostVersion.platform || "unknown",
 			platform_version: hostVersion.version || "unknown",
-			cline_type: hostVersion.clineType || "unknown",
+			codevibe_type: hostVersion.clineType || "unknown",
 			os_type: os.platform(),
 			os_version: os.version(),
 			// `remoteName` is normalized by the host bridge to `undefined` for local workspaces.
@@ -377,6 +380,7 @@ export class TelemetryService {
 		private providers: ITelemetryProvider[],
 		private telemetryMetadata: TelemetryMetadata,
 	) {
+		this.telemetryMetadata = TelemetryService.normalizeMetadata(telemetryMetadata)
 		this.capture({ event: TelemetryService.EVENTS.USER.TELEMETRY_ENABLED })
 		Logger.info(`[TelemetryService] Initialized with ${providers.length} telemetry provider(s)`)
 	}
@@ -444,10 +448,10 @@ export class TelemetryService {
 	 * @param event The event to capture with its properties
 	 */
 	public capture(event: { event: string; properties?: TelemetryProperties }): void {
-		const propertiesWithMetadata: TelemetryProperties = {
+		const propertiesWithMetadata = this.normalizeProperties({
 			...(event.properties || {}),
 			...this.telemetryMetadata,
-		}
+		})
 		this.captureToProviders(event.event, propertiesWithMetadata, false)
 	}
 
@@ -457,10 +461,10 @@ export class TelemetryService {
 	 * @param properties Optional properties to attach to the event
 	 */
 	public captureRequired(event: string, properties?: TelemetryProperties): void {
-		const propertiesWithMetadata: TelemetryProperties = {
+		const propertiesWithMetadata = this.normalizeProperties({
 			...(properties || {}),
 			...this.telemetryMetadata,
-		}
+		})
 		this.captureToProviders(event, propertiesWithMetadata, true)
 	}
 
@@ -485,12 +489,48 @@ export class TelemetryService {
 	}
 
 	private getStandardAttributes(extra?: TelemetryProperties): TelemetryProperties {
-		return {
+		return this.normalizeProperties({
 			...this.telemetryMetadata,
 			...(this.userId ? { userId: this.userId } : {}),
 			...this.activeOrg,
 			...(extra ?? {}),
+		})
+	}
+
+	private static normalizeMetadata(metadata: TelemetryMetadata): TelemetryMetadata {
+		const legacyType = (metadata as TelemetryProperties)[LEGACY_TELEMETRY_TYPE_KEY]
+		const visibleMetadata = { ...metadata } as TelemetryProperties
+		delete visibleMetadata[LEGACY_TELEMETRY_TYPE_KEY]
+		return {
+			...visibleMetadata,
+			codevibe_type:
+				metadata.codevibe_type || (typeof legacyType === "string" && legacyType.length > 0 ? legacyType : "unknown"),
+		} as TelemetryMetadata
+	}
+
+	private normalizeProperties(properties: TelemetryProperties): TelemetryProperties {
+		const legacyType = properties[LEGACY_TELEMETRY_TYPE_KEY]
+		const visibleProperties = { ...properties }
+		delete visibleProperties[LEGACY_TELEMETRY_TYPE_KEY]
+		const normalized: TelemetryProperties = {
+			...visibleProperties,
+			codevibe_type:
+				(typeof visibleProperties.codevibe_type === "string" && visibleProperties.codevibe_type) ||
+				(typeof legacyType === "string" && legacyType) ||
+				this.telemetryMetadata.codevibe_type ||
+				"unknown",
 		}
+
+		for (const providerKey of ["provider", "providerId", "apiProvider"]) {
+			if (normalized[providerKey] === LEGACY_PROVIDER_ID) {
+				normalized[providerKey] = BRANDED_PROVIDER_ID
+			}
+		}
+		if (typeof normalized.service === "string" && normalized.service.startsWith(`${LEGACY_PROVIDER_ID}.`)) {
+			normalized.service = `${BRANDED_PROVIDER_ID}.${normalized.service.slice(LEGACY_PROVIDER_ID.length + 1)}`
+		}
+
+		return normalized
 	}
 
 	private recordCounter(
@@ -639,9 +679,9 @@ export class TelemetryService {
 	 * @param userInfo The user's information
 	 */
 	public identifyAccount(userInfo: ClineAccountUserInfo) {
-		const propertiesWithMetadata: TelemetryProperties = {
+		const propertiesWithMetadata = this.normalizeProperties({
 			...this.telemetryMetadata,
-		}
+		})
 
 		this.userId = userInfo.id
 		const activeOrg = userInfo.organizations?.find((org) => org.active)
@@ -840,7 +880,7 @@ export class TelemetryService {
 	 * @param ulid Unique identifier for the task
 	 * @param tokensIn Number of input tokens consumed
 	 * @param tokensOut Number of output tokens generated
-	 * @param provider The API provider identifier (e.g. "anthropic", "openai", "cline")
+	 * @param provider The API provider identifier (e.g. "anthropic", "openai", "codevibe")
 	 * @param model The model used for token calculation
 	 */
 	public captureTokenUsage(
@@ -1778,11 +1818,11 @@ export class TelemetryService {
 		})
 
 		const isMultiRoot = rootCount > 1
-		this.recordGauge("cline.workspace.active_roots", rootCount, {
+		this.recordGauge("codevibe.workspace.active_roots", rootCount, {
 			is_multi_root: isMultiRoot,
 		})
 		// Retire the previous series to avoid leaking gauge entries when the flag flips.
-		this.recordGauge("cline.workspace.active_roots", null, {
+		this.recordGauge("codevibe.workspace.active_roots", null, {
 			is_multi_root: !isMultiRoot,
 		})
 	}

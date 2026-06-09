@@ -157,7 +157,7 @@ export class PostHogTelemetryProvider implements ITelemetryProvider {
 		// Convert metric to event format for PostHog
 		// Most counters don't need individual events - they're aggregated in OpenTelemetry
 		// Only log significant counter events that have dashboard equivalents
-		if (name === "cline.tokens.input.total" || name === "cline.tokens.output.total") {
+		if (name === "codevibe.tokens.input.total" || name === "codevibe.tokens.output.total") {
 			// These will be batched and emitted as a single "task.tokens" event
 			// Implementation will be added when we update captureTokenUsage
 		}
@@ -193,7 +193,7 @@ export class PostHogTelemetryProvider implements ITelemetryProvider {
 		if ((!this.isEnabled() && !required) || value === null) return
 
 		// Convert gauge updates to state change events
-		if (name === "cline.workspace.active_roots") {
+		if (name === "codevibe.workspace.active_roots") {
 			this.log("workspace.roots_changed", {
 				count: value,
 				...attributes,

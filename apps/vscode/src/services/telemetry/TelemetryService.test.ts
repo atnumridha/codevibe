@@ -17,6 +17,8 @@ import { setVscodeHostProviderMock } from "@/test/host-provider-test-utils"
 import { NoOpTelemetryProvider, TelemetryProviderFactory } from "./TelemetryProviderFactory"
 import { TelemetryMetadata, TelemetryService } from "./TelemetryService"
 
+const LEGACY_TELEMETRY_TYPE_KEY = `${"cline"}_type`
+
 describe("Telemetry system is abstracted and can easily switch between providers", () => {
 	// Setup and teardown for HostProvider mocking
 	before(() => {
@@ -44,7 +46,7 @@ describe("Telemetry system is abstracted and can easily switch between providers
 	}
 	const MOCK_METADATA: TelemetryMetadata = {
 		extension_version: "1.2.3",
-		cline_type: "cline-unit-test",
+		codevibe_type: "codevibe-unit-test",
 		platform: "Test-IDE",
 		platform_version: "9.8.7-abc",
 		os_type: "win32",
@@ -141,6 +143,8 @@ describe("Telemetry system is abstracted and can easily switch between providers
 			assert.ok(logSpy.calledOnce, "Log should be called once")
 			const [eventName, properties] = logSpy.firstCall.args
 			assert.strictEqual(eventName, "task.created", "Event name should be task.created")
+			assert.strictEqual(properties?.codevibe_type, "codevibe-unit-test")
+			assert.strictEqual(properties?.[LEGACY_TELEMETRY_TYPE_KEY], undefined)
 			assert.deepStrictEqual(
 				properties,
 				{
@@ -158,6 +162,9 @@ describe("Telemetry system is abstracted and can easily switch between providers
 			assert.ok(identifyUserSpy.calledOnce, "IdentifyUser should be called once")
 			const [userInfo, metadata] = identifyUserSpy.firstCall.args
 			assert.deepStrictEqual(userInfo, MOCK_USER_INFO, "User info should match")
+			assert.ok(metadata, "Identify metadata should be defined")
+			assert.strictEqual(metadata.codevibe_type, "codevibe-unit-test")
+			assert.strictEqual(metadata[LEGACY_TELEMETRY_TYPE_KEY], undefined)
 			assert.deepStrictEqual(metadata, MOCK_METADATA, "Identify user should include only the expected metadata properties")
 
 			// Test org attributes are included in standard attributes (metrics)
@@ -643,7 +650,7 @@ describe("Telemetry system is abstracted and can easily switch between providers
 			assert.strictEqual(properties.skillSource, "global", "Properties should include skillSource")
 			assert.strictEqual(properties.skillsAvailableGlobal, 2, "Properties should include global skill count")
 			assert.strictEqual(properties.skillsAvailableProject, 3, "Properties should include project skill count")
-			assert.strictEqual(properties.provider, "cline", "Properties should include provider")
+			assert.strictEqual(properties.provider, "codevibe", "Properties should expose the branded provider alias")
 			assert.strictEqual(properties.modelId, "anthropic/claude-sonnet-4.5", "Properties should include modelId")
 
 			logSpy.restore()
