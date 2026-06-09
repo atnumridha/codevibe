@@ -911,12 +911,12 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 	const codeVibeAgentViews = Array.isArray(views["codevibe-agent"]) ? views["codevibe-agent"] : []
 	const codeVibeAgentViewIds = codeVibeAgentViews.map((view) => view?.id).filter(Boolean)
-	if (!codeVibeAgentViewIds.includes("codevibe.agent.chat")) {
-		throw new Error(`${label} must contribute the native codevibe.agent.chat webview`)
+	if (!codeVibeAgentViewIds.includes("codevibe-agent-chat")) {
+		throw new Error(`${label} must contribute the native codevibe-agent-chat webview`)
 	}
-	const codeVibeAgentWebview = codeVibeAgentViews.find((view) => view?.id === "codevibe.agent.chat")
+	const codeVibeAgentWebview = codeVibeAgentViews.find((view) => view?.id === "codevibe-agent-chat")
 	if (codeVibeAgentWebview?.visibility !== "hidden") {
-		throw new Error(`${label} codevibe.agent.chat webview must be hidden by default so native VS Code Chat is primary`)
+		throw new Error(`${label} codevibe-agent-chat webview must be hidden by default so native VS Code Chat is primary`)
 	}
 	const chatParticipants = Array.isArray(packageJson.contributes?.chatParticipants)
 		? packageJson.contributes.chatParticipants
@@ -1403,16 +1403,16 @@ function assertNativeViewRegistrySource(packageJson) {
 	const codeVibeAgentViews = Array.isArray(packageJson.contributes?.views?.["codevibe-agent"])
 		? packageJson.contributes.views["codevibe-agent"]
 		: []
-	if (!codeVibeAgentViews.some((view) => view?.id === "codevibe.agent.chat")) {
-		throw new Error("package.json must register codevibe.agent.chat under the codevibe-agent container")
+	if (!codeVibeAgentViews.some((view) => view?.id === "codevibe-agent-chat")) {
+		throw new Error("package.json must register codevibe-agent-chat under the codevibe-agent container")
 	}
 	if (!registrySource.includes('AgentContainer: name === "codevibe" ? "codevibe-agent" : prefix + ".agent"')) {
 		throw new Error(
 			"ExtensionRegistryInfo.views.AgentContainer must match the contributed codevibe-agent container",
 		)
 	}
-	if (!registrySource.includes('Sidebar: prefix + ".agent.chat"')) {
-		throw new Error("ExtensionRegistryInfo.views.Sidebar must match the contributed codevibe.agent.chat view")
+	if (!registrySource.includes('Sidebar: name === "codevibe" ? "codevibe-agent-chat" : prefix + ".agent.chat"')) {
+		throw new Error("ExtensionRegistryInfo.views.Sidebar must match the contributed codevibe-agent-chat view")
 	}
 }
 

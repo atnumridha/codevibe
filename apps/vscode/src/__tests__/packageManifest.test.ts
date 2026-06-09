@@ -27,13 +27,15 @@ describe("Package manifest", () => {
 		const activitybarContainerIds = activitybarContainers.map((container: { id: string }) => container.id)
 		const views = packageJSON.contributes.views ?? {}
 		const codeVibeAgentViews = views["codevibe-agent"] ?? []
-		const nativeAgentView = codeVibeAgentViews.find((view: { id?: string }) => view.id === "codevibe.agent.chat")
+		const nativeAgentView = codeVibeAgentViews.find((view: { id?: string }) => view.id === "codevibe-agent-chat")
 
 		assert.equal(participant.id, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.match(participant.id, /^[A-Za-z0-9_-]+$/)
 		assert.deepEqual(activitybarContainerIds, ["codevibe-agent"])
 		assert.ok(Object.hasOwn(views, "codevibe-agent"))
 		assert.equal(Object.hasOwn(views, "codevibe.agent"), false)
+		assert.equal(packageJSON.activationEvents.includes("onView:codevibe.agent.chat"), false)
+		assert.equal(packageJSON.activationEvents.includes("onView:codevibe-agent-chat"), true)
 		assert.equal(nativeAgentView?.visibility, "hidden")
 		assert.equal(
 			codeVibeAgentViews.some((view: { id?: string }) => view.id === "codevibe.SidebarProvider"),

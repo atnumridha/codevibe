@@ -49,7 +49,7 @@ const CodeVibeCommands = {
  */
 const CodeVibeViewIds = {
 	AgentContainer: name === "codevibe" ? "codevibe-agent" : prefix + ".agent",
-	Sidebar: prefix + ".agent.chat",
+	Sidebar: name === "codevibe" ? "codevibe-agent-chat" : prefix + ".agent.chat",
 	LegacySidebar: name + ".SidebarProvider",
 }
 
