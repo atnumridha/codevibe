@@ -532,7 +532,7 @@ export function McpServersContent() {
 									isImportingCursorMcp && "animate-pulse",
 								)}
 							/>
-							Import Cursor MCP
+							Import Workspace MCP
 						</Button>
 						<Button
 							variant="outline"
@@ -546,7 +546,7 @@ export function McpServersContent() {
 									isImportingCursorMcp && "animate-pulse",
 								)}
 							/>
-							Import Global Cursor MCP
+							Import Global MCP
 						</Button>
 						<Button size="sm" onClick={openCreateDialog}>
 							<Plus className="h-4 w-4" />
@@ -568,7 +568,7 @@ export function McpServersContent() {
 				</div>
 				<p className="mb-6 text-xs text-muted-foreground">
 					{hasSettingsFile
-						? "Editing this list updates cline_mcp_settings.json."
+						? "Editing this list updates the CodeVibe MCP settings file."
 						: "No MCP settings file found yet. Add a server to create it."}
 				</p>
 
@@ -735,7 +735,7 @@ export function McpServersContent() {
 						<DialogDescription>
 							Update the MCP server stored in{" "}
 							<code className="font-mono">
-								{settingsPath || "cline_mcp_settings.json"}
+								{settingsPath || "the CodeVibe MCP settings file"}
 							</code>
 							.
 						</DialogDescription>
@@ -977,7 +977,7 @@ export function McpServersContent() {
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Import Cursor MCP Servers?</AlertDialogTitle>
+						<AlertDialogTitle>Import MCP Servers?</AlertDialogTitle>
 						<AlertDialogDescription asChild>
 							<div className="space-y-2">
 								<p>

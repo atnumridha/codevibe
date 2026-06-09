@@ -1114,7 +1114,9 @@ describe("Cursor MCP install command", () => {
 			sourceParam: "config",
 			sourceConfigKey: "source",
 		});
-		expect(payload.installPath).toContain(join(workspace, ".cline", "plugins"));
+		expect(payload.installPath).toContain(
+			join(workspace, ".codevibe", "plugins"),
+		);
 		expect(payload.entryPaths?.[0]).toContain("docs-plugin.js");
 		await expect(
 			readFile(payload.entryPaths?.[0] ?? "", "utf8"),
@@ -1316,7 +1318,7 @@ describe("Cursor MCP install command", () => {
 			route: "plugin-add",
 			installed: true,
 			source: pluginPath,
-			installPath: expect.stringContaining(join(".cline", "plugins")),
+			installPath: expect.stringContaining(join(".codevibe", "plugins")),
 			entryPaths: [expect.stringContaining("cursor-plugin")],
 		});
 	});

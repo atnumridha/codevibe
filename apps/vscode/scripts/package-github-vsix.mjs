@@ -26,6 +26,8 @@ const requiredCursorParityConfigKeys = [
 	"ndjson.bindAddress",
 ]
 
+const disallowedLegacyConfigurationPrefixes = ["cline.openAiCodex.", "cline.cursorCompatibility.", "cline.ui."]
+
 const requiredCursorParityCommands = [
 	"codevibe.compatibility.ndjson.start",
 	"codevibe.compatibility.ndjson.stop",
@@ -849,7 +851,9 @@ function assertVisibleManifestStringsBranded(value, label, pathParts = []) {
 		return
 	}
 	if (Array.isArray(value)) {
-		value.forEach((item, index) => assertVisibleManifestStringsBranded(item, label, [...pathParts, String(index)]))
+		value.forEach((item, index) => {
+			assertVisibleManifestStringsBranded(item, label, [...pathParts, String(index)])
+		})
 		return
 	}
 	if (value && typeof value === "object") {
@@ -1062,6 +1066,11 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	const properties = packageJson.contributes?.configuration?.properties
 	for (const key of requiredCursorParityConfigKeys) {
 		assertObjectHasKey(properties, key, `${label} configuration.properties`)
+	}
+	for (const key of Object.keys(properties ?? {})) {
+		if (disallowedLegacyConfigurationPrefixes.some((prefix) => key.startsWith(prefix))) {
+			throw new Error(`${label} configuration.properties must not expose legacy setting ${key}`)
+		}
 	}
 	const commands = Array.isArray(packageJson.contributes?.commands)
 		? packageJson.contributes.commands.map((command) => command?.command).filter(Boolean)

@@ -354,7 +354,7 @@ function writeAutomationIngestTextReport(
 	report: AutomationIngestReport,
 ): void {
 	options.io.writeln(
-		`${report.ingested ? "Ingested" : "Validated"} ${report.eventCount} Cursor automation event(s).`,
+		`${report.ingested ? "Ingested" : "Validated"} ${report.eventCount} compatible automation event(s).`,
 	);
 	if (report.rejectedCount > 0) {
 		options.io.writeln(`${report.rejectedCount} line(s) rejected:`);
@@ -456,7 +456,7 @@ function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
 	const filePath = resolve(cwd, request.relativePath);
 	const relativePath = relative(cwd, filePath);
 	if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
-		throw new Error("Cursor rule path must stay inside the workspace");
+		throw new Error("Rule path must stay inside the workspace");
 	}
 
 	if (!options.confirmed) {
@@ -472,7 +472,7 @@ function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
 				}),
 			);
 		} else {
-			options.io.writeln(`Cursor rule: ${request.filename}`);
+			options.io.writeln(`Compatible rule: ${request.filename}`);
 			options.io.writeln(`File: ${filePath}`);
 			options.io.writeln(
 				"Re-run with --yes to create or reuse this rule file.",
@@ -508,7 +508,7 @@ function writeCursorRuleRoute(options: CursorMcpInstallCommandOptions): number {
 		);
 	} else {
 		options.io.writeln(
-			`${created ? "Created" : "Reused"} Cursor rule "${request.filename}" at ${filePath}`,
+			`${created ? "Created" : "Reused"} compatible rule "${request.filename}" at ${filePath}`,
 		);
 	}
 	return 0;
@@ -753,7 +753,7 @@ async function launchCursorBackgroundAgentTask(
 				address: clientOptions.address,
 				authToken: clientOptions.authToken,
 				clientType: "cli-cursor-background-agent",
-				displayName: "CodeVibe CLI (Cursor background agent)",
+				displayName: "CodeVibe CLI (compatible background agent)",
 				workspaceRoot: clientOptions.workspaceRoot,
 				cwd: clientOptions.cwd,
 			}));

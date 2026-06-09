@@ -109,7 +109,7 @@ export function addRootOptions(cmd: Command): Command {
 
 export function createProgram(): Command {
 	const program = new Command("codevibe")
-		.description("CodeVibe CLI - Cursor-parity coding agent in your terminal")
+		.description("CodeVibe CLI - editor-native coding agent in your terminal")
 		.version(version, "-V, --version", "Output the version number")
 		.exitOverride() // don't call process.exit
 		.configureOutput({
