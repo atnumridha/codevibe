@@ -49,6 +49,11 @@ import {
 	buildCodeVibeNativeChatTaskText,
 } from "./hosts/vscode/native-chat-adapter"
 import {
+	buildCodeVibeChatSessionLabel,
+	buildCodeVibeNativeSessionDescriptors,
+	getCodeVibeNativeSessionTaskIdFromPath,
+} from "./hosts/vscode/native-chat-session"
+import {
 	disposeVscodeCommentReviewController,
 	getVscodeCommentReviewController,
 } from "./hosts/vscode/review/VscodeCommentReviewController"
@@ -66,6 +71,7 @@ import { getRawExtensionUriString } from "./services/uri/ExtensionUriString"
 import { LG_TASK_URI_PATH, SharedUriHandler, TASK_URI_PATH } from "./services/uri/SharedUriHandler"
 import { redactUriForLogging } from "./services/uri/UriRedaction"
 import { ShowMessageType } from "./shared/proto/host/window"
+import type { HistoryItem } from "./shared/HistoryItem"
 import { fileExistsAtPath } from "./utils/fs"
 
 const OPENAI_CODEX_EXTENSION_ID = "openai.chatgpt"
@@ -1222,12 +1228,21 @@ function registerCodeVibeNativeChatSessionType(
 		context.subscriptions.push(sessionParticipant)
 
 		const contentProvider: CodeVibeChatSessionContentProvider = {
-			provideChatSessionContent: (_resource, _token, sessionContext) => ({
-				title: "CodeVibe Agent",
-				history: [],
-				options: getCodeVibeChatSessionOptions(sessionContext?.inputState),
-				requestHandler,
-			}),
+			provideChatSessionContent: (resource, _token, sessionContext) => {
+				const taskId = getCodeVibeNativeSessionTaskIdFromPath(resource.path)
+				const historyItem = taskId ? readCodeVibeNativeTaskHistory().find((item) => item.id === taskId) : undefined
+				const title = historyItem
+					? buildCodeVibeNativeSessionDescriptors([historyItem], {
+							workspacePath: getCodeVibeNativeWorkspacePath(),
+						})[0]?.label || "CodeVibe Agent"
+					: "CodeVibe Agent"
+				return {
+					title,
+					history: [],
+					options: getCodeVibeChatSessionOptions(sessionContext?.inputState),
+					requestHandler,
+				}
+			},
 		}
 
 		context.subscriptions.push(
@@ -1240,12 +1255,16 @@ function registerCodeVibeNativeChatSessionType(
 
 		if (chatApi.createChatSessionItemController) {
 			const controller = chatApi.createChatSessionItemController(chatSessionType, () => undefined)
+			const iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
+			controller.items?.replace?.(
+				buildCodeVibeNativeSessionItems(chatSessionType, iconPath, readCodeVibeNativeTaskHistory()),
+			)
 			controller.newChatSessionItemHandler = (sessionContext) => {
 				const item = controller.createChatSessionItem(
 					createCodeVibeChatSessionUri(chatSessionType),
 					buildCodeVibeChatSessionLabel(sessionContext?.request),
 				)
-				item.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
+				item.iconPath = iconPath
 				item.tooltip = "CodeVibe Agent session"
 				item.timing = { created: Date.now() }
 
@@ -1262,13 +1281,14 @@ function registerCodeVibeNativeChatSessionType(
 		} else if (chatApi.registerChatSessionItemProvider) {
 			const itemProviderChangeEmitter = new vscode.EventEmitter<void>()
 			context.subscriptions.push(itemProviderChangeEmitter)
+			const iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
 			const itemProvider: CodeVibeChatSessionItemProvider = {
 				onDidChangeChatSessionItems: itemProviderChangeEmitter.event,
 				provideChatSessionItems: async (token) => {
 					if (token.isCancellationRequested) {
 						return []
 					}
-					return []
+					return buildCodeVibeNativeSessionItems(chatSessionType, iconPath, readCodeVibeNativeTaskHistory())
 				},
 			}
 			context.subscriptions.push(chatApi.registerChatSessionItemProvider(chatSessionType, itemProvider))
@@ -1302,12 +1322,36 @@ function createCodeVibeChatSessionUri(chatSessionType: string = CODEVIBE_CHAT_SE
 	return vscode.Uri.from({ scheme: chatSessionType, path: `/${id}` })
 }
 
-function buildCodeVibeChatSessionLabel(request: NativeChatRequest | undefined): string {
-	const prompt = typeof request?.prompt === "string" ? request.prompt.trim().replace(/\s+/g, " ") : ""
-	if (!prompt) {
-		return "New CodeVibe Session"
+function readCodeVibeNativeTaskHistory(): HistoryItem[] {
+	try {
+		const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
+		const history = webview.controller.stateManager.getGlobalStateKey("taskHistory")
+		return Array.isArray(history) ? history : []
+	} catch (error) {
+		Logger.warn(`Failed to read CodeVibe native task history: ${error instanceof Error ? error.message : String(error)}`)
+		return []
 	}
-	return prompt.length > 80 ? `${prompt.slice(0, 77)}...` : prompt
+}
+
+function buildCodeVibeNativeSessionItems(
+	chatSessionType: string,
+	iconPath: vscode.Uri,
+	history: readonly HistoryItem[],
+): CodeVibeChatSessionItem[] {
+	return buildCodeVibeNativeSessionDescriptors(history, {
+		workspacePath: getCodeVibeNativeWorkspacePath(),
+	}).map((descriptor) => ({
+		resource: vscode.Uri.from({ scheme: chatSessionType, path: descriptor.resourcePath }),
+		label: descriptor.label,
+		iconPath,
+		tooltip: descriptor.tooltip,
+		timing: descriptor.timing,
+		metadata: descriptor.metadata,
+	}))
+}
+
+function getCodeVibeNativeWorkspacePath(): string | undefined {
+	return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
 }
 
 async function openCodeVibeSurfaceForTaskUri(): Promise<void> {
