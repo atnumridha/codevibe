@@ -4,6 +4,7 @@ import { tmpdir } from "os"
 import { join } from "path"
 import sinon from "sinon"
 import { StateManager } from "@/core/storage/StateManager"
+import { HostProvider } from "@/hosts/host-provider"
 import { mockFetchForTesting } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
 import {
@@ -49,6 +50,26 @@ async function createCodexHome(accessToken: string, refreshToken = "codex-refres
 	return codexHome
 }
 
+async function createWorkspaceCodexHome(
+	accessToken: string,
+	refreshToken = "workspace-refresh-secret",
+): Promise<{ workspaceRoot: string; codexHome: string }> {
+	const workspaceRoot = await mkdtemp(join(tmpdir(), "codevibe-workspace-"))
+	const codexHome = join(workspaceRoot, ".codex")
+	await mkdir(codexHome, { recursive: true })
+	await writeFile(
+		join(codexHome, "auth.json"),
+		JSON.stringify({
+			auth_mode: "chatgpt",
+			tokens: {
+				access_token: accessToken,
+				refresh_token: refreshToken,
+			},
+		}),
+	)
+	return { workspaceRoot, codexHome }
+}
+
 function mockAuthSource(authSource?: OpenAiCodexAuthSource): void {
 	vscode.workspace.getConfiguration = () =>
 		({
@@ -73,9 +94,15 @@ function stubVscodeSecret(secret?: string): sinon.SinonStub {
 
 describe("OpenAI Codex OAuth local profile support", () => {
 	const originalGetConfiguration = vscode.workspace.getConfiguration
+	const originalCodexHomeEnv = process.env.CODEX_HOME
 
 	afterEach(() => {
 		vscode.workspace.getConfiguration = originalGetConfiguration
+		if (originalCodexHomeEnv === undefined) {
+			delete process.env.CODEX_HOME
+		} else {
+			process.env.CODEX_HOME = originalCodexHomeEnv
+		}
 		sinon.restore()
 	})
 
@@ -151,6 +178,73 @@ describe("OpenAI Codex OAuth local profile support", () => {
 			clientVersion: "0.136.0-test",
 			authMode: "chatgpt",
 		})
+	})
+
+	it("loads credentials from a workspace .codex auth.json profile", async () => {
+		const accessToken = jwt({
+			exp: 2_000,
+			email: "workspace@example.com",
+			"https://api.openai.com/auth": {
+				chatgpt_account_id: "acct_from_workspace",
+			},
+		})
+		const { workspaceRoot } = await createWorkspaceCodexHome(accessToken, "workspace-refresh-secret")
+
+		const credentials = await loadCodexHomeCredentials({ workspaceRoots: [workspaceRoot] })
+
+		expect(credentials).to.deep.include({
+			type: "openai-codex",
+			access_token: accessToken,
+			refresh_token: "workspace-refresh-secret",
+			expires: 2_000_000,
+			email: "workspace@example.com",
+			accountId: "acct_from_workspace",
+			tokenSource: "codex-home",
+			authMode: "chatgpt",
+		})
+	})
+
+	it("discovers workspace .codex credentials from the host workspace service", async () => {
+		const accessToken = jwt({ exp: 2_000 })
+		const { workspaceRoot } = await createWorkspaceCodexHome(accessToken, "host-workspace-refresh-secret")
+		sinon.stub(HostProvider, "isInitialized").returns(true)
+		sinon.stub(HostProvider, "workspace").get(() => ({
+			getWorkspacePaths: sinon.stub().resolves({ paths: [workspaceRoot] }),
+		}))
+
+		const credentials = await loadCodexHomeCredentials()
+
+		expect(credentials?.access_token).to.equal(accessToken)
+		expect(credentials?.refresh_token).to.equal("host-workspace-refresh-secret")
+		expect(credentials?.tokenSource).to.equal("codex-home")
+	})
+
+	it("uses an explicit Codex home before workspace .codex credentials", async () => {
+		const explicitAccessToken = jwt({ exp: 2_000 })
+		const workspaceAccessToken = jwt({ exp: 3_000 })
+		const explicitCodexHome = await createCodexHome(explicitAccessToken, "explicit-refresh-secret")
+		const { workspaceRoot } = await createWorkspaceCodexHome(workspaceAccessToken, "workspace-refresh-secret")
+
+		const credentials = await loadCodexHomeCredentials({
+			codexHome: explicitCodexHome,
+			workspaceRoots: [workspaceRoot],
+		})
+
+		expect(credentials?.access_token).to.equal(explicitAccessToken)
+		expect(credentials?.refresh_token).to.equal("explicit-refresh-secret")
+	})
+
+	it("uses CODEX_HOME before workspace .codex credentials", async () => {
+		const envAccessToken = jwt({ exp: 2_000 })
+		const workspaceAccessToken = jwt({ exp: 3_000 })
+		const envCodexHome = await createCodexHome(envAccessToken, "env-refresh-secret")
+		const { workspaceRoot } = await createWorkspaceCodexHome(workspaceAccessToken, "workspace-refresh-secret")
+		process.env.CODEX_HOME = envCodexHome
+
+		const credentials = await loadCodexHomeCredentials({ workspaceRoots: [workspaceRoot] })
+
+		expect(credentials?.access_token).to.equal(envAccessToken)
+		expect(credentials?.refresh_token).to.equal("env-refresh-secret")
 	})
 
 	it("loads Codex home credentials when optional models cache is malformed", async () => {
@@ -253,6 +347,21 @@ describe("OpenAI Codex OAuth local profile support", () => {
 
 		expect(credentials?.tokenSource).to.equal("codex-home")
 		expect(credentials?.refresh_token).to.equal("codex-refresh-secret")
+		expect(getSecretKey.called).to.equal(false)
+	})
+
+	it("defaults to workspace .codex credentials before VS Code secret storage", async () => {
+		mockAuthSource()
+		const getSecretKey = stubVscodeSecret(vscodeSecretCredentialsJson("vscode-access-secret"))
+		const accessToken = jwt({ exp: 2_000 })
+		const { workspaceRoot } = await createWorkspaceCodexHome(accessToken, "workspace-refresh-secret")
+
+		const manager = new OpenAiCodexOAuthManager()
+		const credentials = await manager.loadCredentials({ workspaceRoots: [workspaceRoot] })
+
+		expect(credentials?.access_token).to.equal(accessToken)
+		expect(credentials?.tokenSource).to.equal("codex-home")
+		expect(credentials?.refresh_token).to.equal("workspace-refresh-secret")
 		expect(getSecretKey.called).to.equal(false)
 	})
 

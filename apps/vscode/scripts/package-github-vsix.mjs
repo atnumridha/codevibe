@@ -1153,6 +1153,9 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (codexAuth.default !== "codexHome") {
 		throw new Error(`${label} must default codevibe.openAiCodex.authSource to codexHome`)
 	}
+	if (!String(codexAuth.description || "").includes("workspace .codex/auth.json")) {
+		throw new Error(`${label} must describe workspace .codex/auth.json Codex auth discovery`)
+	}
 	if (properties["codevibe.ui.preferOpenAiCodexSidebar"].default !== false) {
 		throw new Error(`${label} must default codevibe.ui.preferOpenAiCodexSidebar to false`)
 	}

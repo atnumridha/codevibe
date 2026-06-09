@@ -583,7 +583,7 @@
 						"Auto"
 					],
 					"default": "codexHome",
-					"description": "Controls where OpenAI Codex credentials are loaded from. Codex Home reads ~/.codex/auth.json by default."
+					"description": "Controls where OpenAI Codex credentials are loaded from. Codex Home reads workspace .codex/auth.json first, then ~/.codex/auth.json, unless an explicit path or CODEX_HOME is set."
 				},
 				"codevibe.cursorCompatibility.enabled": {
 					"type": "boolean",

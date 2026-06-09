@@ -6,6 +6,7 @@ import * as path from "path"
 import { URL } from "url"
 import { z } from "zod"
 import { StateManager } from "@/core/storage/StateManager"
+import { HostProvider } from "@/hosts/host-provider"
 import { buildExternalBasicHeaders } from "@/services/EnvUtils"
 import { fetch } from "@/shared/net"
 import { Logger } from "@/shared/services/Logger"
@@ -251,8 +252,60 @@ function extractExpiryMs(accessToken: string, now: () => number = Date.now): num
 	return now() + 55 * 60 * 1000
 }
 
-function getCodexHomePath(codexHome?: string): string {
-	return codexHome || process.env.CODEX_HOME || path.join(os.homedir(), ".codex")
+interface LoadCodexHomeCredentialsOptions {
+	codexHome?: string
+	now?: () => number
+	workspaceRoots?: readonly string[]
+}
+
+function normalizePathCandidates(paths: readonly string[]): string[] {
+	const seen = new Set<string>()
+	const normalized: string[] = []
+	for (const candidate of paths) {
+		const trimmed = candidate.trim()
+		if (!trimmed) {
+			continue
+		}
+		const resolved = path.resolve(trimmed)
+		if (!seen.has(resolved)) {
+			seen.add(resolved)
+			normalized.push(resolved)
+		}
+	}
+	return normalized
+}
+
+function getExplicitCodexHomePath(codexHome?: string): string | undefined {
+	const explicitPath = codexHome?.trim() || process.env.CODEX_HOME?.trim()
+	return explicitPath ? path.resolve(explicitPath) : undefined
+}
+
+async function getWorkspaceCodexHomePaths(workspaceRoots?: readonly string[]): Promise<string[]> {
+	try {
+		const roots =
+			workspaceRoots ??
+			(HostProvider.isInitialized() ? (await HostProvider.workspace.getWorkspacePaths({})).paths ?? [] : [])
+		return normalizePathCandidates(roots.map((root) => path.join(root, ".codex")))
+	} catch (error) {
+		Logger.warn(
+			`[openai-codex-oauth] Failed to inspect workspace Codex auth paths; using home profile fallback: ${safeOpenAiCodexErrorSummary(
+				error,
+			)}`,
+		)
+		return []
+	}
+}
+
+async function getCodexHomePaths(options?: Pick<LoadCodexHomeCredentialsOptions, "codexHome" | "workspaceRoots">) {
+	const explicitPath = getExplicitCodexHomePath(options?.codexHome)
+	if (explicitPath) {
+		return [explicitPath]
+	}
+
+	return normalizePathCandidates([
+		...(await getWorkspaceCodexHomePaths(options?.workspaceRoots)),
+		path.join(os.homedir(), ".codex"),
+	])
 }
 
 function isOpenAiCodexAuthSource(value: unknown): value is OpenAiCodexAuthSource {
@@ -366,11 +419,10 @@ function parseOptionalCodexModelsCache(text: string | undefined): { client_versi
 	}
 }
 
-export async function loadCodexHomeCredentials(options?: {
-	codexHome?: string
-	now?: () => number
-}): Promise<OpenAiCodexCredentials | null> {
-	const codexHome = getCodexHomePath(options?.codexHome)
+async function loadCodexHomeCredentialsFromPath(
+	codexHome: string,
+	now?: () => number,
+): Promise<OpenAiCodexCredentials | null> {
 	const authJsonText = await readOptionalText(path.join(codexHome, "auth.json"))
 	if (!authJsonText) {
 		return null
@@ -397,7 +449,7 @@ export async function loadCodexHomeCredentials(options?: {
 		access_token: accessToken,
 		refresh_token: refreshToken,
 		id_token: authJson.tokens.id_token,
-		expires: extractExpiryMs(accessToken, options?.now),
+		expires: extractExpiryMs(accessToken, now),
 		email: extractEmail(tokens),
 		accountId: extractAccessTokenAccountId(accessToken) ?? tokenAccountId ?? extractJwtFallbackAccountId(tokens),
 		tokenSource: "codex-home",
@@ -405,6 +457,18 @@ export async function loadCodexHomeCredentials(options?: {
 		clientVersion,
 		authMode: authJson.auth_mode,
 	}
+}
+
+export async function loadCodexHomeCredentials(
+	options?: LoadCodexHomeCredentialsOptions,
+): Promise<OpenAiCodexCredentials | null> {
+	for (const codexHome of await getCodexHomePaths(options)) {
+		const credentials = await loadCodexHomeCredentialsFromPath(codexHome, options?.now)
+		if (credentials) {
+			return credentials
+		}
+	}
+	return null
 }
 
 export class OpenAiCodexOAuthTokenError extends Error {
@@ -779,13 +843,17 @@ export class OpenAiCodexOAuthManager {
 	async loadCredentials(options?: {
 		authSource?: OpenAiCodexAuthSource
 		codexHome?: string
+		workspaceRoots?: readonly string[]
 	}): Promise<OpenAiCodexCredentials | null> {
 		const authSource = options?.authSource ?? getOpenAiCodexAuthSource()
 		for (const source of getCredentialSourceOrder(authSource)) {
 			try {
 				const credentials =
 					source === "codex-home"
-						? await loadCodexHomeCredentials({ codexHome: options?.codexHome })
+						? await loadCodexHomeCredentials({
+								codexHome: options?.codexHome,
+								workspaceRoots: options?.workspaceRoots,
+							})
 						: await loadVscodeSecretCredentials()
 				if (credentials) {
 					this.credentials = credentials
