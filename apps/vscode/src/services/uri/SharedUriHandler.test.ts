@@ -21,6 +21,15 @@ function encodeConfig(config: Record<string, unknown>): string {
 		.replace(/=+$/g, "")
 }
 
+async function fileExists(filePath: string): Promise<boolean> {
+	try {
+		await fs.access(filePath)
+		return true
+	} catch {
+		return false
+	}
+}
+
 function git(cwd: string, args: string[]): string {
 	return execFileSync("git", args, {
 		cwd,
@@ -1008,6 +1017,64 @@ describe("SharedUriHandler", () => {
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal('Create or open rule "team-style.mdc"?')
+				expect(handleTaskCreationStub.called).to.be.false
+				expect(openFileStub.called).to.be.false
+			})
+
+			it("should warn on Rule URL imports without creating a task or file", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "OK" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/rule?path=team-style&url=https%3A%2F%2Fexample.com%2Frules%2Fteam.mdc%3Ftoken%3Dsecret-value%23frag",
+				)
+
+				expect(result).to.be.true
+				const modal = showMessageStub.firstCall.args[0]
+				expect(modal.type).to.equal(ShowMessageType.WARNING)
+				expect(modal.message).to.equal("Rule URL imports require manual review.")
+				expect(modal.options.items).to.deep.equal(["OK"])
+				expect(modal.options.detail).to.contain("URL: https://example.com/rules/team.mdc?[redacted]#[redacted]")
+				expect(modal.options.detail).to.contain("Requested target: team-style")
+				expect(modal.options.detail).to.contain("No file was written and no agent task was created.")
+				expect(modal.options.detail).not.to.contain("secret-value")
+				expect(await fileExists(path.join(workspaceDir, ".cursor", "rules", "team-style.mdc"))).to.be.false
+				expect(handleTaskCreationStub.called).to.be.false
+				expect(openFileStub.called).to.be.false
+			})
+
+			it("should not create starter Rule files when name and URL are both present", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "OK" })
+
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/rule?name=team-style&url=https%3A%2F%2Fexample.com%2Frules%2Fteam.mdc",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Rule URL imports require manual review.")
+				expect(await fileExists(path.join(workspaceDir, ".cursor", "rules", "team-style.mdc"))).to.be.false
+				expect(handleTaskCreationStub.called).to.be.false
+				expect(openFileStub.called).to.be.false
+			})
+
+			it("should not create starter Rule files from config URL imports", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "OK" })
+				const config = encodeConfig({
+					name: "team-style",
+					url: "https://example.com/rules/team.mdc?token=secret-value",
+				})
+
+				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/rule?config=${config}`)
+
+				expect(result).to.be.true
+				const modal = showMessageStub.firstCall.args[0]
+				expect(modal.message).to.equal("Rule URL imports require manual review.")
+				expect(modal.options.detail).to.contain("URL: https://example.com/rules/team.mdc?[redacted]")
+				expect(modal.options.detail).to.contain("Requested target: team-style")
+				expect(modal.options.detail).not.to.contain("secret-value")
+				expect(await fileExists(path.join(workspaceDir, ".cursor", "rules", "team-style.mdc"))).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 				expect(openFileStub.called).to.be.false
 			})

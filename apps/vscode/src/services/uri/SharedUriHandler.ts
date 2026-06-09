@@ -135,6 +135,19 @@ function getCursorRuleContent(route: CursorCompatibleUriRoute): string | undefin
 	)
 }
 
+function getCursorRuleUrl(route: CursorCompatibleUriRoute): string | undefined {
+	return getRouteStringParam(route, "url") || getRouteConfigStringParam(route, "url")
+}
+
+function getCursorRuleRequestedTarget(route: CursorCompatibleUriRoute): string | undefined {
+	return (
+		getRouteStringParam(route, "name") ||
+		getRouteStringParam(route, "path") ||
+		getRouteConfigStringParam(route, "name") ||
+		getRouteConfigStringParam(route, "path")
+	)?.replace(/\\/g, "/")
+}
+
 function normalizeSettingsSectionKey(value: string): string {
 	return value
 		.trim()
@@ -171,16 +184,11 @@ function normalizeCursorRuleTarget(route: CursorCompatibleUriRoute):
 			relativePath: string
 	  }
 	| undefined {
-	if (!getCursorRuleContent(route) && getRouteStringParam(route, "url")) {
+	if (!getCursorRuleContent(route) && getCursorRuleUrl(route)) {
 		return undefined
 	}
 
-	const requested = (
-		getRouteStringParam(route, "name") ||
-		getRouteStringParam(route, "path") ||
-		getRouteConfigStringParam(route, "name") ||
-		getRouteConfigStringParam(route, "path")
-	)?.replace(/\\/g, "/")
+	const requested = getCursorRuleRequestedTarget(route)
 	if (!requested || requested.includes("\0") || path.isAbsolute(requested) || requested.split("/").includes("..")) {
 		return undefined
 	}
@@ -233,6 +241,16 @@ function buildCursorRuleStarterContent(filename: string): string {
 
 function normalizeImportedCursorRuleContent(content: string): string {
 	return content.endsWith("\n") ? content : `${content}\n`
+}
+
+function buildCursorRuleUrlImportDetail(route: CursorCompatibleUriRoute, ruleUrl: string): string {
+	const requestedTarget = getCursorRuleRequestedTarget(route)
+	return [
+		`URL: ${formatCursorUrlForDisplay(ruleUrl) ?? "[provided url]"}`,
+		...(requestedTarget ? [`Requested target: ${requestedTarget}`] : []),
+		"Remote rule URL imports are not fetched automatically.",
+		"No file was written and no agent task was created.",
+	].join("\n")
 }
 
 function normalizeCursorCommandTarget(route: CursorCompatibleUriRoute):
@@ -940,11 +958,25 @@ export class SharedUriHandler {
 		controller: SharedUriController,
 		route: CursorCompatibleUriRoute,
 	): Promise<boolean> {
+		const importedContent = getCursorRuleContent(route)
+		const remoteRuleUrl = getCursorRuleUrl(route)
+		if (remoteRuleUrl && !importedContent) {
+			await HostProvider.window.showMessage({
+				type: ShowMessageType.WARNING,
+				message: "Rule URL imports require manual review.",
+				options: {
+					modal: true,
+					items: ["OK"],
+					detail: buildCursorRuleUrlImportDetail(route, remoteRuleUrl),
+				},
+			})
+			return true
+		}
+
 		const target = normalizeCursorRuleTarget(route)
 		if (!target) {
 			return false
 		}
-		const importedContent = getCursorRuleContent(route)
 		const replaceExisting = getRouteBooleanFlag(route, "replace") || getRouteBooleanFlag(route, "force")
 		let importedRuleWritten = false
 

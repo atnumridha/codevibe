@@ -140,6 +140,38 @@ describe("CursorUriRoutes", () => {
 		})
 	})
 
+	it("parses Cursor rule URL imports as rule routes", () => {
+		const result = parseCursorCompatibleUri(
+			"/rule",
+			new URLSearchParams("url=https%3A%2F%2Fexample.com%2Frules%2Fteam.mdc%3Ftoken%3Dsecret"),
+		)
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected rule URL route to parse")
+		}
+		expect(result.route.kind).to.equal("rule")
+		expect(result.route.params.url).to.equal("https://example.com/rules/team.mdc?token=secret")
+	})
+
+	it("parses Cursor rule config URL imports as rule routes", () => {
+		const config = base64UrlJson({
+			name: "team-style",
+			url: "https://example.com/rules/team.mdc?token=secret",
+		})
+		const result = parseCursorCompatibleUri("/rule", new URLSearchParams(`config=${config}`))
+
+		expect(result.recognized).to.equal(true)
+		if (!result.recognized || "error" in result) {
+			throw new Error("expected rule config URL route to parse")
+		}
+		expect(result.route.kind).to.equal("rule")
+		expect(result.route.params.config).to.deep.equal({
+			name: "team-style",
+			url: "https://example.com/rules/team.mdc?token=secret",
+		})
+	})
+
 	it("rejects duplicate query parameters", () => {
 		const result = parseCursorCompatibleUri("/command", new URLSearchParams("command=ls&command=pwd"))
 
