@@ -119,9 +119,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	)
 	const nativeAgentRegistration = createCodeVibeNativeAgentRegistrationState()
-	registerCodeVibeChatParticipant(context, nativeAgentRegistration)
+	const codeVibeChatParticipant = registerCodeVibeChatParticipant(context, nativeAgentRegistration)
 	registerCodeVibeNativeAgentProvider(context, nativeAgentRegistration)
-	registerCodeVibeNativeChatSessionProvider(context, nativeAgentRegistration)
+	registerCodeVibeNativeChatSessionProvider(context, nativeAgentRegistration, codeVibeChatParticipant)
 	await closeLegacyCodeVibePanels()
 	scheduleLegacyCodeVibePanelCleanup(context)
 
@@ -964,6 +964,15 @@ type CodeVibeNativeAgentRegistrationState = {
 	failures: string[]
 }
 
+type CodeVibeNativeChatSessionRefreshTarget = {
+	chatSessionType: string
+	iconPath: vscode.Uri
+	controller?: CodeVibeChatSessionItemController
+	itemProviderChangeEmitter?: vscode.EventEmitter<void>
+}
+
+const codeVibeNativeChatSessionRefreshTargets = new Map<string, CodeVibeNativeChatSessionRefreshTarget>()
+
 function createCodeVibeNativeAgentRegistrationState(): CodeVibeNativeAgentRegistrationState {
 	return {
 		chatParticipantRegistered: false,
@@ -1097,6 +1106,8 @@ function buildCodeVibeNativeChatRequestHandler() {
 			try {
 				const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
 				const taskId = await webview.controller.initTask(taskText)
+				refreshCodeVibeNativeChatSessionItems("native-chat-task-started")
+				scheduleCodeVibeNativeChatSessionItemsRefresh("native-chat-task-started")
 				responseStream.progress?.("CodeVibe task started.")
 				responseStream.markdown?.(buildCodeVibeNativeChatStartedMarkdown(taskId))
 				return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID, taskId, startedInCodeVibe: true } }
@@ -1126,10 +1137,10 @@ function buildCodeVibeNativeChatRequestHandler() {
 function registerCodeVibeChatParticipant(
 	context: vscode.ExtensionContext,
 	registration: CodeVibeNativeAgentRegistrationState,
-): void {
+): NativeChatParticipant | undefined {
 	const chatApi = getNativeChatApi()
 	if (!chatApi?.createChatParticipant) {
-		return
+		return undefined
 	}
 
 	try {
@@ -1137,11 +1148,13 @@ function registerCodeVibeChatParticipant(
 		participant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
 		context.subscriptions.push(participant)
 		registration.chatParticipantRegistered = true
+		return participant
 	} catch (error) {
 		registration.failures.push(`chatParticipant: ${error instanceof Error ? error.message : String(error)}`)
 		Logger.warn(
 			`Failed to register CodeVibe native chat participant: ${error instanceof Error ? error.message : String(error)}`,
 		)
+		return undefined
 	}
 }
 
@@ -1212,14 +1225,15 @@ async function writeCodeVibeNativeAgentFile(agentDirUri: vscode.Uri, agentUri: v
 function registerCodeVibeNativeChatSessionProvider(
 	context: vscode.ExtensionContext,
 	registration: CodeVibeNativeAgentRegistrationState,
+	defaultChatParticipant: NativeChatParticipant | undefined,
 ): void {
 	const chatApi = getNativeChatApi()
-	if (!chatApi?.createChatParticipant || !chatApi.registerChatSessionContentProvider) {
+	if (!chatApi?.registerChatSessionContentProvider || !defaultChatParticipant) {
 		return
 	}
 
 	for (const chatSessionType of CODEVIBE_NATIVE_CHAT_SESSION_TYPES) {
-		registerCodeVibeNativeChatSessionType(context, registration, chatApi, chatSessionType)
+		registerCodeVibeNativeChatSessionType(context, registration, chatApi, chatSessionType, defaultChatParticipant)
 	}
 }
 
@@ -1228,12 +1242,10 @@ function registerCodeVibeNativeChatSessionType(
 	registration: CodeVibeNativeAgentRegistrationState,
 	chatApi: NativeChatApi,
 	chatSessionType: string,
+	defaultChatParticipant: NativeChatParticipant,
 ): void {
 	try {
 		const requestHandler = buildCodeVibeNativeChatRequestHandler()
-		const sessionParticipant = chatApi.createChatParticipant!(chatSessionType, requestHandler)
-		sessionParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
-		context.subscriptions.push(sessionParticipant)
 
 		const contentProvider: CodeVibeChatSessionContentProvider = {
 			provideChatSessionContent: async (resource, token, sessionContext) => {
@@ -1247,7 +1259,7 @@ function registerCodeVibeNativeChatSessionType(
 				const history =
 					taskId && !token.isCancellationRequested
 						? buildCodeVibeNativeChatSessionHistory(await readCodeVibeNativeTaskMessages(taskId), {
-								participantId: chatSessionType,
+								participantId: CODEVIBE_CHAT_PARTICIPANT_ID,
 							})
 						: []
 				return {
@@ -1260,7 +1272,7 @@ function registerCodeVibeNativeChatSessionType(
 		}
 
 		context.subscriptions.push(
-			chatApi.registerChatSessionContentProvider!(chatSessionType, contentProvider, sessionParticipant, {
+			chatApi.registerChatSessionContentProvider!(chatSessionType, contentProvider, defaultChatParticipant, {
 				supportsInterruptions: true,
 			}),
 		)
@@ -1290,6 +1302,13 @@ function registerCodeVibeNativeChatSessionType(
 				return item
 			}
 			context.subscriptions.push(controller)
+			context.subscriptions.push(
+				registerCodeVibeNativeChatSessionRefreshTarget({
+					chatSessionType,
+					iconPath,
+					controller,
+				}),
+			)
 			registration.chatSessionItemControllerRegistered = true
 			registration.chatSessionItemControllerTypes.push(chatSessionType)
 		} else if (chatApi.registerChatSessionItemProvider) {
@@ -1306,6 +1325,13 @@ function registerCodeVibeNativeChatSessionType(
 				},
 			}
 			context.subscriptions.push(chatApi.registerChatSessionItemProvider(chatSessionType, itemProvider))
+			context.subscriptions.push(
+				registerCodeVibeNativeChatSessionRefreshTarget({
+					chatSessionType,
+					iconPath,
+					itemProviderChangeEmitter,
+				}),
+			)
 			registration.chatSessionItemProviderRegistered = true
 			registration.chatSessionItemProviderTypes.push(chatSessionType)
 		}
@@ -1318,6 +1344,38 @@ function registerCodeVibeNativeChatSessionType(
 				error instanceof Error ? error.message : String(error)
 			}`,
 		)
+	}
+}
+
+function registerCodeVibeNativeChatSessionRefreshTarget(target: CodeVibeNativeChatSessionRefreshTarget): vscode.Disposable {
+	codeVibeNativeChatSessionRefreshTargets.set(target.chatSessionType, target)
+	return new vscode.Disposable(() => {
+		codeVibeNativeChatSessionRefreshTargets.delete(target.chatSessionType)
+	})
+}
+
+function refreshCodeVibeNativeChatSessionItems(reason: string): void {
+	if (codeVibeNativeChatSessionRefreshTargets.size === 0) {
+		return
+	}
+	try {
+		const history = readCodeVibeNativeTaskHistory()
+		for (const target of codeVibeNativeChatSessionRefreshTargets.values()) {
+			target.controller?.items?.replace?.(buildCodeVibeNativeSessionItems(target.chatSessionType, target.iconPath, history))
+			target.itemProviderChangeEmitter?.fire()
+		}
+	} catch (error) {
+		Logger.warn(
+			`Failed to refresh CodeVibe native chat session items after ${reason}: ${
+				error instanceof Error ? error.message : String(error)
+			}`,
+		)
+	}
+}
+
+function scheduleCodeVibeNativeChatSessionItemsRefresh(reason: string): void {
+	for (const delayMs of [500, 2_000]) {
+		setTimeout(() => refreshCodeVibeNativeChatSessionItems(`${reason}:${delayMs}ms`), delayMs)
 	}
 }
 

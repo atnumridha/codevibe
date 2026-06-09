@@ -1311,16 +1311,32 @@ function assertManifestAssets(packageJson) {
 	}
 }
 
+function assertNativeChatRegistrationSource() {
+	const source = fs.readFileSync(path.join(projectRoot, "src", "extension.ts"), "utf8")
+	for (const fragment of ["createChatParticipant!(chatSessionType", "createChatParticipant(chatSessionType"]) {
+		if (source.includes(fragment)) {
+			throw new Error(
+				`Native Chat session providers must reuse the declared codevibe.agent participant instead of ${fragment}`,
+			)
+		}
+	}
+	if (!/registerChatSessionContentProvider!\(\s*chatSessionType,\s*contentProvider,\s*defaultChatParticipant/.test(source)) {
+		throw new Error("Native Chat session providers must register with the declared CodeVibe chat participant")
+	}
+}
+
 function assertPackageInputs(packageJson) {
 	assertFileExists(path.join(projectRoot, "README.md"), "packaged README.md", { nonEmpty: true })
 	assertManifestAssets(packageJson)
 	assertCursorParityManifest(packageJson)
 	assertPackagedMarkdownAssetsBranded()
+	assertNativeChatRegistrationSource()
 }
 
 function assertManifestInputs(packageJson) {
 	assertManifestAssets(packageJson)
 	assertCursorParityManifest(packageJson)
+	assertNativeChatRegistrationSource()
 }
 
 function assertBuildOutputs() {
