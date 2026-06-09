@@ -18,6 +18,7 @@ import { AccountServiceClient, StateServiceClient, UiServiceClient, WorktreeServ
 import { convertBannerData } from "@/utils/bannerUtils"
 import { getCurrentPlatform } from "@/utils/platformUtils"
 import { WelcomeSectionProps } from "../../types/chatTypes"
+import { getCodeVibeBannerModelSelection } from "./bannerModelSelection"
 
 /**
  * Welcome section shown when there's no active task
@@ -160,16 +161,8 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 					break
 
 				case BannerActionType.SetModel: {
-					const modelId = action.arg || "anthropic/claude-sonnet-4.5"
 					const initialModelTab = action.tab || "recommended"
-					handleFieldsChange({
-						planModeOpenRouterModelId: modelId,
-						actModeOpenRouterModelId: modelId,
-						planModeOpenRouterModelInfo: openRouterModels[modelId],
-						actModeOpenRouterModelInfo: openRouterModels[modelId],
-						planModeApiProvider: "cline",
-						actModeApiProvider: "cline",
-					})
+					handleFieldsChange(getCodeVibeBannerModelSelection(action.arg))
 					navigateToSettingsModelPicker({ targetSection: "api-config", initialModelTab })
 					break
 				}
@@ -203,7 +196,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 					console.warn("Unknown banner action:", action.action)
 			}
 		},
-		[handleFieldsChange, openRouterModels, navigateToSettings, navigateToSettingsModelPicker],
+		[handleFieldsChange, navigateToSettings, navigateToSettingsModelPicker],
 	)
 
 	/**
