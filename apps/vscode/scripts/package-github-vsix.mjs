@@ -915,6 +915,15 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		throw new Error(`${label} codevibe.agent chat participant must register for native agent mode`)
 	}
 	const chatAgents = Array.isArray(packageJson.contributes?.chatAgents) ? packageJson.contributes.chatAgents : []
+	for (const [index, agent] of chatAgents.entries()) {
+		const agentId = agent?.id
+		if (typeof agentId !== "string" || agentId.trim() === "") {
+			throw new Error(`${label} chatAgents[${index}] must declare a non-empty id`)
+		}
+		if (!/^[A-Za-z0-9_-]+$/.test(agentId)) {
+			throw new Error(`${label} chatAgents[${index}] id '${agentId}' must use only alphanumeric characters, '_' or '-'`)
+		}
+	}
 	const codeVibeAgent = chatAgents.find((agent) => agent?.path === "agents/00-codevibe-agent.agent.md")
 	if (!codeVibeAgent) {
 		throw new Error(`${label} must contribute the native CodeVibe chat agent markdown`)
@@ -922,7 +931,11 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (codeVibeAgent !== chatAgents[0]) {
 		throw new Error(`${label} must list CodeVibe chat agent before other chat agents`)
 	}
-	if (codeVibeAgent.name !== "codevibe" || !String(codeVibeAgent.description ?? "").includes("CodeVibe Agent")) {
+	if (
+		codeVibeAgent.id !== "codevibe" ||
+		codeVibeAgent.name !== "codevibe" ||
+		!String(codeVibeAgent.description ?? "").includes("CodeVibe Agent")
+	) {
 		throw new Error(`${label} CodeVibe chat agent contribution must be named and described as CodeVibe Agent`)
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
