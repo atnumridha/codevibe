@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.25",
+	"version": "3.88.26",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -74,6 +74,7 @@
 		"onCommand:codevibe.addTerminalOutputToChat",
 		"onCommand:codevibe.focusChatInput",
 		"onCommand:codevibe.openLegacyWebview",
+		"onCommand:codevibe.fixWithCodeVibe",
 		"onCommand:codevibe.generateGitCommitMessage",
 		"onCommand:codevibe.abortGitCommitMessage",
 		"onCommand:codevibe.explainCode",
@@ -367,6 +368,12 @@
 				"command": "codevibe.openLegacyWebview",
 				"title": "Show CodeVibe Legacy Panel",
 				"category": "CodeVibe"
+			},
+			{
+				"command": "codevibe.fixWithCodeVibe",
+				"title": "Fix with CodeVibe",
+				"category": "CodeVibe",
+				"icon": "$(codevibe-icon)"
 			},
 			{
 				"command": "codevibe.generateGitCommitMessage",

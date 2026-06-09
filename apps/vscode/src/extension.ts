@@ -23,10 +23,10 @@ import { createStorageContext } from "@/shared/storage/storage-context"
 import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 import { readTextFromClipboard, writeTextToClipboard } from "@/utils/env"
 import { initialize, tearDown } from "./common"
-import { addToCline } from "./core/controller/commands/addToCline"
-import { explainWithCline } from "./core/controller/commands/explainWithCline"
+import { addToCodeVibe } from "./core/controller/commands/addToCline"
+import { explainWithCodeVibe } from "./core/controller/commands/explainWithCline"
 import { fixWithCodeVibe } from "./core/controller/commands/fixWithCline"
-import { improveWithCline } from "./core/controller/commands/improveWithCline"
+import { improveWithCodeVibe } from "./core/controller/commands/improveWithCline"
 import { sendAddToInputEvent } from "./core/controller/ui/subscribeToAddToInput"
 import { sendShowWebviewEvent } from "./core/controller/ui/subscribeToShowWebview"
 import { HookDiscoveryCache } from "./core/hooks/HookDiscoveryCache"
@@ -539,7 +539,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (!context) {
 				return
 			}
-			await addToCline(context.controller, context.commandContext)
+			await addToCodeVibe(context.controller, context.commandContext)
 		}),
 	)
 	context.subscriptions.push(
@@ -572,7 +572,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (!context) {
 				return
 			}
-			await explainWithCline(context.controller, context.commandContext)
+			await explainWithCodeVibe(context.controller, context.commandContext)
 		}),
 	)
 	context.subscriptions.push(
@@ -581,7 +581,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (!context) {
 				return
 			}
-			await improveWithCline(context.controller, context.commandContext)
+			await improveWithCodeVibe(context.controller, context.commandContext)
 		}),
 	)
 
@@ -659,7 +659,7 @@ Current Notebook Cell Context (JSON, sanitized of image data):
 ${ctx.cellJson || "{}"}
 \`\`\``
 
-				await addToCline(ctx.controller, ctx.commandContext, notebookContext)
+				await addToCodeVibe(ctx.controller, ctx.commandContext, notebookContext)
 			},
 		),
 	)
@@ -675,7 +675,7 @@ ${ctx.cellJson || "{}"}
 					? `\n\nCurrent Notebook Cell Context (JSON, sanitized of image data):\n\`\`\`json\n${ctx.cellJson}\n\`\`\``
 					: undefined
 
-				await explainWithCline(ctx.controller, ctx.commandContext, notebookContext)
+				await explainWithCodeVibe(ctx.controller, ctx.commandContext, notebookContext)
 			},
 		),
 	)
@@ -701,7 +701,7 @@ Current Notebook Cell Context (JSON, sanitized of image data):
 ${ctx.cellJson || "{}"}
 \`\`\``
 
-				await improveWithCline(ctx.controller, ctx.commandContext, notebookContext)
+				await improveWithCodeVibe(ctx.controller, ctx.commandContext, notebookContext)
 			},
 		),
 	)

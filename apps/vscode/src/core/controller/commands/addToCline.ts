@@ -6,9 +6,8 @@ import { Logger } from "@/shared/services/Logger"
 import { Controller } from "../index"
 import { sendAddToInputEvent } from "../ui/subscribeToAddToInput"
 
-// 'Add to CodeVibe' context menu in editor and code action
-// Inserts the selected code into the chat.
-export async function addToCline(controller: Controller, request: CommandContext, notebookContext?: string): Promise<Empty> {
+// 'Add to CodeVibe' context menu in editor and code action.
+export async function addToCodeVibe(controller: Controller, request: CommandContext, notebookContext?: string): Promise<Empty> {
 	if (!request.selectedText?.trim() && !notebookContext) {
 		Logger.log("❌ No text selected and no notebook context - returning early")
 		return {}
@@ -44,3 +43,5 @@ export async function addToCline(controller: Controller, request: CommandContext
 
 	return {}
 }
+
+export const addToCline = addToCodeVibe

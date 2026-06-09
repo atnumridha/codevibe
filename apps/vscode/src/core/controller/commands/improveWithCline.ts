@@ -6,7 +6,7 @@ import { ShowMessageType } from "@/shared/proto/index.host"
 import { Logger } from "@/shared/services/Logger"
 import { Controller } from "../index"
 
-export async function improveWithCline(
+export async function improveWithCodeVibe(
 	controller: Controller,
 	request: CommandContext,
 	notebookContext?: string,
@@ -44,3 +44,5 @@ export async function improveWithCline(
 
 	return {}
 }
+
+export const improveWithCline = improveWithCodeVibe

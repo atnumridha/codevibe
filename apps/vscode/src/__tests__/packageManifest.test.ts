@@ -71,6 +71,9 @@ describe("Package manifest", () => {
 		for (const command of packageJSON.contributes.commands ?? []) {
 			assert.equal(String(command.command).startsWith("cline."), false)
 		}
+		const commandIds = new Set((packageJSON.contributes.commands ?? []).map((command: { command?: string }) => command.command))
+		assert.equal(commandIds.has("codevibe.fixWithCodeVibe"), true)
+		assert.equal(packageJSON.activationEvents.includes("onCommand:codevibe.fixWithCodeVibe"), true)
 		for (const [menuId, items] of Object.entries(packageJSON.contributes.menus ?? {})) {
 			for (const item of Array.isArray(items) ? items : []) {
 				assert.equal(String((item as { command?: string }).command).startsWith("cline."), false, menuId)
