@@ -187,8 +187,12 @@ describe("RuntimeOAuthTokenManager", () => {
 
 		const result = await manager.resolveProviderApiKey({
 			providerId: "openai-codex",
+			workspaceRoots: ["/workspace/repo"],
 		});
 
+		expect(loadOpenAICodexHomeCredentialsSync).toHaveBeenCalledWith({
+			workspaceRoots: ["/workspace/repo"],
+		});
 		expect(result).toMatchObject({
 			providerId: "openai-codex",
 			apiKey: "access-home",

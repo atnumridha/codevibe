@@ -234,7 +234,7 @@ export class RuntimeOAuthTokenManager {
 	private readonly providerSettingsManager: ProviderSettingsManager;
 	private readonly telemetry?: ITelemetryService;
 	private readonly refreshInFlight = new Map<
-		ManagedOAuthProviderId,
+		string,
 		Promise<RuntimeOAuthResolution | null>
 	>();
 
@@ -250,42 +250,56 @@ export class RuntimeOAuthTokenManager {
 	public async resolveProviderApiKey(input: {
 		providerId: string;
 		forceRefresh?: boolean;
+		workspaceRoots?: readonly string[];
 	}): Promise<RuntimeOAuthResolution | null> {
 		if (!isOAuthProviderId(input.providerId)) {
 			return null;
 		}
-		return this.resolveWithSingleFlight(input.providerId, input.forceRefresh);
+		return this.resolveWithSingleFlight(
+			input.providerId,
+			input.forceRefresh,
+			input.workspaceRoots,
+		);
 	}
 
 	private async resolveWithSingleFlight(
 		providerId: ManagedOAuthProviderId,
 		forceRefresh = false,
+		workspaceRoots?: readonly string[],
 	): Promise<RuntimeOAuthResolution | null> {
-		const currentInFlight = this.refreshInFlight.get(providerId);
+		const singleFlightKey = `${providerId}:${(workspaceRoots ?? []).join("\0")}`;
+		const currentInFlight = this.refreshInFlight.get(singleFlightKey);
 		if (currentInFlight) {
 			return currentInFlight;
 		}
-		const pending = this.resolveProviderApiKeyInternal(providerId, forceRefresh)
+		const pending = this.resolveProviderApiKeyInternal(
+			providerId,
+			forceRefresh,
+			workspaceRoots,
+		)
 			.catch((error) => {
 				throw error;
 			})
 			.finally(() => {
-				this.refreshInFlight.delete(providerId);
+				this.refreshInFlight.delete(singleFlightKey);
 			});
-		this.refreshInFlight.set(providerId, pending);
+		this.refreshInFlight.set(singleFlightKey, pending);
 		return pending;
 	}
 
 	private async resolveProviderApiKeyInternal(
 		providerId: ManagedOAuthProviderId,
 		forceRefresh: boolean,
+		workspaceRoots?: readonly string[],
 	): Promise<RuntimeOAuthResolution | null> {
 		let settings = this.providerSettingsManager.getProviderSettings(providerId);
 		let settingsFromCodexHome = false;
 		if (!settings && providerId === "openai-codex") {
 			let codexHomeCredentials: ClineOAuthCredentials | null;
 			try {
-				codexHomeCredentials = loadOpenAICodexHomeCredentialsSync();
+				codexHomeCredentials = loadOpenAICodexHomeCredentialsSync({
+					workspaceRoots,
+				});
 			} catch {
 				codexHomeCredentials = null;
 			}

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -33,12 +33,44 @@ function createCredentials(
 	};
 }
 
+function writeCodexHomeAuth(
+	codexHome: string,
+	accountId: string,
+	refreshToken = `refresh-${accountId}`,
+): string {
+	mkdirSync(codexHome, { recursive: true });
+	const accessToken = createJwt({
+		exp: 2_000,
+		email: `${accountId}@example.com`,
+		"https://api.openai.com/auth": { chatgpt_account_id: accountId },
+	});
+	writeFileSync(
+		join(codexHome, "auth.json"),
+		JSON.stringify({
+			tokens: {
+				access_token: accessToken,
+				refresh_token: refreshToken,
+			},
+		}),
+		"utf8",
+	);
+	return accessToken;
+}
+
 describe("auth/codex token lifecycle", () => {
 	const tempDirs: string[] = [];
+	const originalCodexHome = process.env.CODEX_HOME;
+	const originalCwd = process.cwd();
 
 	afterEach(() => {
 		vi.unstubAllGlobals();
 		vi.restoreAllMocks();
+		if (originalCodexHome === undefined) {
+			delete process.env.CODEX_HOME;
+		} else {
+			process.env.CODEX_HOME = originalCodexHome;
+		}
+		process.chdir(originalCwd);
 		for (const dir of tempDirs.splice(0)) {
 			rmSync(dir, { recursive: true, force: true });
 		}
@@ -267,6 +299,70 @@ describe("auth/codex token lifecycle", () => {
 			},
 		});
 		expect(credentials?.metadata).not.toHaveProperty("idToken");
+	});
+
+	it("loads workspace .codex credentials before home fallback", () => {
+		const workspaceRoot = mkdtempSync(join(tmpdir(), "codevibe-codex-ws-"));
+		tempDirs.push(workspaceRoot);
+		const accessToken = writeCodexHomeAuth(
+			join(workspaceRoot, ".codex"),
+			"acct-workspace",
+		);
+
+		const credentials = loadOpenAICodexHomeCredentialsSync({
+			workspaceRoots: [workspaceRoot],
+		});
+
+		expect(credentials).toMatchObject({
+			access: accessToken,
+			refresh: "refresh-acct-workspace",
+			accountId: "acct-workspace",
+			email: "acct-workspace@example.com",
+			metadata: {
+				provider: "openai-codex",
+				tokenSource: "codex-home",
+			},
+		});
+	});
+
+	it("keeps explicit Codex home and CODEX_HOME ahead of workspace credentials", () => {
+		const explicitCodexHome = mkdtempSync(
+			join(tmpdir(), "codevibe-codex-explicit-"),
+		);
+		const envCodexHome = mkdtempSync(join(tmpdir(), "codevibe-codex-env-"));
+		const workspaceRoot = mkdtempSync(join(tmpdir(), "codevibe-codex-ws-"));
+		tempDirs.push(explicitCodexHome, envCodexHome, workspaceRoot);
+		writeCodexHomeAuth(explicitCodexHome, "acct-explicit");
+		writeCodexHomeAuth(envCodexHome, "acct-env");
+		writeCodexHomeAuth(join(workspaceRoot, ".codex"), "acct-workspace");
+
+		process.env.CODEX_HOME = envCodexHome;
+
+		expect(
+			loadOpenAICodexHomeCredentialsSync({
+				workspaceRoots: [workspaceRoot],
+			})?.accountId,
+		).toBe("acct-env");
+		expect(
+			loadOpenAICodexHomeCredentialsSync({
+				codexHome: explicitCodexHome,
+				workspaceRoots: [workspaceRoot],
+			})?.accountId,
+		).toBe("acct-explicit");
+	});
+
+	it("loads current working directory .codex credentials for CLI sessions", () => {
+		const cwdRoot = mkdtempSync(join(tmpdir(), "codevibe-codex-cwd-"));
+		tempDirs.push(cwdRoot);
+		writeCodexHomeAuth(join(cwdRoot, ".codex"), "acct-cwd");
+		process.chdir(cwdRoot);
+
+		const credentials = loadOpenAICodexHomeCredentialsSync();
+
+		expect(credentials).toMatchObject({
+			accountId: "acct-cwd",
+			refresh: "refresh-acct-cwd",
+		});
 	});
 
 	it("loads Codex home credentials when optional models cache is malformed", () => {

@@ -78,8 +78,11 @@ export async function buildConnectorStartRequest(input: {
 		persistedApiKey ||
 		(await resolveProviderApiKeyFromEnv(provider)) ||
 		"";
+	const cwd = input.options.cwd;
+	const workspaceRoot = resolveWorkspaceRoot(cwd);
 	const shouldUseCodexHomeAuth =
-		provider === "openai-codex" && hasOpenAICodexHomeCredentials();
+		provider === "openai-codex" &&
+		hasOpenAICodexHomeCredentials({ workspaceRoots: [workspaceRoot] });
 
 	if (!apiKey && isOAuthProvider(provider) && !shouldUseCodexHomeAuth) {
 		const oauthResult = await ensureOAuthProviderApiKey({
@@ -93,7 +96,6 @@ export async function buildConnectorStartRequest(input: {
 		apiKey = oauthResult.apiKey ?? "";
 	}
 
-	const cwd = input.options.cwd;
 	const systemPrompt = await resolveSystemPrompt({
 		cwd,
 		explicitSystemPrompt: input.options.systemPrompt,
@@ -102,7 +104,7 @@ export async function buildConnectorStartRequest(input: {
 	});
 
 	return {
-		workspaceRoot: resolveWorkspaceRoot(cwd),
+		workspaceRoot,
 		cwd,
 		provider,
 		model:

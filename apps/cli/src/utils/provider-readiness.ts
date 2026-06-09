@@ -14,9 +14,12 @@ function hasText(value: string | undefined): boolean {
 	return typeof value === "string" && value.trim().length > 0;
 }
 
-export function hasOpenAICodexHomeCredentials(): boolean {
+export function hasOpenAICodexHomeCredentials(options?: {
+	workspaceRoots?: readonly string[];
+	codexHome?: string;
+}): boolean {
 	try {
-		return Boolean(loadOpenAICodexHomeCredentialsSync());
+		return Boolean(loadOpenAICodexHomeCredentialsSync(options));
 	} catch {
 		return false;
 	}

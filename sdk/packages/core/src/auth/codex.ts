@@ -7,7 +7,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type { ITelemetryService } from "@cline/shared";
 import { nanoid } from "nanoid";
 import {
@@ -359,8 +359,52 @@ function toCodexCredentials(
 	};
 }
 
-function resolveCodexHomePath(codexHome?: string): string {
-	return codexHome?.trim() || process.env.CODEX_HOME || join(homedir(), ".codex");
+export type OpenAICodexHomeCredentialsOptions = {
+	codexHome?: string;
+	workspaceRoots?: readonly string[];
+	now?: () => number;
+};
+
+function resolveCodexHomePathCandidates(
+	options?: Pick<
+		OpenAICodexHomeCredentialsOptions,
+		"codexHome" | "workspaceRoots"
+	>,
+): string[] {
+	const explicitCodexHome = options?.codexHome?.trim();
+	if (explicitCodexHome) {
+		return [resolve(explicitCodexHome)];
+	}
+
+	const envCodexHome = process.env.CODEX_HOME?.trim();
+	if (envCodexHome) {
+		return [resolve(envCodexHome)];
+	}
+
+	const candidates: string[] = [];
+	const seen = new Set<string>();
+	const addCandidate = (candidate: string | undefined): void => {
+		const trimmed = candidate?.trim();
+		if (!trimmed) {
+			return;
+		}
+		const normalized = resolve(trimmed);
+		if (seen.has(normalized)) {
+			return;
+		}
+		seen.add(normalized);
+		candidates.push(normalized);
+	};
+
+	for (const workspaceRoot of options?.workspaceRoots ?? []) {
+		const trimmedRoot = workspaceRoot?.trim();
+		if (trimmedRoot) {
+			addCandidate(join(trimmedRoot, ".codex"));
+		}
+	}
+	addCandidate(join(process.cwd(), ".codex"));
+	addCandidate(join(homedir(), ".codex"));
+	return candidates;
 }
 
 function readOptionalTextSync(filePath: string): string | undefined {
@@ -407,11 +451,10 @@ function getJwtEmail(accessToken: string, idToken?: string): string | undefined 
 	return undefined;
 }
 
-export function loadOpenAICodexHomeCredentialsSync(options?: {
-	codexHome?: string;
-	now?: () => number;
-}): OAuthCredentials | null {
-	const codexHome = resolveCodexHomePath(options?.codexHome);
+function loadOpenAICodexHomeCredentialsFromPathSync(
+	codexHome: string,
+	options?: Pick<OpenAICodexHomeCredentialsOptions, "now">,
+): OAuthCredentials | null {
 	const authText = readOptionalTextSync(join(codexHome, "auth.json"));
 	if (!authText) {
 		return null;
@@ -456,6 +499,21 @@ export function loadOpenAICodexHomeCredentialsSync(options?: {
 			...(authJson.auth_mode ? { authMode: authJson.auth_mode } : {}),
 		},
 	};
+}
+
+export function loadOpenAICodexHomeCredentialsSync(
+	options?: OpenAICodexHomeCredentialsOptions,
+): OAuthCredentials | null {
+	for (const codexHome of resolveCodexHomePathCandidates(options)) {
+		const credentials = loadOpenAICodexHomeCredentialsFromPathSync(
+			codexHome,
+			options,
+		);
+		if (credentials) {
+			return credentials;
+		}
+	}
+	return null;
 }
 
 export async function loginOpenAICodex(options: {

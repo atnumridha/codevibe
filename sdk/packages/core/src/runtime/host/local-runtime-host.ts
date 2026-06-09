@@ -1621,6 +1621,7 @@ export class LocalRuntimeHost implements RuntimeHost {
 			resolved = await this.oauthTokenManager.resolveProviderApiKey({
 				providerId: session.config.providerId,
 				forceRefresh: options?.forceRefresh,
+				workspaceRoots: [resolveWorkspacePath(session.config)],
 			});
 		} catch (error) {
 			if (error instanceof OAuthReauthRequiredError) {

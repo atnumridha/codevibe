@@ -4003,6 +4003,8 @@ describe("LocalRuntimeHost", () => {
 					updateConnectionDefaults,
 				},
 				teamRuntime: {
+					getTeamId: vi.fn().mockReturnValue("team-codevibe"),
+					getTeamName: vi.fn().mockReturnValue("CodeVibe"),
 					updateTeammateConnections,
 				},
 				shutdown: vi.fn(),
@@ -4593,10 +4595,12 @@ describe("LocalRuntimeHost", () => {
 		expect(resolveProviderApiKey).toHaveBeenNthCalledWith(1, {
 			providerId: "openai-codex",
 			forceRefresh: undefined,
+			workspaceRoots: ["/tmp/project"],
 		});
 		expect(resolveProviderApiKey).toHaveBeenNthCalledWith(2, {
 			providerId: "openai-codex",
 			forceRefresh: true,
+			workspaceRoots: ["/tmp/project"],
 		});
 		const expectedRetryRefresh = {
 			apiKey: "oauth-access-new",

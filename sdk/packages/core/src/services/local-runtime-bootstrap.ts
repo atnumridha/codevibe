@@ -187,12 +187,15 @@ function buildProviderConfig(
 	defaultFetch?: typeof fetch,
 ): ProviderConfig {
 	const stored = providerSettingsManager.getProviderSettings(config.providerId);
+	const workspaceRoot = resolveWorkspacePath(config);
 	const codexHomeCredentials =
 		config.providerId === "openai-codex" &&
 		!(config.apiKey ?? stored?.auth?.accessToken ?? stored?.apiKey)
 			? (() => {
 					try {
-						return loadOpenAICodexHomeCredentialsSync();
+						return loadOpenAICodexHomeCredentialsSync({
+							workspaceRoots: [workspaceRoot],
+						});
 					} catch (error) {
 						const message = error instanceof Error ? error.message : String(error);
 						config.logger?.log?.(

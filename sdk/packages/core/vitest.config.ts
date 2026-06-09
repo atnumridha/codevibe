@@ -8,6 +8,7 @@ const sharedSrc = resolve(packageRoot, "../shared/src");
 export default defineConfig({
 	resolve: {
 		alias: [
+			{ find: "@cline/shared/db", replacement: resolve(sharedSrc, "db/index.ts") },
 			{ find: "@cline/shared/storage", replacement: resolve(sharedSrc, "storage/index.ts") },
 			{ find: "@cline/shared", replacement: resolve(sharedSrc, "index.ts") },
 		],
