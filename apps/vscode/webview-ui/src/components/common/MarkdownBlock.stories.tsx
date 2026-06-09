@@ -125,11 +125,11 @@ export const WithLinks: Story = {
 	args: {
 		markdown: `Check out these resources:
 
-- Official documentation: https://github.com/cline/cline
-- API reference: https://api.cline.bot/docs
-- Support forum: https://community.cline.bot
+- Official documentation: https://github.com/atnumridha/codevibe
+- API reference: https://codevibe.local/docs
+- Support forum: https://codevibe.local/community
 
-You can also visit our website at https://cline.bot for more information.`,
+You can also visit our website at https://codevibe.local for more information.`,
 		compact: false,
 		showCursor: false,
 	},

@@ -93,13 +93,18 @@ const patchLayers = [
 const codeVibeOverlayFiles = [
 	"apps/vscode/package.json",
 	"apps/vscode/scripts/package-github-vsix.mjs",
+	"apps/vscode/scripts/release-github-vsix.mjs",
 	"apps/vscode/src/package/brandGuards.ts",
+	"apps/vscode/src/core/api/providers/openai-codex.ts",
 	"apps/vscode/src/services/auth",
 	"apps/vscode/src/hosts",
+	"apps/vscode/src/extension.ts",
 	"apps/vscode/webview-ui/src/components/home",
 	"apps/vscode/webview-ui/src/components/common/CodeVibeMark.tsx",
 	"apps/vscode/webview-ui/src/context/ExtensionStateContext.tsx",
 	"apps/vscode/assets",
+	"apps/vscode/agents/00-codevibe-agent.agent.md",
+	"apps/vscode/walkthrough",
 ]
 
 const brandGuardCommands = [
@@ -107,6 +112,82 @@ const brandGuardCommands = [
 	"npm --prefix apps/vscode run build:webview",
 	"npm --prefix apps/vscode run lint",
 	"git diff --check",
+]
+
+const finalValidationCommands = [
+	"npm --prefix apps/vscode run check-types",
+	"npm --prefix apps/vscode run test:unit -- --grep \"Codex|Cursor|Package manifest|Telemetry\"",
+	"node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install",
+]
+
+const githubReleaseValidationCommands = [
+	"npm --prefix apps/vscode run release:preflight:release -- --candidate",
+]
+
+const overlayRiskRules = [
+	{
+		name: "codex-auth-defaults",
+		severity: "critical",
+		paths: [
+			"apps/vscode/src/core/api",
+			"apps/vscode/src/services/auth",
+			"apps/vscode/src/core/storage/state-migrations.ts",
+			"apps/vscode/src/shared/api.ts",
+		],
+		reason: "Preserve OpenAI Codex as the default provider and keep .codex/auth.json import behavior intact.",
+	},
+	{
+		name: "native-agent-placement",
+		severity: "critical",
+		paths: [
+			"apps/vscode/package.json",
+			"apps/vscode/src/hosts",
+			"apps/vscode/src/extension.ts",
+			"apps/vscode/agents/00-codevibe-agent.agent.md",
+		],
+		reason: "Keep CodeVibe's agent contribution before Copilot-style agents and avoid reintroducing orphaned view containers.",
+	},
+	{
+		name: "visible-branding-and-ui",
+		severity: "high",
+		paths: [
+			"apps/vscode/package.json",
+			"apps/vscode/README.md",
+			"apps/vscode/assets",
+			"apps/vscode/walkthrough",
+			"apps/vscode/webview-ui/src",
+		],
+		reason: "Do not regress CodeVibe look, icons, marketplace copy, or visible UI text back to upstream branding.",
+	},
+	{
+		name: "release-and-package-guards",
+		severity: "high",
+		paths: [
+			"apps/vscode/scripts/package-github-vsix.mjs",
+			"apps/vscode/scripts/release-github-vsix.mjs",
+			"apps/vscode/scripts/check-local-release-prereqs.mjs",
+			"apps/vscode/scripts/assert-cursor-parity-release-gate.mjs",
+		],
+		reason: "Keep VSIX packaging, install smoke tests, release gates, and visible-brand scans enforced.",
+	},
+	{
+		name: "standalone-ui-bridge",
+		severity: "high",
+		paths: ["apps/cline-hub", "apps/vscode/src/standalone", "apps/vscode/src/hosts/standalone"],
+		reason: "Preserve the non-VS-Code runtime path for the upcoming CodeVibe standalone UI.",
+	},
+	{
+		name: "cursor-compatibility-surfaces",
+		severity: "medium",
+		paths: [
+			"apps/vscode/src/services/uri",
+			"apps/vscode/src/services/browser",
+			"apps/vscode/src/core/controller/background-agent",
+			"apps/vscode/src/core/context/instructions",
+			"apps/vscode/src/core/task/tools/autoApprove.ts",
+		],
+		reason: "Keep Cursor-compatible routes, background agents, browser tooling, rules, ignores, and sandbox policy working.",
+	},
 ]
 
 function printHelp() {
@@ -285,6 +366,47 @@ function countLayerHits(changedFiles) {
 	}))
 }
 
+function pathMatches(filePath, candidatePath) {
+	return filePath === candidatePath || filePath.startsWith(`${candidatePath}/`)
+}
+
+function findOverlayRisks(changedFiles) {
+	return overlayRiskRules
+		.map((rule) => {
+			const changedFilesForRule = changedFiles
+				.filter((file) => rule.paths.some((rulePath) => pathMatches(file.path, rulePath)))
+				.slice(0, 80)
+			return {
+				name: rule.name,
+				severity: rule.severity,
+				reason: rule.reason,
+				paths: rule.paths,
+				changedFiles: changedFilesForRule,
+				changedFileCount: changedFilesForRule.length,
+				reviewRequired: changedFilesForRule.length > 0,
+			}
+		})
+		.sort((a, b) => {
+			const severityRank = { critical: 0, high: 1, medium: 2, low: 3 }
+			return (severityRank[a.severity] ?? 99) - (severityRank[b.severity] ?? 99) || b.changedFileCount - a.changedFileCount
+		})
+}
+
+function summarizeOverlayRisks(overlayRiskPlan) {
+	const activeRisks = overlayRiskPlan.filter((risk) => risk.reviewRequired)
+	return {
+		reviewRequired: activeRisks.length > 0,
+		activeRiskCount: activeRisks.length,
+		criticalRiskCount: activeRisks.filter((risk) => risk.severity === "critical").length,
+		highRiskCount: activeRisks.filter((risk) => risk.severity === "high").length,
+		activeRisks: activeRisks.map((risk) => ({
+			name: risk.name,
+			severity: risk.severity,
+			changedFileCount: risk.changedFileCount,
+		})),
+	}
+}
+
 function exportPatch(options, upstream) {
 	if (!upstream.commit) {
 		return null
@@ -310,6 +432,7 @@ function buildReport(options, dirtyFiles, upstream, exportedPatch) {
 	const baseCommit = mustGit(["rev-parse", "--verify", `${options.baseRef}^{commit}`])
 	const mergeBase = upstream.commit ? git(["merge-base", baseCommit, upstream.commit]) : { ok: false, stdout: "" }
 	const changedFiles = upstream.commit && mergeBase.ok ? listChangedFiles(mergeBase.stdout.trim(), upstream.commit) : []
+	const overlayRiskPlan = findOverlayRisks(changedFiles)
 
 	return {
 		generatedAt: new Date().toISOString(),
@@ -331,16 +454,22 @@ function buildReport(options, dirtyFiles, upstream, exportedPatch) {
 		exportedPatchPath: exportedPatch?.path ?? null,
 		exportedPatchBase: exportedPatch?.base ?? null,
 		layerPlan: countLayerHits(changedFiles),
+		overlayRiskSummary: summarizeOverlayRisks(overlayRiskPlan),
+		overlayRiskPlan,
 		changedFileCount: changedFiles.length,
 		changedFiles: changedFiles.slice(0, 200),
 		codeVibeOverlayFiles,
 		brandGuardCommands,
+		finalValidationCommands,
+		githubReleaseValidationCommands,
 		recommendedCommands: [
 			`npm --prefix apps/vscode run upstream:cline:plan -- --fetch --upstream-ref ${options.upstreamRef} --write-report`,
 			`git switch -c codex/cline-upstream-${options.upstreamRef.replace(/[^a-zA-Z0-9._-]+/g, "-")}`,
 			"Apply one layer at a time from the generated report or patch file.",
 			"Re-apply or preserve the CodeVibe overlay files listed in the report before packaging.",
 			...brandGuardCommands,
+			...finalValidationCommands,
+			...githubReleaseValidationCommands,
 		],
 	}
 }
@@ -366,6 +495,21 @@ function printReadableReport(report, reportPath) {
 	if (reportPath) {
 		console.log(`Report: ${reportPath}`)
 	}
+	console.log("\nCodeVibe overlay risk summary:")
+	if (!report.overlayRiskSummary.reviewRequired) {
+		console.log("- No overlay collisions detected from the available upstream diff.")
+	} else {
+		console.log(
+			`- Review required for ${report.overlayRiskSummary.activeRiskCount} overlay area(s), including ${report.overlayRiskSummary.criticalRiskCount} critical area(s).`,
+		)
+		for (const risk of report.overlayRiskPlan.filter((item) => item.reviewRequired).slice(0, 6)) {
+			console.log(`- ${risk.severity}: ${risk.name} (${risk.changedFileCount} changed file(s))`)
+			console.log(`  ${risk.reason}`)
+			for (const file of risk.changedFiles.slice(0, 6)) {
+				console.log(`  ${file.status} ${file.path}`)
+			}
+		}
+	}
 	console.log("\nPatch layers:")
 	for (const layer of report.layerPlan) {
 		console.log(`- ${layer.name}: ${layer.changedFiles.length} sampled changed file(s)`)
@@ -379,6 +523,14 @@ function printReadableReport(report, reportPath) {
 	}
 	console.log("\nRequired guard commands after each applied layer:")
 	for (const command of report.brandGuardCommands) {
+		console.log(`- ${command}`)
+	}
+	console.log("\nFinal validation before a VSIX or GitHub release:")
+	for (const command of report.finalValidationCommands) {
+		console.log(`- ${command}`)
+	}
+	console.log("\nGitHub release prerequisite check:")
+	for (const command of report.githubReleaseValidationCommands) {
 		console.log(`- ${command}`)
 	}
 	if (!report.upstream.commit) {
