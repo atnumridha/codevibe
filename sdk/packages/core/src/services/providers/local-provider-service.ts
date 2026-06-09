@@ -14,6 +14,7 @@ import {
 import { createOAuthClientCallbacks } from "../../auth/client";
 import { loginClineOAuth } from "../../auth/cline";
 import {
+	loadOpenAICodexHomeCredentialsSync,
 	loginOpenAICodex,
 	OPENAI_CODEX_ORIGINATOR,
 } from "../../auth/codex";
@@ -40,6 +41,9 @@ import {
 } from "./model-source";
 
 export { ensureCustomProvidersLoaded } from "./local-provider-registry";
+
+const CODEVIBE_AGENT_PROVIDER_ID = "openai-codex";
+const CODEVIBE_DEFAULT_MODEL_ID = "gpt-5.5";
 
 export interface UpdateLocalProviderRequest {
 	providerId: string;
@@ -108,10 +112,19 @@ function stableColor(id: string): string {
 
 function toSortedProviderModels(
 	modelMap: Record<string, ModelInfo>,
+	providerId?: string,
 ): ProviderModel[] {
-	return Object.entries(modelMap)
+	const models = Object.entries(modelMap)
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([modelId, info]) => toProviderModel(modelId, info));
+	if (providerId !== CODEVIBE_AGENT_PROVIDER_ID) {
+		return models;
+	}
+	return models.sort((a, b) => {
+		if (a.id === CODEVIBE_DEFAULT_MODEL_ID) return -1;
+		if (b.id === CODEVIBE_DEFAULT_MODEL_ID) return 1;
+		return a.id.localeCompare(b.id);
+	});
 }
 
 async function resolveProviderModelMap(
@@ -644,6 +657,12 @@ export async function listLocalProviders(
 ): Promise<{ providers: ProviderListItem[]; settingsPath: string }> {
 	const state = manager.read();
 	const ids = LlmsModels.getProviderIds();
+	let hasCodexHomeAuth = false;
+	try {
+		hasCodexHomeAuth = Boolean(loadOpenAICodexHomeCredentialsSync());
+	} catch {
+		hasCodexHomeAuth = false;
+	}
 
 	const providerEntries = await Promise.all(
 		ids.map(
@@ -652,7 +671,7 @@ export async function listLocalProviders(
 					LlmsModels.getProvider(id),
 					LlmsModels.getModelsForProvider(id),
 				]);
-				const modelList = toSortedProviderModels(registeredModels);
+				const modelList = toSortedProviderModels(registeredModels, id);
 				const persistedSettings = state.providers[id]?.settings;
 				const name = info?.name ?? titleCaseFromId(id);
 				const capabilities = resolveProviderCapabilities(
@@ -662,22 +681,29 @@ export async function listLocalProviders(
 				const configFields =
 					readProviderConfigFields(info?.metadata) ??
 					fallbackProviderConfigFields(info);
+				const isCodeVibeAgent = id === CODEVIBE_AGENT_PROVIDER_ID;
 				return {
 					provider: {
 						id,
-						name,
+						name: isCodeVibeAgent ? "CodeVibe Agent" : name,
 						models: modelList.length,
 						color: stableColor(id),
-						letter: createLetter(name),
-						enabled: Boolean(persistedSettings),
+						letter: isCodeVibeAgent ? "CV" : createLetter(name),
+						enabled:
+							Boolean(persistedSettings) ||
+							(isCodeVibeAgent && hasCodexHomeAuth),
 						apiKey: persistedSettings
 							? resolveVisibleApiKey(persistedSettings)
 							: undefined,
-						oauthAccessTokenPresent: persistedSettings
-							? hasOAuthAccessToken(persistedSettings)
-							: undefined,
+						oauthAccessTokenPresent:
+							persistedSettings || isCodeVibeAgent
+								? hasOAuthAccessToken(persistedSettings ?? {}) ||
+									(isCodeVibeAgent && hasCodexHomeAuth)
+								: undefined,
 						baseUrl: persistedSettings?.baseUrl ?? info?.baseUrl,
-						defaultModelId: info?.defaultModelId,
+						defaultModelId: isCodeVibeAgent
+							? CODEVIBE_DEFAULT_MODEL_ID
+							: info?.defaultModelId,
 						protocol: persistedSettings?.protocol ?? info?.protocol,
 						client: persistedSettings?.client ?? info?.client,
 						capabilities,
@@ -698,6 +724,8 @@ export async function listLocalProviders(
 		),
 	);
 	providerEntries.sort((a, b) => {
+		if (a.provider.id === CODEVIBE_AGENT_PROVIDER_ID) return -1;
+		if (b.provider.id === CODEVIBE_AGENT_PROVIDER_ID) return 1;
 		if (a.rank !== b.rank) return a.rank - b.rank;
 		return (
 			a.provider.name.localeCompare(b.provider.name) ||
@@ -715,7 +743,7 @@ export async function getLocalProviderModels(
 ): Promise<{ providerId: string; models: ProviderModel[] }> {
 	const id = providerId.trim();
 	const modelMap = await resolveProviderModelMap(id, config);
-	const models = toSortedProviderModels(modelMap);
+	const models = toSortedProviderModels(modelMap, id);
 	return { providerId: id, models };
 }
 

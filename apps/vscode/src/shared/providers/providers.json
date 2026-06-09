@@ -1,12 +1,12 @@
 {
 	"list": [
 		{
-			"value": "cline",
-			"label": "CodeVibe"
+			"value": "openai-codex",
+			"label": "CodeVibe Agent"
 		},
 		{
-			"value": "openai-codex",
-			"label": "ChatGPT Subscription"
+			"value": "cline",
+			"label": "CodeVibe Cloud"
 		},
 		{
 			"value": "gemini",
@@ -26,7 +26,7 @@
 		},
 		{
 			"value": "vscode-lm",
-			"label": "GitHub Copilot"
+			"label": "VS Code Language Models"
 		},
 		{
 			"value": "deepseek",
