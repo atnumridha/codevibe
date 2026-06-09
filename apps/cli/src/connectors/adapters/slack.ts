@@ -5,6 +5,7 @@ import {
 	HubSessionClient,
 } from "@cline/core";
 import type { ConnectSlackOptions, SlackConnectorState } from "@cline/shared";
+import { readCodeVibeEnv } from "@cline/shared";
 import {
 	type Adapter,
 	Chat,
@@ -481,7 +482,7 @@ class SlackConnector extends ConnectorBase<
 			.option(
 				"--rpc-address <host:port>",
 				"RPC address",
-				process.env.CLINE_RPC_ADDRESS?.trim() || resolveDefaultCliRpcAddress(),
+				readCodeVibeEnv("CLINE_RPC_ADDRESS") || resolveDefaultCliRpcAddress(),
 			)
 			.option("--host <host>", "Webhook listen host")
 			.option("--port <port>", "Webhook listen port")
@@ -591,11 +592,11 @@ class SlackConnector extends ConnectorBase<
 			enableTools: Boolean(opts.enableTools),
 			rpcAddress:
 				opts.rpcAddress?.trim() ||
-				process.env.CLINE_RPC_ADDRESS?.trim() ||
+				readCodeVibeEnv("CLINE_RPC_ADDRESS") ||
 				resolveDefaultCliRpcAddress(),
 			hookCommand:
 				opts.hookCommand?.trim() ||
-				process.env.CLINE_CONNECT_HOOK_COMMAND?.trim(),
+				readCodeVibeEnv("CLINE_CONNECT_HOOK_COMMAND"),
 			port,
 			host: opts.host?.trim() || process.env.HOST?.trim() || "0.0.0.0",
 			baseUrl,

@@ -1,4 +1,5 @@
 import type { AgentHooks, HookEventPayload } from "@cline/core";
+import { readCodeVibeEnv } from "@cline/shared";
 import { closeInlineStreamIfNeeded } from "./events";
 import {
 	c,
@@ -120,10 +121,10 @@ function basePayload(
 	options: { cwd: string; workspaceRoot: string },
 ): Omit<HookEventPayload, "hookName"> {
 	const userId =
-		process.env.CLINE_USER_ID?.trim() || process.env.USER?.trim() || "unknown";
+		readCodeVibeEnv("CLINE_USER_ID") || process.env.USER?.trim() || "unknown";
 	const sessionContext = currentHookSessionContext();
 	return {
-		clineVersion: process.env.CLINE_VERSION?.trim() || "",
+		clineVersion: readCodeVibeEnv("CLINE_VERSION") || "",
 		timestamp: new Date().toISOString(),
 		taskId: ctx.conversationId,
 		...(sessionContext ? { sessionContext } : {}),
@@ -191,7 +192,7 @@ export function createRuntimeHooks(options: {
 					cwd,
 					workspaceRoot,
 				});
-				const isResume = process.env.CLINE_HOOK_AGENT_RESUME === "1";
+				const isResume = readCodeVibeEnv("CLINE_HOOK_AGENT_RESUME") === "1";
 				await dispatchHookPayload(
 					isResume
 						? {

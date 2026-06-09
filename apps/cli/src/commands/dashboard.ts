@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { arch, platform } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readCodeVibeEnv } from "@cline/shared";
 import open from "open";
 import { c } from "../utils/output";
 
@@ -106,8 +107,7 @@ function resolveDefaultWebviewDistDir(): string | undefined {
 
 function resolveInstalledPlatformPackageWebviewCandidates(): string[] {
 	const packageNames = resolvePlatformPackageNames();
-	const wrapperPath =
-		process.env.CODEVIBE_WRAPPER_PATH || process.env.CLINE_WRAPPER_PATH;
+	const wrapperPath = readCodeVibeEnv("CLINE_WRAPPER_PATH");
 	const starts = [
 		wrapperPath ? dirname(wrapperPath) : undefined,
 		dirname(process.execPath),

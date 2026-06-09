@@ -7,12 +7,24 @@ import {
 	resolveClineBuildEnv,
 	withResolvedClineBuildEnv,
 } from "./build-env";
+import { codeVibeEnvName } from "./codevibe-env";
 
 describe("build env helpers", () => {
 	it("prefers explicit CLINE_BUILD_ENV", () => {
 		expect(
 			resolveClineBuildEnv({
 				env: { [CLINE_BUILD_ENV_ENV]: "development", NODE_ENV: "production" },
+			}),
+		).toBe("development");
+	});
+
+	it("prefers CODEVIBE_BUILD_ENV over legacy CLINE_BUILD_ENV", () => {
+		expect(
+			resolveClineBuildEnv({
+				env: {
+					[codeVibeEnvName(CLINE_BUILD_ENV_ENV)]: "development",
+					[CLINE_BUILD_ENV_ENV]: "production",
+				},
 			}),
 		).toBe("development");
 	});
@@ -49,11 +61,12 @@ describe("build env helpers", () => {
 	});
 
 	it("materializes CLINE_BUILD_ENV when absent", () => {
-		expect(
-			withResolvedClineBuildEnv({ NODE_ENV: "development" }, { execArgv: [] })[
-				CLINE_BUILD_ENV_ENV
-			],
-		).toBe("development");
+		const resolved = withResolvedClineBuildEnv(
+			{ NODE_ENV: "development" },
+			{ execArgv: [] },
+		);
+		expect(resolved[codeVibeEnvName(CLINE_BUILD_ENV_ENV)]).toBe("development");
+		expect(resolved[CLINE_BUILD_ENV_ENV]).toBe("development");
 	});
 
 	it("adds dynamic inspect and source maps for node commands in development", () => {
@@ -83,6 +96,26 @@ describe("build env helpers", () => {
 		).toEqual([
 			"node",
 			"--inspect=0.0.0.0:9502",
+			"--enable-source-maps",
+			"script.js",
+		]);
+	});
+
+	it("prefers CodeVibe debug host and base port over legacy values", () => {
+		expect(
+			augmentNodeCommandForDebug(["node", "script.js"], {
+				env: {
+					[CLINE_BUILD_ENV_ENV]: "development",
+					[codeVibeEnvName(CLINE_DEBUG_HOST_ENV)]: "0.0.0.0",
+					[CLINE_DEBUG_HOST_ENV]: "127.0.0.1",
+					[codeVibeEnvName(CLINE_DEBUG_PORT_BASE_ENV)]: "9600",
+					[CLINE_DEBUG_PORT_BASE_ENV]: "9500",
+				},
+				debugRole: "hook",
+			}),
+		).toEqual([
+			"node",
+			"--inspect=0.0.0.0:9601",
 			"--enable-source-maps",
 			"script.js",
 		]);

@@ -1,6 +1,7 @@
 import {
 	CLINE_HUB_DEV_PORT,
 	CLINE_HUB_PORT,
+	readCodeVibeEnv,
 	resolveClineBuildEnv,
 } from "@cline/shared";
 
@@ -33,14 +34,14 @@ export function resolveDefaultHubHost(
 	options: ResolveHubDefaultsOptions = {},
 ): string {
 	const env = options.env ?? process.env;
-	return env[HUB_HOST_ENV]?.trim() || DEFAULT_HUB_HOST;
+	return readCodeVibeEnv(HUB_HOST_ENV, env) || DEFAULT_HUB_HOST;
 }
 
 export function resolveDefaultHubPort(
 	options: ResolveHubDefaultsOptions = {},
 ): number {
 	const env = options.env ?? process.env;
-	const raw = env[HUB_PORT_ENV]?.trim();
+	const raw = readCodeVibeEnv(HUB_PORT_ENV, env);
 	if (!raw) {
 		return fallbackHubPort(options);
 	}
@@ -55,7 +56,7 @@ export function resolveDefaultHubPathname(
 	options: ResolveHubDefaultsOptions = {},
 ): string {
 	const env = options.env ?? process.env;
-	return env[HUB_PATHNAME_ENV]?.trim() || DEFAULT_HUB_PATHNAME;
+	return readCodeVibeEnv(HUB_PATHNAME_ENV, env) || DEFAULT_HUB_PATHNAME;
 }
 
 export function resolveHubEndpointOptions(

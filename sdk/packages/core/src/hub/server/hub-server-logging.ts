@@ -1,3 +1,5 @@
+import { readCodeVibeEnv } from "@cline/shared";
+
 function serializeLogValue(value: unknown): unknown {
 	if (value instanceof Error) {
 		return {
@@ -23,7 +25,7 @@ const LOG_LEVEL_PRIORITY: Record<HubLogLevel, number> = {
 };
 
 function resolveHubLogLevel(): HubLogLevel {
-	const configured = process.env.CLINE_HUB_LOG_LEVEL?.trim().toLowerCase();
+	const configured = readCodeVibeEnv("CLINE_HUB_LOG_LEVEL")?.toLowerCase();
 	if (
 		configured === "debug" ||
 		configured === "info" ||

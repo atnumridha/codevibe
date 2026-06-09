@@ -21,6 +21,7 @@ import {
 	resolve,
 	sep,
 } from "node:path";
+import { readCodeVibeEnv } from "@cline/shared";
 import {
 	isPluginModulePath,
 	resolveClineDir,
@@ -1022,7 +1023,7 @@ export async function installPlugin(
 		`${Date.now()}-${process.pid}-${hashSource(`${source}:${Math.random()}`)}`,
 	);
 	const npmCommand =
-		options.npmCommand ?? (process.env.CLINE_NPM_COMMAND?.trim() || "npm");
+		options.npmCommand ?? (readCodeVibeEnv("CLINE_NPM_COMMAND") || "npm");
 
 	const force = options.force === true;
 	assertCanInstall(installPath, force);

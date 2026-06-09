@@ -1,4 +1,4 @@
-import { captureSdkError } from "@cline/shared";
+import { captureSdkError, readCodeVibeEnv } from "@cline/shared";
 import type { ClineCoreOptions } from "../../cline-core/types";
 import {
 	ensureCompatibleLocalHubUrl,
@@ -20,10 +20,10 @@ function resolveConfiguredBackendMode(
 	if (options.backendMode) {
 		return options.backendMode;
 	}
-	if (process.env.CLINE_VCR?.trim()) {
+	if (readCodeVibeEnv("CLINE_VCR")) {
 		return "local";
 	}
-	const raw = process.env.CLINE_SESSION_BACKEND_MODE?.trim().toLowerCase();
+	const raw = readCodeVibeEnv("CLINE_SESSION_BACKEND_MODE")?.toLowerCase();
 	if (raw === "local" || raw === "hub" || raw === "remote") {
 		return raw;
 	}

@@ -1,6 +1,10 @@
 import { getCurrentContextSize, summarizeUsageFromMessages } from "@cline/core";
 import type { Message } from "@cline/shared";
-import { formatDisplayUserInput, truncateStr } from "@cline/shared";
+import {
+	formatDisplayUserInput,
+	readCodeVibeEnv,
+	truncateStr,
+} from "@cline/shared";
 import type { KeyEvent } from "@opentui/core";
 import { useRenderer, useTerminalDimensions } from "@opentui/react";
 import type { ChoiceContext } from "@opentui-ui/dialog";
@@ -80,7 +84,7 @@ function App(props: TuiProps) {
 		string | null
 	>(null);
 	const [appView, setAppView] = useState<AppView>(() => {
-		if (process.env.CLINE_FORCE_ONBOARDING === "1") return "onboarding";
+		if (readCodeVibeEnv("CLINE_FORCE_ONBOARDING") === "1") return "onboarding";
 		if (!isProviderConfigured(props.config)) return "onboarding";
 		return props.initialView === "chat" || session.entries.length > 0
 			? "chat"

@@ -1,11 +1,11 @@
 import { AgentRuntimeAbortError } from "@cline/agents";
-import { initVcr } from "@cline/shared";
+import { initVcr, readCodeVibeEnv } from "@cline/shared";
 import { createLocalHubScheduleRuntimeHandlers } from "../daemon/runtime-handlers";
 import { resolveHubEndpointOptions } from "../discovery/defaults";
 import { resolveSharedHubOwnerContext } from "../discovery/workspace";
 import { startHubWebSocketServer } from "../server";
 
-initVcr(process.env.CLINE_VCR);
+initVcr(readCodeVibeEnv("CLINE_VCR"));
 
 function parseArgs(argv: string[]): {
 	cwd: string;

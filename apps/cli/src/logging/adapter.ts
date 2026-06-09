@@ -9,7 +9,7 @@ import {
 import { dirname, join } from "node:path";
 import type { BasicLogger, RuntimeLoggerConfig } from "@cline/core";
 import { resolveClineDataDir } from "@cline/core";
-import { registerDisposable } from "@cline/shared";
+import { readCodeVibeEnv, registerDisposable } from "@cline/shared";
 import pino, {
 	type DestinationStream,
 	type LevelWithSilent,
@@ -65,18 +65,20 @@ function normalizeRuntimeConfig(input: {
 		"logs",
 		`${getCliBuildInfo().name}.log`,
 	);
-	const enabledEnv = process.env.CLINE_LOG_ENABLED?.trim();
+	const enabledEnv = readCodeVibeEnv("CLINE_LOG_ENABLED");
 	const enabled =
 		base?.enabled ??
 		!(enabledEnv === "0" || enabledEnv?.toLowerCase() === "false");
-	const level = normalizeLogLevel(base?.level ?? process.env.CLINE_LOG_LEVEL);
+	const level = normalizeLogLevel(
+		base?.level ?? readCodeVibeEnv("CLINE_LOG_LEVEL"),
+	);
 	const destination =
 		base?.destination?.trim() ||
-		process.env.CLINE_LOG_PATH?.trim() ||
+		readCodeVibeEnv("CLINE_LOG_PATH") ||
 		defaultDestination;
 	const name =
 		base?.name?.trim() ||
-		process.env.CLINE_LOG_NAME?.trim() ||
+		readCodeVibeEnv("CLINE_LOG_NAME") ||
 		`${getCliBuildInfo().name}.${input.runtime}`;
 	const bindings = base?.bindings ?? {};
 

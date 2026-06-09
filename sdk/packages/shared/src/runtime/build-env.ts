@@ -1,4 +1,5 @@
 import { basename } from "node:path";
+import { codeVibeEnvName, readCodeVibeEnv } from "./codevibe-env";
 
 export const CLINE_BUILD_ENV_ENV = "CLINE_BUILD_ENV";
 export const CLINE_DEBUG_HOST_ENV = "CLINE_DEBUG_HOST";
@@ -82,11 +83,11 @@ function hasSourceMapFlag(values: string[]): boolean {
 }
 
 function resolveDebugHost(env: NodeJS.ProcessEnv): string {
-	return env[CLINE_DEBUG_HOST_ENV]?.trim() || "127.0.0.1";
+	return readCodeVibeEnv(CLINE_DEBUG_HOST_ENV, env) || "127.0.0.1";
 }
 
 function resolveDebugPortBase(env: NodeJS.ProcessEnv): number | undefined {
-	const raw = env[CLINE_DEBUG_PORT_BASE_ENV]?.trim();
+	const raw = readCodeVibeEnv(CLINE_DEBUG_PORT_BASE_ENV, env);
 	if (!raw) {
 		return undefined;
 	}
@@ -117,7 +118,7 @@ export function resolveClineBuildEnv(
 	const env = options.env ?? process.env;
 	const execArgv = options.execArgv ?? process.execArgv;
 
-	const explicit = normalizeBuildEnv(env[CLINE_BUILD_ENV_ENV]);
+	const explicit = normalizeBuildEnv(readCodeVibeEnv(CLINE_BUILD_ENV_ENV, env));
 	if (explicit) {
 		return explicit;
 	}
@@ -137,15 +138,17 @@ export function withResolvedClineBuildEnv(
 	env: NodeJS.ProcessEnv = process.env,
 	options: Omit<ResolveClineBuildEnvOptions, "env"> = {},
 ): NodeJS.ProcessEnv {
-	if (normalizeBuildEnv(env[CLINE_BUILD_ENV_ENV])) {
+	if (normalizeBuildEnv(readCodeVibeEnv(CLINE_BUILD_ENV_ENV, env))) {
 		return env;
 	}
+	const resolved = resolveClineBuildEnv({
+		env,
+		execArgv: options.execArgv,
+	});
 	return {
 		...env,
-		[CLINE_BUILD_ENV_ENV]: resolveClineBuildEnv({
-			env,
-			execArgv: options.execArgv,
-		}),
+		[codeVibeEnvName(CLINE_BUILD_ENV_ENV)]: resolved,
+		[CLINE_BUILD_ENV_ENV]: resolved,
 	};
 }
 

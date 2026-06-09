@@ -8,6 +8,7 @@ import {
 import { dirname, join } from "node:path";
 import type * as LlmsProviders from "@cline/llms";
 import type { BasicLogger } from "@cline/shared";
+import { readCodeVibeEnv } from "@cline/shared";
 import { ensureHookLogDir } from "@cline/shared/storage";
 import { nowIso, SessionArtifacts } from "../../services/session-artifacts";
 import {
@@ -142,7 +143,7 @@ export class SessionManifestStore {
 		reason: string,
 		source: string,
 	): void {
-		const envPath = process.env.CLINE_HOOKS_LOG_PATH?.trim() || undefined;
+		const envPath = readCodeVibeEnv("CLINE_HOOKS_LOG_PATH");
 		const logPath = envPath ?? join(ensureHookLogDir(), "hooks.jsonl");
 		appendFileSync(
 			logPath,

@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { basename } from "node:path";
 import type { ToolPolicy } from "@cline/core";
 
-import { registerDisposable } from "@cline/shared";
+import { readCodeVibeEnv, registerDisposable } from "@cline/shared";
 import type { Command } from "commander";
 import {
 	CommanderError,
@@ -790,6 +790,7 @@ export async function runCli(): Promise<void> {
 			return;
 		}
 		resumeSessionId = sessionId;
+		process.env.CODEVIBE_HOOK_AGENT_RESUME = "1";
 		process.env.CLINE_HOOK_AGENT_RESUME = "1";
 		args = {
 			...args,
@@ -797,6 +798,7 @@ export async function runCli(): Promise<void> {
 			prompt: undefined,
 		};
 	} else {
+		delete process.env.CODEVIBE_HOOK_AGENT_RESUME;
 		delete process.env.CLINE_HOOK_AGENT_RESUME;
 	}
 	if (launchConfigView) {
@@ -841,7 +843,9 @@ export async function runCli(): Promise<void> {
 		);
 	}
 	if (args.hooksDir?.trim()) {
-		process.env.CLINE_HOOKS_DIR = args.hooksDir.trim();
+		const hooksDir = args.hooksDir.trim();
+		process.env.CODEVIBE_HOOKS_DIR = hooksDir;
+		process.env.CLINE_HOOKS_DIR = hooksDir;
 	}
 	setCurrentOutputMode(args.outputMode);
 	const defaultToolAutoApprove = true;
@@ -929,7 +933,7 @@ export async function runCli(): Promise<void> {
 	} = await loadCliRuntimeModules();
 	const cursorSandboxPolicy = await resolveCursorSandboxPolicy({
 		workspaceRoot,
-		policySetting: process.env.CLINE_CURSOR_SANDBOX_POLICY?.trim() || "prompt",
+		policySetting: readCodeVibeEnv("CLINE_CURSOR_SANDBOX_POLICY") || "prompt",
 		logger: {
 			warn: (message: string) => {
 				if (args.outputMode !== "json") {

@@ -2,7 +2,7 @@ import { appendFileSync } from "node:fs";
 import { join } from "node:path";
 import type * as LlmsProviders from "@cline/llms";
 import type { AgentResult } from "@cline/shared";
-import { resolveRootSessionId } from "@cline/shared";
+import { readCodeVibeEnv, resolveRootSessionId } from "@cline/shared";
 import { ensureHookLogDir } from "@cline/shared/storage";
 import { z } from "zod";
 import type {
@@ -406,7 +406,7 @@ export class TeamChildSessionManager {
 	}
 
 	appendSubagentHookAudit(event: HookEventPayload): void {
-		const envPath = process.env.CLINE_HOOKS_LOG_PATH?.trim() || undefined;
+		const envPath = readCodeVibeEnv("CLINE_HOOKS_LOG_PATH");
 		const logPath = envPath ?? join(ensureHookLogDir(), "hooks.jsonl");
 		appendFileSync(
 			logPath,

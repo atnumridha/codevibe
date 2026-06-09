@@ -8,6 +8,7 @@ import type {
 	ConnectTelegramOptions,
 	TelegramConnectorState,
 } from "@cline/shared";
+import { readCodeVibeEnv } from "@cline/shared";
 import { Chat, ConsoleLogger, type Thread } from "chat";
 import type { Command } from "commander";
 import type { CliLoggerAdapter } from "../../logging/adapter";
@@ -443,7 +444,7 @@ class TelegramConnector extends ConnectorBase<
 			.option(
 				"--rpc-address <host:port>",
 				"RPC address",
-				process.env.CLINE_RPC_ADDRESS?.trim() || resolveDefaultCliRpcAddress(),
+				readCodeVibeEnv("CLINE_RPC_ADDRESS") || resolveDefaultCliRpcAddress(),
 			)
 			.addHelpText(
 				"after",
@@ -486,8 +487,7 @@ class TelegramConnector extends ConnectorBase<
 			throw new Error("connect telegram requires -k/--bot-token <token>");
 		}
 		const hookCommand =
-			opts.hookCommand?.trim() ||
-			process.env.CLINE_CONNECT_HOOK_COMMAND?.trim();
+			opts.hookCommand?.trim() || readCodeVibeEnv("CLINE_CONNECT_HOOK_COMMAND");
 		const allowedUserId = opts.allowedUserId?.trim();
 		if (hookCommand && allowedUserId) {
 			throw new Error(
@@ -507,7 +507,7 @@ class TelegramConnector extends ConnectorBase<
 			enableTools: opts.tools !== false,
 			rpcAddress:
 				opts.rpcAddress?.trim() ||
-				process.env.CLINE_RPC_ADDRESS?.trim() ||
+				readCodeVibeEnv("CLINE_RPC_ADDRESS") ||
 				resolveDefaultCliRpcAddress(),
 			hookCommand: allowedUserId
 				? buildTelegramAllowedUserHookCommand(
@@ -612,7 +612,7 @@ class TelegramConnector extends ConnectorBase<
 		if (
 			!inputOptions.botUsername &&
 			!inputOptions.interactive &&
-			process.env.CLINE_TELEGRAM_CONNECT_CHILD !== "1"
+			readCodeVibeEnv("CLINE_TELEGRAM_CONNECT_CHILD") !== "1"
 		) {
 			const runningState = this.findRunningConnectorStateByBotId(
 				readTelegramBotId(inputOptions.botToken),

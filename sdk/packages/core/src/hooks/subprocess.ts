@@ -22,6 +22,7 @@ import {
 	type PreToolUseData,
 	type PromptSubmitHookPayload,
 	parseHookEventPayload,
+	readCodeVibeEnv,
 	resolveHookSessionContext,
 	type SessionShutdownHookPayload,
 	type TaskCancelData,
@@ -221,10 +222,11 @@ function basePayload(
 	options: SubprocessHooksOptions,
 ): HookEventPayloadBase {
 	const env = options.env ?? process.env;
-	const userId = env.CLINE_USER_ID?.trim() || env.USER?.trim() || "unknown";
+	const userId =
+		readCodeVibeEnv("CLINE_USER_ID", env) || env.USER?.trim() || "unknown";
 	const workspaceRoot = options.cwd || process.cwd();
 	return {
-		clineVersion: env.CLINE_VERSION?.trim() || "",
+		clineVersion: readCodeVibeEnv("CLINE_VERSION", env) || "",
 		hookName,
 		timestamp: new Date().toISOString(),
 		taskId: ctx.conversationId,
@@ -332,7 +334,8 @@ export function createSubprocessHooks(
 	): Promise<undefined> => {
 		const base = runtimeBase(ctx);
 		const isResume =
-			(options.env ?? process.env).CLINE_HOOK_AGENT_RESUME === "1";
+			readCodeVibeEnv("CLINE_HOOK_AGENT_RESUME", options.env ?? process.env) ===
+			"1";
 		if (isResume) {
 			const resumePayload: AgentResumeHookPayload = {
 				...basePayload("agent_resume", base, options),

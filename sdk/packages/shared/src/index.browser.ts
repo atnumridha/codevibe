@@ -285,6 +285,12 @@ export {
 	getClineEnvironmentConfig,
 	resolveClineEnvironment,
 } from "./runtime/cline-environment";
+export {
+	codeVibeEnvName,
+	isCodeVibeEnvEnabled,
+	legacyClineEnvName,
+	readCodeVibeEnv,
+} from "./runtime/codevibe-env";
 export type {
 	CaptureSdkErrorInput,
 	ITelemetryService,

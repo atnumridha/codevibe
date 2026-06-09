@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import net from "node:net";
 import { URL } from "node:url";
+import { readCodeVibeEnv } from "@cline/shared";
 import { WebSocketServer } from "ws";
 import corePackage from "../../../package.json";
 import { rememberRecoverableLocalHubUrl, verifyHubConnection } from "../client";
@@ -478,7 +479,7 @@ export async function ensureHubWebSocketServer(
 		options.host !== undefined ||
 		options.port !== undefined ||
 		options.pathname !== undefined ||
-		!!process.env.CLINE_HUB_PORT?.trim();
+		!!readCodeVibeEnv("CLINE_HUB_PORT");
 	const host = options.host ?? "127.0.0.1";
 	const port = options.port ?? resolveDefaultHubPort();
 	const pathname = options.pathname ?? "/hub";

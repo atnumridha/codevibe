@@ -29,16 +29,17 @@ import {
 	SessionSource,
 } from "@cline/core";
 import type { Message } from "@cline/shared";
+import { readCodeVibeEnv } from "@cline/shared";
 import { getPersistedProviderApiKey } from "../commands/auth";
 import { resolveSystemPrompt } from "../runtime/prompt";
 import { subscribeToAgentEvents } from "../runtime/session-events";
 import { createCliCore } from "../session/session";
 import { getCliBuildInfo } from "../utils/common";
+import { randomSessionId, resolveWorkspaceRoot } from "../utils/helpers";
 import {
 	DEFAULT_CLI_MODEL_ID,
 	DEFAULT_CLI_PROVIDER_ID,
 } from "../utils/provider-auth";
-import { randomSessionId, resolveWorkspaceRoot } from "../utils/helpers";
 import type { Config } from "../utils/types";
 import {
 	ACP_AUTH_METHODS,
@@ -116,7 +117,7 @@ export class AcpAgent implements Agent {
 
 	async newSession(params: NewSessionRequest): Promise<NewSessionResponse> {
 		// Require authentication unless an API key is provided via env var.
-		if (!this.authResult && !process.env.CLINE_API_KEY) {
+		if (!this.authResult && !readCodeVibeEnv("CLINE_API_KEY")) {
 			// Check for valid persisted credentials from a previous session
 			// before forcing the client to re-authenticate.
 			this.authResult = this.tryRestoreAuth();
@@ -132,12 +133,10 @@ export class AcpAgent implements Agent {
 		const sessionId = randomSessionId();
 
 		const defaultMode = "act";
-		const envProvider = process.env.CLINE_PROVIDER?.trim();
-		const envModel = process.env.CLINE_MODEL?.trim();
+		const envProvider = readCodeVibeEnv("CLINE_PROVIDER");
+		const envModel = readCodeVibeEnv("CLINE_MODEL");
 		const providerId =
-			envProvider ||
-			this.authResult?.providerId ||
-			DEFAULT_CLI_PROVIDER_ID;
+			envProvider || this.authResult?.providerId || DEFAULT_CLI_PROVIDER_ID;
 		const defaultModelId = envModel || DEFAULT_CLI_MODEL_ID;
 
 		this.sessions.set(sessionId, {
@@ -315,7 +314,7 @@ export class AcpAgent implements Agent {
 
 		switch (params.configId) {
 			case "provider": {
-				if (process.env.CLINE_PROVIDER) {
+				if (readCodeVibeEnv("CLINE_PROVIDER")) {
 					throw RequestError.invalidParams(
 						undefined,
 						"Cannot change provider: CODEVIBE_PROVIDER/CLINE_PROVIDER environment variable is set",
@@ -520,8 +519,10 @@ export class AcpAgent implements Agent {
 	private async buildConfig(session: SessionState): Promise<Config> {
 		const cwd = session.cwd || process.cwd();
 		// Resolve credentials: env vars take precedence, then session provider.
-		const providerId = process.env.CLINE_PROVIDER ?? session.currentProviderId;
-		const apiKey = process.env.CLINE_API_KEY ?? this.authResult?.apiKey ?? "";
+		const providerId =
+			readCodeVibeEnv("CLINE_PROVIDER") ?? session.currentProviderId;
+		const apiKey =
+			readCodeVibeEnv("CLINE_API_KEY") ?? this.authResult?.apiKey ?? "";
 		const systemPrompt = await resolveSystemPrompt({
 			cwd,
 			providerId,

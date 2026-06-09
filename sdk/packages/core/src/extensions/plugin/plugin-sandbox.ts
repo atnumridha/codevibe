@@ -12,6 +12,7 @@ import type {
 	PluginSetupContext,
 	WorkspaceInfo,
 } from "@cline/shared";
+import { readCodeVibeEnv } from "@cline/shared";
 import { SubprocessSandbox } from "../../runtime/tools/subprocess-sandbox";
 import type { PluginLoadDiagnostics } from "./plugin-load-report";
 import type { PluginTargeting } from "./plugin-targeting";
@@ -135,7 +136,7 @@ function getPlatformPackageNames(): string[] {
 }
 
 function resolveBootstrapFromWrapper(): string | undefined {
-	const wrapperPath = process.env.CLINE_WRAPPER_PATH?.trim();
+	const wrapperPath = readCodeVibeEnv("CLINE_WRAPPER_PATH");
 	if (!wrapperPath) {
 		return undefined;
 	}

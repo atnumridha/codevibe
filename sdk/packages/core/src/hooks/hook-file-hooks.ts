@@ -14,6 +14,7 @@ import {
 	type BasicLogger,
 	type HookControl,
 	type HookSessionContext,
+	readCodeVibeEnv,
 	type WorkspaceInfo,
 	withResolvedClineBuildEnv,
 } from "@cline/shared";
@@ -179,12 +180,12 @@ function createPayloadBase(
 	options: HookRuntimeOptions,
 ): Omit<HookEventPayload, "hookName"> {
 	const userId =
-		process.env.CLINE_USER_ID?.trim() || process.env.USER?.trim() || "unknown";
+		readCodeVibeEnv("CLINE_USER_ID") || process.env.USER?.trim() || "unknown";
 	const sessionContext: HookSessionContext = {
 		rootSessionId: options.rootSessionId || ctx.conversationId,
 	};
 	return {
-		clineVersion: process.env.CLINE_VERSION?.trim() || "",
+		clineVersion: readCodeVibeEnv("CLINE_VERSION") || "",
 		timestamp: new Date().toISOString(),
 		taskId: ctx.conversationId,
 		sessionContext,
@@ -676,7 +677,7 @@ export function createHookAuditHooks(options: {
 			ts: new Date().toISOString(),
 			...payload,
 		})}\n`;
-		const envPath = process.env.CLINE_HOOKS_LOG_PATH?.trim() || undefined;
+		const envPath = readCodeVibeEnv("CLINE_HOOKS_LOG_PATH");
 		const logPath = envPath ?? join(ensureHookLogDir(), "hooks.jsonl");
 		ensureHookLogDir(logPath);
 		appendFileSync(logPath, line, "utf8");
@@ -995,7 +996,7 @@ export function createHookConfigFileHooks(
 		) {
 			hooks.beforeRun = async (ctx: AgentRunLifecycleContext) => {
 				const hookName =
-					process.env.CLINE_HOOK_AGENT_RESUME === "1"
+					readCodeVibeEnv("CLINE_HOOK_AGENT_RESUME") === "1"
 						? "agent_resume"
 						: "agent_start";
 				await runAgentStart(baseContextFromSnapshot(ctx.snapshot), hookName);

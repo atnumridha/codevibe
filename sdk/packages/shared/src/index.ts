@@ -332,6 +332,12 @@ export {
 	resolveClineEnvironment,
 } from "./runtime/cline-environment";
 export {
+	codeVibeEnvName,
+	isCodeVibeEnvEnabled,
+	legacyClineEnvName,
+	readCodeVibeEnv,
+} from "./runtime/codevibe-env";
+export {
 	CLINE_RUN_AS_HUB_DAEMON_ENV,
 	isHubDaemonProcess,
 } from "./runtime/hub-daemon-env";

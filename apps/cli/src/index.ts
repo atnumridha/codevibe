@@ -2,7 +2,12 @@
 
 import "./utils/codevibe-env";
 import { isMainThread } from "node:worker_threads";
-import { disposeAll, initVcr, isHubDaemonProcess } from "@cline/shared";
+import {
+	disposeAll,
+	initVcr,
+	isHubDaemonProcess,
+	readCodeVibeEnv,
+} from "@cline/shared";
 import { logCliProcessError } from "./logging/errors";
 import {
 	abortActiveRuntime,
@@ -14,7 +19,7 @@ import { writeErr } from "./utils/output";
 // Initialize VCR before any HTTP requests are made.
 // Set CODEVIBE_VCR=record|playback and CODEVIBE_VCR_CASSETTE=<path> to enable.
 // Legacy CLINE_* names are still accepted for SDK compatibility.
-initVcr(process.env.CLINE_VCR);
+initVcr(readCodeVibeEnv("CLINE_VCR"));
 
 if (!isMainThread) {
 	// Worker imports of the bundled CLI entrypoint should not start the CLI.

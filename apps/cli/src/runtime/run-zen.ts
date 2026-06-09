@@ -1,6 +1,6 @@
 import type { UserInstructionConfigService } from "@cline/core";
 import { HubSessionClient } from "@cline/core";
-import type { ChatStartSessionRequest } from "@cline/shared";
+import { type ChatStartSessionRequest, readCodeVibeEnv } from "@cline/shared";
 import { resolveCliSessionMetadata } from "../utils/enterprise";
 import { ensureCliHubServer } from "../utils/hub-runtime";
 import { c, emitJsonLine, writeErr, writeln } from "../utils/output";
@@ -38,7 +38,7 @@ export async function runZen(
 		return;
 	}
 	if (
-		process.env.CLINE_SESSION_BACKEND_MODE?.trim().toLowerCase() === "local"
+		readCodeVibeEnv("CLINE_SESSION_BACKEND_MODE")?.toLowerCase() === "local"
 	) {
 		writeErr(
 			"--zen requires the hub backend but CODEVIBE_SESSION_BACKEND_MODE/CLINE_SESSION_BACKEND_MODE is set to local.",

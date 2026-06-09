@@ -7,6 +7,7 @@ import {
 	resolveSharedHubOwnerContext,
 	stopLocalHubServerGracefully,
 } from "@cline/core";
+import { readCodeVibeEnv } from "@cline/shared";
 import { version } from "../../package.json";
 import { ensureCliHubServer } from "../utils/hub-runtime";
 import { c, writeErr, writeln } from "../utils/output";
@@ -90,7 +91,7 @@ export function getInstallationInfo(currentVersion: string): InstallationInfo {
 	try {
 		const scriptPath = realpathSync(
 			process.env.CODEVIBE_WRAPPER_PATH ||
-				process.env.CLINE_WRAPPER_PATH ||
+				readCodeVibeEnv("CLINE_WRAPPER_PATH") ||
 				process.argv[1] ||
 				"",
 		).replace(/\\/g, "/");
@@ -343,7 +344,7 @@ async function restartHubServerIfRunning(): Promise<void> {
  */
 export function autoUpdateOnStartup(): void {
 	if (process.env.IS_DEV === "true") return;
-	if (process.env.CLINE_NO_AUTO_UPDATE === "1") return;
+	if (readCodeVibeEnv("CLINE_NO_AUTO_UPDATE") === "1") return;
 
 	const { packageName, packageManager, updateCommand } =
 		getInstallationInfo(version);

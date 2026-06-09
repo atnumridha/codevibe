@@ -1,5 +1,9 @@
 import { createInterface } from "node:readline";
-import type { ToolApprovalRequest, ToolApprovalResult } from "@cline/shared";
+import {
+	readCodeVibeEnv,
+	type ToolApprovalRequest,
+	type ToolApprovalResult,
+} from "@cline/shared";
 import { truncate } from "./helpers";
 import { c, getActiveCliSession, write } from "./output";
 
@@ -54,7 +58,7 @@ async function requestDesktopToolApprovalFromCore(
 	}
 	const requester = await cachedDesktopApprovalRequester;
 	const sessionId = getActiveCliSession()?.manifest.session_id;
-	const approvalDir = process.env.CLINE_TOOL_APPROVAL_DIR?.trim();
+	const approvalDir = readCodeVibeEnv("CLINE_TOOL_APPROVAL_DIR");
 	return requester(request, { approvalDir, sessionId });
 }
 
@@ -102,7 +106,7 @@ async function requestTerminalToolApproval(
 export async function requestToolApproval(
 	request: ToolApprovalRequest,
 ): Promise<ToolApprovalResult> {
-	const mode = process.env.CLINE_TOOL_APPROVAL_MODE?.trim().toLowerCase();
+	const mode = readCodeVibeEnv("CLINE_TOOL_APPROVAL_MODE")?.toLowerCase();
 	if (mode === "desktop") {
 		return requestDesktopToolApprovalFromCore(request);
 	}

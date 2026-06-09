@@ -1,3 +1,4 @@
+import { readCodeVibeEnv } from "@cline/shared";
 import type { Command } from "commander";
 import type { CommandIo } from "./types";
 
@@ -174,7 +175,7 @@ export function emitJsonOrText(
 export function resolveAddress(
 	address: string | undefined,
 ): string | undefined {
-	const resolved = address ?? process.env.CLINE_HUB_ADDRESS;
+	const resolved = address ?? readCodeVibeEnv("CLINE_HUB_ADDRESS");
 	const trimmed = resolved?.trim();
 	return trimmed ? trimmed : undefined;
 }

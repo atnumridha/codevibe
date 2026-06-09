@@ -1,3 +1,4 @@
+import { readCodeVibeEnv } from "@cline/shared";
 import { resolveHubEndpointOptions } from "../discovery/defaults";
 import { resolveSharedHubOwnerContext } from "../discovery/workspace";
 import {
@@ -46,7 +47,7 @@ export async function ensureHubServer(
 	options: EnsureHubServerOptions,
 ): Promise<EnsureHubServerResult> {
 	const hasExplicitPort =
-		options.port !== undefined || !!process.env.CLINE_HUB_PORT?.trim();
+		options.port !== undefined || !!readCodeVibeEnv("CLINE_HUB_PORT");
 	const endpoint = resolveHubEndpointOptions({
 		host: options.host,
 		port: options.port,

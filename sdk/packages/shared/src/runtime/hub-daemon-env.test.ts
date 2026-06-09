@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { codeVibeEnvName } from "./codevibe-env";
 import {
 	CLINE_RUN_AS_HUB_DAEMON_ENV,
 	isHubDaemonProcess,
@@ -16,5 +17,14 @@ describe("hub daemon environment helpers", () => {
 				[CLINE_RUN_AS_HUB_DAEMON_ENV]: "0",
 			}),
 		).toBe(false);
+	});
+
+	it("prefers the CodeVibe daemon sentinel over the legacy Cline sentinel", () => {
+		expect(
+			isHubDaemonProcess({
+				[codeVibeEnvName(CLINE_RUN_AS_HUB_DAEMON_ENV)]: "1",
+				[CLINE_RUN_AS_HUB_DAEMON_ENV]: "0",
+			}),
+		).toBe(true);
 	});
 });

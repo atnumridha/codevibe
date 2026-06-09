@@ -1,3 +1,5 @@
+import { readCodeVibeEnv } from "./codevibe-env";
+
 export const CLINE_ENVIRONMENT_ENV = "CLINE_ENVIRONMENT";
 export const CLINE_ENVIRONMENT_OVERRIDE_ENV = "CLINE_ENVIRONMENT_OVERRIDE";
 
@@ -72,8 +74,10 @@ export function resolveClineEnvironment(
 ): ClineEnvironment {
 	const env = options.env ?? readProcessEnv();
 	return (
-		normalizeClineEnvironment(env[CLINE_ENVIRONMENT_OVERRIDE_ENV]) ??
-		normalizeClineEnvironment(env[CLINE_ENVIRONMENT_ENV]) ??
+		normalizeClineEnvironment(
+			readCodeVibeEnv(CLINE_ENVIRONMENT_OVERRIDE_ENV, env),
+		) ??
+		normalizeClineEnvironment(readCodeVibeEnv(CLINE_ENVIRONMENT_ENV, env)) ??
 		DEFAULT_CLINE_ENVIRONMENT
 	);
 }

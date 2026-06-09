@@ -36,6 +36,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { registerDisposable } from "./dispose";
+import { readCodeVibeEnv } from "./runtime/codevibe-env";
 import type { VcrRecording } from "./types/vcr";
 
 // ── Types ───────────────────────────────────────────────────────────────
@@ -455,25 +456,28 @@ function getVcrConfig(vcrMode: string | undefined): VcrConfig | null {
 		return null;
 	}
 
-	if (!process.env.CLINE_VCR_CASSETTE) {
+	const cassette = readCodeVibeEnv("CLINE_VCR_CASSETTE");
+	if (!cassette) {
 		process.stderr.write(
-			"[VCR] No CLINE_VCR_CASSETTE: requests will not be recorded or played back.\n",
+			"[VCR] No CODEVIBE_VCR_CASSETTE/CLINE_VCR_CASSETTE: requests will not be recorded or played back.\n",
 		);
 		return null;
 	}
 
 	if (vcrMode !== "record" && vcrMode !== "playback") {
 		process.stderr.write(
-			`[VCR] Invalid CLINE_VCR value: "${vcrMode}". Expected "record" or "playback".\n`,
+			`[VCR] Invalid CODEVIBE_VCR/CLINE_VCR value: "${vcrMode}". Expected "record" or "playback".\n`,
 		);
 		process.exit(1);
 	}
 
-	const cassettePath = resolve(process.env.CLINE_VCR_CASSETTE);
-	const filter = process.env.CLINE_VCR_FILTER ?? "";
+	const cassettePath = resolve(cassette);
+	const filter = readCodeVibeEnv("CLINE_VCR_FILTER") ?? "";
+	const includeRequestBodyValue = readCodeVibeEnv(
+		"CLINE_VCR_INCLUDE_REQUEST_BODY",
+	);
 	const includeRequestBody =
-		process.env.CLINE_VCR_INCLUDE_REQUEST_BODY === "1" ||
-		process.env.CLINE_VCR_INCLUDE_REQUEST_BODY === "true";
+		includeRequestBodyValue === "1" || includeRequestBodyValue === "true";
 
 	return { mode: vcrMode, cassettePath, filter, includeRequestBody };
 }
@@ -750,7 +754,7 @@ function startPlayingBackRequests(cassettePath: string, filter: string): void {
 	);
 
 	const sseDelayMs = Number.parseInt(
-		process.env.CLINE_VCR_SSE_DELAY ?? "100",
+		readCodeVibeEnv("CLINE_VCR_SSE_DELAY") ?? "100",
 		10,
 	);
 

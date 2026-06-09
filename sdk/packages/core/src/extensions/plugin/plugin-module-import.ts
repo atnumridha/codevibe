@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { builtinModules, createRequire } from "node:module";
 import { dirname, extname, isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PLUGIN_FILE_EXTENSIONS } from "@cline/shared";
+import { PLUGIN_FILE_EXTENSIONS, readCodeVibeEnv } from "@cline/shared";
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST_REQUIRE = createRequire(import.meta.url);
@@ -293,7 +293,7 @@ function resolveHostPackageExport(specifier: string): string | null {
 
 function getHostPackageSearchRoots(): string[] {
 	const roots = [MODULE_DIR];
-	const wrapperPath = process.env.CLINE_WRAPPER_PATH?.trim();
+	const wrapperPath = readCodeVibeEnv("CLINE_WRAPPER_PATH");
 	if (wrapperPath) {
 		roots.push(dirname(dirname(wrapperPath)));
 	}

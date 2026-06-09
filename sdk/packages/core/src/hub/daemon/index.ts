@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
 	CLINE_RUN_AS_HUB_DAEMON_ENV,
 	isHubDaemonProcess,
+	readCodeVibeEnv,
 	withResolvedClineBuildEnv,
 } from "@cline/shared";
 import {
@@ -207,7 +208,7 @@ export function prewarmDetachedHubServer(
 	}
 	const owner = resolveSharedHubOwnerContext();
 	const hasExplicitPort =
-		endpoint.port !== undefined || !!process.env.CLINE_HUB_PORT?.trim();
+		endpoint.port !== undefined || !!readCodeVibeEnv("CLINE_HUB_PORT");
 	const resolvedEndpoint = resolveHubEndpointOptions(endpoint);
 	const expectedUrl = createHubServerUrl(
 		resolvedEndpoint.host,
@@ -266,10 +267,9 @@ export async function ensureDetachedHubServer(
 		endpointOverrides.host !== undefined ||
 		endpointOverrides.port !== undefined ||
 		endpointOverrides.pathname !== undefined ||
-		!!process.env.CLINE_HUB_PORT?.trim();
+		!!readCodeVibeEnv("CLINE_HUB_PORT");
 	const hasExplicitPort =
-		endpointOverrides.port !== undefined ||
-		!!process.env.CLINE_HUB_PORT?.trim();
+		endpointOverrides.port !== undefined || !!readCodeVibeEnv("CLINE_HUB_PORT");
 	const endpoint = resolveHubEndpointOptions(endpointOverrides);
 	const expectedUrl = createHubServerUrl(
 		endpoint.host,

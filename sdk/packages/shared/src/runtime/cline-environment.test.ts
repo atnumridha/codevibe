@@ -7,6 +7,7 @@ import {
 	getClineEnvironmentConfig,
 	resolveClineEnvironment,
 } from "./cline-environment";
+import { codeVibeEnvName } from "./codevibe-env";
 
 describe("resolveClineEnvironment", () => {
 	it("defaults to production when no env var is set", () => {
@@ -32,6 +33,29 @@ describe("resolveClineEnvironment", () => {
 				env: {
 					[CLINE_ENVIRONMENT_OVERRIDE_ENV]: "local",
 					[CLINE_ENVIRONMENT_ENV]: "staging",
+				},
+			}),
+		).toBe("local");
+	});
+
+	it("prefers CODEVIBE_ENVIRONMENT over legacy CLINE_ENVIRONMENT", () => {
+		expect(
+			resolveClineEnvironment({
+				env: {
+					[codeVibeEnvName(CLINE_ENVIRONMENT_ENV)]: "local",
+					[CLINE_ENVIRONMENT_ENV]: "staging",
+				},
+			}),
+		).toBe("local");
+	});
+
+	it("prefers CODEVIBE_ENVIRONMENT_OVERRIDE over all environment values", () => {
+		expect(
+			resolveClineEnvironment({
+				env: {
+					[codeVibeEnvName(CLINE_ENVIRONMENT_OVERRIDE_ENV)]: "local",
+					[CLINE_ENVIRONMENT_OVERRIDE_ENV]: "staging",
+					[codeVibeEnvName(CLINE_ENVIRONMENT_ENV)]: "production",
 				},
 			}),
 		).toBe("local");

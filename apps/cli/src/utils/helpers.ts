@@ -2,7 +2,11 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type HookEventPayload, parseHookEventPayload } from "@cline/shared";
+import {
+	type HookEventPayload,
+	parseHookEventPayload,
+	readCodeVibeEnv,
+} from "@cline/shared";
 import { ensureHookLogDir } from "@cline/shared/storage";
 import { nanoid } from "nanoid";
 import { commanderToParsedArgs, createProgram } from "../commands/program";
@@ -439,7 +443,7 @@ export async function appendHookAudit(event: HookEventPayload): Promise<void> {
 		ts: new Date().toISOString(),
 		...event,
 	})}\n`;
-	const envPath = process.env.CLINE_HOOKS_LOG_PATH?.trim() || undefined;
+	const envPath = readCodeVibeEnv("CLINE_HOOKS_LOG_PATH");
 	const logPath = envPath ?? join(ensureHookLogDir(), "hooks.jsonl");
 	ensureHookLogDir(logPath);
 	appendFileSync(logPath, line, "utf-8");
@@ -531,9 +535,7 @@ export function resolveSandboxDataDir(
 	cwd: string,
 	explicitDir?: string,
 ): string {
-	const envDir =
-		process.env.CODEVIBE_SANDBOX_DATA_DIR?.trim() ||
-		process.env.CLINE_SANDBOX_DATA_DIR?.trim();
+	const envDir = readCodeVibeEnv("CLINE_SANDBOX_DATA_DIR");
 	const baseDir =
 		explicitDir?.trim() || envDir || join(tmpdir(), "codevibe-sandbox");
 	return resolve(cwd, baseDir);
