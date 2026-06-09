@@ -38,6 +38,7 @@ import {
 	migrateWelcomeViewCompleted,
 	migrateWorkspaceToGlobalStorage,
 } from "./core/storage/state-migrations"
+import { getSavedClineMessages } from "./core/storage/disk"
 import { workspaceResolver } from "./core/workspace"
 import { findMatchingNotebookCell, getContextForCommand, showWebview } from "./hosts/vscode/commandUtils"
 import { abortCommitGeneration, generateCommitMsg } from "./hosts/vscode/commit-message-generator"
@@ -50,6 +51,7 @@ import {
 } from "./hosts/vscode/native-chat-adapter"
 import {
 	buildCodeVibeChatSessionLabel,
+	buildCodeVibeNativeChatSessionHistory,
 	buildCodeVibeNativeSessionDescriptors,
 	getCodeVibeNativeSessionTaskIdFromPath,
 } from "./hosts/vscode/native-chat-session"
@@ -1228,7 +1230,7 @@ function registerCodeVibeNativeChatSessionType(
 		context.subscriptions.push(sessionParticipant)
 
 		const contentProvider: CodeVibeChatSessionContentProvider = {
-			provideChatSessionContent: (resource, _token, sessionContext) => {
+			provideChatSessionContent: async (resource, token, sessionContext) => {
 				const taskId = getCodeVibeNativeSessionTaskIdFromPath(resource.path)
 				const historyItem = taskId ? readCodeVibeNativeTaskHistory().find((item) => item.id === taskId) : undefined
 				const title = historyItem
@@ -1236,9 +1238,15 @@ function registerCodeVibeNativeChatSessionType(
 							workspacePath: getCodeVibeNativeWorkspacePath(),
 						})[0]?.label || "CodeVibe Agent"
 					: "CodeVibe Agent"
+				const history =
+					taskId && !token.isCancellationRequested
+						? buildCodeVibeNativeChatSessionHistory(await readCodeVibeNativeTaskMessages(taskId), {
+								participantId: chatSessionType,
+							})
+						: []
 				return {
 					title,
-					history: [],
+					history,
 					options: getCodeVibeChatSessionOptions(sessionContext?.inputState),
 					requestHandler,
 				}
@@ -1329,6 +1337,15 @@ function readCodeVibeNativeTaskHistory(): HistoryItem[] {
 		return Array.isArray(history) ? history : []
 	} catch (error) {
 		Logger.warn(`Failed to read CodeVibe native task history: ${error instanceof Error ? error.message : String(error)}`)
+		return []
+	}
+}
+
+async function readCodeVibeNativeTaskMessages(taskId: string) {
+	try {
+		return await getSavedClineMessages(taskId)
+	} catch (error) {
+		Logger.warn(`Failed to read CodeVibe native task messages: ${error instanceof Error ? error.message : String(error)}`)
 		return []
 	}
 }

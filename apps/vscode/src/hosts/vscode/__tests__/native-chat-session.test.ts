@@ -2,6 +2,7 @@ import { expect } from "chai"
 import type { HistoryItem } from "@shared/HistoryItem"
 import {
 	buildCodeVibeChatSessionLabel,
+	buildCodeVibeNativeChatSessionHistory,
 	buildCodeVibeNativeSessionDescriptor,
 	buildCodeVibeNativeSessionDescriptors,
 	getCodeVibeNativeSessionTaskIdFromPath,
@@ -69,5 +70,60 @@ describe("native CodeVibe chat sessions", () => {
 	it("decodes task ids from native session resource paths", () => {
 		expect(getCodeVibeNativeSessionTaskIdFromPath("/task%2Fslash")).to.equal("task/slash")
 		expect(getCodeVibeNativeSessionTaskIdFromPath("/")).to.equal(undefined)
+	})
+
+	it("maps persisted CodeVibe UI messages into native Chat transcript turns", () => {
+		const history = buildCodeVibeNativeChatSessionHistory(
+			[
+				{ type: "say", say: "task", text: "Build the feature", ts: 1 },
+				{ type: "say", say: "api_req_started", text: "{}", ts: 2 },
+				{ type: "say", say: "reasoning", text: "I should inspect files first.", ts: 3 },
+				{ type: "say", say: "task_progress", text: "- [x] Inspect files", ts: 4 },
+				{
+					type: "say",
+					say: "tool",
+					text: JSON.stringify({ tool: "readFile", path: "src/app.ts", content: "export const value = 1" }),
+					ts: 5,
+				},
+				{ type: "say", say: "completion_result", text: "Done.", ts: 6 },
+			],
+			{ participantId: "codevibe.agent" },
+		)
+
+		expect(history).to.have.length(5)
+		expect(history[0]).to.deep.include({
+			prompt: "Build the feature",
+			participant: "codevibe.agent",
+		})
+		expect(JSON.stringify(history[1])).to.include("Reasoning")
+		expect(JSON.stringify(history[2])).to.include("Progress")
+		expect(JSON.stringify(history[3])).to.include("Tool: `readFile`")
+		expect(JSON.stringify(history[4])).to.include("Done.")
+	})
+
+	it("includes user feedback as native request turns", () => {
+		const history = buildCodeVibeNativeChatSessionHistory(
+			[{ type: "say", say: "user_feedback", text: "Please keep going", ts: 1 }],
+			{ participantId: "codevibe.agent" },
+		)
+
+		expect(history[0]).to.deep.include({
+			prompt: "User feedback:\n\nPlease keep going",
+			participant: "codevibe.agent",
+		})
+	})
+
+	it("limits transcript turn count and markdown length", () => {
+		const history = buildCodeVibeNativeChatSessionHistory(
+			[
+				{ type: "say", say: "text", text: "older", ts: 1 },
+				{ type: "say", say: "tool", text: JSON.stringify({ tool: "readFile", content: "x".repeat(200) }), ts: 2 },
+			],
+			{ participantId: "codevibe.agent", maxTurns: 1, maxMarkdownLength: 80 },
+		)
+
+		expect(history).to.have.length(1)
+		expect(JSON.stringify(history[0])).to.include("transcript truncated")
+		expect(JSON.stringify(history[0])).not.to.include("older")
 	})
 })
