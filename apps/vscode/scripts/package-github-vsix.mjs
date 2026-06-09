@@ -266,7 +266,7 @@ function findExistingCodeInvocation(codePath) {
 			cwd: projectRoot,
 			encoding: "utf8",
 			stdio: "pipe",
-			shell: false,
+			shell: shouldRunCommandViaShell(command),
 		})
 
 		if (!result.error && result.status === 0) {
@@ -302,6 +302,10 @@ async function resolveCodeInvocation(codePath) {
 
 function quoteCommand(command, args) {
 	return [command, ...args].join(" ")
+}
+
+function shouldRunCommandViaShell(command) {
+	return process.platform === "win32" && /\.(?:cmd|bat)$/i.test(command)
 }
 
 function shellQuote(value) {
@@ -423,7 +427,7 @@ function runCommand(candidates, args, options = {}) {
 			cwd: projectRoot,
 			encoding: "utf8",
 			stdio: options.capture ? "pipe" : "inherit",
-			shell: false,
+			shell: shouldRunCommandViaShell(command),
 		})
 
 		if (!result.error) {
