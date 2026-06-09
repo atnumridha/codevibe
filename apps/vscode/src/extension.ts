@@ -80,6 +80,7 @@ import { ExtensionRegistryInfo } from "./registry"
 import { AuthService } from "./services/auth/AuthService"
 import { LogoutReason } from "./services/auth/types"
 import { CursorNdjsonIngestServer, type CursorNdjsonIngestServerStatus } from "./services/automation/CursorNdjsonIngestServer"
+import { maybeAutoStartCursorNdjsonIngestServer } from "./services/automation/CursorNdjsonIngestStartup"
 import { telemetryService } from "./services/telemetry"
 import { getCursorCompatibleUriPath, isCursorCompatibleUriPath } from "./services/uri/CursorUriRoutes"
 import { getRawExtensionUriString } from "./services/uri/ExtensionUriString"
@@ -357,6 +358,24 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand("cursor.ndjsonIngest.copyCurl", copyCursorNdjsonIngestCurlCommand),
 		vscode.commands.registerCommand("cursor-deeplink.debug.triggerDeeplink", triggerCursorCompatibleDeeplink),
 	)
+
+	void maybeAutoStartCursorNdjsonIngestServer({
+		settings: getCursorNdjsonIngestSettings(false),
+		server: cursorNdjsonIngestServer,
+		confirmNonLoopbackBindAddress: confirmCursorNdjsonBindAddress,
+	})
+		.then((status) => {
+			if (status?.running && status.url) {
+				Logger.info(`CodeVibe compatibility NDJSON ingest server auto-started at ${status.url}/ingest`)
+			}
+		})
+		.catch((error) => {
+			Logger.warn(
+				`CodeVibe compatibility NDJSON ingest auto-start failed: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			)
+		})
 
 	// Register size testing commands in development mode
 	if (IS_DEV) {

@@ -630,7 +630,7 @@
 					"default": 0,
 					"minimum": 0,
 					"maximum": 65535,
-					"description": "Port for the CodeVibe compatibility NDJSON ingest server. Set to 0 for auto-allocation in range 7242-7942."
+					"description": "Port for the CodeVibe compatibility NDJSON ingest server. Nonzero ports auto-start on activation; set to 0 to keep activation startup disabled while manual start still auto-allocates in range 7242-7942."
 				},
 				"ndjson.bindAddress": {
 					"type": "string",
