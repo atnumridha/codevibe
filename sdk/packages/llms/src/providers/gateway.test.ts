@@ -1777,7 +1777,7 @@ describe("sdk-gateway", () => {
 				headers: expect.objectContaining({
 					originator: "cline",
 					session_id: expect.any(String),
-					"User-Agent": expect.stringMatching(/^Cline\//),
+					"User-Agent": expect.stringMatching(/^CodeVibe\//),
 					"ChatGPT-Account-Id": "acct_123",
 					"x-codex-installation-id": "install_123",
 				}),

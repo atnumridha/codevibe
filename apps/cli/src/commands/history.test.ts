@@ -134,6 +134,7 @@ describe("formatHistoryListLine", () => {
 		expect(detail).toContain("Checkpoint");
 		expect(detail).toContain("run 3");
 		expect(detail).toContain("3 total");
+		expect(detail).toContain("Restore with: codevibe checkpoint restore latest");
 	});
 
 	it("omits checkpoint summary when absent", () => {

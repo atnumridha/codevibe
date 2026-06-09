@@ -707,7 +707,7 @@ export function createClineOAuthProvider(
 ): OAuthProviderInterface {
 	return {
 		id: "cline",
-		name: "Cline Account",
+		name: "CodeVibe Account",
 		usesCallbackServer: !(options.useWorkOSDeviceAuth ?? true),
 		async login(callbacks) {
 			return loginClineOAuth({ ...options, callbacks });

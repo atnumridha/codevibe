@@ -695,7 +695,7 @@ export async function assertPathAllowedByDirectAccessIgnores(
 ): Promise<void> {
 	if (!(await isPathAllowedByDirectAccessIgnores(cwd, targetPath, options))) {
 		throw new Error(
-			`Access to ${targetPath} is blocked by direct-access ignore settings (.clineignore, .cursorignore, or .cursorindexingignore).`,
+			`Access to ${targetPath} is blocked by direct-access ignore settings (.codevibeignore, legacy .clineignore, .cursorignore, or .cursorindexingignore).`,
 		);
 	}
 }

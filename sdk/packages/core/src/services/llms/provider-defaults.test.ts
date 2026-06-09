@@ -348,7 +348,7 @@ describe("resolveProviderConfig", () => {
 					"x-codex-installation-id": "install_123",
 					originator: "cline",
 					session_id: expect.any(String),
-					"User-Agent": expect.stringMatching(/^Cline\//),
+					"User-Agent": expect.stringMatching(/^CodeVibe\//),
 				}),
 			}),
 		);
@@ -442,7 +442,7 @@ describe("resolveProviderConfig", () => {
 					"ChatGPT-Account-Id": "acct_old",
 					"x-codex-installation-id": "install_123",
 					session_id: expect.any(String),
-					"User-Agent": expect.stringMatching(/^Cline\//),
+					"User-Agent": expect.stringMatching(/^CodeVibe\//),
 				}),
 			}),
 		);
@@ -461,7 +461,7 @@ describe("resolveProviderConfig", () => {
 					"ChatGPT-Account-Id": "acct_refreshed",
 					"x-codex-installation-id": "install_123",
 					session_id: firstModelsHeaders?.session_id,
-					"User-Agent": expect.stringMatching(/^Cline\//),
+					"User-Agent": expect.stringMatching(/^CodeVibe\//),
 				}),
 			}),
 		);
@@ -541,7 +541,7 @@ describe("resolveProviderConfig", () => {
 						"x-codex-installation-id": "install_home",
 						originator: "cline",
 						session_id: expect.any(String),
-						"User-Agent": expect.stringMatching(/^Cline\//),
+						"User-Agent": expect.stringMatching(/^CodeVibe\//),
 					}),
 				}),
 			);

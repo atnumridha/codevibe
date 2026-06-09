@@ -322,7 +322,7 @@ export function generateApiKeyDisplayName(fieldName) {
 		requestyApiKey: "Requesty API Key",
 		togetherApiKey: "Together AI API Key",
 		difyApiKey: "Dify API Key",
-		clineAccountId: "Cline Account ID",
+		clineAccountId: "CodeVibe Account ID",
 		vertexProjectId: "Vertex Project ID",
 		vertexRegion: "Vertex Region",
 		sapAiCoreClientId: "SAP AI Core Client ID",

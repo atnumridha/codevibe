@@ -500,7 +500,7 @@ describe("prepareLocalRuntimeBootstrap", () => {
 			"x-shared": "config-wins",
 		});
 		expect(bootstrap.providerConfig.headers?.["User-Agent"]).toMatch(
-			/^Cline\//,
+			/^CodeVibe\//,
 		);
 	});
 

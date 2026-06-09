@@ -7,7 +7,7 @@ import type {
 import { resolveApiKey } from "../http";
 import type { ProviderFactoryResult } from "./types";
 
-const OPENAI_CODEX_USER_AGENT = `Cline/${process.env.npm_package_version || "1.0.0"}`;
+const OPENAI_CODEX_USER_AGENT = `CodeVibe/${process.env.npm_package_version || "1.0.0"}`;
 
 function readOptions(
 	config: GatewayResolvedProviderConfig,
