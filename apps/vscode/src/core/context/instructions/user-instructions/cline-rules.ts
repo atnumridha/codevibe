@@ -1,5 +1,6 @@
 import {
 	ActivatedConditionalRule,
+	combineRuleToggles,
 	getRemoteRulesTotalContentWithMetadata,
 	getRuleFilesTotalContentWithMetadata,
 	RULE_SOURCE_PREFIX,
@@ -17,6 +18,17 @@ import { Controller } from "@/core/controller"
 import { Logger } from "@/shared/services/Logger"
 import { parseYamlFrontmatter } from "./frontmatter"
 import { evaluateRuleConditionals, type RuleEvaluationContext } from "./rule-conditionals"
+
+const LOCAL_CODEVIBE_RULE_EXCLUDES = [
+	[".codevibe", "rules", "hooks"],
+	[".codevibe", "rules", "skills"],
+]
+
+const LOCAL_LEGACY_CLINE_RULE_EXCLUDES = [
+	[".clinerules", "workflows"],
+	[".clinerules", "hooks"],
+	[".clinerules", "skills"],
+]
 
 export const getGlobalClineRules = async (
 	globalClineRulesFilePath: string,
@@ -83,35 +95,53 @@ export const getLocalClineRules = async (
 	toggles: ClineRulesToggles,
 	opts?: { evaluationContext?: RuleEvaluationContext },
 ): Promise<RuleLoadResultWithInstructions> => {
-	const clineRulesFilePath = path.resolve(cwd, GlobalFileNames.clineRules)
+	const localRuleSources = [
+		{
+			filePath: path.resolve(cwd, GlobalFileNames.codevibeRules),
+			displayPath: GlobalFileNames.codevibeRules,
+			excludedPaths: LOCAL_CODEVIBE_RULE_EXCLUDES,
+			legacySingleFile: false,
+		},
+		{
+			filePath: path.resolve(cwd, GlobalFileNames.clineRules),
+			displayPath: GlobalFileNames.clineRules,
+			excludedPaths: LOCAL_LEGACY_CLINE_RULE_EXCLUDES,
+			legacySingleFile: true,
+		},
+	]
 
 	let instructions: string | undefined
 	const activatedConditionalRules: ActivatedConditionalRule[] = []
 
-	if (await fileExistsAtPath(clineRulesFilePath)) {
-		if (await isDirectory(clineRulesFilePath)) {
+	for (const source of localRuleSources) {
+		if (!(await fileExistsAtPath(source.filePath))) {
+			continue
+		}
+
+		if (await isDirectory(source.filePath)) {
 			try {
-				const rulesFilePaths = await readDirectory(clineRulesFilePath, [
-					[".clinerules", "workflows"],
-					[".clinerules", "hooks"],
-					[".clinerules", "skills"],
-				])
+				const rulesFilePaths = await readDirectory(source.filePath, source.excludedPaths)
 
 				const rulesFilesTotal = await getRuleFilesTotalContentWithMetadata(rulesFilePaths, cwd, toggles, {
 					evaluationContext: opts?.evaluationContext,
 					ruleNamePrefix: "workspace",
 				})
 				if (rulesFilesTotal.content) {
-					instructions = formatResponse.clineRulesLocalDirectoryInstructions(cwd, rulesFilesTotal.content)
+					const sourceInstructions = formatResponse.clineRulesLocalDirectoryInstructions(
+						cwd,
+						rulesFilesTotal.content,
+						source.displayPath,
+					)
+					instructions = instructions ? `${instructions}\n\n${sourceInstructions}` : sourceInstructions
 					activatedConditionalRules.push(...rulesFilesTotal.activatedConditionalRules)
 				}
 			} catch {
-				Logger.error(`Failed to read .clinerules directory at ${clineRulesFilePath}`)
+				Logger.error(`Failed to read CodeVibe rules directory at ${source.filePath}`)
 			}
-		} else {
+		} else if (source.legacySingleFile) {
 			try {
-				if (clineRulesFilePath in toggles && toggles[clineRulesFilePath] !== false) {
-					const raw = (await fs.readFile(clineRulesFilePath, "utf8")).trim()
+				if (source.filePath in toggles && toggles[source.filePath] !== false) {
+					const raw = (await fs.readFile(source.filePath, "utf8")).trim()
 					if (raw) {
 						// Keep single-file .clinerules behavior consistent with directory/remote rules:
 						// - Parse YAML frontmatter (fail-open on parse errors)
@@ -119,14 +149,16 @@ export const getLocalClineRules = async (
 						const parsed = parseYamlFrontmatter(raw)
 						if (parsed.hadFrontmatter && parsed.parseError) {
 							// Fail-open: preserve the raw contents so the LLM can still see the author's intent.
-							instructions = formatResponse.clineRulesLocalFileInstructions(cwd, raw)
+							const sourceInstructions = formatResponse.clineRulesLocalFileInstructions(cwd, raw)
+							instructions = instructions ? `${instructions}\n\n${sourceInstructions}` : sourceInstructions
 						} else {
 							const { passed, matchedConditions } = evaluateRuleConditionals(
 								parsed.data,
 								opts?.evaluationContext ?? {},
 							)
 							if (passed) {
-								instructions = formatResponse.clineRulesLocalFileInstructions(cwd, parsed.body.trim())
+								const sourceInstructions = formatResponse.clineRulesLocalFileInstructions(cwd, parsed.body.trim())
+								instructions = instructions ? `${instructions}\n\n${sourceInstructions}` : sourceInstructions
 								if (parsed.hadFrontmatter && Object.keys(matchedConditions).length > 0) {
 									activatedConditionalRules.push({
 										name: `${RULE_SOURCE_PREFIX.workspace}:${GlobalFileNames.clineRules}`,
@@ -138,8 +170,10 @@ export const getLocalClineRules = async (
 					}
 				}
 			} catch {
-				Logger.error(`Failed to read .clinerules file at ${clineRulesFilePath}`)
+				Logger.error(`Failed to read .clinerules file at ${source.filePath}`)
 			}
+		} else {
+			Logger.error(`${source.filePath} is not a directory`)
 		}
 	}
 
@@ -161,12 +195,21 @@ export async function refreshClineRulesToggles(
 
 	// Local toggles
 	const localClineRulesToggles = controller.stateManager.getWorkspaceStateKey("localClineRulesToggles")
+	const localCodeVibeRulesFilePath = path.resolve(workingDirectory, GlobalFileNames.codevibeRules)
 	const localClineRulesFilePath = path.resolve(workingDirectory, GlobalFileNames.clineRules)
-	const updatedLocalToggles = await synchronizeRuleToggles(localClineRulesFilePath, localClineRulesToggles, "", [
-		[".clinerules", "workflows"],
-		[".clinerules", "hooks"],
-		[".clinerules", "skills"],
-	])
+	const updatedCodeVibeRuleToggles = await synchronizeRuleToggles(
+		localCodeVibeRulesFilePath,
+		localClineRulesToggles,
+		"",
+		LOCAL_CODEVIBE_RULE_EXCLUDES,
+	)
+	const updatedLegacyRuleToggles = await synchronizeRuleToggles(
+		localClineRulesFilePath,
+		localClineRulesToggles,
+		"",
+		LOCAL_LEGACY_CLINE_RULE_EXCLUDES,
+	)
+	const updatedLocalToggles = combineRuleToggles(updatedCodeVibeRuleToggles, updatedLegacyRuleToggles)
 	controller.stateManager.setWorkspaceState("localClineRulesToggles", updatedLocalToggles)
 
 	return {

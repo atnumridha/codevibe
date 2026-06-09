@@ -55,6 +55,7 @@ export const GlobalFileNames = {
 	hicapModels: "hicap_models.json",
 	mcpSettings: "codevibe_mcp_settings.json",
 	legacyMcpSettings: "cline_mcp_settings.json",
+	codevibeRules: ".codevibe/rules",
 	clineRules: ".clinerules",
 	workflows: ".clinerules/workflows",
 	hooksDir: ".clinerules/hooks",

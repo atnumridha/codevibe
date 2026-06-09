@@ -133,8 +133,8 @@ type CursorUriLaunchResponse = {
 	sessionId: string;
 	provider: string;
 	model: string;
-	mode: "plan";
-	queued: true;
+	mode: CursorLaunchMode;
+	queued: boolean;
 	metadata: JsonRecord;
 	preview: CursorUriPreviewResponse;
 };
@@ -1306,7 +1306,6 @@ function toBackgroundAgentLifecycleSessionRecord(
 		autoApprovalProfile: record.autoApprovalProfile,
 		worktreePolicy: record.worktreePolicy,
 		createdAt: record.createdAt,
-		updatedAt: record.updatedAt,
 		prompt: record.prompt,
 		routePrompt: record.routePrompt,
 		repository: record.repository,

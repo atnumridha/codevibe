@@ -2,8 +2,9 @@ import { expect } from "chai"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { getLocalClineRules } from "../cline-rules"
 import { getLocalCursorRules } from "../external-rules"
-import { getRuleFilesTotalContentWithMetadata } from "../rule-helpers"
+import { createRuleFile, getRuleFilesTotalContentWithMetadata } from "../rule-helpers"
 
 describe("rule loading with paths frontmatter", () => {
 	it("filters rules by evaluationContext.paths", async () => {
@@ -155,6 +156,43 @@ describe("rule loading with paths frontmatter", () => {
 				"workspace:.cursor/rules/frontend.mdc",
 			])
 			expect(webResult.activatedConditionalRules[0].matchedConditions.globs).to.deep.equal(["web/**"])
+		} finally {
+			await fs.rm(tmp, { recursive: true, force: true })
+		}
+	})
+
+	it("loads CodeVibe local rules before legacy .clinerules", async () => {
+		const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "codevibe-rules-test-"))
+		try {
+			const codevibeRulesDir = path.join(tmp, ".codevibe", "rules")
+			const legacyRulesDir = path.join(tmp, ".clinerules")
+			await fs.mkdir(codevibeRulesDir, { recursive: true })
+			await fs.mkdir(legacyRulesDir, { recursive: true })
+			await fs.writeFile(path.join(codevibeRulesDir, "project.md"), "Prefer CodeVibe-native rules.")
+			await fs.writeFile(path.join(legacyRulesDir, "legacy.md"), "Keep legacy rule compatibility.")
+
+			const result = await getLocalClineRules(tmp, {
+				[path.join(codevibeRulesDir, "project.md")]: true,
+				[path.join(legacyRulesDir, "legacy.md")]: true,
+			})
+
+			expect(result.instructions).to.contain("# .codevibe/rules/")
+			expect(result.instructions).to.contain("Prefer CodeVibe-native rules.")
+			expect(result.instructions).to.contain("# .clinerules/")
+			expect(result.instructions).to.contain("Keep legacy rule compatibility.")
+		} finally {
+			await fs.rm(tmp, { recursive: true, force: true })
+		}
+	})
+
+	it("creates new local CodeVibe rules under .codevibe/rules", async () => {
+		const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "codevibe-new-rule-test-"))
+		try {
+			const result = await createRuleFile(false, "project-preferences.md", tmp, "rule")
+
+			expect(result.fileExists).to.equal(false)
+			expect(result.filePath).to.equal(path.join(tmp, ".codevibe", "rules", "project-preferences.md"))
+			expect(await fs.readFile(result.filePath!, "utf8")).to.equal("")
 		} finally {
 			await fs.rm(tmp, { recursive: true, force: true })
 		}

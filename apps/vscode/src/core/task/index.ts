@@ -2614,7 +2614,7 @@ export class Task {
 		if (clinerulesError === true) {
 			await this.say(
 				"error",
-				"Issue with processing the /newrule command. Double check that, if '.clinerules' already exists, it's a directory and not a file. Otherwise there was an issue referencing this file/directory.",
+				"Issue with processing the /newrule command. Double check that, if '.codevibe/rules' already exists, it's a directory and not a file. Legacy '.clinerules' remains supported for existing rules.",
 			)
 		}
 

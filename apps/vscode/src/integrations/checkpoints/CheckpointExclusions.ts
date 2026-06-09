@@ -84,6 +84,7 @@ function getBuildArtifactPatterns(): string[] {
 		".sass-cache/",
 		".vs/",
 		".vscode/",
+		".codevibe/rules/",
 		".clinerules/",
 		"Pods/",
 		"__pycache__/",

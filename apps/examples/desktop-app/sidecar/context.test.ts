@@ -18,6 +18,17 @@ const connectMock = vi.hoisted(() => vi.fn());
 const subscribeMock = vi.hoisted(() => vi.fn());
 const previewCursorUriMock = vi.hoisted(() => vi.fn());
 
+type SendChatMockInput = {
+	sessionId?: string;
+	prompt?: string;
+	delivery?: string;
+	userImages?: unknown;
+};
+
+function createSendChatMock() {
+	return vi.fn(async (_input: SendChatMockInput) => ({}));
+}
+
 vi.mock("@cline/core", async () => {
 	const actual =
 		await vi.importActual<typeof import("@cline/core")>("@cline/core");
@@ -1082,7 +1093,7 @@ describe("Code sidecar runtime capabilities", () => {
 			configKeys: ["owner", "target"],
 		});
 		const startMock = vi.fn(async () => ({ sessionId: "session-rule-review" }));
-		const sendMock = vi.fn(async () => ({}));
+		const sendMock = createSendChatMock();
 		const pendingListMock = vi.fn(async () => []);
 		const ctx = createSidecarContext(workspace);
 		ctx.hubClient = {
@@ -1645,7 +1656,7 @@ describe("Code sidecar runtime capabilities", () => {
 			taskPrompt: "Review the new diff and make a plan.",
 		});
 		const startMock = vi.fn(async () => ({ sessionId: "session-cursor" }));
-		const sendMock = vi.fn(async () => ({}));
+		const sendMock = createSendChatMock();
 		const pendingListMock = vi.fn(async () => []);
 		const ctx = createSidecarContext(workspace);
 		ctx.hubClient = {
@@ -1723,7 +1734,7 @@ describe("Code sidecar runtime capabilities", () => {
 			taskPrompt: "Run the requested edit now.",
 		});
 		const startMock = vi.fn(async () => ({ sessionId: "session-cursor-act" }));
-		const sendMock = vi.fn(async () => ({}));
+		const sendMock = createSendChatMock();
 		const pendingListMock = vi.fn(async () => []);
 		const ctx = createSidecarContext(workspace);
 		ctx.hubClient = {
@@ -1783,7 +1794,7 @@ describe("Code sidecar runtime capabilities", () => {
 		const workspace = await mkdtemp(join(tmpdir(), "codevibe-native-uri-"));
 		tempDirs.push(workspace);
 		const startMock = vi.fn(async () => ({ sessionId: "session-codevibe" }));
-		const sendMock = vi.fn(async () => ({}));
+		const sendMock = createSendChatMock();
 		const pendingListMock = vi.fn(async () => []);
 		previewCursorUriMock.mockResolvedValue({
 			handled: true,
@@ -1849,7 +1860,7 @@ describe("Code sidecar runtime capabilities", () => {
 		const workspace = await mkdtemp(join(tmpdir(), "codevibe-cursor-glass-"));
 		tempDirs.push(workspace);
 		const startMock = vi.fn(async () => ({ sessionId: "session-glass" }));
-		const sendMock = vi.fn(async () => ({}));
+		const sendMock = createSendChatMock();
 		const pendingListMock = vi.fn(async () => []);
 		previewCursorUriMock.mockResolvedValue({
 			handled: true,
@@ -1940,7 +1951,7 @@ describe("Code sidecar runtime capabilities", () => {
 			taskPrompt: "Run the background investigation.",
 		});
 		const startMock = vi.fn(async () => ({ sessionId: "session-bg" }));
-		const sendMock = vi.fn(async () => ({}));
+		const sendMock = createSendChatMock();
 		const pendingListMock = vi.fn(async () => []);
 		const ctx = createSidecarContext(workspace);
 		ctx.hubClient = {
@@ -2059,7 +2070,7 @@ describe("Code sidecar runtime capabilities", () => {
 			taskPrompt: "Run isolated analysis.",
 		});
 		const startMock = vi.fn(async () => ({ sessionId: "session-bg-worktree" }));
-		const sendMock = vi.fn(async () => ({}));
+		const sendMock = createSendChatMock();
 		const pendingListMock = vi.fn(async () => []);
 		const listMock = vi.fn(async () => []);
 		const ctx = createSidecarContext(workspace);

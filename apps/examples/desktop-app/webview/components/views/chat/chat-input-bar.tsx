@@ -1035,6 +1035,7 @@ function ModelSelector({
 	const [lastSelection, setLastSelection] = useState(() =>
 		readModelSelectionStorageFromWindow(),
 	);
+	const userSelectedProviderRef = useRef<string | null>(null);
 	const visibleProviderModels = useMemo(() => {
 		const next: Record<string, string[]> = {};
 		for (const providerId of enabledProviderIds) {
@@ -1053,6 +1054,14 @@ function ModelSelector({
 		}
 		const rememberedProvider = normalizeProviderId(rememberedLastProvider);
 		if (normalizedProvider && providers.includes(normalizedProvider)) {
+			const providerWasUserSelected =
+				userSelectedProviderRef.current === normalizedProvider;
+			if (
+				isCopilotProviderId(normalizedProvider) &&
+				!providerWasUserSelected
+			) {
+				return providers[0] ?? "";
+			}
 			return normalizedProvider;
 		}
 		if (
@@ -1240,6 +1249,7 @@ function ModelSelector({
 					if (!value) {
 						return;
 					}
+					userSelectedProviderRef.current = value;
 					onProviderChange(value);
 					const rememberedModel = lastSelection.lastModelByProvider[value];
 					const providerModelIds = visibleProviderModels[value] ?? [];
