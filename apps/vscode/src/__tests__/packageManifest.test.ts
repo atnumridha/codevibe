@@ -77,4 +77,13 @@ describe("Package manifest", () => {
 			}
 		}
 	})
+
+	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
+		const packageScript = await readFile(path.join(__dirname, "..", "..", "scripts", "package-github-vsix.mjs"), "utf8")
+
+		assert.equal(packageScript.includes("workbench.view.extension.codevibe.agent"), true)
+		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state'"), true)
+		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state.hidden'"), true)
+		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.numberOfVisibleViews'"), true)
+	})
 })

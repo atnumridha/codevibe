@@ -710,6 +710,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 	const legacyActivityViewIds = [
 		"workbench.view.extension.claude-dev-ActivityBar",
 		"workbench.view.extension.codevibe-ActivityBar",
+		"workbench.view.extension.codevibe.agent",
 		"workbench.view.extension.vibecodeAgentSidebar",
 		"workbench.view.extension.vibecodex-agent-extension-container",
 	]
@@ -746,6 +747,9 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 			'workbench.view.extension.codevibe-ActivityBar.state',
 			'workbench.view.extension.codevibe-ActivityBar.state.hidden',
 			'workbench.view.extension.codevibe-ActivityBar.numberOfVisibleViews',
+			'workbench.view.extension.codevibe.agent.state',
+			'workbench.view.extension.codevibe.agent.state.hidden',
+			'workbench.view.extension.codevibe.agent.numberOfVisibleViews',
 			'workbench.view.extension.vibecodeAgentSidebar.state',
 			'workbench.view.extension.vibecodeAgentSidebar.state.hidden',
 			'workbench.view.extension.vibecodeAgentSidebar.numberOfVisibleViews',
@@ -766,6 +770,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 			and value in (
 				'workbench.view.extension.claude-dev-ActivityBar',
 				'workbench.view.extension.codevibe-ActivityBar',
+				'workbench.view.extension.codevibe.agent',
 				'workbench.view.extension.vibecodeAgentSidebar',
 				'workbench.view.extension.vibecodex-agent-extension-container'
 			);
