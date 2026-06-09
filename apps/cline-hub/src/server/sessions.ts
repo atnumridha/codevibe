@@ -7,13 +7,13 @@ import {
 import type { Message } from "@cline/llms";
 import {
 	DEFAULT_HUB_MODEL_ID,
-	DEFAULT_HUB_PROVIDER_ID,
 	type WebviewConfig,
 	type WebviewReasonLevel,
 } from "../webview-protocol";
 import { rejectPendingApprovalsForSession } from "./approvals";
 import { providerSettingsManager, workspaceRoot } from "./deps";
 import {
+	getDefaultableProviderId,
 	loadProviders,
 	resolveBrowserDefaults,
 	sendProviderCatalog,
@@ -53,18 +53,25 @@ export function resolveLaunchContext(
 		process.env.CODEVIBE_PROVIDER?.trim() || process.env.CLINE_PROVIDER?.trim();
 	const envModel =
 		process.env.CODEVIBE_MODEL?.trim() || process.env.CLINE_MODEL?.trim();
-	const providerId =
-		override?.provider ??
-		override?.providerId ??
+	const explicitProvider = override?.provider ?? override?.providerId;
+	const inheritedProvider =
 		ctx.lastSessionContext?.providerId ??
 		providerSettingsManager.getLastUsedProviderSettings()?.provider ??
-		(envProvider || DEFAULT_HUB_PROVIDER_ID);
+		envProvider;
+	const providerId =
+		explicitProvider ?? getDefaultableProviderId(inheritedProvider);
+	const providerWasDemoted =
+		!explicitProvider &&
+		Boolean(inheritedProvider?.trim()) &&
+		providerId !== inheritedProvider?.trim();
 	const modelId =
 		override?.model ??
 		override?.modelId ??
-		ctx.lastSessionContext?.modelId ??
-		providerSettingsManager.getLastUsedProviderSettings()?.model ??
-		(envModel || DEFAULT_HUB_MODEL_ID);
+		(providerWasDemoted
+			? DEFAULT_HUB_MODEL_ID
+			: (ctx.lastSessionContext?.modelId ??
+				providerSettingsManager.getLastUsedProviderSettings()?.model ??
+				(envModel || DEFAULT_HUB_MODEL_ID)));
 	const root =
 		override?.workspaceRoot ??
 		ctx.lastSessionContext?.workspaceRoot ??

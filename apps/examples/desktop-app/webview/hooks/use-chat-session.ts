@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { serializeAttachments } from "@/hooks/chat-session/attachments";
-import { getInitialChatConfig } from "@/hooks/chat-session/constants";
+import {
+	DEFAULT_CHAT_CONFIG,
+	getInitialChatConfig,
+} from "@/hooks/chat-session/constants";
 import {
 	buildToolPayloadString,
 	extractAssistantTurnDataFromRpcMessages,
@@ -1378,6 +1381,10 @@ export function useChatSession() {
 		setConfig((prev) => ({
 			...prev,
 			sessionId: undefined,
+			provider: DEFAULT_CHAT_CONFIG.provider,
+			model: DEFAULT_CHAT_CONFIG.model,
+			apiKey: DEFAULT_CHAT_CONFIG.apiKey,
+			mode: DEFAULT_CHAT_CONFIG.mode,
 		}));
 		activeSessionIdRef.current = null;
 		activeAssistantMessageIdRef.current = null;

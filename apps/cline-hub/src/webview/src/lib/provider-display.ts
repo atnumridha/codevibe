@@ -52,6 +52,14 @@ export function getProviderDisplayName(provider: {
 	return provider.name?.trim() || getProviderDisplayLabel(normalizedProvider);
 }
 
+export function getPersistableDefaultProviderId(providerId: string): string {
+	const normalizedProvider = normalizeProviderId(providerId);
+	if (!normalizedProvider || isCopilotProviderId(normalizedProvider)) {
+		return CODEVIBE_AGENT_PROVIDER_ID;
+	}
+	return normalizedProvider;
+}
+
 export function prioritizeCodeVibeProviderIds(providerIds: string[]): string[] {
 	const seen = new Set<string>();
 	const normalized = providerIds

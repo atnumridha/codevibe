@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { getProviderDisplayName } from "@/lib/provider-display";
 import type {
 	Provider,
 	ProviderConfigField,
@@ -142,36 +143,39 @@ export function ProviderListContent({
 				</div>
 
 				<div className="flex flex-col divide-y divide-border rounded-lg border border-border overflow-hidden">
-					{providers.map((prov) => (
-						<div
-							className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-accent/30"
-							key={prov.id}
-						>
-							<div className="min-w-0 flex-1">
-								<p className="text-sm font-medium text-foreground">
-									{prov.name}
-								</p>
-								<p className="text-xs text-muted-foreground">
-									{prov.models === null
-										? "Models load on demand"
-										: `${prov.models} Model${prov.models !== 1 ? "s" : ""}`}
-								</p>
-							</div>
-							<Button
-								aria-label={`Configure ${prov.name}`}
-								className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-								onClick={() => onConfigure(prov.id)}
-								variant="ghost"
+					{providers.map((prov) => {
+						const providerName = getProviderDisplayName(prov);
+						return (
+							<div
+								className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-accent/30"
+								key={prov.id}
 							>
-								<Settings2 className="h-4 w-4" />
-							</Button>
-							<Switch
-								aria-label={`Toggle ${prov.name}`}
-								checked={prov.enabled}
-								onCheckedChange={() => onToggle(prov.id)}
-							/>
-						</div>
-					))}
+								<div className="min-w-0 flex-1">
+									<p className="text-sm font-medium text-foreground">
+										{providerName}
+									</p>
+									<p className="text-xs text-muted-foreground">
+										{prov.models === null
+											? "Models load on demand"
+											: `${prov.models} Model${prov.models !== 1 ? "s" : ""}`}
+									</p>
+								</div>
+								<Button
+									aria-label={`Configure ${providerName}`}
+									className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+									onClick={() => onConfigure(prov.id)}
+									variant="ghost"
+								>
+									<Settings2 className="h-4 w-4" />
+								</Button>
+								<Switch
+									aria-label={`Toggle ${providerName}`}
+									checked={prov.enabled}
+									onCheckedChange={() => onToggle(prov.id)}
+								/>
+							</div>
+						);
+					})}
 				</div>
 			</div>
 		</ScrollArea>
@@ -246,7 +250,7 @@ export function ProviderDetailContent({
 						<ArrowLeft className="h-4 w-4" />
 					</Button>
 					<h2 className="text-lg font-semibold text-foreground">
-						{provider.name}
+						{getProviderDisplayName(provider)}
 					</h2>
 				</div>
 

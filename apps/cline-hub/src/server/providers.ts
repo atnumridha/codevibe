@@ -20,6 +20,44 @@ import type { HubContext } from "./state";
 import type { BrowserPeer } from "./types";
 import { openExternalUrl } from "./utils";
 
+export function isCopilotProviderId(providerId: string | undefined): boolean {
+	const normalizedProvider = providerId?.trim().toLowerCase() ?? "";
+	return (
+		normalizedProvider === "copilot" ||
+		normalizedProvider === "copilot-cli" ||
+		normalizedProvider === "github-copilot" ||
+		normalizedProvider === "github-copilot-cli" ||
+		normalizedProvider.includes("copilot")
+	);
+}
+
+export function getDefaultableProviderId(
+	providerId: string | undefined,
+): string {
+	const trimmed = providerId?.trim();
+	if (!trimmed || isCopilotProviderId(trimmed)) {
+		return DEFAULT_HUB_PROVIDER_ID;
+	}
+	return trimmed;
+}
+
+function providerSortKey(providerId: string): number {
+	const normalizedProvider = providerId.trim();
+	if (normalizedProvider === DEFAULT_HUB_PROVIDER_ID) return 0;
+	if (normalizedProvider === "openai-codex-cli") return 1;
+	if (isCopilotProviderId(normalizedProvider)) return 100;
+	return 10;
+}
+
+function sortProviders<T extends { id: string }>(providers: T[]): T[] {
+	return [...providers].sort((a, b) => {
+		const aRank = providerSortKey(a.id);
+		const bRank = providerSortKey(b.id);
+		if (aRank !== bRank) return aRank - bRank;
+		return a.id.localeCompare(b.id);
+	});
+}
+
 export function resolveBrowserDefaults(ctx: HubContext): {
 	provider?: string;
 	model?: string;
@@ -31,15 +69,19 @@ export function resolveBrowserDefaults(ctx: HubContext): {
 		process.env.CODEVIBE_PROVIDER?.trim() || process.env.CLINE_PROVIDER?.trim();
 	const envModel =
 		process.env.CODEVIBE_MODEL?.trim() || process.env.CLINE_MODEL?.trim();
+	const inheritedProvider =
+		lastUsed?.provider ?? ctx.lastSessionContext?.providerId ?? envProvider;
+	const provider = getDefaultableProviderId(inheritedProvider);
+	const providerWasDemoted =
+		Boolean(inheritedProvider?.trim()) &&
+		provider !== inheritedProvider?.trim();
 	return {
-		provider:
-			lastUsed?.provider ??
-			ctx.lastSessionContext?.providerId ??
-			(envProvider || DEFAULT_HUB_PROVIDER_ID),
-		model:
-			lastUsed?.model ??
-			ctx.lastSessionContext?.modelId ??
-			(envModel || DEFAULT_HUB_MODEL_ID),
+		provider,
+		model: providerWasDemoted
+			? DEFAULT_HUB_MODEL_ID
+			: (lastUsed?.model ??
+				ctx.lastSessionContext?.modelId ??
+				(envModel || DEFAULT_HUB_MODEL_ID)),
 		workspaceRoot: ctx.lastSessionContext?.workspaceRoot ?? workspaceRoot,
 		cwd:
 			ctx.lastSessionContext?.cwd ??
@@ -55,7 +97,9 @@ export async function loadProviders(
 	await ensureCustomProvidersLoaded(providerSettingsManager);
 	const state = providerSettingsManager.read();
 	const defaults = resolveBrowserDefaults(ctx);
-	const ids = Llms.getProviderIds().sort((a, b) => a.localeCompare(b));
+	const ids = sortProviders(Llms.getProviderIds().map((id) => ({ id }))).map(
+		(provider) => provider.id,
+	);
 	const providers = (
 		await Promise.all(
 			ids.map(async (id) => {
@@ -71,11 +115,12 @@ export async function loadProviders(
 			}),
 		)
 	).filter((provider) => provider.enabled);
-	ctx.send(peer, { type: "providers", providers });
+	const orderedProviders = sortProviders(providers);
+	ctx.send(peer, { type: "providers", providers: orderedProviders });
 	const selected =
 		(defaults.provider &&
-			providers.find((provider) => provider.id === defaults.provider)) ||
-		providers[0];
+			orderedProviders.find((provider) => provider.id === defaults.provider)) ||
+		orderedProviders[0];
 	if (selected) {
 		await loadModels(ctx, peer, selected.id);
 	}

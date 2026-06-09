@@ -47,6 +47,12 @@ import {
 } from "@/components/ai-elements/tool";
 import TeamTasks, { type TeamToolEvent } from "@/components/TeamTasks";
 import { Button } from "@/components/ui/button";
+import {
+	CODEVIBE_AGENT_PROVIDER_ID,
+	getPersistableDefaultProviderId,
+	isCopilotProviderId,
+	prioritizeCodeVibeProviders,
+} from "@/lib/provider-display";
 import { cn } from "@/lib/utils";
 import type {
 	WebviewChatAttachments,
@@ -59,6 +65,7 @@ import type {
 	WebviewSessionSummary,
 	WebviewToolEvent,
 } from "../../webview-protocol";
+import { DEFAULT_HUB_MODEL_ID } from "../../webview-protocol";
 import { Composer } from "./components/Composer";
 import { getVsCodeApi, postToHost } from "./vscode";
 
@@ -79,9 +86,21 @@ type ModelSelectionStorage = {
 };
 
 const EMPTY_SELECTION: ModelSelectionStorage = {
-	lastProvider: "",
+	lastProvider: CODEVIBE_AGENT_PROVIDER_ID,
 	lastModelByProvider: {},
 };
+
+function sanitizeModelSelection(
+	selection: ModelSelectionStorage | undefined,
+): ModelSelectionStorage {
+	if (!selection) {
+		return EMPTY_SELECTION;
+	}
+	return {
+		lastProvider: getPersistableDefaultProviderId(selection.lastProvider),
+		lastModelByProvider: selection.lastModelByProvider ?? {},
+	};
+}
 
 function readModelSelection(): ModelSelectionStorage {
 	try {
@@ -89,7 +108,7 @@ function readModelSelection(): ModelSelectionStorage {
 			| { modelSelection?: ModelSelectionStorage }
 			| undefined;
 		if (state?.modelSelection) {
-			return state.modelSelection;
+			return sanitizeModelSelection(state.modelSelection);
 		}
 	} catch {
 		// ignore persisted state issues in the webview
@@ -681,6 +700,28 @@ function formatSessionLabel(session: WebviewSessionSummary): string {
 	return [title, workspaceName].filter(Boolean).join(" • ");
 }
 
+function pickProvider(
+	providers: ProviderOption[],
+	candidates: Array<string | undefined>,
+): string {
+	for (const candidate of candidates) {
+		const providerId = candidate?.trim();
+		if (
+			providerId &&
+			!isCopilotProviderId(providerId) &&
+			providers.some((item) => item.id === providerId)
+		) {
+			return providerId;
+		}
+	}
+	return (
+		providers.find((item) => item.id === CODEVIBE_AGENT_PROVIDER_ID)?.id ||
+		providers.find((item) => item.enabled)?.id ||
+		providers[0]?.id ||
+		""
+	);
+}
+
 function formatCheckpointTime(createdAt: number): string {
 	try {
 		return new Intl.DateTimeFormat(undefined, {
@@ -722,7 +763,11 @@ export default function Chat({
 		useState<ModelSelectionStorage>(readModelSelection);
 	const [provider, setProvider] = useState(() => lastSelection.lastProvider);
 	const [model, setModel] = useState(
-		() => lastSelection.lastModelByProvider[lastSelection.lastProvider] ?? "",
+		() =>
+			lastSelection.lastModelByProvider[lastSelection.lastProvider] ??
+			(lastSelection.lastProvider === CODEVIBE_AGENT_PROVIDER_ID
+				? DEFAULT_HUB_MODEL_ID
+				: ""),
 	);
 	const [systemPrompt, setSystemPrompt] = useState("");
 	const [maxIterations, setMaxIterations] = useState("");
@@ -827,41 +872,48 @@ export default function Chat({
 						return [...current, createMessage("error", nextText)];
 					});
 					return;
-				case "defaults":
-					setDefaults(message.defaults);
-					if (message.defaults.provider) {
-						setProvider(message.defaults.provider);
-					}
-					if (message.defaults.model) {
-						setModel(message.defaults.model);
+				case "defaults": {
+					const defaultProvider = getPersistableDefaultProviderId(
+						message.defaults.provider ?? "",
+					);
+					const providerWasDemoted =
+						Boolean(message.defaults.provider?.trim()) &&
+						defaultProvider !== message.defaults.provider?.trim();
+					const nextDefaults = {
+						...message.defaults,
+						provider: defaultProvider,
+						model: providerWasDemoted
+							? DEFAULT_HUB_MODEL_ID
+							: message.defaults.model,
+					};
+					setDefaults(nextDefaults);
+					setProvider(nextDefaults.provider);
+					if (nextDefaults.model) {
+						setModel(nextDefaults.model);
 					}
 					return;
+				}
 				case "sessions":
 					setSessions(message.sessions);
 					return;
-				case "providers":
-					setProviders(message.providers);
+				case "providers": {
+					const orderedProviders = prioritizeCodeVibeProviders(
+						message.providers,
+					);
+					setProviders(orderedProviders);
 					setProvider((current) => {
-						const currentProvider =
-							current && message.providers.some((item) => item.id === current)
-								? current
-								: "";
 						const savedProvider = readModelSelection().lastProvider;
-						const nextProvider =
-							currentProvider ||
-							(savedProvider &&
-							message.providers.some((item) => item.id === savedProvider)
-								? savedProvider
-								: "") ||
-							message.providers.find((item) => item.enabled)?.id ||
-							message.providers[0]?.id ||
-							"";
+						const nextProvider = pickProvider(orderedProviders, [
+							current,
+							savedProvider,
+						]);
 						if (nextProvider) {
 							postToHost({ type: "loadModels", providerId: nextProvider });
 						}
 						return nextProvider;
 					});
 					return;
+				}
 				case "models":
 					setModelsByProvider((current) => ({
 						...current,
@@ -914,8 +966,11 @@ export default function Chat({
 						setProvider(message.providerId);
 					}
 					if (message.providerId && message.modelId) {
+						const persistedProviderId = getPersistableDefaultProviderId(
+							message.providerId,
+						);
 						const nextSelection: ModelSelectionStorage = {
-							lastProvider: message.providerId,
+							lastProvider: persistedProviderId,
 							lastModelByProvider: {
 								...lastSelectionRef.current.lastModelByProvider,
 								[message.providerId]: message.modelId,
@@ -1026,6 +1081,12 @@ export default function Chat({
 					onSessionSelectedRef.current?.(undefined);
 					setStatus("Started a new chat session.");
 					setMessages([]);
+					setProvider(CODEVIBE_AGENT_PROVIDER_ID);
+					setModel(DEFAULT_HUB_MODEL_ID);
+					postToHost({
+						type: "loadModels",
+						providerId: CODEVIBE_AGENT_PROVIDER_ID,
+					});
 					return;
 				case "fork_done":
 					setForking(false);
@@ -1066,14 +1127,15 @@ export default function Chat({
 			return;
 		}
 		const previous = lastSelectionRef.current;
+		const persistedProviderId = getPersistableDefaultProviderId(provider);
 		if (
-			previous.lastProvider === provider &&
+			previous.lastProvider === persistedProviderId &&
 			previous.lastModelByProvider[provider] === model
 		) {
 			return;
 		}
 		const nextSelection: ModelSelectionStorage = {
-			lastProvider: provider,
+			lastProvider: persistedProviderId,
 			lastModelByProvider: {
 				...previous.lastModelByProvider,
 				[provider]: model,
@@ -1132,7 +1194,9 @@ export default function Chat({
 			type: "approval_response",
 			approvalId,
 			approved,
-			reason: approved ? "Approved in CodeVibe Hub." : "Rejected in CodeVibe Hub.",
+			reason: approved
+				? "Approved in CodeVibe Hub."
+				: "Rejected in CodeVibe Hub.",
 		});
 		setStatus(approved ? "Approval sent." : "Rejection sent.");
 	};

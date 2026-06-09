@@ -54,6 +54,11 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { desktopClient } from "@/lib/desktop-client";
 import { readModelSelectionStorageFromWindow } from "@/lib/model-selection";
+import {
+	getProviderDisplayLabel,
+	isCopilotProviderId,
+	prioritizeCodeVibeProviderIds,
+} from "@/lib/provider-display";
 import { normalizeProviderId } from "@/lib/provider-id";
 import {
 	loadProviderModelCatalog,
@@ -208,9 +213,9 @@ function formatScheduleModel(schedule: RoutineSchedule): string {
 	const model =
 		schedule.modelSelection?.modelId?.trim() || schedule.model?.trim();
 	if (provider && model) {
-		return `${provider}/${model}`;
+		return `${getProviderDisplayLabel(provider)}/${model}`;
 	}
-	return model || provider || "-";
+	return model || (provider ? getProviderDisplayLabel(provider) : "-");
 }
 
 function getScheduleProviderModel(schedule: RoutineSchedule): {
@@ -366,14 +371,17 @@ export function RoutineSchedulesContent() {
 		Record<string, string[]>
 	>(FALLBACK_PROVIDER_MODELS);
 	const [enabledProviderIds, setEnabledProviderIds] = useState<string[]>(() =>
-		Object.keys(FALLBACK_PROVIDER_MODELS),
+		prioritizeCodeVibeProviderIds(Object.keys(FALLBACK_PROVIDER_MODELS)),
 	);
 	const [lastModelSelection] = useState(() =>
 		readModelSelectionStorageFromWindow(),
 	);
-	const rememberedProvider = normalizeProviderId(
+	const rawRememberedProvider = normalizeProviderId(
 		lastModelSelection.lastProvider,
 	);
+	const rememberedProvider = isCopilotProviderId(rawRememberedProvider)
+		? ""
+		: rawRememberedProvider;
 	const [createForm, setCreateForm] = useState<RoutineFormState>({
 		name: "",
 		scheduleHour: "9",
@@ -405,7 +413,7 @@ export function RoutineSchedulesContent() {
 	}, [enabledProviderIds, providerModels]);
 
 	const availableProviders = useMemo(
-		() => Object.keys(visibleProviderModels),
+		() => prioritizeCodeVibeProviderIds(Object.keys(visibleProviderModels)),
 		[visibleProviderModels],
 	);
 
@@ -451,7 +459,7 @@ export function RoutineSchedulesContent() {
 							nextProviderIds.add(providerId);
 						}
 					}
-					return Array.from(nextProviderIds);
+					return prioritizeCodeVibeProviderIds(Array.from(nextProviderIds));
 				});
 			} catch {
 				// Keep fallback values if provider catalog is unavailable.
@@ -488,7 +496,7 @@ export function RoutineSchedulesContent() {
 				setEnabledProviderIds((current) =>
 					current.includes(normalizedProvider)
 						? current
-						: [...current, normalizedProvider],
+						: prioritizeCodeVibeProviderIds([...current, normalizedProvider]),
 				);
 			} catch {
 				// Keep existing values when provider-specific model loading fails.
@@ -1357,7 +1365,7 @@ export function RoutineSchedulesContent() {
 									<ComboboxList>
 										{(item) => (
 											<ComboboxItem key={item} value={item}>
-												{item}
+												{getProviderDisplayLabel(item)}
 											</ComboboxItem>
 										)}
 									</ComboboxList>

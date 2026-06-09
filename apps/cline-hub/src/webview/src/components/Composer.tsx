@@ -54,7 +54,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { desktopClient } from "@/lib/desktop-client";
 import {
 	Select,
 	SelectContent,
@@ -63,6 +62,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { desktopClient } from "@/lib/desktop-client";
+import {
+	getProviderDisplayLabel,
+	getProviderDisplayName,
+} from "@/lib/provider-display";
 import type {
 	WebviewChatAttachments,
 	WebviewOutboundMessage,
@@ -173,6 +177,9 @@ function ComposerSettings({
 	workspaceRoot: string;
 }) {
 	const selectedProvider = providers.find((item) => item.id === provider);
+	const selectedProviderName = selectedProvider
+		? getProviderDisplayName(selectedProvider)
+		: getProviderDisplayLabel(provider);
 	const selectedModel =
 		models.find((item) => item.id === model) ?? models[0] ?? undefined;
 
@@ -199,7 +206,7 @@ function ComposerSettings({
 								<SelectItem key={item.id} value={item.id}>
 									<div className="flex items-center gap-2">
 										{renderProviderLogo(item.id)}
-										<span>{item.name}</span>
+										<span>{getProviderDisplayName(item)}</span>
 									</div>
 								</SelectItem>
 							))}
@@ -228,9 +235,7 @@ function ComposerSettings({
 							<ModelSelectorInput placeholder="Search models..." />
 							<ModelSelectorList>
 								<ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-								<ModelSelectorGroup
-									heading={selectedProvider?.name || "Models"}
-								>
+								<ModelSelectorGroup heading={selectedProviderName || "Models"}>
 									{models.map((item) => (
 										<ModelSelectorItem
 											key={item.id}
@@ -699,9 +704,7 @@ export function Composer({
 							modelSelectorOpen={modelSelectorOpen}
 							models={models}
 							onAutoApproveToolsChange={onAutoApproveToolsChange}
-							onEnableBrowserAutomationChange={
-								onEnableBrowserAutomationChange
-							}
+							onEnableBrowserAutomationChange={onEnableBrowserAutomationChange}
 							onEnableSpawnChange={onEnableSpawnChange}
 							onEnableSafeBrowserEvaluateChange={
 								onEnableSafeBrowserEvaluateChange
@@ -737,7 +740,7 @@ export function Composer({
 							>
 								<Settings2Icon className="size-3" />
 								<span>
-									{provider}:{model}
+									{getProviderDisplayLabel(provider)}:{model}
 								</span>
 							</PromptInputButton>
 							<PromptInputButton

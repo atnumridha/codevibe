@@ -1,10 +1,14 @@
 "use client";
 
 import { ChevronDown, ChevronRight, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { desktopClient } from "@/lib/desktop-client";
+import {
+	getProviderDisplayName,
+	prioritizeCodeVibeProviders,
+} from "@/lib/provider-display";
 import type {
 	Provider,
 	ProviderCatalogResponse,
@@ -15,14 +19,14 @@ import { cn } from "@/lib/utils";
 import { AccountView } from "./account-view";
 import { AddProviderContent, type AddProviderPayload } from "./add-provider";
 import {
-	CursorUriView,
 	type CursorSettingsOpenRequest,
 	type CursorUriIntent,
+	CursorUriView,
 } from "./cursor-uri-view";
 import {
+	type ExtensionTabIntent,
 	primeExtensionsListsCache,
 	RulesView,
-	type ExtensionTabIntent,
 	type ShortcutTab,
 } from "./extensions-view";
 import { McpServersContent } from "./mcp-view";
@@ -85,9 +89,7 @@ function findProviderForSettingsQuery(
 	});
 }
 
-function extensionTabForSettingsQuery(
-	query: string,
-): ShortcutTab | undefined {
+function extensionTabForSettingsQuery(query: string): ShortcutTab | undefined {
 	if (
 		valueMatchesAny(query, ["customization", "customizations", "rule", "rules"])
 	) {
@@ -136,7 +138,9 @@ function resolveCursorSettingsTarget(
 	) {
 		return { nav: "Account" };
 	}
-	if (valueMatchesAny(query, ["routine", "routines", "schedule", "schedules"])) {
+	if (
+		valueMatchesAny(query, ["routine", "routines", "schedule", "schedules"])
+	) {
 		return { nav: "Routine" };
 	}
 	if (valueMatchesAny(query, ["extension", "extensions"])) {
@@ -211,11 +215,12 @@ export function SettingsView({
 					typeof next === "function"
 						? (next as (prev: Provider[]) => Provider[])(prev)
 						: next;
+				const ordered = prioritizeCodeVibeProviders(resolved);
 				providerCatalogCache = {
-					providers: resolved,
+					providers: ordered,
 					fetchedAt: Date.now(),
 				};
-				return resolved;
+				return ordered;
 			});
 		},
 		[],
@@ -371,7 +376,10 @@ export function SettingsView({
 		[setProvidersWithCache],
 	);
 
-	const enabledProviders = providers.filter((p) => p.enabled);
+	const enabledProviders = useMemo(
+		() => prioritizeCodeVibeProviders(providers.filter((p) => p.enabled)),
+		[providers],
+	);
 	const selectedProvider = selectedProviderId
 		? (providers.find((p) => p.id === selectedProviderId) ?? null)
 		: null;
@@ -541,7 +549,9 @@ export function SettingsView({
 															onClick={() => openProviderDetail(prov.id)}
 															variant="ghost"
 														>
-															<span className="truncate">{prov.name}</span>
+															<span className="truncate">
+																{getProviderDisplayName(prov)}
+															</span>
 														</Button>
 													))}
 												</div>

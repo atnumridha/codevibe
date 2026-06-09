@@ -47,6 +47,11 @@ import {
 } from "@/hooks/chat-session/constants";
 import { desktopClient } from "@/lib/desktop-client";
 import { readModelSelectionStorageFromWindow } from "@/lib/model-selection";
+import {
+	getProviderDisplayLabel,
+	isCopilotProviderId,
+	prioritizeCodeVibeProviderIds,
+} from "@/lib/provider-display";
 import { normalizeProviderId } from "@/lib/provider-id";
 import {
 	loadProviderModelCatalog,
@@ -254,14 +259,17 @@ export function RoutineSchedulesContent() {
 		Record<string, string[]>
 	>(FALLBACK_PROVIDER_MODELS);
 	const [enabledProviderIds, setEnabledProviderIds] = useState<string[]>(() =>
-		Object.keys(FALLBACK_PROVIDER_MODELS),
+		prioritizeCodeVibeProviderIds(Object.keys(FALLBACK_PROVIDER_MODELS)),
 	);
 	const [lastModelSelection] = useState(() =>
 		readModelSelectionStorageFromWindow(),
 	);
-	const rememberedProvider = normalizeProviderId(
+	const rawRememberedProvider = normalizeProviderId(
 		lastModelSelection.lastProvider,
 	);
+	const rememberedProvider = isCopilotProviderId(rawRememberedProvider)
+		? ""
+		: rawRememberedProvider;
 	const [createForm, setCreateForm] = useState<RoutineFormState>({
 		name: "",
 		scheduleHour: "9",
@@ -293,7 +301,7 @@ export function RoutineSchedulesContent() {
 	}, [enabledProviderIds, providerModels]);
 
 	const availableProviders = useMemo(
-		() => Object.keys(visibleProviderModels),
+		() => prioritizeCodeVibeProviderIds(Object.keys(visibleProviderModels)),
 		[visibleProviderModels],
 	);
 
@@ -339,7 +347,7 @@ export function RoutineSchedulesContent() {
 							nextProviderIds.add(providerId);
 						}
 					}
-					return Array.from(nextProviderIds);
+					return prioritizeCodeVibeProviderIds(Array.from(nextProviderIds));
 				});
 			} catch {
 				// Keep fallback values if provider catalog is unavailable.
@@ -836,7 +844,8 @@ export function RoutineSchedulesContent() {
 										</p>
 										<p>
 											<span className="text-muted-foreground/70">Model:</span>{" "}
-											{schedule.provider}/{schedule.model}
+											{getProviderDisplayLabel(schedule.provider)}/
+											{schedule.model}
 										</p>
 										{schedule.workspaceRoot && (
 											<p>
@@ -1077,7 +1086,7 @@ export function RoutineSchedulesContent() {
 									<ComboboxList>
 										{(item) => (
 											<ComboboxItem key={item} value={item}>
-												{item}
+												{getProviderDisplayLabel(item)}
 											</ComboboxItem>
 										)}
 									</ComboboxList>

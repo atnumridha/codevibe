@@ -1,9 +1,9 @@
 "use client";
 
 import {
+	AlertTriangle,
 	ArrowDown,
 	ArrowUp,
-	AlertTriangle,
 	Camera,
 	CheckCircle2,
 	ChevronDown,
@@ -12,15 +12,15 @@ import {
 	Keyboard,
 	Link2,
 	Loader2,
-	MousePointerClick,
 	Moon,
+	MousePointerClick,
 	Play,
 	RefreshCw,
 	Sun,
 	X,
 	XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,7 +29,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
-	desktopClient,
 	type BrowserAutomationStatus,
 	type BrowserToolResult,
 	type CursorAutomationIngestResponse,
@@ -39,7 +38,12 @@ import {
 	type CursorRuleOpenResponse,
 	type CursorUriLaunchResponse,
 	type CursorUriPreviewResponse,
+	desktopClient,
 } from "@/lib/desktop-client";
+import {
+	getProviderDisplayName,
+	prioritizeCodeVibeProviders,
+} from "@/lib/provider-display";
 import type {
 	Provider,
 	ProviderCatalogResponse,
@@ -229,11 +233,12 @@ export function SettingsView({
 					typeof next === "function"
 						? (next as (prev: Provider[]) => Provider[])(prev)
 						: next;
+				const ordered = prioritizeCodeVibeProviders(resolved);
 				providerCatalogCache = {
-					providers: resolved,
+					providers: ordered,
 					fetchedAt: Date.now(),
 				};
-				return resolved;
+				return ordered;
 			});
 		},
 		[],
@@ -267,6 +272,8 @@ export function SettingsView({
 		}
 	}, [setProvidersWithCache]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: initial deep links should only replay when the incoming URI changes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: initial deep links should only replay when the incoming URI changes.
 	useEffect(() => {
 		const timeoutId = window.setTimeout(() => {
 			void loadProviderCatalog();
@@ -377,7 +384,10 @@ export function SettingsView({
 		[setProvidersWithCache],
 	);
 
-	const enabledProviders = providers.filter((p) => p.enabled);
+	const enabledProviders = useMemo(
+		() => prioritizeCodeVibeProviders(providers.filter((p) => p.enabled)),
+		[providers],
+	);
 	const selectedProvider = selectedProviderId
 		? (providers.find((p) => p.id === selectedProviderId) ?? null)
 		: null;
@@ -536,7 +546,9 @@ export function SettingsView({
 															onClick={() => openProviderDetail(prov.id)}
 															variant="ghost"
 														>
-															<span className="truncate">{prov.name}</span>
+															<span className="truncate">
+																{getProviderDisplayName(prov)}
+															</span>
 														</Button>
 													))}
 												</div>
@@ -614,13 +626,13 @@ export function SettingsView({
 								providers={providers}
 							/>
 						)
-						) : activeNav === "MCP" ? (
-							<McpServersContent />
-						) : activeNav === "Compatibility" ? (
-							<CursorLinksContent
-								initialCursorUri={initialCursorUri}
-								onOpenSettings={selectSection}
-							/>
+					) : activeNav === "MCP" ? (
+						<McpServersContent />
+					) : activeNav === "Compatibility" ? (
+						<CursorLinksContent
+							initialCursorUri={initialCursorUri}
+							onOpenSettings={selectSection}
+						/>
 					) : activeNav === "Channels" ? (
 						<ChannelsContent />
 					) : activeNav === "Schedules" ? (
@@ -740,7 +752,10 @@ function redactCursorSecretLikeString(value: string): {
 	redacted: boolean;
 	value: string;
 } {
-	const replaced = value.replace(CURSOR_BEARER_SECRET_PATTERN, "Bearer [REDACTED]");
+	const replaced = value.replace(
+		CURSOR_BEARER_SECRET_PATTERN,
+		"Bearer [REDACTED]",
+	);
 	return { value: replaced, redacted: replaced !== value };
 }
 
@@ -844,10 +859,7 @@ function parseCursorConfigPreviewValue(value: string): unknown {
 		return JSON.parse(value);
 	} catch {
 		const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-		const padded = normalized.padEnd(
-			Math.ceil(normalized.length / 4) * 4,
-			"=",
-		);
+		const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
 		return JSON.parse(atob(padded));
 	}
 }
@@ -939,6 +951,7 @@ function CursorLinksContent({
 	const [cursorUri, setCursorUri] = useState(
 		initialCursorUri ?? DEFAULT_CURSOR_URI,
 	);
+	const cursorUriRef = useRef(cursorUri);
 	const [preview, setPreview] = useState<
 		CursorUriPreviewResponse | undefined
 	>();
@@ -1040,17 +1053,21 @@ function CursorLinksContent({
 	const pluginRequiresReview =
 		recordBoolean(previewRecord, "requiresReview") === true;
 	const canAddPlugin =
-		route === "plugin-add" &&
-		!pluginRequiresReview &&
-		Boolean(pluginSource);
+		route === "plugin-add" && !pluginRequiresReview && Boolean(pluginSource);
 	const canRunGit =
 		route === "git-checkout" ||
 		route === "git-branch" ||
 		route === "git-commit";
-	const launchBackgroundDetails = asRecord(launchResult?.backgroundAgentDetails);
+	const launchBackgroundDetails = asRecord(
+		launchResult?.backgroundAgentDetails,
+	);
 
-	const runPreview = async (inputUri = cursorUri) => {
-		const uri = inputUri.trim();
+	useEffect(() => {
+		cursorUriRef.current = cursorUri;
+	}, [cursorUri]);
+
+	const runPreview = useCallback(async (inputUri?: string) => {
+		const uri = (inputUri ?? cursorUriRef.current).trim();
 		if (!uri) {
 			setPreview(undefined);
 			setPreviewError("URI is required.");
@@ -1097,9 +1114,9 @@ function CursorLinksContent({
 		} finally {
 			setPreviewLoading(false);
 		}
-	};
+	}, []);
 
-	const updateCursorUri = (value: string) => {
+	const updateCursorUri = useCallback((value: string) => {
 		setCursorUri(value);
 		setPreview(undefined);
 		setPreviewError(null);
@@ -1116,7 +1133,7 @@ function CursorLinksContent({
 		setPluginError(null);
 		setGitResult(undefined);
 		setGitError(null);
-	};
+	}, []);
 
 	useEffect(() => {
 		if (!initialCursorUri) {
@@ -1127,7 +1144,7 @@ function CursorLinksContent({
 			void runPreview(initialCursorUri);
 		}, 0);
 		return () => window.clearTimeout(timeoutId);
-	}, [initialCursorUri]);
+	}, [initialCursorUri, runPreview, updateCursorUri]);
 
 	const runMcpInstall = async () => {
 		const uri = cursorUri.trim();
@@ -1374,9 +1391,7 @@ function CursorLinksContent({
 											size="sm"
 											type="button"
 											variant={
-												effectiveLaunchMode === mode
-													? "secondary"
-													: "ghost"
+												effectiveLaunchMode === mode ? "secondary" : "ghost"
 											}
 										>
 											{mode === "plan" ? "Plan" : "Act"}
@@ -1696,8 +1711,8 @@ function CursorLinksContent({
 											? `specs: ${ingestResult.matchedSpecIds.join(", ")}`
 											: "",
 									]
-											.filter(Boolean)
-											.join(" | ")
+										.filter(Boolean)
+										.join(" | ")
 								: `${ingestResult.eventCount} event(s), ${ingestResult.rejectedCount} rejected`}
 						</AlertDescription>
 					</Alert>
@@ -1715,7 +1730,9 @@ function CursorLinksContent({
 					<Alert className="mt-4">
 						<CheckCircle2 className="size-4" />
 						<AlertTitle>
-							{ruleResult.created ? "Compatible rule created" : "Compatible rule opened"}
+							{ruleResult.created
+								? "Compatible rule created"
+								: "Compatible rule opened"}
 						</AlertTitle>
 						<AlertDescription>
 							{[
@@ -1762,8 +1779,8 @@ function CursorLinksContent({
 											: "",
 										pluginResult.installPath,
 									]
-											.filter(Boolean)
-											.join(" | ")
+										.filter(Boolean)
+										.join(" | ")
 								: (pluginResult.reason ??
 									pluginResult.detail ??
 									"Review required.")}
@@ -1790,7 +1807,9 @@ function CursorLinksContent({
 							<AlertTriangle className="size-4" />
 						)}
 						<AlertTitle>
-							{gitResult.executed ? `Ran ${gitResult.kind}` : "Git action blocked"}
+							{gitResult.executed
+								? `Ran ${gitResult.kind}`
+								: "Git action blocked"}
 						</AlertTitle>
 						<AlertDescription>
 							{gitResult.executed
@@ -1934,7 +1953,9 @@ function GeneralSettingsContent({
 			setBrowserStatus(status);
 		} catch (error) {
 			setBrowserStatus(undefined);
-			setBrowserStatusError(error instanceof Error ? error.message : String(error));
+			setBrowserStatusError(
+				error instanceof Error ? error.message : String(error),
+			);
 		} finally {
 			setBrowserStatusLoading(false);
 		}
@@ -2221,7 +2242,9 @@ function GeneralSettingsContent({
 							aria-label="Enable telemetry"
 							checked={!telemetryOptOut}
 							disabled={telemetryLoading || telemetrySaving}
-							onCheckedChange={(checked) => void updateTelemetryEnabled(checked)}
+							onCheckedChange={(checked) =>
+								void updateTelemetryEnabled(checked)
+							}
 						/>
 					</div>
 				</section>
@@ -2393,7 +2416,9 @@ function GeneralSettingsContent({
 							</Button>
 						</div>
 						{browserResult ? (
-							<Alert variant={browserResult.success ? "default" : "destructive"}>
+							<Alert
+								variant={browserResult.success ? "default" : "destructive"}
+							>
 								{browserResult.success ? (
 									<CheckCircle2 className="size-4" />
 								) : (
@@ -2401,7 +2426,8 @@ function GeneralSettingsContent({
 								)}
 								<AlertTitle>{browserResult.query}</AlertTitle>
 								<AlertDescription>
-									{browserSummary || (browserResult.success ? "done" : "failed")}
+									{browserSummary ||
+										(browserResult.success ? "done" : "failed")}
 								</AlertDescription>
 							</Alert>
 						) : null}
