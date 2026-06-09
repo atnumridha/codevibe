@@ -79,7 +79,7 @@ import { fileExistsAtPath } from "./utils/fs"
 
 const OPENAI_CODEX_EXTENSION_ID = "openai.chatgpt"
 const OPENAI_CODEX_OPEN_SIDEBAR_COMMAND = "chatgpt.openSidebar"
-const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe.agent"
+const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_LEGACY_CHAT_SESSION_TYPE = "codevibe-agent"
 const CODEVIBE_NATIVE_CHAT_SESSION_TYPES = [CODEVIBE_CHAT_SESSION_TYPE, CODEVIBE_LEGACY_CHAT_SESSION_TYPE] as const

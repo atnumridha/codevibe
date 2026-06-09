@@ -87,13 +87,13 @@ describe("native CodeVibe chat sessions", () => {
 				},
 				{ type: "say", say: "completion_result", text: "Done.", ts: 6 },
 			],
-			{ participantId: "codevibe.agent" },
+			{ participantId: "codevibe" },
 		)
 
 		expect(history).to.have.length(5)
 		expect(history[0]).to.deep.include({
 			prompt: "Build the feature",
-			participant: "codevibe.agent",
+			participant: "codevibe",
 		})
 		expect(JSON.stringify(history[1])).to.include("Reasoning")
 		expect(JSON.stringify(history[2])).to.include("Progress")
@@ -104,12 +104,12 @@ describe("native CodeVibe chat sessions", () => {
 	it("includes user feedback as native request turns", () => {
 		const history = buildCodeVibeNativeChatSessionHistory(
 			[{ type: "say", say: "user_feedback", text: "Please keep going", ts: 1 }],
-			{ participantId: "codevibe.agent" },
+			{ participantId: "codevibe" },
 		)
 
 		expect(history[0]).to.deep.include({
 			prompt: "User feedback:\n\nPlease keep going",
-			participant: "codevibe.agent",
+			participant: "codevibe",
 		})
 	})
 
@@ -119,7 +119,7 @@ describe("native CodeVibe chat sessions", () => {
 				{ type: "say", say: "text", text: "older", ts: 1 },
 				{ type: "say", say: "tool", text: JSON.stringify({ tool: "readFile", content: "x".repeat(200) }), ts: 2 },
 			],
-			{ participantId: "codevibe.agent", maxTurns: 1, maxMarkdownLength: 80 },
+			{ participantId: "codevibe", maxTurns: 1, maxMarkdownLength: 80 },
 		)
 
 		expect(history).to.have.length(1)

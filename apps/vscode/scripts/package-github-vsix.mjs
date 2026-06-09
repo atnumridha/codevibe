@@ -916,21 +916,21 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	const chatParticipants = Array.isArray(packageJson.contributes?.chatParticipants)
 		? packageJson.contributes.chatParticipants
 		: []
-	const codeVibeAgentParticipant = chatParticipants.find((participant) => participant?.id === "codevibe.agent")
+	const codeVibeAgentParticipant = chatParticipants.find((participant) => participant?.id === "codevibe")
 	if (!codeVibeAgentParticipant) {
-		throw new Error(`${label} must contribute the native codevibe.agent chat participant`)
+		throw new Error(`${label} must contribute the native codevibe chat participant`)
 	}
 	if (codeVibeAgentParticipant.name !== "codevibe" || codeVibeAgentParticipant.fullName !== "CodeVibe Agent") {
-		throw new Error(`${label} codevibe.agent chat participant must be named CodeVibe Agent`)
+		throw new Error(`${label} codevibe chat participant must be named CodeVibe Agent`)
 	}
 	if (codeVibeAgentParticipant.isDefault !== true) {
-		throw new Error(`${label} codevibe.agent chat participant must be the default agent-mode participant`)
+		throw new Error(`${label} codevibe chat participant must be the default agent-mode participant`)
 	}
 	if (!Array.isArray(codeVibeAgentParticipant.locations) || !codeVibeAgentParticipant.locations.includes("panel")) {
-		throw new Error(`${label} codevibe.agent chat participant must target the native Chat panel`)
+		throw new Error(`${label} codevibe chat participant must target the native Chat panel`)
 	}
 	if (!Array.isArray(codeVibeAgentParticipant.modes) || !codeVibeAgentParticipant.modes.includes("agent")) {
-		throw new Error(`${label} codevibe.agent chat participant must register for native agent mode`)
+		throw new Error(`${label} codevibe chat participant must register for native agent mode`)
 	}
 	const chatAgents = Array.isArray(packageJson.contributes?.chatAgents) ? packageJson.contributes.chatAgents : []
 	for (const [index, agent] of chatAgents.entries()) {
@@ -1093,7 +1093,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionCustomizationProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
-	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe.agent", `${label} activationEvents`)
+	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatSession:agent-host-codevibe", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatSession:codevibe-agent", `${label} activationEvents`)
 	for (const command of requiredCursorParityCommands) {
@@ -1356,7 +1356,7 @@ function assertNativeChatRegistrationSource() {
 	for (const fragment of ["createChatParticipant!(chatSessionType", "createChatParticipant(chatSessionType"]) {
 		if (source.includes(fragment)) {
 			throw new Error(
-				`Native Chat session providers must reuse the declared codevibe.agent participant instead of ${fragment}`,
+				`Native Chat session providers must reuse the declared codevibe participant instead of ${fragment}`,
 			)
 		}
 	}
