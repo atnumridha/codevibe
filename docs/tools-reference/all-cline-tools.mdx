@@ -1,10 +1,10 @@
 ---
 title: "Tools"
 sidebarTitle: "Tools"
-description: "Reference for Cline's built-in tool system, aligned with SDK tool architecture."
+description: "Reference for CodeVibe's built-in tool system, aligned with SDK tool architecture."
 ---
 
-Cline tools are executable functions the model can call while working. The model decides which tool to call, Cline runs it, then returns results back to the model.
+CodeVibe tools are executable functions the model can call while working. The model decides which tool to call, CodeVibe runs it, then returns results back to the model.
 
 ## Built-In Tools (ClineCore)
 
@@ -33,7 +33,7 @@ When running through `ClineCore`, these built-ins are available:
 
 ## Approval and Policy Controls
 
-Cline can run tools with approval or auto-approval, depending on settings/policies. Typical patterns:
+CodeVibe can run tools with approval or auto-approval, depending on settings/policies. Typical patterns:
 
 - Require approval for risky tools (for example `bash`, write/edit operations)
 - Auto-approve low-risk tools (for example read/search operations)
@@ -43,16 +43,16 @@ For policy examples, see [SDK Tools](/sdk/tools) and [Permission Handling](/sdk/
 
 ## MCP Tools
 
-Cline can also call tools discovered from MCP servers configured in `.cline/mcp.json`.
+CodeVibe can also call tools discovered from MCP servers configured in `.codevibe/mcp.json`; legacy `.cline/mcp.json` is still supported for existing projects.
 
-MCP tools are loaded alongside built-ins, so Cline can use both local tools and external integrations in one task.
+MCP tools are loaded alongside built-ins, so CodeVibe can use both local tools and external integrations in one task.
 
 See [MCP Overview](/mcp/mcp-overview) and [SDK Tools → MCP Tools](/sdk/tools#mcp-tools).
 
 ## Custom Tools
 
 <Warning>
-  This feature currently only applies to Cline SDK, CLI, and Kanban. This feature is not applicable on VSCode and JetBrains Extension for now.
+  This feature currently only applies to the CodeVibe SDK, CLI, and Kanban. This feature is not applicable on VSCode and JetBrains Extension for now.
 </Warning>
 
 Beyond built-ins and MCP, you can create custom tools and add them through plugins.

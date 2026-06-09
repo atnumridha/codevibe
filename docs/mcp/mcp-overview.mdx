@@ -1,20 +1,20 @@
 ---
 title: "MCP"
 sidebarTitle: "MCP"
-description: "Add, configure, and use MCP servers in Cline."
+description: "Add, configure, and use MCP servers in CodeVibe."
 ---
 
-MCP (Model Context Protocol) lets Cline use external tools and data sources through MCP servers.
+MCP (Model Context Protocol) lets CodeVibe use external tools and data sources through MCP servers.
 
 ## What MCP gives you
 
-- Connect Cline to external APIs and services
-- Add custom tools beyond built-in Cline tools
+- Connect CodeVibe to external APIs and services
+- Add custom tools beyond built-in CodeVibe tools
 - Use either local servers or remote hosted servers
 
 ## Quick start
 
-1. Open **MCP Servers** in Cline
+1. Open **MCP Servers** in CodeVibe
 2. Add a server (from Marketplace or manually)
 3. Configure credentials/environment variables
 4. Verify tools appear and test one tool call
@@ -23,17 +23,17 @@ MCP (Model Context Protocol) lets Cline use external tools and data sources thro
 
 ### Option 1: Marketplace
 
-Use Cline's MCP Marketplace for one-click install when available.
-1. In the Cline panel, click the MCP Servers icon (stacked server icon in the top toolbar).
+Use CodeVibe's MCP Marketplace for one-click install when available.
+1. In the CodeVibe panel, click the MCP Servers icon (stacked server icon in the top toolbar).
 2. Open the Marketplace tab.
 
 ### Option 2: Manual config
 
 Edit your MCP config file and add either:
 
-- **CLI:** `~/.cline/mcp.json`
+- **CLI:** `~/.codevibe/mcp.json` by default; legacy `~/.cline/mcp.json` remains supported for compatibility
 - **IDE extensions:**
-  1. In the Cline panel, click the **MCP Servers** icon (stacked server icon in the top toolbar).
+  1. In the CodeVibe panel, click the **MCP Servers** icon (stacked server icon in the top toolbar).
   2. Open the **Configure** tab.
   3. Click **Configure MCP Servers** (button near the bottom).
   4. This opens the MCP settings JSON used by the extension; add/update entries under `mcpServers`.
@@ -54,7 +54,7 @@ Edit your MCP config file and add either:
 From CLI, run:
 
 ```bash
-cline mcp
+codevibe mcp
 ```
 
 The wizard supports:
@@ -140,11 +140,11 @@ In MCP settings you can:
 
 ## CLI
 
-MCP also works in Cline CLI. Configure servers in CLI MCP settings and use the same server definitions.
+MCP also works in CodeVibe CLI. Configure servers in CLI MCP settings and use the same server definitions.
 
 You can also list servers non-interactively:
 
 ```bash
-cline config mcp
-cline config mcp --json
+codevibe config mcp
+codevibe config mcp --json
 ```

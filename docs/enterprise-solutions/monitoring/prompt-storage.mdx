@@ -13,15 +13,15 @@ Every CodeVibe task conversation is stored locally in `~/.codevibe/data/tasks/<t
   <Card title="Compliance Ready" icon="shield-check">
     Maintain conversation records for regulatory requirements and internal policies.
   </Card>
-  
+
   <Card title="Audit Trail" icon="scroll">
     Track AI interactions across your organization with timestamped conversation logs.
   </Card>
-  
+
   <Card title="Usage Analysis" icon="chart-line">
     Analyze conversation patterns, token usage, and model performance at scale.
   </Card>
-  
+
   <Card title="Disaster Recovery" icon="cloud-arrow-up">
     Backup conversation history independent of local storage for business continuity.
   </Card>
@@ -58,8 +58,8 @@ Prompt storage uploads the following files from each task:
 
 Prompt storage **does not** include:
 
-- ❌ Workspace files not accessed by Cline
-- ❌ API keys or secrets  
+- ❌ Workspace files not accessed by CodeVibe
+- ❌ API keys or secrets
 - ❌ User credentials or authentication tokens
 
 <Warning>
@@ -89,7 +89,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
       "enabled": true,
       "type": "s3_access_keys",
       "s3AccessSettings": {
-        "bucket": "your-cline-prompts",
+        "bucket": "your-codevibe-prompts",
         "accessKeyId": "AKIAIOSFODNN7EXAMPLE",
         "secretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         "region": "us-east-1",
@@ -144,21 +144,21 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
 
     <Steps>
       <Step title="Create S3 Bucket">
-        Create a dedicated S3 bucket for Cline conversation storage:
-        
+        Create a dedicated S3 bucket for CodeVibe conversation storage:
+
         ```bash
-        aws s3 mb s3://your-cline-prompts --region us-east-1
+        aws s3 mb s3://your-codevibe-prompts --region us-east-1
         ```
-        
+
         Enable versioning and encryption:
-        
+
         ```bash
         aws s3api put-bucket-versioning \
-          --bucket your-cline-prompts \
+          --bucket your-codevibe-prompts \
           --versioning-configuration Status=Enabled
-        
+
         aws s3api put-bucket-encryption \
-          --bucket your-cline-prompts \
+          --bucket your-codevibe-prompts \
           --server-side-encryption-configuration '{
             "Rules": [{
               "ApplyServerSideEncryptionByDefault": {
@@ -171,7 +171,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
 
       <Step title="Create IAM Policy">
         Create an IAM policy with minimal required permissions:
-        
+
         ```json
         {
           "Version": "2012-10-17",
@@ -184,47 +184,47 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
                 "s3:GetObject",
                 "s3:DeleteObject"
               ],
-              "Resource": "arn:aws:s3:::your-cline-prompts/*"
+              "Resource": "arn:aws:s3:::your-codevibe-prompts/*"
             },
             {
               "Effect": "Allow",
               "Action": [
                 "s3:ListBucket"
               ],
-              "Resource": "arn:aws:s3:::your-cline-prompts"
+              "Resource": "arn:aws:s3:::your-codevibe-prompts"
             }
           ]
         }
         ```
-        
-        Save this as `cline-prompt-storage-policy.json` and create the policy:
-        
+
+        Save this as `codevibe-prompt-storage-policy.json` and create the policy:
+
         ```bash
         aws iam create-policy \
           --policy-name ClinePromptStorage \
-          --policy-document file://cline-prompt-storage-policy.json
+          --policy-document file://codevibe-prompt-storage-policy.json
         ```
       </Step>
 
       <Step title="Create IAM User">
         Create a dedicated IAM user and attach the policy:
-        
+
         ```bash
-        aws iam create-user --user-name cline-prompt-uploader
-        
+        aws iam create-user --user-name codevibe-prompt-uploader
+
         aws iam attach-user-policy \
-          --user-name cline-prompt-uploader \
+          --user-name codevibe-prompt-uploader \
           --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/ClinePromptStorage
-        
-        aws iam create-access-key --user-name cline-prompt-uploader
+
+        aws iam create-access-key --user-name codevibe-prompt-uploader
         ```
-        
+
         Save the `AccessKeyId` and `SecretAccessKey` from the output.
       </Step>
 
-      <Step title="Configure in Cline Dashboard">
-        In the Cline admin console at [app.cline.bot](https://app.cline.bot):
-        
+      <Step title="Configure in CodeVibe Dashboard">
+        In the CodeVibe admin console at [app.codevibe.bot](https://app.codevibe.bot):
+
         1. Navigate to **Settings** → **Enterprise Telemetry**
         2. Enable **Prompt Uploading**
         3. Select **S3** as the storage type
@@ -238,7 +238,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
         - Bucket access
         - Write permissions
         - Credential validity
-        
+
         A test file will be uploaded and deleted from your bucket.
       </Step>
     </Steps>
@@ -280,7 +280,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
         1. Log in to the [Cloudflare Dashboard](https://dash.cloudflare.com)
         2. Navigate to **R2** in the sidebar
         3. Click **Create bucket**
-        4. Name your bucket (e.g., `cline-prompts`)
+        4. Name your bucket (e.g., `codevibe-prompts`)
         5. Select a location close to your users
         6. Click **Create bucket**
       </Step>
@@ -289,7 +289,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
         1. In the R2 dashboard, click **Manage R2 API Tokens**
         2. Click **Create API token**
         3. Configure permissions:
-           - **Token name**: Cline Prompt Storage
+           - **Token name**: CodeVibe Prompt Storage
            - **Permissions**: Object Read & Write
            - **Bucket**: Select your bucket or use All buckets
         4. Click **Create API Token**
@@ -299,17 +299,17 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
 
       <Step title="Get R2 Endpoint">
         Your R2 endpoint follows this format:
-        
+
         ```
         https://<ACCOUNT_ID>.r2.cloudflarestorage.com
         ```
-        
+
         Find your account ID in the Cloudflare dashboard under R2 overview.
       </Step>
 
-      <Step title="Configure in Cline Dashboard">
-        In the Cline admin console at [app.cline.bot](https://app.cline.bot):
-        
+      <Step title="Configure in CodeVibe Dashboard">
+        In the CodeVibe admin console at [app.codevibe.bot](https://app.codevibe.bot):
+
         1. Navigate to **Settings** → **Enterprise Telemetry**
         2. Enable **Prompt Uploading**
         3. Select **R2** as the storage type
@@ -378,7 +378,7 @@ Enable backfill carefully on large deployments. Consider starting with `backfill
 
 ### Integration with OpenTelemetry
 
-While prompt storage operates independently, it integrates with Cline's observability system:
+While prompt storage operates independently, it integrates with CodeVibe's observability system:
 
 - **Task lifecycle events**: `task.created`, `task.completed` track when conversations are generated
 - **Conversation events**: `task.conversation_turn`, `task.tokens` provide usage metrics
@@ -395,7 +395,7 @@ Monitor S3 upload activity with CloudWatch:
 aws cloudwatch get-metric-statistics \
   --namespace AWS/S3 \
   --metric-name NumberOfObjects \
-  --dimensions Name=BucketName,Value=your-cline-prompts \
+  --dimensions Name=BucketName,Value=your-codevibe-prompts \
   --start-time 2026-03-01T00:00:00Z \
   --end-time 2026-03-08T00:00:00Z \
   --period 3600 \
@@ -443,8 +443,8 @@ Cloudflare R2 provides built-in analytics in the dashboard:
       "Principal": "*",
       "Action": "s3:*",
       "Resource": [
-        "arn:aws:s3:::your-cline-prompts/*",
-        "arn:aws:s3:::your-cline-prompts"
+        "arn:aws:s3:::your-codevibe-prompts/*",
+        "arn:aws:s3:::your-codevibe-prompts"
       ],
       "Condition": {
         "Bool": {
@@ -462,11 +462,11 @@ Cloudflare R2 provides built-in analytics in the dashboard:
 
 ```bash
 aws s3api put-bucket-logging \
-  --bucket your-cline-prompts \
+  --bucket your-codevibe-prompts \
   --bucket-logging-status '{
     "LoggingEnabled": {
       "TargetBucket": "your-log-bucket",
-      "TargetPrefix": "cline-prompts-access/"
+      "TargetPrefix": "codevibe-prompts-access/"
     }
   }'
 ```
@@ -490,12 +490,12 @@ Implement retention policies based on your compliance requirements:
 <AccordionGroup>
   <Accordion title="Queue size growing continuously">
     **Symptoms**: `maxQueueSize` limit reached, oldest items being evicted
-    
+
     **Causes**:
     - Upload rate slower than conversation creation rate
     - Network connectivity issues
     - Insufficient batch size or interval
-    
+
     **Solutions**:
     1. Increase `batchSize` to process more items per interval
     2. Decrease `intervalMs` to sync more frequently
@@ -505,12 +505,12 @@ Implement retention policies based on your compliance requirements:
 
   <Accordion title="Uploads failing with 403 Forbidden">
     **Symptoms**: Repeated upload failures, items reaching `maxRetries`
-    
+
     **Causes**:
     - Invalid or expired credentials
     - Insufficient IAM permissions
     - Bucket policy denying access
-    
+
     **Solutions**:
     1. Verify credentials are correct in remote config
     2. Check IAM policy includes `s3:PutObject` permission
@@ -520,12 +520,12 @@ Implement retention policies based on your compliance requirements:
 
   <Accordion title="R2 endpoint connection timeout">
     **Symptoms**: Connection timeouts, failed uploads
-    
+
     **Causes**:
     - Incorrect endpoint URL
     - Firewall blocking Cloudflare IPs
     - Invalid account ID
-    
+
     **Solutions**:
     1. Verify endpoint format: `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`
     2. Check firewall rules allow HTTPS to Cloudflare IPs
@@ -535,11 +535,11 @@ Implement retention policies based on your compliance requirements:
 
   <Accordion title="Backfill overwhelming upload queue">
     **Symptoms**: Queue at max size immediately after enabling backfill
-    
+
     **Causes**:
     - Large number of existing tasks
     - Backfill queuing faster than upload processing
-    
+
     **Solutions**:
     1. Disable backfill temporarily: `"backfillEnabled": false`
     2. Let steady-state queue drain first
@@ -635,15 +635,15 @@ Task metadata includes:
   <Card title="Start Small" icon="seedling">
     Test with a single team or project before rolling out organization-wide.
   </Card>
-  
+
   <Card title="Monitor Costs" icon="dollar-sign">
     Set up billing alerts and review storage usage monthly.
   </Card>
-  
+
   <Card title="Secure Credentials" icon="lock">
     Use dedicated IAM users with minimal permissions and rotate keys regularly.
   </Card>
-  
+
   <Card title="Plan Retention" icon="calendar">
     Define and implement data retention policies based on compliance needs.
   </Card>
@@ -655,11 +655,11 @@ Task metadata includes:
   <Card title="OpenTelemetry" icon="chart-line" href="/enterprise-solutions/monitoring/opentelemetry">
     Configure metrics and logs export for comprehensive observability
   </Card>
-  
+
   <Card title="Telemetry" icon="chart-simple" href="/enterprise-solutions/monitoring/telemetry">
-    Learn about Cline's built-in anonymous usage tracking
+    Learn about CodeVibe's built-in anonymous usage tracking
   </Card>
-  
+
   <Card title="Remote Configuration" icon="gear" href="/enterprise-solutions/configuration/remote-configuration/overview">
     Understand the remote configuration system
   </Card>

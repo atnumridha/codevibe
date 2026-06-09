@@ -1,4 +1,4 @@
-You have access to the `gh` terminal command. I already authenticated it for you. Please review it to use the PR that I asked you to review. You're already in the `cline` repo.
+You have access to the `gh` terminal command. I already authenticated it for you. Please review it to use the PR that I asked you to review. You're already in the `CodeVibe` repo.
 
 <detailed_sequence_of_steps>
 # GitHub PR Review Process - Detailed Sequence of Steps
@@ -55,9 +55,9 @@ You have access to the `gh` terminal command. I already authenticated it for you
    ```xml
    <ask_followup_question>
    <question>Based on my review of PR #<PR-number>, I recommend [approving/requesting changes]. Here's my justification:
-   
+
    [Detailed justification with key points about the PR quality, implementation, and any concerns]
-   
+
    Would you like me to proceed with this recommendation?</question>
    <options>["Yes, approve the PR", "Yes, request changes", "No, I'd like to discuss further"]</options>
    </ask_followup_question>
@@ -86,7 +86,7 @@ You have access to the `gh` terminal command. I already authenticated it for you
    ```bash
    # For single-line comments:
    gh pr review <PR-number> --approve --body "Your approval message"
-   
+
    # For multi-line comments with proper whitespace formatting:
    cat << EOF | gh pr review <PR-number> --approve --body-file -
    Thanks @username for this PR! The implementation looks good.
@@ -101,7 +101,7 @@ You have access to the `gh` terminal command. I already authenticated it for you
    ```bash
    # For single-line comments:
    gh pr review <PR-number> --request-changes --body "Your feedback message"
-   
+
    # For multi-line comments with proper whitespace formatting:
    cat << EOF | gh pr review <PR-number> --request-changes --body-file -
    Thanks @username for this PR!
@@ -297,7 +297,7 @@ gh pr merge <PR-number> --merge
 </common_gh_commands>
 
 <general_guidelines_for_commenting>
-When reviewing a PR, please talk normally and like a friendly reviwer. You should keep it short, and start out by thanking the author of the pr and @ mentioning them. 
+When reviewing a PR, please talk normally and like a friendly reviwer. You should keep it short, and start out by thanking the author of the pr and @ mentioning them.
 
 Whether or not you approve the PR, you should then give a quick summary of the changes without being too verbose or definitive, staying humble like that this is your understanding of the changes. Kind of how I'm talking to you right now.
 
@@ -337,12 +337,12 @@ visibleWebview = WebviewProvider.getSidebarInstance()
 ```
 </request_changes_comment>
 <request_changes_comment>
-Heya @alejandropta thanks for working on this! 
+Heya @alejandropta thanks for working on this!
 
 A few notes:
-1 - Adding additional info to the environment variables is fairly problematic because env variables get appended to **every single message**. I don't think this is justifiable for a somewhat niche use case. 
+1 - Adding additional info to the environment variables is fairly problematic because env variables get appended to **every single message**. I don't think this is justifiable for a somewhat niche use case.
 2 - Adding this option to settings to include that could be an option, but we want our options to be simple and straightforward for new users
-3 - We're working on revisualizing the way our settings page is displayed/organized, and this could potentially be reconciled once that is in and our settings page is more clearly delineated. 
+3 - We're working on revisualizing the way our settings page is displayed/organized, and this could potentially be reconciled once that is in and our settings page is more clearly delineated.
 
 So until the settings page is update, and this is added to settings in a way that's clean and doesn't confuse new users, I don't think we can merge this. Please bear with us.
 </request_changes_comment>

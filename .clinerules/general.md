@@ -15,7 +15,7 @@ This file is the secret sauce for working effectively in this codebase. It captu
 ## Miscellaneous
 - This is a VS Code extension—check `package.json` for available scripts before trying to verify builds (e.g., `npm run compile`, not `npm run build`).
 - When creating PRs, contributors should not create changelog-entry files. Maintainers handle release versioning and changelog curation during the release process.
-- When adding new feature flags, see this PR as a reference https://github.com/cline/cline/pull/7566
+- When adding new feature flags, search existing feature-flag changes first and follow the established state, settings, and UI plumbing pattern.
 - Additional instructions about making requests: @.clinerules/network.md
 
 ## gRPC/Protobuf Communication

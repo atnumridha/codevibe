@@ -1,6 +1,6 @@
 # General writing guide
 
-# How I want you to write 
+# How I want you to write
 
 I'm gonna write something technical.
 
@@ -12,7 +12,7 @@ I'm gonna lay out a checklist of stuff I'd like to have. It'll make the whole wr
 
 ## Crafting Compelling Titles
 
-I often come across titles like "How to do X with Y,Z technology." These don't excite me because X or Y are usually unfamiliar unless they're already well-known. Its rarely the dream to use X unless X is the dream. 
+I often come across titles like "How to do X with Y,Z technology." These don't excite me because X or Y are usually unfamiliar unless they're already well-known. Its rarely the dream to use X unless X is the dream.
 
 My dream isn’t to use instructor, its to do something valueble with the data it extracts
 
@@ -47,7 +47,7 @@ You can take it further by adding specific conditions. For instance, you could t
 
 ## NO adjectiives
 
-I want you to almost always avoid adjectives and try to use evidence instead. Instead of saying "production ready," you can write something like "scaling this to 100 servers or 1 million documents per second." Numbers like that will tell you exactly what the specificity of your product is. If you have to use adjectives rather than evidence, you are probably making something up. 
+I want you to almost always avoid adjectives and try to use evidence instead. Instead of saying "production ready," you can write something like "scaling this to 100 servers or 1 million documents per second." Numbers like that will tell you exactly what the specificity of your product is. If you have to use adjectives rather than evidence, you are probably making something up.
 
 There's no reason to say something like "blazingly fast" unless those things are already known phrases.
 
@@ -67,7 +67,7 @@ Earlier this year, I had an example where I embedded all of Wikipedia in 17 minu
 
 It was easy to visualize and could have been proven false by being unreproducible. Lastly, Modal is the only company that could do that in such an effortless way, which made it unique.
 
-## Keep It Digestible 
+## Keep It Digestible
     - Aim for 5-minute reads
     - Write at a Grade 10 reading level
     - Break up long paragraphs
@@ -81,7 +81,7 @@ It was easy to visualize and could have been proven false by being unreproducibl
 
 This structure works whether you're writing a tweet thread or a full blog post. The key is making complex ideas accessible.
 
-# Guide to Writing Cline Documentation
+# Guide to Writing CodeVibe Documentation
 
 ## Some general principles for explaining features
 
@@ -101,7 +101,7 @@ Documentation should motivate users to try things. Instead of just explaining ho
 
 ### Create a Natural Story Flow
 
-It should feel like a conversation that naturally progresses from "what is this?" to "how do I use it?" to "here's a real example" to "imagine what you could do with this." 
+It should feel like a conversation that naturally progresses from "what is this?" to "how do I use it?" to "here's a real example" to "imagine what you could do with this."
 
 ### Show Real Examples, Not Toy Demos
 
@@ -131,7 +131,7 @@ The goal is documentation that feels more like helpful guidance from an experien
 
 ## Balance Structure with Flexibility
 
-While they discuss having consistent documentation structure, there's also mention of making content feel less rigid and more natural. The writing should follow guidelines while still feeling conversational and engaging. 
+While they discuss having consistent documentation structure, there's also mention of making content feel less rigid and more natural. The writing should follow guidelines while still feeling conversational and engaging.
 
 ## Bad examples
 
@@ -139,19 +139,19 @@ I personally hate this pattern of bullet point **Bold Text** colon and then more
 <bad_example_of_writing>
 #### macOS
 
-1. **Switch to bash**: Go to Cline Settings → Terminal → Default Terminal Profile → Select "bash"
+1. **Switch to bash**: Go to CodeVibe Settings → Terminal → Default Terminal Profile → Select "bash"
 2. **Disable Oh-My-Zsh temporarily**: If using zsh, try `mv ~/.zshrc ~/.zshrc.backup` and restart VSCode
 3. **Set environment**: Add to your shell config: `export TERM=xterm-256color`
 
 #### Windows
 
-1. **Use PowerShell 7**: Install from Microsoft Store, then select it in Cline settings
+1. **Use PowerShell 7**: Install from Microsoft Store, then select it in CodeVibe settings
 2. **Disable Windows ConPTY**: VSCode Settings → Terminal › Integrated: Windows Enable Conpty → Uncheck
 3. **Try Command Prompt**: Sometimes simpler is better - switch to cmd.exe
 
 #### Linux
 
-1. **Use bash**: Most reliable option - select in Cline settings
+1. **Use bash**: Most reliable option - select in CodeVibe settings
 2. **Check permissions**: Ensure VSCode has terminal access permissions
 3. **Disable custom prompts**: Comment out prompt customizations in `.bashrc`
 
@@ -162,17 +162,17 @@ We should instead strive to write beautiful docs that read well. We can use bull
 <good_example_of_writing>
 #### macOS
 
-The most common fix is switching to bash. Navigate to Cline Settings → Terminal → Default Terminal Profile and select "bash" from the dropdown.
+The most common fix is switching to bash. Navigate to CodeVibe Settings → Terminal → Default Terminal Profile and select "bash" from the dropdown.
 
 If you're still having issues, Oh-My-Zsh might be interfering with terminal integration. Try temporarily disabling it:
-- Run `mv ~/.zshrc ~/.zshrc.backup` 
+- Run `mv ~/.zshrc ~/.zshrc.backup`
 - Restart VSCode
 
 You can also add `export TERM=xterm-256color` to your shell configuration file to improve compatibility.
 
 #### Windows
 
-PowerShell 7 provides the most reliable experience. Install it from the Microsoft Store, then select it in your Cline settings.
+PowerShell 7 provides the most reliable experience. Install it from the Microsoft Store, then select it in your CodeVibe settings.
 
 Still seeing problems? Try these solutions:
 - Disable Windows ConPTY: VSCode Settings → Terminal › Integrated: Windows Enable Conpty → uncheck
@@ -180,7 +180,7 @@ Still seeing problems? Try these solutions:
 
 #### Linux
 
-Bash is your most dependable option. Select it in Cline settings if you haven't already.
+Bash is your most dependable option. Select it in CodeVibe settings if you haven't already.
 
 Check these common issues:
 - Ensure VSCode has terminal access permissions
@@ -231,7 +231,7 @@ Use the two-column layout for related features:
   <Card title="Feature Name" icon="relevant-icon" href="/link/to/docs">
     Brief description that explains what this feature does and why someone would use it.
   </Card>
-  
+
   <Card title="Related Feature" icon="another-icon" href="/another/link">
     Another concise explanation that helps users understand the value proposition.
   </Card>
@@ -246,7 +246,7 @@ Use `<Tip>` components for helpful information that enhances the main content wi
 
 ```jsx
 <Tip>
-	Pro tip: You can combine multiple @ mentions in a single message to give Cline 
+	Pro tip: You can combine multiple @ mentions in a single message to give CodeVibe
 	comprehensive context about your issue.
 </Tip>
 ```
@@ -262,7 +262,7 @@ Use `<Tip>` components for helpful information that enhances the main content wi
 `<Info>` is also cool:
 
 <Info>
-	**Quick Fix**: If you're experiencing terminal issues, try switching to a simpler shell like `bash` in the Cline settings.
+	**Quick Fix**: If you're experiencing terminal issues, try switching to a simpler shell like `bash` in the CodeVibe settings.
 	This resolves 90% of terminal integration problems.
 </Info>
 
@@ -275,7 +275,7 @@ Bullet points serve functional purposes - use them for:
 
 **Sequential actions or troubleshooting steps** where users need to follow a specific order:
 1. Install the extension
-2. Restart VSCode  
+2. Restart VSCode
 3. Check the settings panel
 
 **Lists of related options** where users need to choose one approach:
@@ -287,20 +287,20 @@ Bullet points serve functional purposes - use them for:
 
 **Improving Visual Hierarchy** when there's a wall of text - that's a good time to introduce bullet points or numbered lists.
 
-Each bulleted item or numbered list should be a discrete action or piece of information that benefits from being visually separated. This is a key weapon you can employ when going for that artwork experience I mentioned earlier. 
+Each bulleted item or numbered list should be a discrete action or piece of information that benefits from being visually separated. This is a key weapon you can employ when going for that artwork experience I mentioned earlier.
 
 <good_example_of_bullet_points>
 ## Finding and Configuring Terminal Settings
 
-You can access Cline's terminal settings by clicking the settings icon in the Cline sidebar, then navigating to the Terminal section. These settings control how Cline interacts with your system's terminal.
+You can access CodeVibe's terminal settings by clicking the settings icon in the CodeVibe sidebar, then navigating to the Terminal section. These settings control how CodeVibe interacts with your system's terminal.
 
-- The **Default Terminal Profile** setting determines which shell Cline uses for executing commands. If you're experiencing issues, this is usually the first thing to change. I personally keep this set to `bash` on all my systems because it's the most reliable option, even though I use `zsh` for my regular terminal work.
+- The **Default Terminal Profile** setting determines which shell CodeVibe uses for executing commands. If you're experiencing issues, this is usually the first thing to change. I personally keep this set to `bash` on all my systems because it's the most reliable option, even though I use `zsh` for my regular terminal work.
 
-- **Shell Integration Timeout** controls how long Cline waits for the terminal to become ready. The default is 4 seconds, but if you have a heavy shell configuration (lots of plugins, slow startup scripts), you might need to increase this to 10 or even 15 seconds. I've found that WSL environments and SSH connections often need longer timeouts.
+- **Shell Integration Timeout** controls how long CodeVibe waits for the terminal to become ready. The default is 4 seconds, but if you have a heavy shell configuration (lots of plugins, slow startup scripts), you might need to increase this to 10 or even 15 seconds. I've found that WSL environments and SSH connections often need longer timeouts.
 
-- The **Enable Aggressive Terminal Reuse** setting determines whether Cline tries to reuse existing terminals even when they're not in the correct directory. When this causes problems (commands running in the wrong directory, virtual environment issues), disabling it creates more terminal instances but ensures each command runs in a clean state.
+- The **Enable Aggressive Terminal Reuse** setting determines whether CodeVibe tries to reuse existing terminals even when they're not in the correct directory. When this causes problems (commands running in the wrong directory, virtual environment issues), disabling it creates more terminal instances but ensures each command runs in a clean state.
 
-- **Terminal Output Line Limit** sets how many lines of output Cline will read from commands. The default of 500 lines works for most cases, but you might need to adjust it. For verbose build outputs, increase it. For commands with progress bars that spam thousands of lines, decrease it to around 100 to avoid consuming too many tokens.
+- **Terminal Output Line Limit** sets how many lines of output CodeVibe will read from commands. The default of 500 lines works for most cases, but you might need to adjust it. For verbose build outputs, increase it. For commands with progress bars that spam thousands of lines, decrease it to around 100 to avoid consuming too many tokens.
 </good_example_of_bullet_points>
 
 ## Write Like a Human, Not an AI
@@ -317,20 +317,20 @@ Don't over-explain obvious things. If users are reading documentation, they prob
 
 That's pretty much it. Never use them. Only AI writes with em dashes or emojis.
 
-# Anthropomorphizing Cline
+# Anthropomorphizing CodeVibe
 
-When referring to Cline, always call him a "him" not an "it". 
+When referring to CodeVibe, always call him a "him" not an "it".
 
 Bad example:
-- When Cline can’t execute commands or read their output, you lose access to one of its most powerful capabilities.
+- When CodeVibe can’t execute commands or read their output, you lose access to one of its most powerful capabilities.
 
 Good Example:
 
-- When Cline can’t execute commands or read their output, you lose access to one of his most powerful capabilities.
+- When CodeVibe can’t execute commands or read their output, you lose access to one of his most powerful capabilities.
 
 # Using "I" when sharing your workflow
 
-Adding a personal touch goes a long way. There are great examples in the docs currently where I use "I" to share how I personally use cline, from dev to dev. It's a great technique.
+Adding a personal touch goes a long way. There are great examples in the docs currently where I use "I" to share how I personally use CodeVibe, from dev to dev. It's a great technique.
 
 # Crosslinking relevant documentation pages
 
@@ -342,32 +342,32 @@ Don't ramble if you don't need to. Use bullet points and numbered lists. Keep th
 
 <bad_example>
 
-When Cline can't execute commands or read their output, you lose access to one of his most powerful capabilities. Terminal integration problems are frustrating, but they're usually fixable with a few simple changes.
+When CodeVibe can't execute commands or read their output, you lose access to one of his most powerful capabilities. Terminal integration problems are frustrating, but they're usually fixable with a few simple changes.
 
 ## The Most Common Problem: Shell Integration Issues
 
-If you're seeing "Shell integration unavailable" or Cline isn't getting command output, the issue is almost always your shell configuration. Complex shell setups with custom prompts, plugins, and fancy configurations can interfere with VSCode's terminal integration.
+If you're seeing "Shell integration unavailable" or CodeVibe isn't getting command output, the issue is almost always your shell configuration. Complex shell setups with custom prompts, plugins, and fancy configurations can interfere with VSCode's terminal integration.
 
-**Switch to bash first.** This fixes the problem 90% of the time. Navigate to Cline Settings → Terminal → Default Terminal Profile and select "bash" from the dropdown. Restart VSCode after making this change.
+**Switch to bash first.** This fixes the problem 90% of the time. Navigate to CodeVibe Settings → Terminal → Default Terminal Profile and select "bash" from the dropdown. Restart VSCode after making this change.
 
-Still having issues? Try increasing the shell integration timeout. Go to Cline Settings → Terminal → Shell Integration Timeout and change it from 4 seconds to 10 seconds. Heavy shell configurations need more time to initialize properly.
+Still having issues? Try increasing the shell integration timeout. Go to CodeVibe Settings → Terminal → Shell Integration Timeout and change it from 4 seconds to 10 seconds. Heavy shell configurations need more time to initialize properly.
 
-If commands are running in the wrong directories or you're seeing weird behavior, disable aggressive terminal reuse. In Cline Settings → Terminal, uncheck "Enable aggressive terminal reuse." This creates more terminal instances but ensures each command runs in a clean environment.
+If commands are running in the wrong directories or you're seeing weird behavior, disable aggressive terminal reuse. In CodeVibe Settings → Terminal, uncheck "Enable aggressive terminal reuse." This creates more terminal instances but ensures each command runs in a clean environment.
 
 
 </bad_exaxmple>
 
-The first part is total filler, useless to any serious developer. You can tell it's written by a non technical person that doesn't value clean, straightforward information. 
+The first part is total filler, useless to any serious developer. You can tell it's written by a non technical person that doesn't value clean, straightforward information.
 
 <good_example>
 ## Shell Integration Issues
 
-If you're seeing "Shell integration unavailable" or Cline can't read command output, your shell configuration is interfering with VSCode's terminal integration.
+If you're seeing "Shell integration unavailable" or CodeVibe can't read command output, your shell configuration is interfering with VSCode's terminal integration.
 
-**Switch to bash first.** Go to Cline Settings → Terminal → Default Terminal Profile and select "bash." This fixes 90% of problems.
+**Switch to bash first.** Go to CodeVibe Settings → Terminal → Default Terminal Profile and select "bash." This fixes 90% of problems.
 
 Still broken? Try these:
-- Increase shell integration timeout to 10 seconds in Cline Settings → Terminal
+- Increase shell integration timeout to 10 seconds in CodeVibe Settings → Terminal
 - Disable "aggressive terminal reuse" if commands run in wrong directories
 - Restart VSCode after making changes
 </good_example>
@@ -378,7 +378,7 @@ ALWAYS consider your audience. And your audience is devs who don't want their ti
 
 # Lastly, before you start writing docs
 
-1. Internalize these guidelines. I mean it. 
+1. Internalize these guidelines. I mean it.
 
 2. Read `docs/docs.json` and get an understanding of the structure of the docs. This will come in handly at the end when you're doing a final pass so you can cross link to docs where relevant.
 

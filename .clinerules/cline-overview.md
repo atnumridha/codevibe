@@ -1,8 +1,8 @@
-# Cline Extension Architecture & Development Guide
+# CodeVibe Extension Architecture & Development Guide
 
 ## Project Overview
 
-Cline is a VSCode extension that provides AI assistance through a combination of a core extension backend and a React-based webview frontend. The extension is built with TypeScript and follows a modular architecture pattern.
+CodeVibe is a VSCode extension that provides AI assistance through a combination of a core extension backend and a React-based webview frontend. The extension is built with TypeScript and follows a modular architecture pattern.
 
 ## Architecture Overview
 
@@ -70,7 +70,7 @@ graph TB
     style apiProviders fill:#fdb,stroke:#333,stroke-width:2px
 ```
 
-## Definitions 
+## Definitions
 
 - **Core Extension**: Anything inside the src folder, organized into modular components
 - **Core Extension State**: Managed by the Controller class in src/core/controller/index.ts, which serves as the single source of truth for the extension's state. It manages multiple types of persistent storage (global state, workspace state, and secrets), handles state distribution to both the core extension and webview components, and coordinates state across multiple extension instances. This includes managing API configurations, task history, settings, and MCP configurations.
@@ -100,7 +100,7 @@ The WebviewProvider class in `src/core/webview/index.ts` is responsible for:
 - Supporting Hot Module Replacement (HMR) for development
 - Setting up message listeners between the webview and extension
 
-The WebviewProvider maintains a reference to the Controller and delegates message handling to it. It also handles the creation of both sidebar and tab panel webviews, allowing Cline to be used in different contexts within VSCode.
+The WebviewProvider maintains a reference to the Controller and delegates message handling to it. It also handles the creation of both sidebar and tab panel webviews, allowing CodeVibe to be used in different contexts within VSCode.
 
 ### Core Extension State
 
@@ -148,7 +148,7 @@ The ExtensionStateContext handles:
 
 ## API Provider System
 
-Cline supports multiple AI providers through a modular API provider system. Each provider is implemented as a separate module in the `src/api/providers/` directory and follows a common interface.
+CodeVibe supports multiple AI providers through a modular API provider system. Each provider is implemented as a separate module in the `src/api/providers/` directory and follows a common interface.
 
 ### API Provider Architecture
 
@@ -185,7 +185,7 @@ The system supports:
 
 ### Plan/Act Mode API Configuration
 
-Cline supports separate model configurations for Plan and Act modes:
+CodeVibe supports separate model configurations for Plan and Act modes:
 - Different models can be used for planning vs. execution
 - The system preserves model selections when switching modes
 - The Controller handles the transition between modes and updates the API configuration accordingly
@@ -204,7 +204,7 @@ class Task {
     while (!this.abort) {
       // 1. Make API request and stream response
       const stream = this.attemptApiRequest()
-      
+
       // 2. Parse and present content blocks
       for await (const chunk of stream) {
         switch (chunk.type) {
@@ -216,10 +216,10 @@ class Task {
             break
         }
       }
-      
+
       // 3. Wait for tool execution to complete
       await pWaitFor(() => this.userMessageContentReady)
-      
+
       // 4. Continue loop with tool result
       const recDidEndLoop = await this.recursivelyMakeClineRequests(
         this.userMessageContent
@@ -245,7 +245,7 @@ class Task {
 
     // Present current content block
     const block = this.assistantMessageContent[this.currentStreamingContentIndex]
-    
+
     // Handle different types of content
     switch (block.type) {
       case "text":
@@ -305,16 +305,16 @@ class Task {
   async handleError(action: string, error: Error) {
     // 1. Check if task was abandoned
     if (this.abandoned) return
-    
+
     // 2. Format error message
     const errorString = `Error ${action}: ${error.message}`
-    
+
     // 3. Present error to user
     await this.say("error", errorString)
-    
+
     // 4. Add error to tool results
     pushToolResult(formatResponse.toolError(errorString))
-    
+
     // 5. Cleanup resources
     await this.diffViewProvider.revertChanges()
     await this.browserSession.closeBrowser()
@@ -337,7 +337,7 @@ class Task {
     if (previousRequest?.text) {
       const { tokensIn, tokensOut } = JSON.parse(previousRequest.text || "{}")
       const totalTokens = (tokensIn || 0) + (tokensOut || 0)
-      
+
       // Truncate conversation if approaching context limit
       if (totalTokens >= maxAllowedSize) {
         this.conversationHistoryDeletedRange = this.contextManager.getNextTruncationRange(
@@ -354,7 +354,7 @@ class Task {
       const firstChunk = await iterator.next()
       yield firstChunk.value
       this.isWaitingForFirstChunk = false
-      
+
       // Stream remaining chunks
       yield* iterator
     } catch (error) {
@@ -365,7 +365,7 @@ class Task {
         yield* this.attemptApiRequest(previousApiReqIndex)
         return
       }
-      
+
       // 5. Ask user to retry if automatic retry failed
       const { response } = await this.ask(
         "api_req_failed",
@@ -464,10 +464,10 @@ class Task {
     // Save conversation history
     await saveApiConversationHistory(this.getContext(), this.taskId, this.apiConversationHistory)
     await saveClineMessages(this.getContext(), this.taskId, this.clineMessages)
-    
+
     // Create checkpoint
     const commitHash = await this.checkpointTracker?.commit()
-    
+
     // Update task history
     await this.controllerRef.deref()?.updateTaskHistory({
       id: this.taskId,
@@ -507,7 +507,7 @@ Key aspects of task state management:
 
 ## Plan/Act Mode System
 
-Cline implements a dual-mode system that separates planning from execution:
+CodeVibe implements a dual-mode system that separates planning from execution:
 
 ### Mode Architecture
 
@@ -572,7 +572,7 @@ class Task {
 
     // 2. Execute command with output streaming
     const process = this.terminalManager.runCommand(terminalInfo, command)
-    
+
     // 3. Handle real-time output
     let result = ""
     process.on("line", (line) => {
@@ -681,7 +681,7 @@ The McpHub class:
 
 ### MCP Server Types
 
-Cline supports two types of MCP server connections:
+CodeVibe supports two types of MCP server connections:
 - **Stdio**: Command-line based servers that communicate via standard I/O
 - **SSE**: HTTP-based servers that communicate via Server-Sent Events
 
@@ -742,7 +742,7 @@ class Controller {
 
 ## Conclusion
 
-This guide provides a comprehensive overview of the Cline extension architecture, with special focus on state management, data persistence, and code organization. Following these patterns ensures robust feature implementation with proper state handling across the extension's components.
+This guide provides a comprehensive overview of the CodeVibe extension architecture, with special focus on state management, data persistence, and code organization. Following these patterns ensures robust feature implementation with proper state handling across the extension's components.
 
 Remember:
 - Always persist important state in the extension
@@ -757,8 +757,8 @@ Remember:
 
 ## Contributing
 
-Contributions to the Cline extension are welcome! Please follow these guidelines:
+Contributions to the CodeVibe extension are welcome! Please follow these guidelines:
 
 When adding new tools or API providers, follow the existing patterns in the `src/integrations/` and `src/api/providers/` directories, respectively. Ensure that your code is well-documented and includes appropriate error handling.
 
-The `.clineignore` file allows users to specify files and directories that Cline should not access. When implementing new features, respect the `.clineignore` rules and ensure that your code does not attempt to read or modify ignored files.
+The `.clineignore` file allows users to specify files and directories that CodeVibe should not access. When implementing new features, respect the `.clineignore` rules and ensure that your code does not attempt to read or modify ignored files.

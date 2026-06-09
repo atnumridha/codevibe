@@ -50,7 +50,7 @@ The coordinator decides how to split work, which agents to create, and how to co
 Team state persists across sessions:
 
 ```
-~/.cline/data/teams/[team-name]/
+~/.codevibe/data/teams/[team-name]/
   task-board.json      # Current tasks and their status
   mailbox.json         # Inter-agent messages
   mission-log.json     # Team activity history
@@ -59,20 +59,20 @@ Team state persists across sessions:
 Resume a team's work in a new session:
 
 ```bash
-cline --team-name auth-sprint "Continue -- pick up incomplete tasks"
+codevibe --team-name auth-sprint "Continue -- pick up incomplete tasks"
 ```
 
 ## Via CLI
 
 ```bash
 # Start a new team
-cline --team-name auth-sprint "Plan and implement user auth with tests"
+codevibe --team-name auth-sprint "Plan and implement user auth with tests"
 
 # Resume work
-cline --team-name auth-sprint "What's the status? Continue with unfinished tasks."
+codevibe --team-name auth-sprint "What's the status? Continue with unfinished tasks."
 
 # Different team for a different workstream
-cline --team-name perf-sprint "Profile the API endpoints and optimize the slowest 3"
+codevibe --team-name perf-sprint "Profile the API endpoints and optimize the slowest 3"
 ```
 
 ## Sub-Agents vs Teams

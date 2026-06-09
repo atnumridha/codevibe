@@ -1,12 +1,12 @@
 ---
-title: "Cline SDK"
+title: "CodeVibe SDK"
 sidebarTitle: "Overview"
-description: "TypeScript packages for embedding Cline's agent runtime in your own applications."
+description: "TypeScript packages for embedding CodeVibe's agent runtime in your own applications."
 ---
 
-The Cline SDK is an open source framework for building agentic applications, and is the same harness used in the Cline IDE extensions and CLI. It uses a plugin architecture that makes it easy to customize and comes with all the features you expect from agents like checkpoints, web fetch, MCPs, cron jobs, subagents, and more.
+The CodeVibe SDK is an open source framework for building agentic applications, and is the same harness used in the CodeVibe IDE extensions and CLI. It uses a plugin architecture that makes it easy to customize and comes with all the features you expect from agents like checkpoints, web fetch, MCPs, cron jobs, subagents, and more.
 
-Use the Cline SDK to run agents from CI/CD pipelines, create automations for end-to-end workflows, or embed agents directly inside your products.
+Use the CodeVibe SDK to run agents from CI/CD pipelines, create automations for end-to-end workflows, or embed agents directly inside your products.
 
 ## Install
 
@@ -20,10 +20,10 @@ Requires Node.js 22 or later.
 
 ## SDK Skill
 
-If you use a coding agent (Claude Code, Codex, Cline, etc.), install the [Cline SDK skill](https://github.com/cline/sdk-skill) to give your agent context on the SDK's APIs and best practices to help you build with the Cline SDK.
+If you use a coding agent (Claude Code, Codex, CodeVibe, etc.), use the bundled CodeVibe SDK skill in this repository to give your agent context on the SDK's APIs and best practices.
 
 ```bash
-npx skills add cline/sdk-skill
+npx skills add atnumridha/codevibe/.agents/skills/cline-sdk
 ```
 
 Prompt it to scaffold agents, create custom tools, wire up plugins, configure providers, and more.
@@ -50,7 +50,7 @@ const result = await agent.run("Explain what an SDK is in two sentences.")
 ```
 
 <Note>
-  Here is a complete [quickstart example](https://github.com/cline/cline/tree/main/apps/examples/quickstart). Clone it and run `bun dev` to try it.
+  Here is a complete [quickstart example](https://github.com/atnumridha/codevibe/tree/main/apps/examples/quickstart). Clone it and run `bun dev` to try it.
 </Note>
 
 ## Packages
@@ -74,7 +74,7 @@ See [Packages](/sdk/architecture/overview) for package boundaries and exports.
     Browse complete, runnable SDK examples.
   </Card>
   <Card title="Plugins" icon="diagram-project" href="/sdk/plugins">
-    Extend Cline's functionality.
+    Extend CodeVibe's functionality.
   </Card>
   <Card title="Tools" icon="wrench" href="/sdk/tools">
     Add actions the model can call.

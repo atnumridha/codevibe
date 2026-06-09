@@ -1,12 +1,12 @@
 ---
 title: "GitHub Issue RCA Sample"
-description: "Automated GitHub issue analysis using Cline CLI to identify root causes."
+description: "Automated GitHub issue analysis using CodeVibe CLI to identify root causes."
 ---
 
-Automated GitHub issue analysis using Cline CLI. This script uses Cline's autonomous AI capabilities to fetch, analyze, and identify root causes of GitHub issues, outputting clean, parseable results that can be easily integrated into your development workflows.
+Automated GitHub issue analysis using CodeVibe CLI. This script uses CodeVibe's autonomous AI capabilities to fetch, analyze, and identify root causes of GitHub issues, outputting clean, parseable results that can be easily integrated into your development workflows.
 
 <Note>
-**New to Cline CLI?** This sample assumes you have already completed the [Installation Guide](https://docs.cline.bot/getting-started/installing-cline) and authenticated with `cline auth`. If you haven't set up Cline CLI yet, please start there first.
+**New to CodeVibe CLI?** This sample assumes you have already completed the [Installation Guide](/getting-started/installing-cline) and authenticated with `codevibe auth`. If you haven't set up CodeVibe CLI yet, please start there first.
 </Note>
 
 <Frame>
@@ -17,9 +17,9 @@ Automated GitHub issue analysis using Cline CLI. This script uses Cline's autono
 
 This sample assumes you have already:
 
-- **Cline CLI** installed and authenticated ([Installation Guide](https://docs.cline.bot/getting-started/installing-cline))
+- **CodeVibe CLI** installed and authenticated ([Installation Guide](/getting-started/installing-cline))
 - **At least one AI model provider** configured (e.g., OpenRouter, Anthropic, OpenAI)
-- **Basic familiarity** with Cline CLI commands
+- **Basic familiarity** with CodeVibe CLI commands
 
 Additionally, you'll need:
 
@@ -68,7 +68,7 @@ gh auth login
 
 **Option 1: Download directly with curl**
 ```bash
-curl -O https://raw.githubusercontent.com/cline/cline/main/src/samples/cli/github-issue-rca/analyze-issue.sh
+curl -O https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-issue-rca/analyze-issue.sh
 ```
 
 **Option 2: Copy the full script**
@@ -77,7 +77,7 @@ curl -O https://raw.githubusercontent.com/cline/cline/main/src/samples/cli/githu
 
 ```bash
 #!/bin/bash
-# Analyze a GitHub issue using Cline CLI
+# Analyze a GitHub issue using CodeVibe CLI
 
 if [ -z "$1" ]; then
     echo "Usage: $0 <github-issue-url> [prompt]"
@@ -89,8 +89,8 @@ fi
 # Gather the args
 ISSUE_URL="$1"
 PROMPT="${2:-What is the root cause of this issue?}"
-# Ask Cline for its analysis, showing only the summary
-cline --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
+# Ask CodeVibe for its analysis, showing only the summary
+codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
     jq -r 'select(.type == "agent_event" and .event.type == "done") | .event.text' | \
     sed 's/\\n/\n/g'
 ```
@@ -128,7 +128,7 @@ Ask specific questions about the issue:
 ```
 
 <Note>
-The script will automatically handle everything: fetching the issue, analyzing it with Cline, and displaying the results. The analysis typically takes 30-60 seconds depending on the issue complexity.
+The script will automatically handle everything: fetching the issue, analyzing it with CodeVibe, and displaying the results. The analysis typically takes 30-60 seconds depending on the issue complexity.
 </Note>
 
 ## How It Works
@@ -173,16 +173,16 @@ PROMPT="${2:-What is the root cause of this issue?}"
 This is where the magic happens:
 
 ```bash
-# Ask Cline for its analysis, showing only the summary
-cline --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
+# Ask CodeVibe for its analysis, showing only the summary
+codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
     jq -r 'select(.type == "agent_event" and .event.type == "done") | .event.text' | \
     sed 's/\\n/\n/g'
 ```
 
 <Accordion title="Pipeline Breakdown: Understanding Each Component">
 
-**1. `cline --auto-approve true --json "$PROMPT: $ISSUE_URL"`**
-   - `cline` is the Cline CLI binary
+**1. `codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL"`**
+   - `codevibe` is the CodeVibe CLI binary
    - Act mode is the default for prompt runs
    - `--auto-approve true` allows tool use without interactive prompts
    - `--json` emits newline-delimited JSON for parsing
@@ -212,21 +212,21 @@ $ ./analyze-issue.sh https://github.com/csells/flutter_counter/issues/2
 ```markdown
 **Root Cause Analysis of Issue #2: "setState isn't cutting it"**
 
-After examining the GitHub issue and analyzing the Flutter counter codebase, 
-I've identified the root cause of why setState() is insufficient for this 
+After examining the GitHub issue and analyzing the Flutter counter codebase,
+I've identified the root cause of why setState() is insufficient for this
 project's needs:
 
 ## Current Implementation Problems
 
-The current Flutter counter app uses setState() for state management, which 
+The current Flutter counter app uses setState() for state management, which
 has several limitations:
 
-1. **Local State Only**: setState() only works within a single widget, making 
+1. **Local State Only**: setState() only works within a single widget, making
    it difficult to share state across the app
-2. **Rebuild Overhead**: Every setState() call rebuilds the entire widget tree, 
+2. **Rebuild Overhead**: Every setState() call rebuilds the entire widget tree,
    causing performance issues with complex UIs
 3. **No State Persistence**: State is lost when the widget is disposed
-4. **Testing Challenges**: setState-based logic is tightly coupled to the UI, 
+4. **Testing Challenges**: setState-based logic is tightly coupled to the UI,
    making unit testing difficult
 
 ## Why This Matters
@@ -246,19 +246,19 @@ The issue mentions "Provider or Bloc" - both are excellent alternatives:
    - Good for small to medium apps
    - Official Flutter recommendation
 
-2. **Bloc**: More structured approach with clear separation between events, 
+2. **Bloc**: More structured approach with clear separation between events,
    states, and business logic
    - Better for complex apps
    - Excellent testability
    - Clear architectural patterns
 
-3. **Riverpod**: Modern alternative to Provider with better performance and 
+3. **Riverpod**: Modern alternative to Provider with better performance and
    developer experience
    - Compile-time safety
    - Better testing support
    - More flexible than Provider
 
-4. **GetX**: Full-featured solution with state management, routing, and 
+4. **GetX**: Full-featured solution with state management, routing, and
    dependency injection
    - Minimal boilerplate
    - Fast and lightweight
@@ -266,9 +266,9 @@ The issue mentions "Provider or Bloc" - both are excellent alternatives:
 
 ## Next Steps
 
-The current codebase needs refactoring to implement proper state management 
-architecture to handle more complex state scenarios effectively. Provider 
-would be the easiest migration path while Bloc provides better long-term 
+The current codebase needs refactoring to implement proper state management
+architecture to handle more complex state scenarios effectively. Provider
+would be the easiest migration path while Bloc provides better long-term
 scalability.
 ```
 
@@ -323,10 +323,10 @@ Get second opinions on proposed changes:
 
 ## Conclusion
 
-This sample demonstrates how to build an autonomous GitHub issue analysis tool using Cline CLI:
+This sample demonstrates how to build an autonomous GitHub issue analysis tool using CodeVibe CLI:
 
-1. **Building autonomous CLI tools** using Cline's capabilities
-2. **Parsing structured JSON output** from Cline CLI
+1. **Building autonomous CLI tools** using CodeVibe's capabilities
+2. **Parsing structured JSON output** from CodeVibe CLI
 3. **Creating flexible automation scripts** with custom prompting
 4. **Integrating with GitHub** for issue analysis
 5. **Handling command-line arguments** effectively
@@ -335,6 +335,6 @@ This pattern can be adapted for many other automation scenarios, from pull reque
 
 ## Related Resources
 
-- [CLI Installation Guide](https://docs.cline.bot/getting-started/installing-cline)
-- [CLI Reference Documentation](https://docs.cline.bot/cli/cli-reference)
-- [Headless Mode](https://docs.cline.bot/usage/cli-overview#headless-mode)
+- [CLI Installation Guide](/getting-started/installing-cline)
+- [CLI Reference Documentation](/cli/cli-reference)
+- [Headless Mode](/usage/cli-overview#headless-mode)

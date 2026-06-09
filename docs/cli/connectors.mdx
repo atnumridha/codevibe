@@ -4,29 +4,29 @@ sidebarTitle: "Connectors"
 description: "Connect the CLI to Telegram, Slack, Discord, Google Chat, WhatsApp, etc."
 ---
 <Warning>
-  This feature currently only applies to Cline CLI.
+  This feature currently only applies to CodeVibe CLI.
 </Warning>
 
 Connectors let you chat with your agent from messaging platforms. Each incoming message creates or continues an agent session, and the agent's response is sent back to the conversation.
 
 ## Setup Wizard
 
-Run `cline connect` to open an interactive wizard that guides you through platform selection, credential entry, security configuration, and advanced options (provider, model, system prompt, agent mode).
+Run `codevibe connect` to open an interactive wizard that guides you through platform selection, credential entry, security configuration, and advanced options (provider, model, system prompt, agent mode).
 
 ```bash
-cline connect
+codevibe connect
 ```
 
 ## Supported Platforms
 
 | Platform | Direct Command | Required Credentials |
 |----------|---------------|---------------------|
-| Telegram | `cline connect telegram` | Bot token |
-| Slack | `cline connect slack` | Bot token plus webhook signing secret/base URL or socket app token |
-| Discord | `cline connect discord` | Application ID, bot token, public key, base URL |
-| Google Chat | `cline connect gchat` | Service account credentials JSON, base URL |
-| WhatsApp | `cline connect whatsapp` | Phone number ID, access token, app secret, verify token, base URL |
-| Linear | `cline connect linear` | API key, webhook signing secret, base URL |
+| Telegram | `codevibe connect telegram` | Bot token |
+| Slack | `codevibe connect slack` | Bot token plus webhook signing secret/base URL or socket app token |
+| Discord | `codevibe connect discord` | Application ID, bot token, public key, base URL |
+| Google Chat | `codevibe connect gchat` | Service account credentials JSON, base URL |
+| WhatsApp | `codevibe connect whatsapp` | Phone number ID, access token, app secret, verify token, base URL |
+| Linear | `codevibe connect linear` | API key, webhook signing secret, base URL |
 
 ## Telegram
 
@@ -34,14 +34,14 @@ cline connect
   <Step title="Create a Telegram bot">
     Open Telegram and start a chat with [@BotFather](https://t.me/BotFather). Send `/newbot` and follow the prompts:
 
-    1. Enter a display name (e.g., "Cline")
-    2. Enter a username ending in `bot` (e.g., `cline_myname_bot`). Must be unique across Telegram.
+    1. Enter a display name (e.g., "CodeVibe")
+    2. Enter a username ending in `bot` (e.g., `codevibe_myname_bot`). Must be unique across Telegram.
     3. BotFather responds with your bot token (looks like `7123456789:AAH...`)
   </Step>
 
   <Step title="Start the connector">
     ```bash
-    cline connect telegram -k <BOT-TOKEN>
+    codevibe connect telegram -k <BOT-TOKEN>
     ```
 
     The connector discovers the bot username from the token. Use `--bot-username` only if you need to override it.
@@ -54,7 +54,7 @@ cline connect
 
 ### Security
 
-By default, anyone who finds your bot can message it and it will execute tasks on your machine. The `cline connect` wizard asks whether to restrict Telegram access and can configure this for you.
+By default, anyone who finds your bot can message it and it will execute tasks on your machine. The `codevibe connect` wizard asks whether to restrict Telegram access and can configure this for you.
 
 <Steps>
   <Step title="Get your Telegram user ID">
@@ -63,7 +63,7 @@ By default, anyone who finds your bot can message it and it will execute tasks o
 
   <Step title="Use the wizard">
     ```bash
-    cline connect
+    codevibe connect
     ```
 
     Choose Telegram, enter the bot token, answer yes to access restriction, then enter your user ID.
@@ -73,13 +73,13 @@ By default, anyone who finds your bot can message it and it will execute tasks o
     Replace `12345` with your Telegram user ID:
 
     ```bash
-    cline connect telegram -k <BOT-TOKEN> \
+    codevibe connect telegram -k <BOT-TOKEN> \
       --allowed-user-id 12345
     ```
   </Step>
 </Steps>
 
-Use `--hook-command` only when you need custom access logic. The hook receives each incoming message with sender info via stdin. Your script returns `{"action": "allow"}` or `{"action": "deny", "message": "reason"}`. Without `--allowed-user-id` or `--hook-command`, everything is auto-approved, so restrict Telegram bots that can reach a running Cline instance.
+Use `--hook-command` only when you need custom access logic. The hook receives each incoming message with sender info via stdin. Your script returns `{"action": "allow"}` or `{"action": "deny", "message": "reason"}`. Without `--allowed-user-id` or `--hook-command`, everything is auto-approved, so restrict Telegram bots that can reach a running CodeVibe instance.
 
 ## Slack
 
@@ -88,7 +88,7 @@ Slack supports webhook mode and socket mode. Each Slack thread maps to an agent 
 Webhook mode requires a bot token, signing secret, and public base URL:
 
 ```bash
-cline connect slack \
+codevibe connect slack \
   --bot-token <BOT-TOKEN> \
   --signing-secret <SECRET> \
   --base-url <URL>
@@ -99,7 +99,7 @@ Configure the Slack app's event subscription and interactivity request URLs to `
 Socket mode requires a bot token and an app-level token with the `connections:write` scope:
 
 ```bash
-cline connect slack \
+codevibe connect slack \
   --bot-token <BOT-TOKEN> \
   --app-token <APP-LEVEL-TOKEN>
 ```
@@ -135,7 +135,7 @@ also starts a Discord gateway listener for mentions, replies, reactions, and DMs
 
   <Step title="Start the connector">
     ```bash
-    cline connect discord \
+    codevibe connect discord \
       --application-id <ID> \
       --bot-token <TOKEN> \
       --public-key <KEY> \
@@ -211,7 +211,7 @@ with `--hook-command`. The hook receives the Discord user as a participant key
 such as `discord:user:123456789`.
 
 ```bash
-cline connect discord \
+codevibe connect discord \
   --application-id <ID> \
   --bot-token <TOKEN> \
   --public-key <KEY> \
@@ -224,7 +224,7 @@ cline connect discord \
 Requires a service account credentials JSON file and public base URL.
 
 ```bash
-cline connect gchat --credentials <JSON> --base-url <URL>
+codevibe connect gchat --credentials <JSON> --base-url <URL>
 ```
 
 ## WhatsApp
@@ -232,7 +232,7 @@ cline connect gchat --credentials <JSON> --base-url <URL>
 Requires a phone number ID, access token, app secret, webhook verify token, and public base URL.
 
 ```bash
-cline connect whatsapp --phone-id <ID> --token <TOKEN> --app-secret <SECRET> --base-url <URL>
+codevibe connect whatsapp --phone-id <ID> --token <TOKEN> --app-secret <SECRET> --base-url <URL>
 ```
 
 ## Linear
@@ -240,17 +240,17 @@ cline connect whatsapp --phone-id <ID> --token <TOKEN> --app-secret <SECRET> --b
 Requires an API key, webhook signing secret, and public base URL.
 
 ```bash
-cline connect linear --api-key <KEY> --signing-secret <SECRET> --base-url <URL>
+codevibe connect linear --api-key <KEY> --signing-secret <SECRET> --base-url <URL>
 ```
 
 ## Managing Connectors
 
 ```bash
 # Stop all connectors
-cline connect --stop
+codevibe connect --stop
 
 # Stop a specific connector
-cline connect telegram --stop
+codevibe connect telegram --stop
 ```
 
 ## Hook Command Protocol
@@ -277,10 +277,10 @@ Multiple connectors can run simultaneously. They all share the same hub:
 
 ```bash
 # Terminal 1
-cline connect telegram -k $TELEGRAM_TOKEN
+codevibe connect telegram -k $TELEGRAM_TOKEN
 
 # Terminal 2
-cline connect slack --bot-token $SLACK_TOKEN --signing-secret $SECRET --base-url $URL
+codevibe connect slack --bot-token $SLACK_TOKEN --signing-secret $SECRET --base-url $URL
 ```
 
-Connectors require the hub. Start it with `cline hub start` if it doesn't auto-start.
+Connectors require the hub. Start it with `codevibe hub start` if it doesn't auto-start.

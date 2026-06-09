@@ -1,14 +1,14 @@
 # Storage Architecture
 
-Global settings, secrets and workspace state are stored in **file-backed JSON stores** under `~/.cline/data/`. This is the shared storage layer used by VSCode, CLI, and JetBrains.
+Global settings, secrets and workspace state are stored in **file-backed JSON stores** under `~/.codevibe/data/` by default. Legacy `~/.cline/data/` remains supported through `CLINE_DIR` and migration fallbacks so older installs can keep their data.
 
 ## Key Abstractions
 
 ### `StorageContext` (src/shared/storage/storage-context.ts)
 The entry point. Created via `createStorageContext()` and passed to `StateManager.initialize()`. Contains three `ClineFileStorage` instances:
-- `globalState` → `~/.cline/data/globalState.json`
-- `secrets` → `~/.cline/data/secrets.json` (mode 0o600)
-- `workspaceState` → `~/.cline/data/workspaces/<hash>/workspaceState.json`
+- `globalState` → `~/.codevibe/data/globalState.json`
+- `secrets` → `~/.codevibe/data/secrets.json` (mode 0o600)
+- `workspaceState` → `~/.codevibe/data/workspaces/<hash>/workspaceState.json`
 
 ### `ClineFileStorage` (src/shared/storage/ClineFileStorage.ts)
 Synchronous JSON key-value store backed by a single file. Supports `get()`, `set()`, `setBatch()`, `delete()`. Writes are atomic (write-then-rename).
@@ -33,7 +33,7 @@ StateManager.get().setSecret("mySecretKey", value)
 StateManager.get().setWorkspaceState("myWsKey", value)
 ```
 
-Remember that your data may be read by a different client than the one that wrote it. For example, a value written by Cline in JetBrains may be read by Cline CLI.
+Remember that your data may be read by a different client than the one that wrote it. For example, a value written by CodeVibe in JetBrains may be read by CodeVibe CLI.
 
 ## VSCode Migration (src/hosts/vscode/vscode-to-file-migration.ts)
 
@@ -52,7 +52,7 @@ On VSCode startup, a migration copies data from VSCode's `ExtensionContext` stor
 ## File Layout
 
 ```
-~/.cline/
+~/.codevibe/
   data/
     globalState.json          # Global settings & state
     secrets.json              # API keys (mode 0o600)
