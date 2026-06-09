@@ -7,6 +7,10 @@
 	"engines": {
 		"vscode": "^1.84.0"
 	},
+	"enabledApiProposals": [
+		"chatPromptFiles",
+		"chatSessionsProvider"
+	],
 	"author": {
 		"name": "CodeVibe"
 	},

@@ -113,7 +113,7 @@ const visibleManifestStringKeys = new Set(["category", "description", "title"])
 
 function usage() {
 	console.error(
-		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--code <path>] [--print-metadata] [--preflight] [--require-release-gate]",
+		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--write-native-agent-launcher] [--code <path>] [--print-metadata] [--preflight] [--require-release-gate]",
 	)
 }
 
@@ -123,6 +123,7 @@ function parseArgs(argv) {
 		outFile: undefined,
 		install: false,
 		verifyInstall: false,
+		writeNativeAgentLauncher: false,
 		code: undefined,
 		preRelease: false,
 		printMetadata: false,
@@ -150,6 +151,8 @@ function parseArgs(argv) {
 			options.install = true
 		} else if (arg === "--verify-install") {
 			options.verifyInstall = true
+		} else if (arg === "--write-native-agent-launcher") {
+			options.writeNativeAgentLauncher = true
 		} else if (arg === "--code") {
 			const code = argv[++index]
 			if (!code) {
@@ -245,6 +248,64 @@ async function resolveCodeInvocation(codePath) {
 
 function quoteCommand(command, args) {
 	return [command, ...args].join(" ")
+}
+
+function shellQuote(value) {
+	return `'${String(value).replace(/'/g, "'\\''")}'`
+}
+
+function resolveNativeAgentLauncherPath(outPath) {
+	const extension = process.platform === "win32" ? "cmd" : process.platform === "darwin" ? "command" : "sh"
+	return path.join(path.dirname(outPath), `launch-codevibe-native-agent.${extension}`)
+}
+
+function writeNativeAgentLauncher(outPath, metadata, codePath) {
+	const launcherPath = resolveNativeAgentLauncherPath(outPath)
+	fs.mkdirSync(path.dirname(launcherPath), { recursive: true })
+
+	if (process.platform === "win32") {
+		const fallbackCodeCommand = "%LocalAppData%\\Programs\\Microsoft VS Code\\bin\\code.cmd"
+		const content = [
+			"@echo off",
+			"setlocal",
+			`set "CODEVIBE_VSIX=${outPath}"`,
+			`set "CODEVIBE_EXTENSION_ID=${metadata.extensionId}"`,
+			`if not defined CODEVIBE_VSCODE_CLI set "CODEVIBE_VSCODE_CLI=${codePath || fallbackCodeCommand}"`,
+			`"%CODEVIBE_VSCODE_CLI%" --install-extension "%CODEVIBE_VSIX%" --force`,
+			`"%CODEVIBE_VSCODE_CLI%" --enable-proposed-api "%CODEVIBE_EXTENSION_ID%" %*`,
+			"endlocal",
+			"",
+		].join("\r\n")
+		fs.writeFileSync(launcherPath, content)
+		console.log(`Native agent launcher written to ${launcherPath}`)
+		return launcherPath
+	}
+
+	const defaultCodeCli =
+		codePath ||
+		(process.platform === "darwin"
+			? "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"
+			: "code")
+	const content = [
+		"#!/usr/bin/env bash",
+		"set -euo pipefail",
+		`CODEVIBE_VSIX=${shellQuote(outPath)}`,
+		`CODEVIBE_EXTENSION_ID=${shellQuote(metadata.extensionId)}`,
+		`CODE_BIN=\${CODEVIBE_VSCODE_CLI:-${shellQuote(defaultCodeCli)}}`,
+		"if [[ ! -x \"$CODE_BIN\" && \"$CODE_BIN\" == /* ]]; then",
+		"  CODE_BIN=code",
+		"fi",
+		"\"$CODE_BIN\" --install-extension \"$CODEVIBE_VSIX\" --force",
+		"if [[ $# -eq 0 ]]; then",
+		"  set -- \"$PWD\"",
+		"fi",
+		"exec \"$CODE_BIN\" --enable-proposed-api \"$CODEVIBE_EXTENSION_ID\" \"$@\"",
+		"",
+	].join("\n")
+	fs.writeFileSync(launcherPath, content, { mode: 0o755 })
+	fs.chmodSync(launcherPath, 0o755)
+	console.log(`Native agent launcher written to ${launcherPath}`)
+	return launcherPath
 }
 
 function runCommand(candidates, args, options = {}) {
@@ -813,6 +874,8 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (packageJson.main !== "./dist/extension.js") {
 		throw new Error(`${label} must point main at ./dist/extension.js`)
 	}
+	assertArrayIncludes(packageJson.enabledApiProposals, "chatPromptFiles", `${label} enabledApiProposals`)
+	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe.agent", `${label} activationEvents`)
 	for (const command of requiredCursorParityCommands) {
@@ -1170,6 +1233,9 @@ async function main() {
 		assertBuildOutputs()
 		assertPackagedVsix(outPath)
 		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
+		if (options.writeNativeAgentLauncher) {
+			writeNativeAgentLauncher(outPath, metadata, options.code)
+		}
 
 		if (options.install) {
 			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
