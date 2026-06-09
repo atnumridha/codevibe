@@ -4,17 +4,17 @@ sidebarTitle: "Scheduling"
 description: "Run agents on cron schedules for recurring automations like daily summaries and code reviews."
 ---
 <Warning>
-  This feature currently only applies to Cline SDK, CLI, and Kanban. This feature is not applicable on VSCode and JetBrains Extension for now.
+  This feature currently only applies to the CodeVibe SDK, CLI, and Kanban. This feature is not applicable on VSCode and JetBrains Extension for now.
 </Warning>
 
 The CLI supports running agents on cron schedules through the hub. Scheduled agents persist across process restarts and run independently of any terminal session.
 
 ## Schedule Wizard
 
-Run `cline schedule` to open an interactive menu for creating and managing schedules, browsing execution history, and viewing performance statistics.
+Run `codevibe schedule` to open an interactive menu for creating and managing schedules, browsing execution history, and viewing performance statistics. The legacy `cline` command remains available as a compatibility alias.
 
 ```bash
-cline schedule
+codevibe schedule
 ```
 
 The wizard provides:
@@ -34,7 +34,7 @@ The wizard provides:
 ## Creating Schedules with Flags
 
 ```bash
-cline schedule create "PR summary" \
+codevibe schedule create "PR summary" \
   --cron "0 9 * * MON-FRI" \
   --prompt "List all open PRs and their review status" \
   --workspace /path/to/repo \
@@ -44,12 +44,12 @@ cline schedule create "PR summary" \
 ## Managing Schedules
 
 ```bash
-cline schedule list
-cline schedule trigger <schedule-id>
-cline schedule pause <schedule-id>
-cline schedule resume <schedule-id>
-cline schedule delete <schedule-id>
-cline schedule executions <schedule-id>
+codevibe schedule list
+codevibe schedule trigger <schedule-id>
+codevibe schedule pause <schedule-id>
+codevibe schedule resume <schedule-id>
+codevibe schedule delete <schedule-id>
+codevibe schedule executions <schedule-id>
 ```
 
 ## Cron Expression Reference
@@ -71,7 +71,7 @@ cline schedule executions <schedule-id>
 ### Daily Standup Summary
 
 ```bash
-cline schedule create "Standup prep" \
+codevibe schedule create "Standup prep" \
   --cron "0 8 * * MON-FRI" \
   --prompt "Summarize: (1) PRs merged yesterday, (2) PRs currently in review, (3) open issues assigned to team members." \
   --workspace /path/to/repo
@@ -80,7 +80,7 @@ cline schedule create "Standup prep" \
 ### Weekly Dependency Check
 
 ```bash
-cline schedule create "Dependency check" \
+codevibe schedule create "Dependency check" \
   --cron "0 10 * * MON" \
   --prompt "Check for outdated npm dependencies. For any with security vulnerabilities, create a branch with the update and open a PR." \
   --workspace /path/to/project
@@ -89,7 +89,7 @@ cline schedule create "Dependency check" \
 ### Codebase Health Report
 
 ```bash
-cline schedule create "Code health" \
+codevibe schedule create "Code health" \
   --cron "0 6 * * MON" \
   --prompt "Analyze the codebase for: (1) files with no test coverage, (2) TODO/FIXME comments older than 30 days, (3) functions longer than 100 lines." \
   --workspace /path/to/project
@@ -100,9 +100,9 @@ cline schedule create "Code health" \
 Combine schedules with [connectors](/cli/connectors) to send results to messaging platforms:
 
 ```bash
-cline connect telegram -k $BOT_TOKEN
+codevibe connect telegram -k $BOT_TOKEN
 
-cline schedule create "Morning briefing" \
+codevibe schedule create "Morning briefing" \
   --cron "0 8 * * *" \
   --prompt "Summarize overnight activity in the repo"
 ```

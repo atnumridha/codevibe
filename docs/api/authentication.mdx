@@ -1,10 +1,10 @@
 ---
 title: "Authentication"
 sidebarTitle: "Authentication"
-description: "How to authenticate with the Cline API using API keys or account tokens."
+description: "How to authenticate with the CodeVibe API using API keys or account tokens."
 ---
 
-Every request to the Cline API requires authentication via a Bearer token in the `Authorization` header.
+Every request to the CodeVibe API requires authentication via a Bearer token in the `Authorization` header.
 
 ## Authentication Methods
 
@@ -13,7 +13,7 @@ There are two ways to authenticate:
 | Method | Use case | How to get it |
 |--------|----------|---------------|
 | **API key** | Direct API calls, scripts, CI/CD | Create at [app.cline.bot](https://app.cline.bot) Settings > API Keys |
-| **Account auth token** | Cline extension and CLI | Generated automatically when you sign in |
+| **Account auth token** | CodeVibe extension and CLI | Generated automatically when you sign in |
 
 Both methods use the same header format:
 
@@ -57,16 +57,17 @@ curl -X DELETE https://api.cline.bot/api/v1/api-keys/KEY_ID \
 
 ## Account Auth Tokens
 
-When you sign in to the Cline extension (VS Code, JetBrains) or CLI, an account auth token is generated and managed automatically. You do not need to handle these tokens manually.
+When you sign in to the CodeVibe extension (VS Code, JetBrains) or CLI, an account auth token is generated and managed automatically. You do not need to handle these tokens manually.
 
-The Cline CLI uses these tokens when you authenticate via:
+The CodeVibe CLI uses these tokens when you authenticate via:
 
 ```bash
 # Interactive sign-in
-cline auth
+codevibe auth
 
-# Or quick setup with an API key
-cline auth -p cline -k "YOUR_API_KEY" -m anthropic/claude-sonnet-4-6
+# Or quick setup with an API key.
+# The provider id remains "cline" for account compatibility.
+codevibe auth -p cline -k "YOUR_API_KEY" -m anthropic/claude-sonnet-4-6
 ```
 
 See the [CLI Reference](/cli/cli-reference#cline-auth) for all auth options.
@@ -117,13 +118,13 @@ client = OpenAI(
 
 ## Custom Headers
 
-The Cline API accepts optional headers for tracking and identification:
+The CodeVibe API accepts optional headers for tracking and identification:
 
 | Header | Description |
 |--------|-------------|
 | `HTTP-Referer` | Your application's URL. Helps with usage tracking. |
 | `X-Title` | Your application's name. Appears in usage logs. |
-| `X-Task-ID` | A unique task identifier. Used internally by the Cline extension. |
+| `X-Task-ID` | A unique task identifier. Used internally by the CodeVibe extension. |
 
 ## Related
 

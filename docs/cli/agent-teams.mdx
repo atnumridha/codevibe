@@ -4,7 +4,7 @@ sidebarTitle: "Agent Teams"
 description: "Coordinate multiple agents working together on complex tasks from the CLI."
 ---
 <Warning>
-  This feature currently only applies to Cline SDK, CLI, and Kanban. This feature is not applicable on VSCode and JetBrains Extension for now.
+  This feature currently only applies to the CodeVibe SDK, CLI, and Kanban. This feature is not applicable on VSCode and JetBrains Extension for now.
 </Warning>
 
 
@@ -13,7 +13,7 @@ Agent teams let you break complex work across multiple agents that coordinate th
 ## Starting a Team
 
 ```bash
-cline --team-name auth-sprint "Plan and implement user authentication with tests"
+codevibe --team-name auth-sprint "Plan and implement user authentication with tests"
 ```
 
 The `--team-name` flag enables team mode. The coordinator agent gets additional tools for spawning teammates and delegating tasks.
@@ -23,7 +23,7 @@ The `--team-name` flag enables team mode. The coordinator agent gets additional 
 Team state persists across sessions. Resume where you left off:
 
 ```bash
-cline --team-name auth-sprint "Continue with incomplete tasks"
+codevibe --team-name auth-sprint "Continue with incomplete tasks"
 ```
 
 ## Interactive Mode
@@ -36,7 +36,7 @@ In interactive mode, use the `/team` slash command:
 
 ## Team State
 
-Team state is stored at `~/.cline/data/teams/[team-name]/` and includes:
+Team state is stored at `~/.codevibe/data/teams/[team-name]/` by default. Existing `~/.cline/data/teams/[team-name]/` state is still recognized for legacy compatibility. Team state includes:
 
 - Task board with current tasks and status
 - Inter-agent mailbox
@@ -47,7 +47,7 @@ Team state is stored at `~/.cline/data/teams/[team-name]/` and includes:
 Teams are enabled by default. Disable them with:
 
 ```bash
-cline --no-teams "your prompt"
+codevibe --no-teams "your prompt"
 ```
 
 ## Sub-Agents
