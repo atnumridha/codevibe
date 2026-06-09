@@ -467,8 +467,9 @@ export const e2e = test
 			const executablePath = await downloadAndUnzipVSCode(channel, undefined, new SilentReporter())
 
 			await use(async (workspacePath: string) => {
-				// Create isolated Cline data directory for this test
-				const clineTestDir = mkdtempSync(path.join(os.tmpdir(), "cline-e2e-"))
+				// Create isolated CodeVibe data directory for this test. Keep CLINE_DIR during transition for
+				// compatibility with storage code that still uses legacy Cline naming.
+				const codeVibeTestDir = mkdtempSync(path.join(os.tmpdir(), "codevibe-e2e-"))
 				const userSettingsDir = path.join(userDataDir, "User")
 				mkdirSync(userSettingsDir, { recursive: true })
 				writeFileSync(
@@ -492,7 +493,8 @@ export const e2e = test
 						TEMP_PROFILE: "true",
 						E2E_TEST: "true",
 						CLINE_ENVIRONMENT: "local",
-						CLINE_DIR: clineTestDir, // Isolate test data from user's ~/.cline
+						CODEVIBE_DIR: codeVibeTestDir,
+						CLINE_DIR: codeVibeTestDir,
 						GRPC_RECORDER_FILE_NAME: E2ETestHelper.generateTestFileName(testInfo.title, testInfo.project.name),
 						// GRPC_RECORDER_ENABLED: "true",
 						// GRPC_RECORDER_TESTS_FILTERS_ENABLED: "true"
@@ -536,13 +538,13 @@ export const e2e = test
 					E2ETestHelper.rmForRetries(extensionsDir, { recursive: true }),
 				]
 
-				// Clean up the isolated Cline data directory
+				// Clean up the isolated CodeVibe data directory and legacy temp directories from older test runs.
 				// Find all temp directories matching our pattern
 				const tmpDir = os.tmpdir()
 				try {
 					const entries = readdirSync(tmpDir)
 					for (const entry of entries) {
-						if (entry.startsWith("cline-e2e-")) {
+						if (entry.startsWith("codevibe-e2e-") || entry.startsWith("cline-e2e-")) {
 							cleanupTasks.push(E2ETestHelper.rmForRetries(path.join(tmpDir, entry), { recursive: true }))
 						}
 					}
@@ -554,7 +556,7 @@ export const e2e = test
 			}
 		},
 		clineTestDir: async ({}, use) => {
-			// This will be set by the openVSCode fixture
+			// This legacy fixture name is kept for older tests; openVSCode owns the isolated CodeVibe/Cline dirs.
 			await use("")
 		},
 	})

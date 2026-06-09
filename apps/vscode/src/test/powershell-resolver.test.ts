@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, it } from "mocha"
 import "should"
 import {
-	probeWindowsExecutable,
 	getFallbackWindowsPowerShellPath,
 	getWindowsPowerShellCandidates,
 	resetPowerShellResolverCacheForTesting,
@@ -108,9 +107,18 @@ describe("PowerShell resolver", () => {
 		probeCalls.should.equal(1)
 	})
 
-	it("times out probing hung candidates", async () => {
-		const available = await probeWindowsExecutable("pwsh.exe", 10)
-		available.should.equal(false)
+	it("continues after slow unavailable candidates", async () => {
+		let probeCalls = 0
+		setPowerShellProbeForTesting(async () => {
+			probeCalls += 1
+			await new Promise((resolve) => setTimeout(resolve, 20))
+			return false
+		})
+
+		const resolved = await resolveWindowsPowerShellExecutable()
+
+		resolved.should.equal(getFallbackWindowsPowerShellPath())
+		probeCalls.should.equal(getWindowsPowerShellCandidates().length)
 	})
 
 	it("cache reset re-runs probing", async () => {

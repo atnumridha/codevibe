@@ -1,4 +1,5 @@
 import React from "react"
+import { ArrowRightIcon, ListChecksIcon, SearchIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react"
 import { QuickWinTask } from "./quickWinTasks"
 
 interface QuickWinCardProps {
@@ -8,33 +9,29 @@ interface QuickWinCardProps {
 
 const renderIcon = (iconName?: string) => {
 	if (!iconName) {
-		return <span className="codicon codicon-sparkle text-[16px]! leading-none!"></span>
+		return <SparklesIcon className="size-4" />
 	}
 
-	let iconClass = "codicon-sparkle"
 	switch (iconName) {
 		case "ReviewIcon":
-			iconClass = "codicon-search"
-			break
+			return <SearchIcon className="size-4" />
 		case "PlanIcon":
-			iconClass = "codicon-list-tree"
-			break
+			return <ListChecksIcon className="size-4" />
 		case "VerifyIcon":
-			iconClass = "codicon-beaker"
-			break
+			return <ShieldCheckIcon className="size-4" />
 		default:
 			break
 	}
-	return <span className={`codicon ${iconClass} text-[16px]! leading-none!`}></span>
+	return <SparklesIcon className="size-4" />
 }
 
 const QuickWinCard: React.FC<QuickWinCardProps> = ({ task, onExecute }) => {
 	return (
 		<button
-			className="group grid grid-cols-[28px_1fr_18px] items-center gap-3 rounded-md border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-3 py-2 text-left transition-colors duration-150 ease-in-out hover:bg-[var(--vscode-list-hoverBackground)]"
+			className="group grid grid-cols-[32px_1fr_18px] items-center gap-3 rounded-sm border border-[var(--vscode-panel-border)] border-l-codevibe/70 bg-[var(--vscode-editor-background)] px-3 py-2.5 text-left transition-colors duration-150 ease-in-out hover:border-codevibe/70 hover:bg-[var(--vscode-list-hoverBackground)]"
 			onClick={onExecute}
 			type="button">
-			<div className="shrink-0 flex size-7 items-center justify-center rounded-sm bg-[var(--vscode-toolbar-hoverBackground)] text-[var(--vscode-icon-foreground)]">
+			<div className="shrink-0 flex size-8 items-center justify-center rounded-sm border border-codevibe/30 bg-codevibe/10 text-codevibe">
 				{renderIcon(task.icon)}
 			</div>
 
@@ -46,7 +43,7 @@ const QuickWinCard: React.FC<QuickWinCardProps> = ({ task, onExecute }) => {
 					{task.description}
 				</p>
 			</div>
-			<span className="codicon codicon-arrow-right text-[var(--vscode-descriptionForeground)] transition-transform group-hover:translate-x-0.5" />
+			<ArrowRightIcon className="size-4 text-[var(--vscode-descriptionForeground)] transition-transform group-hover:translate-x-0.5" />
 		</button>
 	)
 }

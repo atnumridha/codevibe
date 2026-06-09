@@ -4,8 +4,9 @@
 import { downloadAndUnzipVSCode, SilentReporter } from "@vscode/test-electron"
 import { execa } from "execa"
 
-const TIMEOUT_MINUTE = 1
-const INSTALL_TIMEOUT_MS = TIMEOUT_MINUTE * 60 * 1000
+const DEFAULT_INSTALL_TIMEOUT_MINUTES = 8
+const timeoutMinutes = Number(process.env.CODEVIBE_E2E_INSTALL_TIMEOUT_MINUTES ?? DEFAULT_INSTALL_TIMEOUT_MINUTES)
+const INSTALL_TIMEOUT_MS = Math.max(1, timeoutMinutes) * 60 * 1000
 
 async function installVSCode() {
 	const VSCODE_APP_TYPE = "stable"
@@ -26,12 +27,14 @@ async function installChromium() {
 }
 
 async function installDependencies() {
-	return Promise.all([installVSCode(), installChromium()])
+	const vscodePath = await installVSCode()
+	await installChromium()
+	return vscodePath
 }
 
 async function main() {
 	const timeoutPromise = new Promise((_, reject) =>
-		setTimeout(() => reject(new Error("Installation timed out.")), INSTALL_TIMEOUT_MS),
+		setTimeout(() => reject(new Error(`Installation timed out after ${timeoutMinutes} minute(s).`)), INSTALL_TIMEOUT_MS),
 	)
 	await Promise.race([installDependencies(), timeoutPromise])
 	console.log("Installation complete.")

@@ -29,10 +29,12 @@ describe("HomeHeader", () => {
 	it("presents CodeVibe as the primary native chat agent surface", () => {
 		render(<HomeHeader shouldShowStarterWorkflows={true} />)
 
-		expect(screen.getByText("CodeVibe Agent")).toBeInTheDocument()
-		expect(screen.getByText("Codex-first coding workspace")).toBeInTheDocument()
-		expect(screen.getByText("VS Code Chat first")).toBeInTheDocument()
-		expect(screen.getByText("Codex auth")).toBeInTheDocument()
+		expect(screen.getByRole("heading", { name: "CodeVibe" })).toBeInTheDocument()
+		expect(screen.getByText("Agent console")).toBeInTheDocument()
+		expect(screen.getByText("Plan")).toBeInTheDocument()
+		expect(screen.getByText("Act")).toBeInTheDocument()
+		expect(screen.getByText("Review")).toBeInTheDocument()
+		expect(screen.getByText("Ship")).toBeInTheDocument()
 		expect(screen.queryByText("Native agent first")).not.toBeInTheDocument()
 	})
 

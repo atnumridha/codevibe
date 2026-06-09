@@ -160,4 +160,4 @@ jobs:
               with:
                   name: playwright-recordings-${{ matrix.runner }}
                   path: |
-                      test-results/playwright/
+                      apps/vscode/test-results/playwright/
