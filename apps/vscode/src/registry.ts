@@ -7,7 +7,7 @@ const prefix = name === "claude-dev" ? "cline" : name
  * List of commands with the name of the extension they are registered under.
  * These should match the command IDs defined in package.json.
  * For Nightly build, the publish script has updated all the commands to use the extension name as prefix.
- * In production, all commands are registered under "cline" for consistency.
+ * In production, commands keep the extension name prefix, with selected legacy aliases.
  */
 const CodeVibeCommands = {
 	PlusButton: prefix + ".plusButtonClicked",
@@ -19,6 +19,7 @@ const CodeVibeCommands = {
 	TerminalOutput: prefix + ".addTerminalOutputToChat",
 	AddToChat: prefix + ".addToChat",
 	FixWithCodeVibe: prefix + ".fixWithCodeVibe",
+	// Keep the legacy command ID so older keybindings and generated protobus calls keep working.
 	LegacyFixWithCline: prefix + ".fixWithCline",
 	ExplainCode: prefix + ".explainCode",
 	ImproveCode: prefix + ".improveCode",
@@ -67,7 +68,7 @@ export interface HostInfo {
 	 */
 	os: string
 	/**
-	 * The type of the cline host environment, e.g. 'VSCode Extension', 'Cline for JetBrains', 'CLI'
+	 * The type of the host environment, e.g. 'VSCode Extension', 'JetBrains', 'CLI'
 	 * This is different from the platform because there are many JetBrains IDEs, but they all use the same
 	 * plugin.
 	 */
@@ -81,7 +82,7 @@ export interface HostInfo {
 	 */
 	hostVersion?: string
 	/**
-	 * The version of Cline that the host client is running
+	 * The version of CodeVibe that the host client is running
 	 */
 	extensionVersion: string
 }

@@ -28,7 +28,7 @@ function endpointUrl(envName: string, fallback: string): string {
 export class ClineConfigurationError extends Error {
 	constructor(message: string) {
 		super(message)
-		this.name = "ClineConfigurationError"
+		this.name = "CodeVibeConfigurationError"
 	}
 }
 
@@ -56,12 +56,12 @@ class ClineEndpoint {
 	}
 
 	/**
-	 * Initializes the ClineEndpoint singleton.
+	 * Initializes the CodeVibe endpoint singleton.
 	 * Must be called before any other methods.
 	 * Reads the endpoints.json file if it exists and validates its schema.
 	 *
 	 * @param extensionFsPath Path to the extension installation directory (for checking bundled endpoints.json)
-	 * @throws ClineConfigurationError if the endpoints.json file exists but is invalid
+	 * @throws CodeVibeConfigurationError if the endpoints.json file exists but is invalid
 	 */
 	public static async initialize(extensionFsPath: string): Promise<void> {
 		if (ClineEndpoint._initialized) {
@@ -160,7 +160,7 @@ class ClineEndpoint {
 	 * Checks bundled location first, then falls back to user directory.
 	 * Priority: bundled endpoints.json → ~/.codevibe/endpoints.json → ~/.cline/endpoints.json → null (standard mode)
 	 * @returns The validated endpoints config, or null if no file exists
-	 * @throws ClineConfigurationError if a file exists but is invalid
+	 * @throws CodeVibeConfigurationError if a file exists but is invalid
 	 */
 	private static async loadEndpointsFile(): Promise<EndpointsFileSchema | null> {
 		// 1. Try bundled file
@@ -232,7 +232,7 @@ class ClineEndpoint {
 	 * @param data The parsed JSON data to validate
 	 * @param filePath The path to the file (for error messages)
 	 * @returns The validated EndpointsFileSchema
-	 * @throws ClineConfigurationError if validation fails
+	 * @throws CodeVibeConfigurationError if validation fails
 	 */
 	private static validateEndpointsSchema(data: unknown, filePath: string): EndpointsFileSchema {
 		if (typeof data !== "object" || data === null) {

@@ -212,7 +212,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 					e &&
 					(e.affectsConfiguration("codevibe.cursorCompatibility.enabled") ||
 						e.affectsConfiguration("codevibe.cursorCompatibility.safeBrowserEvaluate.enabled") ||
-						e.affectsConfiguration("cline.mcpMarketplace.enabled"))
+						e.affectsConfiguration("mcpMarketplace.enabled"))
 				) {
 					// Update state when marketplace tab setting changes
 					await this.controller.postStateToWebview()

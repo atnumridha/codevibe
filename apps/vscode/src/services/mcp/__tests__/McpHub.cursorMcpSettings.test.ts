@@ -3,6 +3,7 @@ import "should"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { GlobalFileNames } from "@core/storage/disk"
 import { McpHub } from "../McpHub"
 
 type FakeConnection = {
@@ -55,7 +56,7 @@ describe("McpHub Cursor MCP settings", () => {
 		tempDir = path.join(os.tmpdir(), `mcp-cursor-settings-${Date.now()}-${Math.random().toString(36).slice(2)}`)
 		settingsDir = path.join(tempDir, "settings")
 		workspaceRoot = path.join(tempDir, "workspace")
-		nativeSettingsPath = path.join(settingsDir, "cline_mcp_settings.json")
+		nativeSettingsPath = path.join(settingsDir, GlobalFileNames.mcpSettings)
 		cursorSettingsPath = path.join(workspaceRoot, ".cursor", "mcp.json")
 		await fs.mkdir(settingsDir, { recursive: true })
 		await fs.mkdir(workspaceRoot, { recursive: true })

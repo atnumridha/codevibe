@@ -730,10 +730,12 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should open settings routes directly through the host", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/settings?query=%40id%3Acline.apiProvider")
+				const result = await SharedUriHandler.handleUri(
+					"vscode://cline.cline/settings?query=%40id%3Acodevibe.openAiCodex.authSource",
+				)
 
 				expect(result).to.be.true
-				sinon.assert.calledOnceWithExactly(openSettingsStub, { query: "@id:cline.apiProvider" })
+				sinon.assert.calledOnceWithExactly(openSettingsStub, { query: "@id:codevibe.openAiCodex.authSource" })
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -744,7 +746,7 @@ describe("SharedUriHandler", () => {
 				expect(sectionResult).to.be.true
 				expect(tabResult).to.be.true
 				sinon.assert.calledTwice(openSettingsStub)
-				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "@id:cline.apiProvider" })
+				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "@id:codevibe.openAiCodex.authSource" })
 				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({
 					query: "@id:codevibe.cursorCompatibility.deepLinks.enabled",
 				})

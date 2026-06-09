@@ -10,7 +10,7 @@ export type { BlobStoreSettings } from "./types"
  * Uses AWS S3, Cloudflare R2, or Azure Blob Storage as the backend storage.
  */
 export class ClineBlobStorage extends ClineStorage {
-	override name = "ClineBlobStorage"
+	override name = "CodeVibeBlobStorage"
 
 	private static store: ClineBlobStorage | null = null
 	static get instance(): ClineBlobStorage {
@@ -58,11 +58,11 @@ export class ClineBlobStorage extends ClineStorage {
 				this.adapter = adapter
 				this.settings = settings
 				this.initialized = true
-				Logger.log(`[ClineBlobStorage] Adapter created for ${settings.adapterType}`)
+				Logger.log(`[CodeVibeBlobStorage] Adapter created for ${settings.adapterType}`)
 			}
 		} catch (error) {
 			// Log but don't throw - allow startup to continue
-			Logger.error("[ClineBlobStorage] initialization failed:", error)
+			Logger.error("[CodeVibeBlobStorage] initialization failed:", error)
 		}
 	}
 

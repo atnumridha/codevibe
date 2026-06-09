@@ -44,7 +44,7 @@ describe("McpHub.deleteServerRPC", () => {
 		sandbox = sinon.createSandbox()
 		tempDir = path.join(os.tmpdir(), `mcp-delete-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
 		await fs.mkdir(tempDir, { recursive: true })
-		settingsPath = path.join(tempDir, "cline_mcp_settings.json")
+		settingsPath = path.join(tempDir, diskModule.GlobalFileNames.mcpSettings)
 		sandbox.stub(diskModule, "getMcpSettingsFilePath").resolves(settingsPath)
 
 		hub = Object.create(McpHub.prototype) as McpHub

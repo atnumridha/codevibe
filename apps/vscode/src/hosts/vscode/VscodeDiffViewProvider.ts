@@ -6,7 +6,13 @@ import { NotebookDiffView } from "@/hosts/vscode/NotebookDiffView"
 import { Logger } from "@/shared/services/Logger"
 import { arePathsEqual } from "@/utils/path"
 
-export const DIFF_VIEW_URI_SCHEME = "cline-diff"
+export const CODEVIBE_DIFF_VIEW_URI_SCHEME = "codevibe-diff"
+export const LEGACY_DIFF_VIEW_URI_SCHEME = "cline-diff"
+export const DIFF_VIEW_URI_SCHEME = CODEVIBE_DIFF_VIEW_URI_SCHEME
+
+export function isDiffViewUriScheme(scheme: string | undefined): boolean {
+	return scheme === DIFF_VIEW_URI_SCHEME || scheme === LEGACY_DIFF_VIEW_URI_SCHEME
+}
 
 export class VscodeDiffViewProvider extends DiffViewProvider {
 	private activeDiffEditor?: vscode.TextEditor
@@ -44,7 +50,7 @@ export class VscodeDiffViewProvider extends DiffViewProvider {
 			.find(
 				(tab) =>
 					tab.input instanceof vscode.TabInputTextDiff &&
-					tab.input?.original?.scheme === DIFF_VIEW_URI_SCHEME &&
+					isDiffViewUriScheme(tab.input?.original?.scheme) &&
 					arePathsEqual(tab.input.modified.fsPath, uri.fsPath),
 			)
 
@@ -202,10 +208,10 @@ export class VscodeDiffViewProvider extends DiffViewProvider {
 	}
 
 	protected async closeAllDiffViews(): Promise<void> {
-		// Close all the cline diff views.
+		// Close all CodeVibe diff views, including tabs opened with the legacy scheme.
 		const tabs = vscode.window.tabGroups.all
 			.flatMap((tg) => tg.tabs)
-			.filter((tab) => tab.input instanceof vscode.TabInputTextDiff && tab.input?.original?.scheme === DIFF_VIEW_URI_SCHEME)
+			.filter((tab) => tab.input instanceof vscode.TabInputTextDiff && isDiffViewUriScheme(tab.input?.original?.scheme))
 		for (const tab of tabs) {
 			// trying to close dirty views results in save popup
 			if (!tab.isDirty) {

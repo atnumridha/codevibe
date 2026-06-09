@@ -72,8 +72,8 @@ const CURSOR_RULE_FILENAME_PATTERN = /^[a-zA-Z0-9._-]+$/
 const CURSOR_COMMAND_FILENAME_PATTERN = /^(?=.*[a-zA-Z0-9])[a-zA-Z0-9._-]+$/
 const MAX_CURSOR_COMMAND_FILE_BYTES = 256 * 1024
 const CURSOR_SETTINGS_SECTION_QUERIES = new Map<string, string>([
-	["provider", "@id:cline.apiProvider"],
-	["providers", "@id:cline.apiProvider"],
+	["provider", "@id:codevibe.openAiCodex.authSource"],
+	["providers", "@id:codevibe.openAiCodex.authSource"],
 	["cursor-compatibility", "@id:codevibe.cursorCompatibility.enabled"],
 	["cursor-links", "@id:codevibe.cursorCompatibility.deepLinks.enabled"],
 	["deep-links", "@id:codevibe.cursorCompatibility.deepLinks.enabled"],

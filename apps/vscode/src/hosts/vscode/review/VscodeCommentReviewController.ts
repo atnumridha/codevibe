@@ -2,10 +2,10 @@ import * as vscode from "vscode"
 import { sendAddToInputEvent } from "@/core/controller/ui/subscribeToAddToInput"
 import { CommentReviewController, type OnReplyCallback, type ReviewComment } from "@/integrations/editor/CommentReviewController"
 import { Logger } from "@/shared/services/Logger"
-import { DIFF_VIEW_URI_SCHEME } from "../VscodeDiffViewProvider"
+import { DIFF_VIEW_URI_SCHEME, isDiffViewUriScheme } from "../VscodeDiffViewProvider"
 
 /**
- * Upstream avatar used for inherited Cline review metadata.
+ * Upstream avatar used for inherited review metadata.
  */
 const CLINE_AVATAR_URL = "https://avatars.githubusercontent.com/u/184127137"
 
@@ -414,18 +414,18 @@ Please continue helping the user with their question about this code.`
 	}
 
 	/**
-	 * Close all tabs that use the cline-diff URI scheme (both diff views and regular text documents)
+	 * Close all tabs that use CodeVibe diff URI schemes (both diff views and regular text documents).
 	 */
 	async closeDiffViews(): Promise<void> {
 		const tabs = vscode.window.tabGroups.all
 			.flatMap((tg) => tg.tabs)
 			.filter((tab) => {
 				// Check for diff view tabs
-				if (tab.input instanceof vscode.TabInputTextDiff && tab.input?.original?.scheme === DIFF_VIEW_URI_SCHEME) {
+				if (tab.input instanceof vscode.TabInputTextDiff && isDiffViewUriScheme(tab.input?.original?.scheme)) {
 					return true
 				}
-				// Check for regular text document tabs with cline-diff scheme (opened during comment reveal)
-				if (tab.input instanceof vscode.TabInputText && tab.input?.uri?.scheme === DIFF_VIEW_URI_SCHEME) {
+				// Check for regular text document tabs with the diff scheme (opened during comment reveal).
+				if (tab.input instanceof vscode.TabInputText && isDiffViewUriScheme(tab.input?.uri?.scheme)) {
 					return true
 				}
 				return false

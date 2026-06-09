@@ -2,7 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 
 import assert from "node:assert"
-import { DIFF_VIEW_URI_SCHEME } from "@hosts/vscode/VscodeDiffViewProvider"
+import { DIFF_VIEW_URI_SCHEME, LEGACY_DIFF_VIEW_URI_SCHEME } from "@hosts/vscode/VscodeDiffViewProvider"
 import * as vscode from "vscode"
 import { Logger } from "@/shared/services/Logger"
 import { sendAccountButtonClickedEvent } from "./core/controller/ui/subscribeToAccountButtonClicked"
@@ -200,7 +200,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			return Buffer.from(uri.query, "base64").toString("utf-8")
 		}
 	})()
-	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(DIFF_VIEW_URI_SCHEME, diffContentProvider))
+	const diffUriSchemes = [DIFF_VIEW_URI_SCHEME, LEGACY_DIFF_VIEW_URI_SCHEME].filter(
+		(scheme, index, schemes) => schemes.indexOf(scheme) === index,
+	)
+	context.subscriptions.push(
+		...diffUriSchemes.map((scheme) => vscode.workspace.registerTextDocumentContentProvider(scheme, diffContentProvider)),
+	)
 
 	const handleUri = async (uri: vscode.Uri) => {
 		const url = getRawExtensionUriString(uri)
