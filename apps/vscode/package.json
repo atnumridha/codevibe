@@ -155,6 +155,46 @@
 				}
 			]
 		},
+		"chatSessions": [
+			{
+				"type": "codevibe-agent",
+				"name": "codevibe",
+				"displayName": "CodeVibe Agent",
+				"icon": "$(codevibe-icon)",
+				"welcomeTitle": "CodeVibe Agent",
+				"welcomeMessage": "Plan, edit, review, run tools, apply diffs, use terminal approvals, MCP, browser automation, and Codex auth.",
+				"inputPlaceholder": "Ask CodeVibe to build, fix, review, or plan",
+				"order": 0,
+				"canDelegate": true,
+				"description": "Run local coding-agent tasks with CodeVibe",
+				"capabilities": {
+					"supportsFileAttachments": true,
+					"supportsProblemAttachments": true,
+					"supportsImageAttachments": true,
+					"supportsSymbolAttachments": true,
+					"supportsSearchResultAttachments": true,
+					"supportsSourceControlAttachments": true,
+					"supportsPromptAttachments": true,
+					"supportsHandOffs": true
+				},
+				"commands": [
+					{
+						"name": "plan",
+						"description": "Explore the codebase and prepare an implementation plan"
+					},
+					{
+						"name": "act",
+						"description": "Start an implementation task in CodeVibe"
+					},
+					{
+						"name": "review",
+						"description": "Review the current code or selected changes"
+					}
+				],
+				"autoAttachReferences": true,
+				"useRequestToPopulateBuiltInPickers": true
+			}
+		],
 		"chatParticipants": [
 			{
 				"id": "codevibe.agent",

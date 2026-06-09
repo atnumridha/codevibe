@@ -65,6 +65,9 @@ import { fileExistsAtPath } from "./utils/fs"
 const OPENAI_CODEX_EXTENSION_ID = "openai.chatgpt"
 const OPENAI_CODEX_OPEN_SIDEBAR_COMMAND = "chatgpt.openSidebar"
 const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe.agent"
+const CODEVIBE_CHAT_SESSION_TYPE = "codevibe-agent"
+const CODEVIBE_NATIVE_AGENT_CACHE_DIR = "native-agents"
+const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const LEGACY_CODEVIBE_PANEL_VIEW_TYPE = "codevibe.agentPanel"
 
 // This method is called when the VS Code extension is activated.
@@ -97,6 +100,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 	)
 	registerCodeVibeChatParticipant(context)
+	registerCodeVibeNativeAgentProvider(context)
+	registerCodeVibeNativeChatSessionProvider(context)
 	await closeLegacyCodeVibePanels()
 	scheduleLegacyCodeVibePanelCleanup(context)
 
@@ -797,7 +802,18 @@ type NativeChatApi = {
 	createChatParticipant?: (
 		id: string,
 		handler: (request: unknown, context: unknown, stream: unknown, token: vscode.CancellationToken) => unknown,
-	) => vscode.Disposable & { iconPath?: vscode.Uri }
+	) => NativeChatParticipant
+	registerCustomAgentProvider?: (provider: CodeVibeCustomAgentProvider) => vscode.Disposable
+	registerChatSessionContentProvider?: (
+		chatSessionType: string,
+		provider: CodeVibeChatSessionContentProvider,
+		defaultChatParticipant: NativeChatParticipant,
+		capabilities?: Record<string, unknown>,
+	) => vscode.Disposable
+	createChatSessionItemController?: (
+		chatSessionType: string,
+		refreshHandler: (token: vscode.CancellationToken) => unknown,
+	) => CodeVibeChatSessionItemController
 }
 
 type NativeChatRequest = {
@@ -805,9 +821,69 @@ type NativeChatRequest = {
 	command?: unknown
 }
 
+type NativeChatParticipant = vscode.Disposable & {
+	iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }
+}
+
 type NativeChatResponseStream = {
 	progress?: (message: string) => void
 	markdown?: (message: string) => void
+}
+
+type CodeVibeCustomAgentProvider = {
+	label: string
+	provideCustomAgents: (
+		context: unknown,
+		token: vscode.CancellationToken,
+	) => Promise<Array<{ uri: vscode.Uri; sessionTypes: string[] }>> | Array<{ uri: vscode.Uri; sessionTypes: string[] }>
+}
+
+type CodeVibeChatSessionContentProvider = {
+	provideChatSessionContent: (
+		resource: vscode.Uri,
+		token: vscode.CancellationToken,
+		context?: CodeVibeChatSessionContentContext,
+	) => unknown
+}
+
+type CodeVibeChatSessionContentContext = {
+	inputState?: CodeVibeChatSessionInputState
+}
+
+type CodeVibeChatSessionInputState = {
+	groups?: Array<{
+		id?: unknown
+		selected?: unknown
+	}>
+}
+
+type CodeVibeChatSessionItem = {
+	resource: vscode.Uri
+	label: string
+	iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }
+	tooltip?: string
+	timing?: {
+		created?: number
+		lastRequestStarted?: number
+		lastRequestEnded?: number
+	}
+	metadata?: Record<string, unknown>
+}
+
+type CodeVibeChatSessionItemController = vscode.Disposable & {
+	createChatSessionItem: (resource: vscode.Uri, label: string) => CodeVibeChatSessionItem
+	newChatSessionItemHandler?: (context: CodeVibeNewChatSessionItemContext, token: vscode.CancellationToken) => unknown
+	items?: {
+		add?: (item: CodeVibeChatSessionItem) => void
+		replace?: (items: CodeVibeChatSessionItem[]) => void
+		get?: (resource: vscode.Uri) => CodeVibeChatSessionItem | undefined
+		delete?: (resource: vscode.Uri) => void
+	}
+}
+
+type CodeVibeNewChatSessionItemContext = {
+	request?: NativeChatRequest
+	inputState?: CodeVibeChatSessionInputState
 }
 
 function buildCodeVibeNativeChatTaskText(request: NativeChatRequest): string {
@@ -827,6 +903,34 @@ function buildCodeVibeNativeChatTaskText(request: NativeChatRequest): string {
 	}
 }
 
+function buildCodeVibeNativeChatRequestHandler() {
+	return async (request: unknown, _chatContext: unknown, stream: unknown, token: vscode.CancellationToken) => {
+		const chatRequest = request as NativeChatRequest
+		const responseStream = stream as NativeChatResponseStream
+		const taskText = buildCodeVibeNativeChatTaskText(chatRequest)
+
+		responseStream.progress?.("Opening CodeVibe Agent...")
+		if (token.isCancellationRequested) {
+			return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID, cancelled: true } }
+		}
+
+		await showPreferredCodeVibeSurface(false, { allowOpenAiCodexSidebar: false })
+		await sendShowWebviewEvent(false)
+		if (taskText) {
+			await sendAddToInputEvent(taskText)
+			responseStream.markdown?.(
+				"Opened CodeVibe Agent and moved this prompt into the task box. Start the task there to use CodeVibe's planner, tools, diffs, terminal approvals, MCP, and browser automation.",
+			)
+		} else {
+			responseStream.markdown?.(
+				"Opened CodeVibe Agent. Start a task there to use CodeVibe's planner, tools, diffs, terminal approvals, MCP, and browser automation.",
+			)
+		}
+
+		return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID } }
+	}
+}
+
 function registerCodeVibeChatParticipant(context: vscode.ExtensionContext): void {
 	const chatApi = (vscode as typeof vscode & { chat?: NativeChatApi }).chat
 	if (!chatApi?.createChatParticipant) {
@@ -836,31 +940,7 @@ function registerCodeVibeChatParticipant(context: vscode.ExtensionContext): void
 	try {
 		const participant = chatApi.createChatParticipant(
 			CODEVIBE_CHAT_PARTICIPANT_ID,
-			async (request, _chatContext, stream, token) => {
-				const chatRequest = request as NativeChatRequest
-				const responseStream = stream as NativeChatResponseStream
-				const taskText = buildCodeVibeNativeChatTaskText(chatRequest)
-
-				responseStream.progress?.("Opening CodeVibe Agent...")
-				if (token.isCancellationRequested) {
-					return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID, cancelled: true } }
-				}
-
-				await showPreferredCodeVibeSurface(false, { allowOpenAiCodexSidebar: false })
-				await sendShowWebviewEvent(false)
-				if (taskText) {
-					await sendAddToInputEvent(taskText)
-					responseStream.markdown?.(
-						"Opened CodeVibe Agent and moved this prompt into the task box. Start the task there to use CodeVibe's planner, tools, diffs, terminal approvals, MCP, and browser automation.",
-					)
-				} else {
-					responseStream.markdown?.(
-						"Opened CodeVibe Agent. Start a task there to use CodeVibe's planner, tools, diffs, terminal approvals, MCP, and browser automation.",
-					)
-				}
-
-				return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID } }
-			},
+			buildCodeVibeNativeChatRequestHandler(),
 		)
 		participant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
 		context.subscriptions.push(participant)
@@ -869,6 +949,138 @@ function registerCodeVibeChatParticipant(context: vscode.ExtensionContext): void
 			`Failed to register CodeVibe native chat participant: ${error instanceof Error ? error.message : String(error)}`,
 		)
 	}
+}
+
+function registerCodeVibeNativeAgentProvider(context: vscode.ExtensionContext): void {
+	const chatApi = (vscode as typeof vscode & { chat?: NativeChatApi }).chat
+	if (!chatApi?.registerCustomAgentProvider) {
+		return
+	}
+
+	const provider: CodeVibeCustomAgentProvider = {
+		label: "CodeVibe Agent",
+		provideCustomAgents: async (_customAgentContext, token) => {
+			const agentDirUri = vscode.Uri.joinPath(context.globalStorageUri, CODEVIBE_NATIVE_AGENT_CACHE_DIR)
+			const agentUri = vscode.Uri.joinPath(agentDirUri, CODEVIBE_NATIVE_AGENT_FILE_NAME)
+			if (token.isCancellationRequested) {
+				return []
+			}
+			await writeCodeVibeNativeAgentFile(agentDirUri, agentUri)
+			return [{ uri: agentUri, sessionTypes: [CODEVIBE_CHAT_SESSION_TYPE, "local"] }]
+		},
+	}
+
+	try {
+		context.subscriptions.push(chatApi.registerCustomAgentProvider(provider))
+	} catch (error) {
+		Logger.warn(
+			`Failed to register CodeVibe native custom agent provider: ${
+				error instanceof Error ? error.message : String(error)
+			}`,
+		)
+	}
+}
+
+async function writeCodeVibeNativeAgentFile(agentDirUri: vscode.Uri, agentUri: vscode.Uri): Promise<void> {
+	const markdown = [
+		"---",
+		"name: CodeVibe Agent",
+		"description: Plan, edit, review, run tools, apply diffs, use terminal approvals, MCP, browser automation, and Codex auth with CodeVibe.",
+		"argument-hint: Describe the task for CodeVibe",
+		"target: vscode",
+		"disable-model-invocation: true",
+		"user-invocable: true",
+		"---",
+		"",
+		"You are CodeVibe Agent, the default coding agent for this workspace.",
+		"",
+		"When selected from VS Code's native agent picker, route the user's request to the CodeVibe extension. Use @codevibe when the native chat participant is available, or open the CodeVibe Agent sidebar with the user's prompt preloaded.",
+		"",
+		"CodeVibe handles planning, edits, diffs, terminal approvals, MCP, browser automation, rules, retrieval, and background workflows.",
+		"",
+	].join("\n")
+
+	await vscode.workspace.fs.createDirectory(agentDirUri)
+	await vscode.workspace.fs.writeFile(agentUri, Buffer.from(markdown, "utf8"))
+}
+
+function registerCodeVibeNativeChatSessionProvider(context: vscode.ExtensionContext): void {
+	const chatApi = (vscode as typeof vscode & { chat?: NativeChatApi }).chat
+	if (!chatApi?.createChatParticipant || !chatApi.registerChatSessionContentProvider) {
+		return
+	}
+
+	try {
+		const requestHandler = buildCodeVibeNativeChatRequestHandler()
+		const sessionParticipant = chatApi.createChatParticipant(CODEVIBE_CHAT_SESSION_TYPE, requestHandler)
+		sessionParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
+		context.subscriptions.push(sessionParticipant)
+
+		const contentProvider: CodeVibeChatSessionContentProvider = {
+			provideChatSessionContent: (_resource, _token, sessionContext) => ({
+				title: "CodeVibe Agent",
+				history: [],
+				options: getCodeVibeChatSessionOptions(sessionContext?.inputState),
+				requestHandler,
+			}),
+		}
+
+		context.subscriptions.push(
+			chatApi.registerChatSessionContentProvider(CODEVIBE_CHAT_SESSION_TYPE, contentProvider, sessionParticipant, {
+				supportsInterruptions: true,
+			}),
+		)
+
+		if (chatApi.createChatSessionItemController) {
+			const controller = chatApi.createChatSessionItemController(CODEVIBE_CHAT_SESSION_TYPE, () => undefined)
+			controller.newChatSessionItemHandler = (sessionContext) => {
+				const item = controller.createChatSessionItem(
+					createCodeVibeChatSessionUri(),
+					buildCodeVibeChatSessionLabel(sessionContext?.request),
+				)
+				item.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
+				item.tooltip = "CodeVibe Agent session"
+				item.timing = { created: Date.now() }
+
+				const workspaceFolder = vscode.workspace.workspaceFolders?.[0]
+				if (workspaceFolder) {
+					item.metadata = { workingDirectoryPath: workspaceFolder.uri.fsPath }
+				}
+
+				return item
+			}
+			context.subscriptions.push(controller)
+		}
+	} catch (error) {
+		Logger.warn(
+			`Failed to register CodeVibe native chat session provider: ${
+				error instanceof Error ? error.message : String(error)
+			}`,
+		)
+	}
+}
+
+function getCodeVibeChatSessionOptions(inputState: CodeVibeChatSessionInputState | undefined): Record<string, unknown> {
+	const options: Record<string, unknown> = {}
+	for (const group of inputState?.groups ?? []) {
+		if (typeof group.id === "string" && group.selected !== undefined) {
+			options[group.id] = group.selected
+		}
+	}
+	return options
+}
+
+function createCodeVibeChatSessionUri(): vscode.Uri {
+	const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+	return vscode.Uri.from({ scheme: CODEVIBE_CHAT_SESSION_TYPE, path: `/${id}` })
+}
+
+function buildCodeVibeChatSessionLabel(request: NativeChatRequest | undefined): string {
+	const prompt = typeof request?.prompt === "string" ? request.prompt.trim().replace(/\s+/g, " ") : ""
+	if (!prompt) {
+		return "New CodeVibe Session"
+	}
+	return prompt.length > 80 ? `${prompt.slice(0, 77)}...` : prompt
 }
 
 async function openCodeVibeSurfaceForTaskUri(): Promise<void> {
