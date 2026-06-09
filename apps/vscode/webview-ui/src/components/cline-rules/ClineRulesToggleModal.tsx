@@ -269,7 +269,7 @@ const ClineRulesToggleModal: React.FC = () => {
 				}
 			})
 			.catch((error) => {
-				console.error("Error toggling Cursor rule:", error)
+				console.error("Error toggling rule:", error)
 			})
 	}
 

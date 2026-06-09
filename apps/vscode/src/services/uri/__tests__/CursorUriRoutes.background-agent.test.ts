@@ -23,7 +23,7 @@ describe("CursorUriRoutes background-agent", () => {
 		expect(request.repository).to.equal("owner/repo")
 		expect(request.requestedBranch).to.equal("main")
 		expect(request.requestedBaseBranch).to.equal("develop")
-		expect(request.routePrompt).to.contain("Cursor-compatible background agent deeplink")
+		expect(request.routePrompt).to.contain("compatible background agent deeplink")
 		expect(request.routePrompt).to.contain("ask for confirmation")
 	})
 

@@ -219,7 +219,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/createchat?prompt=Review%20the%20diff")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor chat task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe chat task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("normal approvals")
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
@@ -232,7 +232,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("cursor://createchat?prompt=Review%20the%20diff")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor chat task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe chat task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
 			})
@@ -244,7 +244,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("codevibe://createchat?prompt=Review%20the%20diff")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor chat task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe chat task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
 			})
@@ -269,7 +269,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/prompt?text=Review%20the%20diff")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor prompt task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe prompt task?")
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -284,13 +284,13 @@ describe("SharedUriHandler", () => {
 
 				expect(result).to.be.true
 				const modal = showMessageStub.firstCall.args[0]
-				expect(modal.message).to.equal("Create Cursor glass prompt task?")
+				expect(modal.message).to.equal("Create CodeVibe glass prompt task?")
 				expect(modal.options.detail).to.contain("Glass mode: overlay")
 				expect(modal.options.detail).to.contain("Config keys: placement, token")
 				expect(modal.options.detail).not.to.contain("secret-value")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Continue here")
-				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Cursor route context")
+				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("Compatible route context")
 				expect(handleTaskCreationStub.firstCall.args[0]).to.contain("config keys: placement, token")
 				expect(handleTaskCreationStub.firstCall.args[0]).not.to.contain("secret-value")
 			})
@@ -440,7 +440,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/mcp/install?config=${config}`)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Choose Cursor MCP server to install")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Choose MCP server to install")
 				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["alpha", "beta"])
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config includes multiple MCP servers")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Server: alpha")
@@ -512,7 +512,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Cursor background agent?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch CodeVibe background agent?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Repository: owner/repo")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Branch: main")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: mode, token")
@@ -526,7 +526,7 @@ describe("SharedUriHandler", () => {
 				expect(launchRequest.prompt).to.equal("Fix the queue")
 				expect(launchRequest.repository).to.equal("owner/repo")
 				expect(launchRequest.requestedBranch).to.equal("main")
-				expect(launchRequest.routePrompt).to.contain("Cursor-compatible background agent deeplink")
+				expect(launchRequest.routePrompt).to.contain("compatible background agent deeplink")
 			})
 
 			it("should launch native CodeVibe background-agent routes through the controller background path", async () => {
@@ -538,14 +538,14 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Cursor background agent?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch CodeVibe background agent?")
 				sinon.assert.calledOnce(handleCursorBackgroundAgentLaunchStub)
 				expect(handleTaskCreationStub.called).to.be.false
 				const launchRequest = handleCursorBackgroundAgentLaunchStub.firstCall.args[0]
 				expect(launchRequest.prompt).to.equal("Fix the queue")
 				expect(launchRequest.repository).to.equal("owner/repo")
 				expect(launchRequest.requestedBranch).to.equal("main")
-				expect(launchRequest.routePrompt).to.contain("Cursor-compatible background agent deeplink")
+				expect(launchRequest.routePrompt).to.contain("compatible background agent deeplink")
 			})
 
 			it("should confirm Cursor automation NDJSON ingest before storing events", async () => {
@@ -565,7 +565,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Ingest Cursor automation NDJSON?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Ingest automation NDJSON?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Default source: cursor")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Accepted events: 1")
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
@@ -588,7 +588,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/automation/ingest?ndjson=${ndjson}`)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Ingest Cursor automation NDJSON?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Ingest automation NDJSON?")
 				expect(handleCursorAutomationIngestStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -612,7 +612,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor automation NDJSON failed strict validation.")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Automation NDJSON failed strict validation.")
 				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["OK"])
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Strict mode: yes")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Rejected lines: 1")
@@ -635,7 +635,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Cursor checkout/switch helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe checkout/switch helper?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Requested git helper: checkout/switch")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Command: git checkout feature/cursor-parity")
 				expect(showMessageStub.secondCall.args[0].message).to.equal("Checked out feature/cursor-parity.")
@@ -654,7 +654,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Cursor branch creation or switch helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe branch creation or switch helper?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
 					"Requested git helper: branch creation or switch",
 				)
@@ -675,7 +675,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Cursor commit preparation helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe commit preparation helper?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Requested git helper: commit preparation")
 				expect(showMessageStub.secondCall.args[0].message).to.equal("Committed changes.")
 				expect(git(workspaceDir, ["log", "-1", "--pretty=%s"])).to.equal("fix: cursor routes")
@@ -690,7 +690,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/git/commit?message=fix%3A%20empty%20commit")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor git helper needs review")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Git helper needs review")
 				expect(showMessageStub.firstCall.args[0].options.items).to.deep.equal(["OK"])
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
 					"Reason: No staged changes are available to commit.",
@@ -710,7 +710,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/git/checkout?branch=feature%2Fsafe-changes")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Cursor checkout/switch helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe checkout/switch helper?")
 				expect(git(workspaceDir, ["branch", "--show-current"])).to.equal("main")
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -724,7 +724,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Cursor background agent?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch CodeVibe background agent?")
 				expect(handleCursorBackgroundAgentLaunchStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -791,7 +791,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Cursor plugin "docs-helper"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("requires confirmation")
 				sinon.assert.calledOnce(handleCursorPluginAddStub)
 				expect(handleCursorPluginAddStub.firstCall.args[0]).to.deep.include({
@@ -828,7 +828,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Cursor plugin "docs-helper"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
 				expect(handleCursorPluginAddStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -845,7 +845,7 @@ describe("SharedUriHandler", () => {
 				expect(result).to.be.true
 				const modal = showMessageStub.firstCall.args[0]
 				expect(modal.message).to.equal(
-					'Install Cursor plugin "https://example.com/plugins/docs.js?[redacted]#[redacted]"?',
+					'Install CodeVibe plugin "https://example.com/plugins/docs.js?[redacted]#[redacted]"?',
 				)
 				expect(modal.options.detail).to.contain("https://example.com/plugins/docs.js?[redacted]#[redacted]")
 				expect(modal.options.detail).not.to.contain("secret-value")
@@ -868,7 +868,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/plugin/add?config=${config}`)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Cursor plugin "docs-helper"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Source parameter: config.source")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: source, token")
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
@@ -890,7 +890,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/plugin/add?config=${config}`)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Cursor plugin add requires review")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Plugin add requires review")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: manifest, token")
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
 				expect(handleCursorPluginAddStub.called).to.be.false
@@ -906,7 +906,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Start Cursor PR review?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Start CodeVibe PR review?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("owner/repo#42")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("focus tests")
 				sinon.assert.calledOnce(handleTaskCreationStub)
@@ -944,7 +944,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Start Cursor PR review?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Start CodeVibe PR review?")
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -966,19 +966,19 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should confirm safe Cursor rule routes without creating a task", async () => {
+			it("should confirm safe Rule routes without creating a task", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/rule?name=team-style")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Create or open Cursor rule "team-style.mdc"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Create or open rule "team-style.mdc"?')
 				expect(handleTaskCreationStub.called).to.be.false
 				expect(openFileStub.called).to.be.false
 			})
 
-			it("should create Cursor rule files with starter content", async () => {
+			it("should create Rule files with starter content", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Create/Open" })
 
@@ -995,7 +995,7 @@ describe("SharedUriHandler", () => {
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should import Cursor rule content payloads after confirmation", async () => {
+			it("should import Rule content payloads after confirmation", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Import Rule" })
 
@@ -1004,18 +1004,18 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Import Cursor rule "team-style.mdc"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Import rule "team-style.mdc"?')
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Target: .cursor/rules/team-style.mdc")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Content length:")
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
 				const rulePath = path.join(workspaceDir, ".cursor", "rules", "team-style.mdc")
 				expect(await fs.readFile(rulePath, "utf8")).to.equal("Use short commits with token=secret-value\n")
 				sinon.assert.calledOnceWithExactly(openFileStub, { filePath: rulePath })
-				expect(showMessageStub.lastCall.args[0].message).to.equal('Imported Cursor rule "team-style.mdc".')
+				expect(showMessageStub.lastCall.args[0].message).to.equal('Imported rule "team-style.mdc".')
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
-			it("should import Cursor rule content from config payloads", async () => {
+			it("should import Rule content from config payloads", async () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Import Rule" })
 				const config = encodeConfig({
@@ -1027,7 +1027,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/rule?config=${config}`)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Import Cursor rule "team-style.mdc"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Import rule "team-style.mdc"?')
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
 				const rulePath = path.join(workspaceDir, ".cursor", "rules", "team-style.mdc")
 				expect(await fs.readFile(rulePath, "utf8")).to.equal("Prefer focused tests.\n")
@@ -1047,8 +1047,8 @@ describe("SharedUriHandler", () => {
 
 				expect(result).to.be.true
 				expect(await fs.readFile(rulePath, "utf8")).to.equal("Existing guidance.\n")
-				expect(showMessageStub.secondCall.args[0].message).to.equal('Cursor rule "team-style.mdc" already exists.')
-				expect(showMessageStub.lastCall.args[0].message).to.equal('Opened Cursor rule "team-style.mdc".')
+				expect(showMessageStub.secondCall.args[0].message).to.equal('Rule "team-style.mdc" already exists.')
+				expect(showMessageStub.lastCall.args[0].message).to.equal('Opened rule "team-style.mdc".')
 				sinon.assert.calledOnceWithExactly(openFileStub, { filePath: rulePath })
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -1067,7 +1067,7 @@ describe("SharedUriHandler", () => {
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Replace existing: requested")
 				expect(await fs.readFile(rulePath, "utf8")).to.equal("Replacement guidance\n")
-				expect(showMessageStub.lastCall.args[0].message).to.equal('Imported Cursor rule "team-style.mdc".')
+				expect(showMessageStub.lastCall.args[0].message).to.equal('Imported rule "team-style.mdc".')
 				sinon.assert.calledOnceWithExactly(openFileStub, { filePath: rulePath })
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -1081,7 +1081,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor command task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe command task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /command")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route parameters: command, cwd")
 				sinon.assert.calledOnce(handleTaskCreationStub)
@@ -1110,11 +1110,11 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor command task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe command task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(".cursor/commands/review-code.md")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				const prompt = handleTaskCreationStub.firstCall.args[0]
-				expect(prompt).to.contain('A Cursor-compatible command deeplink named "review-code" was opened.')
+				expect(prompt).to.contain('A compatible command deeplink named "review-code" was opened.')
 				expect(prompt).to.contain(".cursor/commands/review-code.md")
 				expect(prompt).to.contain("Review the staged diff and call out risky changes.")
 				expect(prompt).to.contain("normal permission boundaries")
@@ -1207,10 +1207,10 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=missing-command")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Cursor command task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe command task?")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				const prompt = handleTaskCreationStub.firstCall.args[0]
-				expect(prompt).to.contain('Cursor-compatible command deeplink named "missing-command"')
+				expect(prompt).to.contain('compatible command deeplink named "missing-command"')
 				expect(prompt).to.contain("Route details:")
 			})
 
@@ -1242,7 +1242,7 @@ describe("SharedUriHandler", () => {
 				expect(result).to.be.true
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				const prompt = handleTaskCreationStub.firstCall.args[0]
-				expect(prompt).to.contain('Cursor-compatible command deeplink named "review-code"')
+				expect(prompt).to.contain('compatible command deeplink named "review-code"')
 				expect(prompt).not.to.contain("SHOULD_NOT_LOAD")
 			})
 

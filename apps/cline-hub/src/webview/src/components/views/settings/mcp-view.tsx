@@ -559,7 +559,7 @@ export function McpServersContent() {
 									isImportingCursorMcp && "animate-pulse",
 								)}
 							/>
-							Import Cursor MCP
+							Import Workspace MCP
 						</Button>
 						<Button
 							variant="outline"
@@ -573,7 +573,7 @@ export function McpServersContent() {
 									isImportingCursorMcp && "animate-pulse",
 								)}
 							/>
-							Import Global Cursor MCP
+							Import Global MCP
 						</Button>
 						<Button size="sm" onClick={openCreateDialog}>
 							<Plus className="h-4 w-4" />

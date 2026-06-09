@@ -24,7 +24,7 @@ function parseCursorMcpInstallRoute(uri: string) {
 		buildQueryPreservingPlus(parsedUrl),
 	)
 	if (!parsedRoute.recognized) {
-		throw new Error("URI is not a recognized Cursor-compatible route")
+		throw new Error("URI is not a recognized compatible route")
 	}
 	if ("error" in parsedRoute) {
 		throw new Error(parsedRoute.error)
@@ -72,7 +72,7 @@ export async function installCursorMcpServer(
 		})
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		Logger.error("Failed to install Cursor MCP server:", error)
+		Logger.error("Failed to install compatible MCP server:", error)
 		return CursorMcpServerInstallResponse.create({
 			installed: false,
 			error: message,

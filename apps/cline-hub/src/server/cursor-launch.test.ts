@@ -80,7 +80,7 @@ test("launchCursorUri creates a confirmed background-agent worktree by default",
 				route: "background-agent",
 				path: "/background-agent",
 				taskPrompt:
-					"A Cursor-compatible background agent deeplink was opened.\n\nRequested prompt:\nFix queue",
+					"A compatible background agent deeplink was opened.\n\nRequested prompt:\nFix queue",
 				requiresConfirmation: true,
 				paramKeys: ["branch", "repo", "task"],
 			}),
@@ -154,7 +154,7 @@ test("launchCursorUri honors explicit background-agent worktree opt-out", async 
 				route: "background-agent",
 				path: "/background-agent",
 				taskPrompt:
-					"A Cursor-compatible background agent deeplink was opened.\n\nRequested prompt:\nFix queue",
+					"A compatible background agent deeplink was opened.\n\nRequested prompt:\nFix queue",
 				requiresConfirmation: true,
 				paramKeys: ["repo", "task"],
 			}),

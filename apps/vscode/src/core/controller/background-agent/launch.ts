@@ -175,7 +175,7 @@ export function buildBackgroundAgentTaskPrompt(
 	record: BackgroundAgentTaskRecord,
 ): string {
 	const lines = [
-		"Cursor-compatible background-agent launch prepared.",
+		"CodeVibe background-agent launch prepared.",
 		"",
 		"Controller launch record:",
 		`- id: ${record.id}`,
@@ -231,7 +231,7 @@ export function buildBackgroundAgentTaskPrompt(
 	const routePrompt =
 		request.routePrompt ||
 		[
-			"A Cursor-compatible background agent deeplink was opened. Validate the request and ask for confirmation before taking action.",
+			"A compatible background agent deeplink was opened. Validate the request and ask for confirmation before taking action.",
 			"",
 			"Requested prompt:",
 			request.prompt,

@@ -94,7 +94,7 @@ describe("CursorUriRoutes", () => {
 		}
 		const prompt = buildCursorCompatibleTaskPrompt(result.route)
 		expect(prompt).to.contain("Fix the tests")
-		expect(prompt).to.contain("Cursor route context:")
+		expect(prompt).to.contain("Compatible route context:")
 		expect(prompt).to.contain("- model: gpt-5.3-codex")
 		expect(prompt).to.contain("- workspace: /repo")
 		expect(prompt).to.contain("config keys: mode, token")

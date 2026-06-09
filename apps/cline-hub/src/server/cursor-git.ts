@@ -264,7 +264,7 @@ export function runCursorGitAction(args?: JsonRecord): JsonRecord {
 			...(message ? { message } : {}),
 			command,
 			reason:
-				"Direct push from Cursor git commit deeplinks requires separate manual confirmation.",
+				"Direct push from git commit deeplinks requires separate manual confirmation.",
 		};
 	}
 	if (!message) {

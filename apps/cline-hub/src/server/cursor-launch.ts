@@ -155,9 +155,9 @@ function buildCursorRuleReviewTaskPrompt(uri: string): string | undefined {
 		const url = params.get("url")?.trim();
 		const configKeys = readCursorRuleReviewConfigKeys(params.get("config"));
 		return [
-			"A Cursor-compatible rule deeplink was opened with a payload that requires agent review before writing project rules.",
+			"A compatible rule deeplink was opened with a payload that requires agent review before writing project rules.",
 			"",
-			"Review the requested rule change, inspect the existing Cursor rule files first, and ask for confirmation before creating or editing .cursorrules or files under .cursor/rules.",
+			"Review the requested rule change, inspect the existing rule files first, and ask for confirmation before creating or editing .cursorrules or files under .cursor/rules.",
 			"",
 			"Rule request:",
 			...(request.name ? [`- name: ${request.name}`] : []),

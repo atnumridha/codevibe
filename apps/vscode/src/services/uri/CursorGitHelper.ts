@@ -142,7 +142,7 @@ function isWithinOrEqual(candidate: string, root: string): boolean {
 export function resolveCursorGitWorkspaceRoot(route: CursorCompatibleUriRoute, workspaceRoots: string[]): string {
 	const roots = workspaceRoots.map((root) => path.resolve(root)).filter(Boolean)
 	if (roots.length === 0) {
-		throw new Error("Cursor git helper requires an open workspace.")
+		throw new Error("Git helper requires an open workspace.")
 	}
 
 	const requested =
@@ -156,14 +156,14 @@ export function resolveCursorGitWorkspaceRoot(route: CursorCompatibleUriRoute, w
 
 	const candidate = path.resolve(path.isAbsolute(requested) ? requested : path.join(roots[0], requested))
 	if (!roots.some((root) => isWithinOrEqual(candidate, root))) {
-		throw new Error("Cursor git helper workspace is outside the open workspace.")
+		throw new Error("Git helper workspace is outside the open workspace.")
 	}
 	return candidate
 }
 
 export function previewCursorGitHelper(route: CursorCompatibleUriRoute, workspaceRoots: string[]): CursorGitHelperPlan {
 	if (route.kind !== "git-checkout" && route.kind !== "git-branch" && route.kind !== "git-commit") {
-		throw new Error(`Unsupported Cursor git helper route: ${route.kind}`)
+		throw new Error(`Unsupported git helper route: ${route.kind}`)
 	}
 
 	const workspaceRoot = resolveCursorGitWorkspaceRoot(route, workspaceRoots)
@@ -267,7 +267,7 @@ export function previewCursorGitHelper(route: CursorCompatibleUriRoute, workspac
 			confirmLabel: "Run Commit",
 			successMessage: "Committed changes.",
 			...(message ? { message } : {}),
-			reason: "Direct push from Cursor git commit deeplinks requires separate manual confirmation.",
+			reason: "Direct push from git commit deeplinks requires separate manual confirmation.",
 		}
 	}
 	if (!messageValidation?.ok) {

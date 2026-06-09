@@ -718,8 +718,8 @@ export class Controller {
 	): Promise<CursorAutomationIngestResult> {
 		const result = await ingestCursorAutomationEvents(this.context.globalStorageUri.fsPath, request)
 		const message = result.strictFailed
-			? `Cursor automation ingest blocked: ${result.rejected} rejected line(s) in strict mode.`
-			: `Ingested ${result.stored} Cursor automation event(s).`
+			? `Automation ingest blocked: ${result.rejected} rejected line(s) in strict mode.`
+			: `Ingested ${result.stored} automation event(s).`
 		await HostProvider.window.showMessage({
 			type: result.strictFailed ? ShowMessageType.WARNING : ShowMessageType.INFORMATION,
 			message,
@@ -748,7 +748,7 @@ export class Controller {
 			})
 			await HostProvider.window.showMessage({
 				type: ShowMessageType.INFORMATION,
-				message: `Installed Cursor plugin from ${result.source}.`,
+				message: `Installed CodeVibe plugin from ${result.source}.`,
 				options: {
 					items: [],
 					detail: [`Path: ${result.installPath}`, `Entries: ${result.entryPaths.length}`].join("\n"),
@@ -757,10 +757,10 @@ export class Controller {
 			return result
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error)
-			Logger.error("Failed to install Cursor plugin:", error)
+			Logger.error("Failed to install CodeVibe plugin:", error)
 			await HostProvider.window.showMessage({
 				type: ShowMessageType.ERROR,
-				message: `Failed to install Cursor plugin: ${message}`,
+				message: `Failed to install CodeVibe plugin: ${message}`,
 			})
 			throw error
 		}

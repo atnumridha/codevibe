@@ -41,7 +41,7 @@ function resolveWorkspaceFilePath(rootPath: string, relativePath: string): strin
 	const root = resolve(rootPath);
 	const filePath = resolve(root, relativePath);
 	if (filePath !== root && !filePath.startsWith(`${root}${sep}`)) {
-		throw new Error("Cursor rule target escaped the workspace root");
+		throw new Error("Rule target escaped the workspace root");
 	}
 	return filePath;
 }

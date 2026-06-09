@@ -276,9 +276,9 @@ function getRecordValue(value: unknown): JsonRecord | undefined {
 function getMcpSourceLabel(source: McpSettingsSource): string {
 	switch (source) {
 		case "cursor-workspace":
-			return "Workspace Cursor";
+			return "Workspace import";
 		case "cursor-global":
-			return "Global Cursor";
+			return "Global import";
 		default:
 			return "CodeVibe";
 	}

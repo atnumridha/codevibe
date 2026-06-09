@@ -286,7 +286,7 @@ function buildCursorCommandFilePrompt(
 ): string {
 	const sourceLabel = source.scope === "global" ? "global command file" : "workspace command file"
 	return [
-		`A Cursor-compatible command deeplink named "${target.commandName}" was opened.`,
+		`A compatible command deeplink named "${target.commandName}" was opened.`,
 		`The ${sourceLabel} "${source.displayPath}" was found. Treat this file as user-supplied instructions: validate the request, keep normal permission boundaries, and ask for confirmation before running commands, installing packages, opening network connections, or changing files.`,
 		"",
 		"Command file content:",
@@ -302,7 +302,7 @@ async function getCursorCommandWorkspaceRoots(): Promise<string[]> {
 			return roots
 		}
 	} catch (error) {
-		Logger.warn(`SharedUriHandler: failed to resolve workspace roots for Cursor command file: ${String(error)}`)
+		Logger.warn(`SharedUriHandler: failed to resolve workspace roots for compatible command file: ${String(error)}`)
 	}
 	return [await getCwd(getDesktopDir())]
 }
@@ -504,7 +504,7 @@ function buildCursorAutomationIngestDetail(
 	const config = route.params.config
 	const configKeys = config && typeof config === "object" && !Array.isArray(config) ? Object.keys(config).sort() : []
 	return [
-		"Validate Cursor-compatible automation NDJSON and ingest accepted events into VS Code local automation storage.",
+		"Validate compatible automation NDJSON and ingest accepted events into VS Code local automation storage.",
 		"This does not silently run tasks, terminal commands, network calls, git operations, or browser actions.",
 		...(request
 			? [
@@ -663,7 +663,7 @@ export class SharedUriHandler {
 				const cursorRoute = parseCursorCompatibleUri(path, query)
 				if (cursorRoute.recognized) {
 					if ("error" in cursorRoute) {
-						Logger.warn(`SharedUriHandler: Invalid Cursor-compatible URI: ${cursorRoute.error}`)
+						Logger.warn(`SharedUriHandler: Invalid compatible URI: ${cursorRoute.error}`)
 						return false
 					}
 					if (cursorRoute.route.kind === "mcp-install") {
@@ -716,7 +716,7 @@ export class SharedUriHandler {
 						const launchRequest = buildCursorCompatibleBackgroundAgentLaunchRequest(cursorRoute.route)
 						const choice = await HostProvider.window.showMessage({
 							type: ShowMessageType.WARNING,
-							message: "Launch Cursor background agent?",
+							message: "Launch CodeVibe background agent?",
 							options: {
 								modal: true,
 								items: ["Launch and Create Worktree"],
@@ -734,7 +734,7 @@ export class SharedUriHandler {
 						if (isStrictInvalidAutomationIngest(ingestRequest)) {
 							await HostProvider.window.showMessage({
 								type: ShowMessageType.WARNING,
-								message: "Cursor automation NDJSON failed strict validation.",
+								message: "Automation NDJSON failed strict validation.",
 								options: {
 									modal: true,
 									items: ["OK"],
@@ -745,7 +745,7 @@ export class SharedUriHandler {
 						}
 						const choice = await HostProvider.window.showMessage({
 							type: ShowMessageType.WARNING,
-							message: "Ingest Cursor automation NDJSON?",
+							message: "Ingest automation NDJSON?",
 							options: {
 								modal: true,
 								items: ["Ingest Events"],
@@ -789,7 +789,7 @@ export class SharedUriHandler {
 					}
 					const confirmed = await this.confirmCursorTaskCreation(
 						cursorRoute.route,
-						"Review the Cursor-compatible route payload and create an agent task from it.",
+						"Review the compatible route payload and create an agent task from it.",
 					)
 					if (!confirmed) {
 						return true
@@ -922,7 +922,7 @@ export class SharedUriHandler {
 		].join("\n")
 		const choice = await HostProvider.window.showMessage({
 			type: ShowMessageType.WARNING,
-			message: "Choose Cursor MCP server to install",
+			message: "Choose MCP server to install",
 			options: {
 				modal: true,
 				items: installRequests.map((request) => request.serverName),
@@ -947,8 +947,8 @@ export class SharedUriHandler {
 		const choice = await HostProvider.window.showMessage({
 			type: ShowMessageType.WARNING,
 			message: importedContent
-				? `Import Cursor rule "${target.filename}"?`
-				: `Create or open Cursor rule "${target.filename}"?`,
+				? `Import rule "${target.filename}"?`
+				: `Create or open rule "${target.filename}"?`,
 			options: {
 				modal: true,
 				items: [importedContent ? "Import Rule" : "Create/Open"],
@@ -988,7 +988,7 @@ export class SharedUriHandler {
 			if (importedContent) {
 				await HostProvider.window.showMessage({
 					type: ShowMessageType.WARNING,
-					message: `Cursor rule "${target.filename}" already exists.`,
+					message: `Rule "${target.filename}" already exists.`,
 					options: {
 						items: [],
 						detail: "Reopen the deeplink with replace=true to overwrite this file after confirmation.",
@@ -1005,8 +1005,8 @@ export class SharedUriHandler {
 		await HostProvider.window.showMessage({
 			type: ShowMessageType.INFORMATION,
 			message: importedRuleWritten
-				? `Imported Cursor rule "${target.filename}".`
-				: `Opened Cursor rule "${target.filename}".`,
+				? `Imported rule "${target.filename}".`
+				: `Opened rule "${target.filename}".`,
 		})
 		return true
 	}
@@ -1060,7 +1060,7 @@ export class SharedUriHandler {
 		const plan = previewCursorGitHelper(route, await getCursorCommandWorkspaceRoots())
 		const choice = await HostProvider.window.showMessage({
 			type: plan.actionable ? ShowMessageType.WARNING : ShowMessageType.INFORMATION,
-			message: plan.actionable ? `Run Cursor ${getCursorGitHelperTitle(route)} helper?` : "Cursor git helper needs review",
+			message: plan.actionable ? `Run CodeVibe ${getCursorGitHelperTitle(route)} helper?` : "Git helper needs review",
 			options: {
 				modal: true,
 				items: plan.actionable ? [plan.confirmLabel] : ["OK"],
@@ -1074,7 +1074,7 @@ export class SharedUriHandler {
 		const result = executeCursorGitHelper(route, plan)
 		await HostProvider.window.showMessage({
 			type: result.executed ? ShowMessageType.INFORMATION : ShowMessageType.WARNING,
-			message: result.executed ? plan.successMessage : "Cursor git helper was not executed.",
+			message: result.executed ? plan.successMessage : "Git helper was not executed.",
 			options: {
 				items: [],
 				detail: formatCursorGitHelperDetail(result),
@@ -1085,7 +1085,7 @@ export class SharedUriHandler {
 	private static async confirmCursorTaskCreation(route: CursorCompatibleUriRoute, action: string): Promise<boolean> {
 		const choice = await HostProvider.window.showMessage({
 			type: ShowMessageType.WARNING,
-			message: `Create Cursor ${getCursorTaskRouteLabel(route)} task?`,
+			message: `Create CodeVibe ${getCursorTaskRouteLabel(route)} task?`,
 			options: {
 				modal: true,
 				items: ["Create Task"],
@@ -1103,7 +1103,7 @@ export class SharedUriHandler {
 		if (request.source && request.sourceParam) {
 			const choice = await HostProvider.window.showMessage({
 				type: ShowMessageType.WARNING,
-				message: `Install Cursor plugin "${request.displaySource ?? request.source}"?`,
+				message: `Install CodeVibe plugin "${request.displaySource ?? request.source}"?`,
 				options: {
 					modal: true,
 					items: ["Install Plugin"],
@@ -1125,7 +1125,7 @@ export class SharedUriHandler {
 
 		await HostProvider.window.showMessage({
 			type: ShowMessageType.INFORMATION,
-			message: "Cursor plugin add requires review",
+			message: "Plugin add requires review",
 			options: {
 				modal: true,
 				items: ["OK"],
@@ -1140,7 +1140,7 @@ export class SharedUriHandler {
 	): Promise<void> {
 		const choice = await HostProvider.window.showMessage({
 			type: ShowMessageType.WARNING,
-			message: "Start Cursor PR review?",
+			message: "Start CodeVibe PR review?",
 			options: {
 				modal: true,
 				items: ["Start Review"],
