@@ -19,6 +19,22 @@ describe("CursorPluginInstaller", () => {
 		})
 	})
 
+	it("requires explicit CodeVibe official plugin repository configuration for official slugs", async () => {
+		const workspaceRoot = await mkdtemp(join(tmpdir(), "codevibe-vscode-plugin-"))
+		tempDirs.push(workspaceRoot)
+
+		let blockedError: unknown
+		try {
+			await installPlugin({ source: "docs-helper", cwd: workspaceRoot })
+		} catch (error) {
+			blockedError = error
+		}
+
+		expect(blockedError).to.be.instanceOf(Error)
+		expect(String((blockedError as Error).message)).to.contain("CODEVIBE_OFFICIAL_PLUGINS_REPO")
+		expect(String((blockedError as Error).message)).not.to.contain("github.com/cline/plugins")
+	})
+
 	it("installs a local plugin file into the workspace .codevibe plugin directory", async () => {
 		const workspaceRoot = await mkdtemp(join(tmpdir(), "codevibe-vscode-plugin-"))
 		tempDirs.push(workspaceRoot)

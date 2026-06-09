@@ -41,6 +41,7 @@ import {
 	type CursorAutomationIngestResult,
 } from "@/services/automation/CursorAutomationIngestStore"
 import { BannerService } from "@/services/banner/BannerService"
+import { buildExternalBasicHeaders } from "@/services/EnvUtils"
 import { featureFlagsService } from "@/services/feature-flags"
 import { getDistinctId } from "@/services/logging/distinctId"
 import {
@@ -803,8 +804,8 @@ export class Controller {
 	private async fetchMcpMarketplaceFromApi(): Promise<McpMarketplaceCatalog> {
 		const response = await axios.get(`${ClineEnv.config().mcpBaseUrl}/marketplace`, {
 			headers: {
+				...buildExternalBasicHeaders(),
 				"Content-Type": "application/json",
-				"User-Agent": "cline-vscode-extension",
 			},
 			...getAxiosSettings(),
 		})

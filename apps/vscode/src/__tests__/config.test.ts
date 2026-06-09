@@ -16,7 +16,8 @@ describe("ClineEndpoint configuration", () => {
 		tempDir = path.join(os.tmpdir(), `config-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
 		await fs.mkdir(tempDir, { recursive: true })
 
-		// Create .cline directory
+		// Create CodeVibe and legacy endpoint directories.
+		await fs.mkdir(path.join(tempDir, ".codevibe"), { recursive: true })
 		await fs.mkdir(path.join(tempDir, ".cline"), { recursive: true })
 
 		// Stub os.homedir to return our temp directory
@@ -51,7 +52,7 @@ describe("ClineEndpoint configuration", () => {
 				mcpBaseUrl: "https://mcp.enterprise.com",
 			}
 
-			await fs.writeFile(path.join(tempDir, ".cline", "endpoints.json"), JSON.stringify(validConfig), "utf8")
+			await fs.writeFile(path.join(tempDir, ".codevibe", "endpoints.json"), JSON.stringify(validConfig), "utf8")
 
 			await ClineEndpoint.initialize(tempDir)
 
@@ -70,8 +71,10 @@ describe("ClineEndpoint configuration", () => {
 			const config = ClineEndpoint.config
 			config.environment.should.not.equal(Environment.selfHosted)
 			// Should use production defaults
-			config.appBaseUrl.should.equal("https://app.cline.bot")
-			config.apiBaseUrl.should.equal("https://api.cline.bot")
+			config.appBaseUrl.should.equal("https://app.codevibe.dev")
+			config.apiBaseUrl.should.equal("https://api.codevibe.dev")
+			config.mcpBaseUrl.should.equal("https://api.codevibe.dev/v1/mcp")
+			JSON.stringify(config).should.not.containEql("cline.bot")
 		})
 
 		it("should accept URLs with ports", async () => {
@@ -449,13 +452,28 @@ describe("ClineEndpoint configuration", () => {
 
 			// Should be able to change environment
 			ClineEnv.setEnvironment("staging")
-			ClineEnv.getEnvironment().environment.should.equal("staging")
+			let envConfig = ClineEnv.getEnvironment()
+			envConfig.environment.should.equal("staging")
+			envConfig.appBaseUrl.should.equal("https://staging-app.codevibe.dev")
+			envConfig.apiBaseUrl.should.equal("https://staging-api.codevibe.dev")
+			envConfig.mcpBaseUrl.should.equal("https://staging-api.codevibe.dev/v1/mcp")
+			JSON.stringify(envConfig).should.not.containEql("cline.bot")
 
 			ClineEnv.setEnvironment("local")
-			ClineEnv.getEnvironment().environment.should.equal("local")
+			envConfig = ClineEnv.getEnvironment()
+			envConfig.environment.should.equal("local")
+			envConfig.appBaseUrl.should.equal("http://localhost:3000")
+			envConfig.apiBaseUrl.should.equal("http://localhost:7777")
+			envConfig.mcpBaseUrl.should.equal("http://localhost:7777/v1/mcp")
+			JSON.stringify(envConfig).should.not.containEql("cline.bot")
 
 			ClineEnv.setEnvironment("production")
-			ClineEnv.getEnvironment().environment.should.equal("production")
+			envConfig = ClineEnv.getEnvironment()
+			envConfig.environment.should.equal("production")
+			envConfig.appBaseUrl.should.equal("https://app.codevibe.dev")
+			envConfig.apiBaseUrl.should.equal("https://api.codevibe.dev")
+			envConfig.mcpBaseUrl.should.equal("https://api.codevibe.dev/v1/mcp")
+			JSON.stringify(envConfig).should.not.containEql("cline.bot")
 		})
 	})
 
@@ -635,8 +653,10 @@ describe("ClineEndpoint configuration", () => {
 			// Should use production defaults
 			const config = ClineEndpoint.config
 			config.environment.should.not.equal(Environment.selfHosted)
-			config.appBaseUrl.should.equal("https://app.cline.bot")
-			config.apiBaseUrl.should.equal("https://api.cline.bot")
+			config.appBaseUrl.should.equal("https://app.codevibe.dev")
+			config.apiBaseUrl.should.equal("https://api.codevibe.dev")
+			config.mcpBaseUrl.should.equal("https://api.codevibe.dev/v1/mcp")
+			JSON.stringify(config).should.not.containEql("cline.bot")
 		})
 
 		it("should throw ClineConfigurationError for invalid bundled file", async () => {

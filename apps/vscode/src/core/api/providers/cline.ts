@@ -86,7 +86,7 @@ export class ClineHandler implements ApiHandler {
 		if (!this.client) {
 			try {
 				const defaultHeaders: Record<string, string> = {
-					"HTTP-Referer": "https://cline.bot",
+					"HTTP-Referer": "https://github.com/atnumridha/codevibe",
 					"X-Title": "CodeVibe",
 					"X-Task-ID": this.options.ulid || "",
 				}

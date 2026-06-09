@@ -67,12 +67,13 @@ validate_codevibe_manifest() {
     fi
 
     local required_config_keys=(
-        "cline.openAiCodex.authSource"
-        "cline.cursorCompatibility.enabled"
-        "cline.cursorCompatibility.deepLinks.enabled"
-        "cline.cursorCompatibility.retrievalIndexing.privacyGate"
-        "cline.cursorCompatibility.sandboxPolicy"
-        "cline.cursorCompatibility.safeBrowserEvaluate.enabled"
+        "codevibe.openAiCodex.authSource"
+        "codevibe.cursorCompatibility.enabled"
+        "codevibe.cursorCompatibility.deepLinks.enabled"
+        "codevibe.cursorCompatibility.retrievalIndexing.privacyGate"
+        "codevibe.cursorCompatibility.sandboxPolicy"
+        "codevibe.cursorCompatibility.safeBrowserEvaluate.enabled"
+        "codevibe.ui.preferOpenAiCodexSidebar"
         "ndjson.port"
         "ndjson.bindAddress"
     )

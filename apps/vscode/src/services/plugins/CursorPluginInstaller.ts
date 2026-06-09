@@ -93,7 +93,6 @@ interface PluginPackageManifest {
 
 const INSTALLS_DIRECTORY_NAME = "_installed";
 const PACKAGE_DIRECTORY_NAME = "package";
-const OFFICIAL_PLUGINS_REPO = "https://github.com/cline/plugins.git";
 const REMOTE_PLUGIN_FETCH_TIMEOUT_MS = 30_000;
 const REMOTE_PLUGIN_MAX_BYTES = 10 * 1024 * 1024;
 const HOST_PROVIDED_SDK_PREFIX = "@cline/";
@@ -146,7 +145,17 @@ export function isOfficialPluginSlug(source: string): boolean {
 }
 
 function resolveOfficialPluginsRepo(override: string | undefined): string {
-	return override?.trim() || OFFICIAL_PLUGINS_REPO;
+	const repo = override?.trim() || process.env.CODEVIBE_OFFICIAL_PLUGINS_REPO?.trim();
+	if (!repo) {
+		throw new Error(
+			"Official CodeVibe plugin slugs require an explicit officialPluginsRepo option or CODEVIBE_OFFICIAL_PLUGINS_REPO. Pass a URL, npm package, local path, or git source to install directly.",
+		);
+	}
+	return repo;
+}
+
+function getOptionalOfficialPluginsRepo(override: string | undefined): string {
+	return override?.trim() || process.env.CODEVIBE_OFFICIAL_PLUGINS_REPO?.trim() || "";
 }
 
 function parseNpmSpec(spec: string): { name: string } {
@@ -1019,9 +1028,10 @@ export async function installPlugin(
 	const explicitCwd = options.cwd?.trim();
 	const cwd = explicitCwd ? resolve(explicitCwd) : process.cwd();
 	const pluginRoot = getPluginRoot(explicitCwd ? cwd : undefined);
-	const officialPluginsRepo = resolveOfficialPluginsRepo(
-		options.officialPluginsRepo,
-	);
+	const officialPluginsRepo =
+		parsed.type === "official"
+			? resolveOfficialPluginsRepo(options.officialPluginsRepo)
+			: getOptionalOfficialPluginsRepo(options.officialPluginsRepo);
 	const sourceKey = getInstallSourceKey(parsed, cwd, officialPluginsRepo);
 	const installPath = getInstallPath(pluginRoot, parsed, sourceKey);
 	const wrapperPackageName = getWrapperPackageName(parsed, cwd);

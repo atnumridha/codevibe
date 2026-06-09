@@ -21,6 +21,13 @@ function endpointUrl(envName: string, fallback: string): string {
 	return value || fallback
 }
 
+const CODEVIBE_PRODUCTION_APP_BASE_URL = "https://app.codevibe.dev"
+const CODEVIBE_PRODUCTION_API_BASE_URL = "https://api.codevibe.dev"
+const CODEVIBE_PRODUCTION_MCP_BASE_URL = "https://api.codevibe.dev/v1/mcp"
+const CODEVIBE_STAGING_APP_BASE_URL = "https://staging-app.codevibe.dev"
+const CODEVIBE_STAGING_API_BASE_URL = "https://staging-api.codevibe.dev"
+const CODEVIBE_STAGING_MCP_BASE_URL = "https://staging-api.codevibe.dev/v1/mcp"
+
 /**
  * Error thrown when the CodeVibe configuration file exists but is invalid.
  * This error prevents CodeVibe from starting to avoid misconfiguration in enterprise environments.
@@ -330,23 +337,23 @@ class ClineEndpoint {
 			case Environment.staging:
 				return {
 					environment: Environment.staging,
-					appBaseUrl: endpointUrl("CODEVIBE_STAGING_APP_BASE_URL", "https://staging-app.cline.bot"),
-					apiBaseUrl: endpointUrl("CODEVIBE_STAGING_API_BASE_URL", "https://core-api.staging.int.cline.bot"),
-					mcpBaseUrl: endpointUrl("CODEVIBE_STAGING_MCP_BASE_URL", "https://core-api.staging.int.cline.bot/v1/mcp"),
+					appBaseUrl: endpointUrl("CODEVIBE_STAGING_APP_BASE_URL", CODEVIBE_STAGING_APP_BASE_URL),
+					apiBaseUrl: endpointUrl("CODEVIBE_STAGING_API_BASE_URL", CODEVIBE_STAGING_API_BASE_URL),
+					mcpBaseUrl: endpointUrl("CODEVIBE_STAGING_MCP_BASE_URL", CODEVIBE_STAGING_MCP_BASE_URL),
 				}
 			case Environment.local:
 				return {
 					environment: Environment.local,
 					appBaseUrl: endpointUrl("CODEVIBE_LOCAL_APP_BASE_URL", "http://localhost:3000"),
 					apiBaseUrl: endpointUrl("CODEVIBE_LOCAL_API_BASE_URL", "http://localhost:7777"),
-					mcpBaseUrl: endpointUrl("CODEVIBE_LOCAL_MCP_BASE_URL", "https://api.cline.bot/v1/mcp"),
+					mcpBaseUrl: endpointUrl("CODEVIBE_LOCAL_MCP_BASE_URL", "http://localhost:7777/v1/mcp"),
 				}
 			default:
 				return {
 					environment: Environment.production,
-					appBaseUrl: endpointUrl("CODEVIBE_APP_BASE_URL", "https://app.cline.bot"),
-					apiBaseUrl: endpointUrl("CODEVIBE_API_BASE_URL", "https://api.cline.bot"),
-					mcpBaseUrl: endpointUrl("CODEVIBE_MCP_BASE_URL", "https://api.cline.bot/v1/mcp"),
+					appBaseUrl: endpointUrl("CODEVIBE_APP_BASE_URL", CODEVIBE_PRODUCTION_APP_BASE_URL),
+					apiBaseUrl: endpointUrl("CODEVIBE_API_BASE_URL", CODEVIBE_PRODUCTION_API_BASE_URL),
+					mcpBaseUrl: endpointUrl("CODEVIBE_MCP_BASE_URL", CODEVIBE_PRODUCTION_MCP_BASE_URL),
 				}
 		}
 	}
