@@ -8,6 +8,7 @@
 		"vscode": "^1.84.0"
 	},
 	"enabledApiProposals": [
+		"chatParticipantAdditions",
 		"chatPromptFiles",
 		"chatSessionsProvider"
 	],
@@ -166,6 +167,13 @@
 				}
 			]
 		},
+		"chatAgents": [
+			{
+				"name": "codevibe",
+				"description": "Use CodeVibe Agent for planning, coding, reviews, diffs, terminal approvals, MCP, browser automation, and Codex auth.",
+				"path": "agents/00-codevibe-agent.agent.md"
+			}
+		],
 		"chatSessions": [
 			{
 				"type": "codevibe-agent",

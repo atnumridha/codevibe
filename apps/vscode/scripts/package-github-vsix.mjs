@@ -46,6 +46,7 @@ const requiredCursorParityLegacyActivationCommands = [
 ]
 
 const expectedManifestAssetPaths = [
+	"agents/00-codevibe-agent.agent.md",
 	"assets/icons/icon.png",
 	"assets/icons/codevibe-glyph.woff",
 	"walkthrough/step1.md",
@@ -57,6 +58,7 @@ const expectedManifestAssetPaths = [
 
 const packagedMarkdownAssetPaths = [
 	"README.md",
+	"agents/00-codevibe-agent.agent.md",
 	"walkthrough/step1.md",
 	"walkthrough/step2.md",
 	"walkthrough/step3.md",
@@ -790,6 +792,17 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (codeVibeAgentParticipant.name !== "codevibe" || codeVibeAgentParticipant.fullName !== "CodeVibe Agent") {
 		throw new Error(`${label} codevibe.agent chat participant must be named CodeVibe Agent`)
 	}
+	const chatAgents = Array.isArray(packageJson.contributes?.chatAgents) ? packageJson.contributes.chatAgents : []
+	const codeVibeAgent = chatAgents.find((agent) => agent?.path === "agents/00-codevibe-agent.agent.md")
+	if (!codeVibeAgent) {
+		throw new Error(`${label} must contribute the native CodeVibe chat agent markdown`)
+	}
+	if (codeVibeAgent !== chatAgents[0]) {
+		throw new Error(`${label} must list CodeVibe chat agent before other chat agents`)
+	}
+	if (codeVibeAgent.name !== "codevibe" || !String(codeVibeAgent.description ?? "").includes("CodeVibe Agent")) {
+		throw new Error(`${label} CodeVibe chat agent contribution must be named and described as CodeVibe Agent`)
+	}
 	if ("codevibe-ActivityBar" in views) {
 		throw new Error(`${label} must not contribute views under legacy codevibe-ActivityBar`)
 	}
@@ -884,6 +897,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (packageJson.main !== "./dist/extension.js") {
 		throw new Error(`${label} must point main at ./dist/extension.js`)
 	}
+	assertArrayIncludes(packageJson.enabledApiProposals, "chatParticipantAdditions", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatPromptFiles", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
@@ -1087,6 +1101,10 @@ function collectManifestAssetPaths(packageJson) {
 			addManifestAsset(assetPaths, step?.media?.markdown)
 			addManifestAsset(assetPaths, step?.content?.path)
 		}
+	}
+
+	for (const agent of packageJson.contributes?.chatAgents ?? []) {
+		addManifestAsset(assetPaths, agent?.path)
 	}
 
 	return Array.from(assetPaths).sort()
