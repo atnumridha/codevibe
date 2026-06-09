@@ -998,12 +998,21 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
-		if (Object.hasOwn(session ?? {}, "id")) {
-			throw new Error(`${label} chatSessions[${index}] must not declare unsupported id property`)
+		const sessionId = session?.id
+		if (typeof sessionId !== "string" || sessionId.trim() === "") {
+			throw new Error(`${label} chatSessions[${index}] must declare a non-empty id`)
+		}
+		if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) {
+			throw new Error(
+				`${label} chatSessions[${index}] id '${sessionId}' must use only alphanumeric characters, '_' or '-'`,
+			)
 		}
 		const sessionType = session?.type
 		if (typeof sessionType !== "string" || sessionType.trim() === "") {
 			throw new Error(`${label} chatSessions[${index}] must declare a non-empty type`)
+		}
+		if (sessionId !== sessionType) {
+			throw new Error(`${label} chatSessions[${index}] id must match type for native session compatibility`)
 		}
 		if (!/^[A-Za-z0-9_-]+$/.test(sessionType)) {
 			throw new Error(
