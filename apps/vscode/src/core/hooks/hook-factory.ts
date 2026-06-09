@@ -633,9 +633,9 @@ class StdioHookRunner<Name extends HookName> extends HookRunner<Name> {
 /**
  * Combines multiple hook runners and executes them in parallel.
  *
- * Used in multi-root workspaces where both global hooks (from ~/Documents/Cline/Hooks/)
- * and workspace-specific hooks (from each workspace's .clinerules/hooks/) exist for the
- * same hook type.
+ * Used in multi-root workspaces where both global hooks (from ~/Documents/CodeVibe/Hooks/)
+ * and workspace-specific hooks (from each workspace's .codevibe/hooks or legacy
+ * .clinerules/hooks directory) exist for the same hook type.
  *
  * Behavior:
  * - Executes all hooks concurrently using Promise.all
@@ -836,8 +836,9 @@ export class HookFactory {
 	/**
 	 * Determines the working directory for a hook script based on its location.
 	 *
-	 * - Global hooks (from ~/Documents/Cline/Hooks/): run from the primary workspace root
-	 * - Workspace hooks (from workspaceRoot/.clinerules/hooks/): run from that specific workspace root
+	 * - Global hooks (from ~/Documents/CodeVibe/Hooks/): run from the primary workspace root
+	 * - Workspace hooks (from workspaceRoot/.codevibe/hooks or legacy .clinerules/hooks):
+	 *   run from that specific workspace root
 	 *
 	 * This ensures workspace-specific hooks can use relative paths that are meaningful
 	 * within their own workspace context.
@@ -862,8 +863,8 @@ export class HookFactory {
 		}
 
 		// If workspace hook, find which workspace root it belongs to
-		// Workspace hooks are at: workspaceRoot/.clinerules/hooks/
-		// So find the workspace root whose path is a prefix of the containing hooks dir
+		// Workspace hooks live inside the workspace root, so find the root whose
+		// path is a prefix of the containing hooks dir.
 		if (containingDir && workspaceRoots) {
 			const workspaceRoot = workspaceRoots.find((root) => containingDir.startsWith(root.path))
 			if (workspaceRoot) {
@@ -877,8 +878,8 @@ export class HookFactory {
 
 	/**
 	 * Categorizes hook scripts by their location (global vs workspace).
-	 * Global hooks are located in ~/Documents/Cline/Hooks/
-	 * Workspace hooks are located in workspace .clinerules/hooks/ directories
+	 * Global hooks are located in ~/Documents/CodeVibe/Hooks/
+	 * Workspace hooks are located in workspace .codevibe/hooks or legacy .clinerules/hooks directories
 	 *
 	 * @param scripts Array of hook script paths
 	 * @param hooksDirs Array of hooks directories (passed to avoid redundant fetches)
@@ -906,8 +907,8 @@ export class HookFactory {
 
 	/**
 	 * @returns A list of paths to scripts for the given hook name.
-	 * Includes both global hooks (from ~/Documents/Cline/Hooks/) and workspace hooks
-	 * (from .clinerules/hooks/ in each workspace root).
+	 * Includes both global hooks (from ~/Documents/CodeVibe/Hooks/) and workspace hooks
+	 * (from .codevibe/hooks or legacy .clinerules/hooks in each workspace root).
 	 */
 	private static async findHookScripts(hookName: HookName): Promise<string[]> {
 		const hookScripts = []
@@ -919,10 +920,10 @@ export class HookFactory {
 	}
 
 	/**
-	 * Finds the path to a hook in a .clinerules hooks directory.
+	 * Finds the path to a hook in a hooks directory.
 	 *
 	 * @param hookName the name of the hook to search for, for example 'PreToolUse'
-	 * @param hooksDir the .clinerules directory path to search
+	 * @param hooksDir the hooks directory path to search
 	 * @returns the path to the hook to execute, or undefined if none found
 	 * @throws Error if an unexpected file system error occurs
 	 */
@@ -975,7 +976,7 @@ export class HookFactory {
 	 * with canonical extensionless hook names.
 	 *
 	 * @param hookName the name of the hook to search for
-	 * @param hooksDir the .clinerules directory path to search
+	 * @param hooksDir the hooks directory path to search
 	 * @returns the path to the hook to execute, or undefined if none found
 	 * @throws Error if an unexpected file system error occurs
 	 */

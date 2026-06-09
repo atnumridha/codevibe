@@ -2,6 +2,7 @@ import { HookInfo, HooksToggles, WorkspaceHooks } from "@shared/proto/cline/file
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { getWorkspaceHookDirCandidates } from "@/core/storage/disk"
 import { HostProvider } from "@/hosts/host-provider"
 import { resolveExistingHookPath, VALID_HOOK_TYPES } from "../../hooks/utils"
 import { Controller } from ".."
@@ -34,19 +35,22 @@ export async function refreshHooks(
 	const workspaceHooksList: WorkspaceHooks[] = []
 
 	for (const workspacePath of workspacePaths.paths) {
-		const workspaceHooksDir = path.join(workspacePath, ".clinerules", "hooks")
+		const workspaceHooksDirs = getWorkspaceHookDirCandidates(workspacePath)
 		const hooks: HookInfo[] = []
 
 		for (const hookName of VALID_HOOK_TYPES) {
-			const hookPath = await resolveExistingHookPath(workspaceHooksDir, hookName)
-			if (hookPath) {
-				hooks.push(
-					HookInfo.create({
-						name: hookName,
-						enabled: await isExecutable(hookPath),
-						absolutePath: hookPath,
-					}),
-				)
+			for (const workspaceHooksDir of workspaceHooksDirs) {
+				const hookPath = await resolveExistingHookPath(workspaceHooksDir, hookName)
+				if (hookPath) {
+					hooks.push(
+						HookInfo.create({
+							name: hookName,
+							enabled: await isExecutable(hookPath),
+							absolutePath: hookPath,
+						}),
+					)
+					break
+				}
 			}
 		}
 

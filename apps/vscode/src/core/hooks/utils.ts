@@ -1,6 +1,7 @@
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { getWorkspaceHookDirCandidates } from "@/core/storage/disk"
 import { HostProvider } from "@/hosts/host-provider"
 import { getCwd, getDesktopDir } from "@/utils/path"
 
@@ -36,7 +37,9 @@ export function isValidHookType(hookName: string): hookName is HookType {
 }
 
 /**
- * Resolves the hooks directory path for either global or workspace hooks.
+ * Resolves the primary hooks directory path for either global or workspace hooks.
+ * New workspace hooks are created under .codevibe/hooks; legacy .clinerules/hooks
+ * remains available via resolveHooksDirectories for reading, toggling, and deletion.
  * Handles both single and multi-root workspaces.
  *
  * @param isGlobal - Whether to resolve the global hooks directory
@@ -50,11 +53,27 @@ export async function resolveHooksDirectory(
 	workspaceName?: string,
 	globalHooksDirOverride?: string,
 ): Promise<string> {
+	return (await resolveHooksDirectories(isGlobal, workspaceName, globalHooksDirOverride))[0]
+}
+
+/**
+ * Resolves all hook directory candidates for an operation.
+ * For workspace hooks, .codevibe/hooks is first and legacy .clinerules/hooks is second.
+ */
+export async function resolveHooksDirectories(
+	isGlobal: boolean,
+	workspaceName?: string,
+	globalHooksDirOverride?: string,
+): Promise<string[]> {
 	if (isGlobal) {
-		return globalHooksDirOverride || path.join(os.homedir(), "Documents", "CodeVibe", "Hooks")
+		return [globalHooksDirOverride || path.join(os.homedir(), "Documents", "CodeVibe", "Hooks")]
 	}
 
-	// For workspace hooks, find the correct workspace
+	const workspaceRoot = await resolveWorkspaceRoot(workspaceName)
+	return getWorkspaceHookDirCandidates(workspaceRoot)
+}
+
+async function resolveWorkspaceRoot(workspaceName?: string): Promise<string> {
 	if (workspaceName) {
 		// Multi-root workspace: find the workspace with this name
 		const workspacePaths = await HostProvider.workspace.getWorkspacePaths({})
@@ -62,12 +81,11 @@ export async function resolveHooksDirectory(
 		if (!targetWorkspace) {
 			throw new Error(`Workspace "${workspaceName}" not found`)
 		}
-		return path.join(targetWorkspace, ".clinerules", "hooks")
+		return targetWorkspace
 	}
 
 	// Single workspace: use getCwd
-	const cwd = await getCwd(getDesktopDir())
-	return path.join(cwd, ".clinerules", "hooks")
+	return getCwd(getDesktopDir())
 }
 
 /**
@@ -98,6 +116,20 @@ export async function resolveExistingHookPath(hooksDir: string, hookName: string
 	for (const candidate of candidates) {
 		if (await isRegularFile(candidate)) {
 			return candidate
+		}
+	}
+
+	return undefined
+}
+
+export async function resolveExistingHookPathInDirectories(
+	hooksDirs: readonly string[],
+	hookName: string,
+): Promise<{ hooksDir: string; hookPath: string } | undefined> {
+	for (const hooksDir of hooksDirs) {
+		const hookPath = await resolveExistingHookPath(hooksDir, hookName)
+		if (hookPath) {
+			return { hooksDir, hookPath }
 		}
 	}
 

@@ -58,7 +58,8 @@ export const GlobalFileNames = {
 	codevibeRules: ".codevibe/rules",
 	clineRules: ".clinerules",
 	workflows: ".clinerules/workflows",
-	hooksDir: ".clinerules/hooks",
+	hooksDir: ".codevibe/hooks",
+	legacyHooksDir: ".clinerules/hooks",
 	clineruleSkillsDir: ".clinerules/skills",
 	codevibeSkillsDir: ".codevibe/skills",
 	clineSkillsDir: ".cline/skills",
@@ -552,7 +553,8 @@ export function setRuntimeHooksDir(dir: string | undefined): void {
  * Gets the paths to all hooks directories to search for hooks, including:
  * 1. The runtime hooks directory (if set via --hooks-dir CLI flag)
  * 2. The global hooks directory (if it exists)
- * 3. Each workspace root's .clinerules/hooks directory (if they exist)
+ * 3. Each workspace root's .codevibe/hooks directory (if it exists)
+ * 4. Each workspace root's legacy .clinerules/hooks directory (if it exists)
  *
  * Note: Hooks from different directories may be executed concurrently.
  * No execution order is guaranteed between hooks from different directories.
@@ -581,9 +583,20 @@ export async function getAllHooksDirs(): Promise<string[]> {
 }
 
 /**
- * Gets the paths to the workspace's .clinerules/hooks directories to search for
- * hooks. A workspace may not use hooks, and the resulting array will be empty. A
- * multi-root workspace may have multiple hooks directories.
+ * Returns workspace-local hook directory candidates in preferred discovery order.
+ */
+export function getWorkspaceHookDirCandidates(workspaceRootPath: string): string[] {
+	return [
+		path.join(workspaceRootPath, GlobalFileNames.hooksDir),
+		path.join(workspaceRootPath, GlobalFileNames.legacyHooksDir),
+	]
+}
+
+/**
+ * Gets the paths to the workspace's .codevibe/hooks and legacy .clinerules/hooks
+ * directories to search for hooks. A workspace may not use hooks, and the
+ * resulting array will be empty. A multi-root workspace may have multiple hooks
+ * directories.
  */
 export async function getWorkspaceHooksDirs(): Promise<string[]> {
 	const workspaceRootPaths =
@@ -594,12 +607,15 @@ export async function getWorkspaceHooksDirs(): Promise<string[]> {
 	return (
 		await Promise.all(
 			workspaceRootPaths.map(async (workspaceRootPath) => {
-				// Look for a .clinerules/hooks folder in this workspace root.
-				const candidate = path.join(workspaceRootPath, GlobalFileNames.hooksDir)
-				return (await isDirectory(candidate)) ? candidate : undefined
+				const candidates = getWorkspaceHookDirCandidates(workspaceRootPath)
+				return (
+					await Promise.all(
+						candidates.map(async (candidate) => ((await isDirectory(candidate)) ? candidate : undefined)),
+					)
+				).filter((candidate): candidate is string => Boolean(candidate))
 			}),
 		)
-	).filter((path): path is string => Boolean(path))
+	).flat()
 }
 
 /**

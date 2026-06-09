@@ -3,7 +3,12 @@ import fs from "fs/promises"
 import path from "path"
 import { HookDiscoveryCache } from "../../hooks/HookDiscoveryCache"
 import { getHookTemplate } from "../../hooks/templates"
-import { isValidHookType, resolveHooksDirectory, VALID_HOOK_TYPES } from "../../hooks/utils"
+import {
+	isValidHookType,
+	resolveExistingHookPathInDirectories,
+	resolveHooksDirectories,
+	VALID_HOOK_TYPES,
+} from "../../hooks/utils"
 import { Controller } from ".."
 import { refreshHooks } from "./refreshHooks"
 
@@ -19,8 +24,8 @@ export async function createHook(
 		throw new Error(`Invalid hook type: "${hookName}". Valid hook types are: ${VALID_HOOK_TYPES.join(", ")}`)
 	}
 
-	// Determine target directory
-	const hooksDir = await resolveHooksDirectory(isGlobal, workspaceName, globalHooksDirOverride)
+	const hooksDirs = await resolveHooksDirectories(isGlobal, workspaceName, globalHooksDirOverride)
+	const hooksDir = hooksDirs[0]
 
 	// Ensure directory exists
 	await fs.mkdir(hooksDir, { recursive: true })
@@ -28,15 +33,9 @@ export async function createHook(
 	const hookFileName = process.platform === "win32" ? `${hookName}.ps1` : hookName
 	const hookPath = path.join(hooksDir, hookFileName)
 
-	// Check if already exists
-	try {
-		await fs.stat(hookPath)
-		throw new Error(`Hook ${hookName} already exists at ${hookPath}`)
-	} catch (error) {
-		// Good - file doesn't exist yet
-		if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-			throw error
-		}
+	const existingHook = await resolveExistingHookPathInDirectories(hooksDirs, hookName)
+	if (existingHook) {
+		throw new Error(`Hook ${hookName} already exists at ${existingHook.hookPath}`)
 	}
 
 	// Get template content

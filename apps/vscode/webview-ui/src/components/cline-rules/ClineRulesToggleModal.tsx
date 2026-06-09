@@ -701,9 +701,8 @@ const ClineRulesToggleModal: React.FC = () => {
 									<div className="flex items-center gap-2 px-3 py-3 mb-4 bg-vscode-inputValidation-warningBackground border-l-[3px] border-vscode-inputValidation-warningBorder">
 										<i className="codicon codicon-warning text-sm" />
 										<span className="text-base">
-											Hook toggling is not yet supported on Windows in this foundation PR. Hooks can be
-											created, edited, and deleted, and execute whenever the hook file exists. Coming next:
-											JSON-backed hook enabled/disabled state across platforms.
+											Hook toggling is not yet supported on Windows. Hooks can be created, edited, and
+											deleted, and execute whenever the hook file exists.
 										</span>
 									</div>
 								)}

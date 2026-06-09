@@ -1,4 +1,5 @@
 import { Logger } from "@/shared/services/Logger"
+import path from "path"
 import { telemetryService } from "../../services/telemetry"
 import { getAllHooksDirs } from "../storage/disk"
 import { HookFactory, Hooks } from "./hook-factory"
@@ -171,7 +172,7 @@ export class HookDiscoveryCache {
 				const scriptPromises = hooksDirs.map((dir) => HookFactory.findHookInHooksDir(hookName, dir))
 
 				const results = await Promise.all(scriptPromises)
-				const scripts = results.filter((path): path is string => path !== undefined)
+				const scripts = preferCodeVibeWorkspaceHooks(results.filter((path): path is string => path !== undefined))
 
 				this.log(`Found ${scripts.length} scripts for ${hookName}`)
 
@@ -326,4 +327,49 @@ export class HookDiscoveryCache {
 			HookDiscoveryCache.instance = null
 		}
 	}
+}
+
+function preferCodeVibeWorkspaceHooks(scripts: string[]): string[] {
+	const preferredByWorkspaceRoot = new Map<string, { scriptPath: string; priority: number }>()
+
+	for (const scriptPath of scripts) {
+		const workspaceInfo = getWorkspaceHookScriptInfo(scriptPath)
+		if (!workspaceInfo) {
+			continue
+		}
+
+		const current = preferredByWorkspaceRoot.get(workspaceInfo.workspaceRoot)
+		if (!current || workspaceInfo.priority < current.priority) {
+			preferredByWorkspaceRoot.set(workspaceInfo.workspaceRoot, {
+				scriptPath,
+				priority: workspaceInfo.priority,
+			})
+		}
+	}
+
+	return scripts.filter((scriptPath) => {
+		const workspaceInfo = getWorkspaceHookScriptInfo(scriptPath)
+		if (!workspaceInfo) {
+			return true
+		}
+
+		return preferredByWorkspaceRoot.get(workspaceInfo.workspaceRoot)?.scriptPath === scriptPath
+	})
+}
+
+function getWorkspaceHookScriptInfo(scriptPath: string): { workspaceRoot: string; priority: number } | undefined {
+	const normalizedPath = path.normalize(scriptPath)
+	const primaryMarker = `${path.sep}.codevibe${path.sep}hooks${path.sep}`
+	const legacyMarker = `${path.sep}.clinerules${path.sep}hooks${path.sep}`
+	const primaryIndex = normalizedPath.indexOf(primaryMarker)
+	if (primaryIndex >= 0) {
+		return { workspaceRoot: normalizedPath.slice(0, primaryIndex), priority: 0 }
+	}
+
+	const legacyIndex = normalizedPath.indexOf(legacyMarker)
+	if (legacyIndex >= 0) {
+		return { workspaceRoot: normalizedPath.slice(0, legacyIndex), priority: 1 }
+	}
+
+	return undefined
 }

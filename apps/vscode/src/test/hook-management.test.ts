@@ -26,6 +26,7 @@ describe("Hook Management", () => {
 	let tempDir: string
 	let globalHooksDir: string
 	let workspaceHooksDir: string
+	let legacyWorkspaceHooksDir: string
 	let mockController: Controller
 	let stateManagerStub: sinon.SinonStub
 	let getWorkspacePathsStub: sinon.SinonStub
@@ -37,7 +38,8 @@ describe("Hook Management", () => {
 		// Create temporary directories
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "hook-mgmt-test-"))
 		globalHooksDir = path.join(tempDir, "global", "Documents", "CodeVibe", "Hooks")
-		workspaceHooksDir = path.join(tempDir, "workspace", ".clinerules", "hooks")
+		workspaceHooksDir = path.join(tempDir, "workspace", ".codevibe", "hooks")
+		legacyWorkspaceHooksDir = path.join(tempDir, "workspace", ".clinerules", "hooks")
 
 		await fs.mkdir(globalHooksDir, { recursive: true })
 		await fs.mkdir(workspaceHooksDir, { recursive: true })
@@ -172,6 +174,27 @@ describe("Hook Management", () => {
 			}
 		})
 
+		it("should throw error if workspace hook already exists in legacy directory", async function () {
+			this.timeout(5000)
+
+			await fs.mkdir(legacyWorkspaceHooksDir, { recursive: true })
+			const hookPath = path.join(legacyWorkspaceHooksDir, hookFileName("TaskStart"))
+			await fs.writeFile(hookPath, hookTemplate, { mode: 0o755 })
+
+			const request = CreateHookRequest.create({
+				hookName: "TaskStart",
+				isGlobal: false,
+			})
+
+			try {
+				await createHook(mockController, request)
+				throw new Error("Should have thrown an error")
+			} catch (error: any) {
+				error.message.should.containEql("already exists")
+				error.message.should.containEql(hookPath)
+			}
+		})
+
 		it("should create parent directories if they don't exist", async function () {
 			this.timeout(5000)
 
@@ -299,6 +322,27 @@ describe("Hook Management", () => {
 				.catch(() => false)
 			exists.should.equal(false)
 		})
+
+		it("should delete legacy workspace hook when primary hook is absent", async function () {
+			this.timeout(5000)
+
+			await fs.mkdir(legacyWorkspaceHooksDir, { recursive: true })
+			const hookPath = path.join(legacyWorkspaceHooksDir, hookFileName("TaskResume"))
+			await fs.writeFile(hookPath, hookTemplate, { mode: 0o755 })
+
+			const request = DeleteHookRequest.create({
+				hookName: "TaskResume",
+				isGlobal: false,
+			})
+
+			await deleteHook(mockController, request)
+
+			const exists = await fs
+				.access(hookPath)
+				.then(() => true)
+				.catch(() => false)
+			exists.should.equal(false)
+		})
 	})
 
 	describe("toggleHook", () => {
@@ -377,6 +421,30 @@ describe("Hook Management", () => {
 			;(mode & 0o100).should.be.greaterThan(0)
 		})
 
+		it("should work for legacy workspace hooks when primary hook is absent", async function () {
+			this.timeout(5000)
+
+			if (isWindows) {
+				this.skip()
+			}
+
+			await fs.mkdir(legacyWorkspaceHooksDir, { recursive: true })
+			const hookPath = path.join(legacyWorkspaceHooksDir, "UserPromptSubmit")
+			await fs.writeFile(hookPath, "#!/usr/bin/env node\nconsole.log('test')", { mode: 0o644 })
+
+			const request = ToggleHookRequest.create({
+				hookName: "UserPromptSubmit",
+				isGlobal: false,
+				enabled: true,
+			})
+
+			await toggleHook(mockController, request)
+
+			const stats = await fs.stat(hookPath)
+			const mode = stats.mode & 0o777
+			;(mode & 0o100).should.be.greaterThan(0)
+		})
+
 		it("should return updated hooks state", async function () {
 			this.timeout(5000)
 
@@ -436,6 +504,39 @@ describe("Hook Management", () => {
 			result.workspaceHooks[0].hooks.should.have.length(1)
 			result.workspaceHooks[0].hooks[0].name.should.equal("UserPromptSubmit")
 			result.workspaceHooks[0].hooks[0].enabled.should.equal(true)
+		})
+
+		it("should discover hooks in legacy workspace directories", async function () {
+			this.timeout(5000)
+
+			await fs.mkdir(legacyWorkspaceHooksDir, { recursive: true })
+			await fs.writeFile(path.join(legacyWorkspaceHooksDir, hookFileName("UserPromptSubmit")), hookTemplate, {
+				mode: 0o755,
+			})
+
+			const result = await refreshHooks(mockController, undefined)
+
+			result.workspaceHooks.should.have.length(1)
+			result.workspaceHooks[0].hooks.should.have.length(1)
+			result.workspaceHooks[0].hooks[0].name.should.equal("UserPromptSubmit")
+			result.workspaceHooks[0].hooks[0].absolutePath.should.equal(
+				path.join(legacyWorkspaceHooksDir, hookFileName("UserPromptSubmit")),
+			)
+		})
+
+		it("should prefer CodeVibe workspace hooks over legacy duplicates", async function () {
+			this.timeout(5000)
+
+			await fs.mkdir(legacyWorkspaceHooksDir, { recursive: true })
+			const primaryHookPath = path.join(workspaceHooksDir, hookFileName("TaskStart"))
+			const legacyHookPath = path.join(legacyWorkspaceHooksDir, hookFileName("TaskStart"))
+			await fs.writeFile(primaryHookPath, hookTemplate, { mode: 0o755 })
+			await fs.writeFile(legacyHookPath, hookTemplate, { mode: 0o755 })
+
+			const result = await refreshHooks(mockController, undefined)
+
+			result.workspaceHooks[0].hooks.should.have.length(1)
+			result.workspaceHooks[0].hooks[0].absolutePath.should.equal(primaryHookPath)
 		})
 
 		it("should correctly identify executable vs non-executable hooks", async function () {
@@ -520,11 +621,12 @@ describe("Hook Management", () => {
 	})
 
 	describe("Edge Cases", () => {
-		it("should handle missing .clinerules directory gracefully", async function () {
+		it("should handle missing workspace hook directories gracefully", async function () {
 			this.timeout(5000)
 
 			// Remove workspace hooks directory
-			await fs.rm(path.dirname(workspaceHooksDir), { recursive: true, force: true })
+			await fs.rm(path.join(tempDir, "workspace", ".codevibe"), { recursive: true, force: true })
+			await fs.rm(path.join(tempDir, "workspace", ".clinerules"), { recursive: true, force: true })
 
 			const result = await refreshHooks(mockController, undefined)
 

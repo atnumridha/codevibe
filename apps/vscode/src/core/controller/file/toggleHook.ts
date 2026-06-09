@@ -1,7 +1,7 @@
 import { ToggleHookRequest, ToggleHookResponse } from "@shared/proto/cline/file"
 import fs from "fs/promises"
 import { HookDiscoveryCache } from "../../hooks/HookDiscoveryCache"
-import { resolveExistingHookPath, resolveHooksDirectory } from "../../hooks/utils"
+import { resolveExistingHookPathInDirectories, resolveHooksDirectories } from "../../hooks/utils"
 import { Controller } from ".."
 import { refreshHooks } from "./refreshHooks"
 
@@ -12,13 +12,12 @@ export async function toggleHook(
 ): Promise<ToggleHookResponse> {
 	const { hookName, isGlobal, enabled, workspaceName } = request
 
-	// Determine hook path
-	const hooksDir = await resolveHooksDirectory(isGlobal, workspaceName, globalHooksDirOverride)
-	const hookPath = await resolveExistingHookPath(hooksDir, hookName)
+	const hooksDirs = await resolveHooksDirectories(isGlobal, workspaceName, globalHooksDirOverride)
+	const existingHook = await resolveExistingHookPathInDirectories(hooksDirs, hookName)
 
 	// Verify hook exists
-	if (!hookPath) {
-		throw new Error(`Hook ${hookName} does not exist in ${hooksDir}`)
+	if (!existingHook) {
+		throw new Error(`Hook ${hookName} does not exist in ${hooksDirs.join(", ")}`)
 	}
 
 	// On Windows, we can't use chmod, so we just return the current state
@@ -29,7 +28,7 @@ export async function toggleHook(
 		// Toggle executable bit (Unix-like systems only)
 		// TODO(PR-9552 follow-up): Revisit chmod-driven enablement semantics
 		// once cross-platform JSON-backed state is implemented.
-		await fs.chmod(hookPath, enabled ? 0o755 : 0o644)
+		await fs.chmod(existingHook.hookPath, enabled ? 0o755 : 0o644)
 	}
 
 	// Invalidate cache

@@ -1,7 +1,7 @@
 import { DeleteHookRequest, DeleteHookResponse } from "@shared/proto/cline/file"
 import fs from "fs/promises"
 import { HookDiscoveryCache } from "../../hooks/HookDiscoveryCache"
-import { resolveExistingHookPath, resolveHooksDirectory } from "../../hooks/utils"
+import { resolveExistingHookPathInDirectories, resolveHooksDirectories } from "../../hooks/utils"
 import { Controller } from ".."
 import { refreshHooks } from "./refreshHooks"
 
@@ -12,17 +12,16 @@ export async function deleteHook(
 ): Promise<DeleteHookResponse> {
 	const { hookName, isGlobal, workspaceName } = request
 
-	// Determine hook path
-	const hooksDir = await resolveHooksDirectory(isGlobal, workspaceName, globalHooksDirOverride)
-	const hookPath = await resolveExistingHookPath(hooksDir, hookName)
+	const hooksDirs = await resolveHooksDirectories(isGlobal, workspaceName, globalHooksDirOverride)
+	const existingHook = await resolveExistingHookPathInDirectories(hooksDirs, hookName)
 
 	// Verify hook exists before attempting deletion
-	if (!hookPath) {
-		throw new Error(`Hook ${hookName} does not exist in ${hooksDir}`)
+	if (!existingHook) {
+		throw new Error(`Hook ${hookName} does not exist in ${hooksDirs.join(", ")}`)
 	}
 
 	// Delete the hook file
-	await fs.unlink(hookPath)
+	await fs.unlink(existingHook.hookPath)
 
 	// Invalidate hook discovery cache
 	await HookDiscoveryCache.getInstance().invalidateAll()
