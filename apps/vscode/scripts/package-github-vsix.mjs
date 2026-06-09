@@ -1486,6 +1486,8 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 async function main() {
 	const options = parseArgs(process.argv.slice(2))
 	if (options.preflight) {
+		const githubVsixPackageJson = createGithubVsixPackageJson(readPackageJson())
+		assertManifestInputs(githubVsixPackageJson)
 		runCommand(
 			[process.execPath],
 			["scripts/check-local-release-prereqs.mjs", ...(options.requireReleaseGate ? ["--release"] : [])],
