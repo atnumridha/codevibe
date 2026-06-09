@@ -42,6 +42,16 @@ export function canonicalizeAttemptCompletionParams(block: ToolUse): boolean {
 	return false
 }
 
+const BROWSER_SESSION_TOOLS = new Set<string>([
+	ClineDefaultTool.BROWSER,
+	ClineDefaultTool.BROWSER_SNAPSHOT,
+	ClineDefaultTool.BROWSER_SCREENSHOT,
+])
+
+export function shouldCloseBrowserBeforeTool(toolName: string | undefined): boolean {
+	return !toolName || !BROWSER_SESSION_TOOLS.has(toolName)
+}
+
 export class ToolExecutor {
 	private autoApprover: AutoApprove
 	private coordinator: ToolExecutorCoordinator
@@ -366,7 +376,7 @@ export class ToolExecutor {
 			}
 
 			// Close browser for non-browser tools
-			if (block.name !== ClineDefaultTool.BROWSER && block.name !== ClineDefaultTool.BROWSER_SNAPSHOT) {
+			if (shouldCloseBrowserBeforeTool(block.name)) {
 				await this.browserSession.closeBrowser()
 			}
 
