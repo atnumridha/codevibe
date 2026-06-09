@@ -816,10 +816,10 @@ export class HookFactory {
 
 	/**
 	 * Checks if a hooks directory is a global hooks directory.
-	 * Global hooks are located in paths containing "Cline/Hooks" or "cline/hooks".
+	 * Global hooks are located in paths containing "CodeVibe/Hooks" or the legacy "Cline/Hooks".
 	 */
 	private static isGlobalHooksDir(dir: string): boolean {
-		return /[/\\][Cc]line[/\\][Hh]ooks/i.test(dir)
+		return /[/\\](?:[Cc]ode[Vv]ibe|[Cc]line)[/\\][Hh]ooks/i.test(dir)
 	}
 
 	/**

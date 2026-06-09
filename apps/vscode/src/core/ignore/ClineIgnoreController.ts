@@ -180,7 +180,7 @@ export class ClineIgnoreController {
 		}
 
 		if (!(await fileExistsAtPath(resolvedIncludePath))) {
-			Logger.debug(`[ClineIgnore] Included file not found: ${resolvedIncludePath}`)
+			Logger.debug(`[CodeVibeIgnore] Included file not found: ${resolvedIncludePath}`)
 			return null
 		}
 
@@ -189,18 +189,18 @@ export class ClineIgnoreController {
 
 	private async resolveIncludedFilePath(includePath: string): Promise<string | null> {
 		if (!includePath) {
-			Logger.debug("[ClineIgnore] Ignoring empty include directive")
+			Logger.debug("[CodeVibeIgnore] Ignoring empty include directive")
 			return null
 		}
 
 		if (path.isAbsolute(includePath) || path.win32.isAbsolute(includePath) || /^[a-zA-Z]:/.test(includePath)) {
-			Logger.warn(`[ClineIgnore] Ignoring absolute include path: ${includePath}`)
+			Logger.warn(`[CodeVibeIgnore] Ignoring absolute include path: ${includePath}`)
 			return null
 		}
 
 		const resolvedIncludePath = path.resolve(this.cwd, includePath)
 		if (!this.isPathWithinWorkspace(resolvedIncludePath, this.cwd)) {
-			Logger.warn(`[ClineIgnore] Ignoring include outside workspace: ${includePath}`)
+			Logger.warn(`[CodeVibeIgnore] Ignoring include outside workspace: ${includePath}`)
 			return null
 		}
 
@@ -211,19 +211,19 @@ export class ClineIgnoreController {
 		try {
 			const [workspaceRoot, realIncludePath] = await Promise.all([fs.realpath(this.cwd), fs.realpath(resolvedIncludePath)])
 			if (!this.isPathWithinWorkspace(realIncludePath, workspaceRoot)) {
-				Logger.warn(`[ClineIgnore] Ignoring include outside workspace: ${includePath}`)
+				Logger.warn(`[CodeVibeIgnore] Ignoring include outside workspace: ${includePath}`)
 				return null
 			}
 
 			const stat = await fs.stat(realIncludePath)
 			if (!stat.isFile()) {
-				Logger.warn(`[ClineIgnore] Ignoring include that is not a file: ${includePath}`)
+				Logger.warn(`[CodeVibeIgnore] Ignoring include that is not a file: ${includePath}`)
 				return null
 			}
 
 			return realIncludePath
 		} catch (error) {
-			Logger.warn(`[ClineIgnore] Failed to resolve include path: ${includePath}`, error)
+			Logger.warn(`[CodeVibeIgnore] Failed to resolve include path: ${includePath}`, error)
 			return null
 		}
 	}

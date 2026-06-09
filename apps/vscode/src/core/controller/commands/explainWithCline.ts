@@ -26,7 +26,7 @@ export async function explainWithCline(
 
 	// Add notebook context if provided (includes cell JSON)
 	if (notebookContext) {
-		Logger.log("Adding notebook context to explainWithCline task")
+		Logger.log("Adding notebook context to CodeVibe explain task")
 		prompt += notebookContext
 	}
 

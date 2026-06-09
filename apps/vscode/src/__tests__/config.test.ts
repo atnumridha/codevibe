@@ -413,7 +413,7 @@ describe("ClineEndpoint configuration", () => {
 				ClineEnv.setEnvironment("staging")
 				throw new Error("Should have thrown")
 			} catch (error: any) {
-				error.message.should.containEql("Cannot change environment in on-premise mode")
+				error.message.should.containEql("Cannot change environment in self-hosted mode")
 			}
 		})
 
@@ -434,7 +434,7 @@ describe("ClineEndpoint configuration", () => {
 					ClineEnv.setEnvironment(env)
 					throw new Error(`Should have thrown for environment: ${env}`)
 				} catch (error: any) {
-					error.message.should.containEql("Cannot change environment in on-premise mode")
+					error.message.should.containEql("Cannot change environment in self-hosted mode")
 				}
 			}
 		})

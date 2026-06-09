@@ -25,7 +25,7 @@ export const formatResponse = {
 	toolError: (error?: string) => `The tool execution failed with the following error:\n<error>\n${error}\n</error>`,
 
 	clineIgnoreError: (path: string) =>
-		`Access to ${path} is blocked by the workspace ignore settings. You must try to continue in the task without using this file, or ask the user to update the ignore rules.`,
+		`Access to ${path} is blocked by the workspace ignore settings (.codevibeignore/.clineignore). You must try to continue in the task without using this file, or ask the user to update the ignore rules.`,
 
 	permissionDeniedError: (reason: string) =>
 		`Command execution blocked by configured command permissions: ${reason}. You must try a different approach or ask the user to update the permission settings.`,
@@ -324,7 +324,7 @@ Otherwise, if you have not completed the task and do not need additional informa
 	},
 
 	clineRulesGlobalDirectoryInstructions: (globalClineRulesFilePath: string, content: string) =>
-		`# .clinerules/\n\nThe following is provided by a global .clinerules/ directory, located at ${globalClineRulesFilePath.toPosix()}, where the user has specified instructions for all working directories:\n\n${content}`,
+		`# CodeVibe global rules\n\nThe following is provided by a global CodeVibe rules directory, located at ${globalClineRulesFilePath.toPosix()}, where the user has specified instructions for all working directories:\n\n${content}`,
 
 	clineRulesLocalDirectoryInstructions: (cwd: string, content: string, displayPath = ".clinerules") =>
 		`# ${displayPath}/\n\nThe following is provided by a root-level ${displayPath}/ directory where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${content}`,

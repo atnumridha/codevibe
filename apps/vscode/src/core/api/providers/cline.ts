@@ -72,7 +72,7 @@ export class ClineHandler implements ApiHandler {
 				return new Set(freeModelIds)
 			}
 		} catch (error) {
-			Logger.error("Error resolving Cline free model IDs from recommended models:", error)
+			Logger.error("Error resolving CodeVibe free model IDs from recommended models:", error)
 		}
 
 		return CLINE_FREE_MODEL_IDS
@@ -123,7 +123,7 @@ export class ClineHandler implements ApiHandler {
 					},
 				})
 			} catch (error: any) {
-				throw new Error(`Error creating Cline client: ${error.message}`)
+				throw new Error(`Error creating CodeVibe client: ${error.message}`)
 			}
 		}
 		// Ensure the client is always using the latest auth token
@@ -157,7 +157,7 @@ export class ClineHandler implements ApiHandler {
 			const toolCallProcessor = new ToolCallProcessor()
 
 			for await (const chunk of stream) {
-				Logger.debug("ClineHandler chunk:" + JSON.stringify(chunk))
+				Logger.debug("CodeVibeHandler chunk:" + JSON.stringify(chunk))
 				// openrouter returns an error object instead of the openai sdk throwing an error
 				if ("error" in chunk) {
 					const error = chunk.error as OpenRouterErrorResponse["error"]
@@ -178,10 +178,10 @@ export class ClineHandler implements ApiHandler {
 					const choiceWithError = choice as any
 					if (choiceWithError.error) {
 						const error = choiceWithError.error
-						Logger.error(`Cline Mid-Stream Error: ${error.code || error.type || "Unknown"} - ${error.message}`)
-						throw new Error(`Cline Mid-Stream Error: ${error.code || error.type || "Unknown"} - ${error.message}`)
+						Logger.error(`CodeVibe Mid-Stream Error: ${error.code || error.type || "Unknown"} - ${error.message}`)
+						throw new Error(`CodeVibe Mid-Stream Error: ${error.code || error.type || "Unknown"} - ${error.message}`)
 					}
-					throw new Error("Cline Mid-Stream Error: Stream terminated with error status but no error details provided")
+					throw new Error("CodeVibe Mid-Stream Error: Stream terminated with error status but no error details provided")
 				}
 
 				const delta = choice?.delta

@@ -1072,11 +1072,11 @@ export class Task {
 
 	// Task lifecycle
 
-	public async startTask(task?: string, images?: string[], files?: string[]): Promise<void> {
-		try {
-			await this.clineIgnoreController.initialize()
-		} catch (error) {
-			Logger.error("Failed to initialize ClineIgnoreController:", error)
+		public async startTask(task?: string, images?: string[], files?: string[]): Promise<void> {
+			try {
+				await this.clineIgnoreController.initialize()
+			} catch (error) {
+				Logger.error("Failed to initialize CodeVibe ignore controller:", error)
 			// Optionally, inform the user or handle the error appropriately
 		}
 		// conversationHistory (for API) and clineMessages (for webview) need to be in sync
@@ -1195,11 +1195,11 @@ export class Task {
 		await this.initiateTaskLoop(userContent)
 	}
 
-	public async resumeTaskFromHistory() {
-		try {
-			await this.clineIgnoreController.initialize()
-		} catch (error) {
-			Logger.error("Failed to initialize ClineIgnoreController:", error)
+		public async resumeTaskFromHistory() {
+			try {
+				await this.clineIgnoreController.initialize()
+			} catch (error) {
+				Logger.error("Failed to initialize CodeVibe ignore controller:", error)
 			// Optionally, inform the user or handle the error appropriately
 		}
 
@@ -1484,7 +1484,7 @@ export class Task {
 			}
 			// this.say(
 			// 	"tool",
-			// 	"Cline responded with only text blocks but has not called attempt_completion yet. Forcing him to continue with task..."
+				// 	"CodeVibe responded with only text blocks but has not called attempt_completion yet. Forcing the task to continue..."
 			// )
 			nextUserContent = [
 				{

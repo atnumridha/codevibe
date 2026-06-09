@@ -193,7 +193,7 @@ export class Controller {
 		// Check CLI installation status once on startup
 		checkCliInstallation(this)
 
-		Logger.log("[Controller] ClineProvider instantiated")
+			Logger.log("[Controller] CodeVibe provider instantiated")
 	}
 
 	/*

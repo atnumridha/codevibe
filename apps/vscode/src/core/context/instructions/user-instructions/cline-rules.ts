@@ -57,9 +57,9 @@ export const getGlobalClineRules = async (
 					combinedContent = rulesFilesTotal.content
 					activatedConditionalRules.push(...rulesFilesTotal.activatedConditionalRules)
 				}
-			} catch {
-				Logger.error(`Failed to read .clinerules directory at ${globalClineRulesFilePath}`)
-			}
+				} catch {
+					Logger.error(`Failed to read CodeVibe global rules directory at ${globalClineRulesFilePath}`)
+				}
 		} else {
 			Logger.error(`${globalClineRulesFilePath} is not a directory`)
 		}

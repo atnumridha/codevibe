@@ -46,7 +46,7 @@ interface ErrorDetails {
 const RATE_LIMIT_PATTERNS = [/status code 429/i, /rate limit/i, /too many requests/i, /quota exceeded/i, /resource exhausted/i]
 
 export class ClineError extends Error {
-	readonly title = "ClineError"
+	readonly title = "CodeVibeError"
 	readonly _error: ErrorDetails
 
 	// Error details per providers:

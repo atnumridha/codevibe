@@ -22,7 +22,7 @@ export class ClineFileStorage<T = any> extends ClineSyncStorage<T> {
 	private readonly fsPath: string
 	private readonly fileMode?: number
 
-	constructor(filePath: string, name = "ClineFileStorage", options?: ClineFileStorageOptions) {
+	constructor(filePath: string, name = "CodeVibeFileStorage", options?: ClineFileStorageOptions) {
 		super()
 		this.fsPath = filePath
 		this.name = name

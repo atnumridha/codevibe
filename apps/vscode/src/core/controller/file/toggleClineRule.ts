@@ -15,12 +15,12 @@ export async function toggleClineRule(controller: Controller, request: ToggleCli
 	const { scope, rulePath, enabled } = request
 
 	if (!rulePath || typeof enabled !== "boolean" || scope === undefined) {
-		Logger.error("toggleClineRule: Missing or invalid parameters", {
+		Logger.error("toggleCodeVibeRule: Missing or invalid parameters", {
 			rulePath,
 			scope,
 			enabled: typeof enabled === "boolean" ? enabled : `Invalid: ${typeof enabled}`,
 		})
-		throw new Error("Missing or invalid parameters for toggleClineRule")
+		throw new Error("Missing or invalid parameters for toggleCodeVibeRule")
 	}
 
 	// Handle the three different scopes
@@ -50,7 +50,7 @@ export async function toggleClineRule(controller: Controller, request: ToggleCli
 	// Track rule toggle telemetry with current task context
 	if (controller.task?.ulid) {
 		// Extract just the filename for privacy (no full paths)
-		const ruleFileName = getWorkspaceBasename(rulePath, "Controller.toggleClineRule")
+	const ruleFileName = getWorkspaceBasename(rulePath, "Controller.toggleCodeVibeRule")
 		const isGlobal = scope === RuleScope.GLOBAL
 		telemetryService.captureClineRuleToggled(controller.task.ulid, ruleFileName, enabled, isGlobal)
 	}

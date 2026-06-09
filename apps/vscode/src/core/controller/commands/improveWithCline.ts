@@ -29,7 +29,7 @@ export async function improveWithCline(
 		: `Improve the current code in the current notebook cell from ${fileMention}. Suggest refactorings, optimizations, or better practices based on the cell context.`
 
 	if (notebookContext) {
-		Logger.log("Adding notebook context to improveWithCline task")
+		Logger.log("Adding notebook context to CodeVibe improve task")
 		prompt += `\n${notebookContext}`
 	}
 

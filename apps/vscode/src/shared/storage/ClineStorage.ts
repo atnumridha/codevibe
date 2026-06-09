@@ -35,7 +35,7 @@ export abstract class ClineStorage {
 	/**
 	 * The name of the storage, used for logging purposes.
 	 */
-	protected name = "ClineStorage"
+	protected name = "CodeVibeStorage"
 	/**
 	 * List of subscribers to storage change events.
 	 */
