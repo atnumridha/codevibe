@@ -24,6 +24,10 @@ import {
 	ComboboxList,
 } from "@/components/ui/combobox";
 import { useWorkspace } from "@/contexts/workspace-context";
+import {
+	DEFAULT_CODEVIBE_MODEL_ID,
+	DEFAULT_CODEVIBE_PROVIDER_ID,
+} from "@/hooks/chat-session/constants";
 import type { PromptInQueue } from "@/hooks/chat-session/types";
 import type { ChatSessionStatus } from "@/lib/chat-schema";
 import { desktopClient } from "@/lib/desktop-client";
@@ -31,15 +35,16 @@ import {
 	readModelSelectionStorageFromWindow,
 	writeModelSelectionStorageToWindow,
 } from "@/lib/model-selection";
+import {
+	getProviderDisplayLabel,
+	isCopilotProviderId,
+	prioritizeCodeVibeProviderIds,
+} from "@/lib/provider-display";
 import { normalizeProviderId } from "@/lib/provider-id";
 import {
 	loadProviderModelCatalog,
 	loadProviderModels,
 } from "@/lib/provider-model-catalog";
-import {
-	DEFAULT_CODEVIBE_MODEL_ID,
-	DEFAULT_CODEVIBE_PROVIDER_ID,
-} from "@/hooks/chat-session/constants";
 import { cn } from "@/lib/utils";
 import { WorkspaceSelector } from "./workspace-selector";
 
@@ -1038,7 +1043,7 @@ function ModelSelector({
 		return next;
 	}, [enabledProviderIds, providerModels]);
 	const providers = useMemo(
-		() => Object.keys(visibleProviderModels),
+		() => prioritizeCodeVibeProviderIds(Object.keys(visibleProviderModels)),
 		[visibleProviderModels],
 	);
 	const rememberedLastProvider = lastSelection.lastProvider.trim();
@@ -1050,7 +1055,11 @@ function ModelSelector({
 		if (normalizedProvider && providers.includes(normalizedProvider)) {
 			return normalizedProvider;
 		}
-		if (rememberedProvider && providers.includes(rememberedProvider)) {
+		if (
+			rememberedProvider &&
+			!isCopilotProviderId(rememberedProvider) &&
+			providers.includes(rememberedProvider)
+		) {
 			return rememberedProvider;
 		}
 		return providers[0] ?? "";
@@ -1261,7 +1270,7 @@ function ModelSelector({
 					<ComboboxList>
 						{(item) => (
 							<ComboboxItem className="text-xxs" key={item} value={item}>
-								{item}
+								{getProviderDisplayLabel(item)}
 							</ComboboxItem>
 						)}
 					</ComboboxList>

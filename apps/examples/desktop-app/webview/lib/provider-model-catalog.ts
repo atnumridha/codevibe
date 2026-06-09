@@ -1,6 +1,7 @@
 "use client";
 
 import { desktopClient } from "@/lib/desktop-client";
+import { prioritizeCodeVibeProviderIds } from "@/lib/provider-display";
 import type {
 	Provider,
 	ProviderCatalogResponse,
@@ -30,9 +31,11 @@ export function buildProviderModelCatalog(
 ): ProviderModelCatalog {
 	return {
 		providers,
-		enabledProviderIds: providers
-			.filter((provider) => provider.enabled)
-			.map((provider) => provider.id),
+		enabledProviderIds: prioritizeCodeVibeProviderIds(
+			providers
+				.filter((provider) => provider.enabled)
+				.map((provider) => provider.id),
+		),
 		providerModels: Object.fromEntries(
 			providers.map((provider) => [
 				provider.id,

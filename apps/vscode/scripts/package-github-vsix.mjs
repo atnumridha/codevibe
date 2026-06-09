@@ -21,6 +21,7 @@ const requiredCursorParityConfigKeys = [
 	"codevibe.cursorCompatibility.retrievalIndexing.privacyGate",
 	"codevibe.cursorCompatibility.sandboxPolicy",
 	"codevibe.cursorCompatibility.safeBrowserEvaluate.enabled",
+	"codevibe.ui.preferOpenAiCodexSidebar",
 	"ndjson.port",
 	"ndjson.bindAddress",
 ]
@@ -282,7 +283,9 @@ function installSignalCleanup(cleanup) {
 		try {
 			cleanup()
 		} catch (error) {
-			console.error(`package-github-vsix: failed to restore package inputs on signal: ${error instanceof Error ? error.message : String(error)}`)
+			console.error(
+				`package-github-vsix: failed to restore package inputs on signal: ${error instanceof Error ? error.message : String(error)}`,
+			)
 		}
 		process.exit(exitCode)
 	}
@@ -329,21 +332,21 @@ function brandVisibleManifestStrings(value, key) {
 	}
 	if (value && typeof value === "object") {
 		return Object.fromEntries(
-			Object.entries(value).map(([entryKey, entryValue]) => [
-				entryKey,
-				brandVisibleManifestStrings(entryValue, entryKey),
-			]),
+			Object.entries(value).map(([entryKey, entryValue]) => [entryKey, brandVisibleManifestStrings(entryValue, entryKey)]),
 		)
 	}
 	return value
 }
 
 function createGithubVsixPackageJson(packageJson) {
-	return brandVisibleManifestStrings({
-		...packageJson,
-		...githubVsixManifestOverrides,
-		keywords: Array.from(new Set(["codevibe", ...(Array.isArray(packageJson.keywords) ? packageJson.keywords : [])])),
-	}, "")
+	return brandVisibleManifestStrings(
+		{
+			...packageJson,
+			...githubVsixManifestOverrides,
+			keywords: Array.from(new Set(["codevibe", ...(Array.isArray(packageJson.keywords) ? packageJson.keywords : [])])),
+		},
+		"",
+	)
 }
 
 function readPackageMetadata(packageJson = readPackageJson()) {
@@ -690,6 +693,9 @@ function assertVisibleManifestStringsBranded(value, label, pathParts = []) {
 function assertNativeCodeVibeContributionIds(packageJson, label) {
 	const activityBarContainers = packageJson.contributes?.viewsContainers?.activitybar ?? []
 	const activityBarIds = activityBarContainers.map((container) => container?.id).filter(Boolean)
+	if (!activityBarIds.includes("codevibe.agent")) {
+		throw new Error(`${label} must contribute the native codevibe.agent activity bar container`)
+	}
 	if (activityBarIds.includes("codevibe-ActivityBar")) {
 		throw new Error(`${label} must not contribute the legacy CodeVibe activity bar container`)
 	}
@@ -698,6 +704,21 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 
 	const views = packageJson.contributes?.views ?? {}
+	const codeVibeAgentViews = Array.isArray(views["codevibe.agent"]) ? views["codevibe.agent"] : []
+	const codeVibeAgentViewIds = codeVibeAgentViews.map((view) => view?.id).filter(Boolean)
+	if (!codeVibeAgentViewIds.includes("codevibe.agent.chat")) {
+		throw new Error(`${label} must contribute the native codevibe.agent.chat webview`)
+	}
+	const chatParticipants = Array.isArray(packageJson.contributes?.chatParticipants)
+		? packageJson.contributes.chatParticipants
+		: []
+	const codeVibeAgentParticipant = chatParticipants.find((participant) => participant?.id === "codevibe.agent")
+	if (!codeVibeAgentParticipant) {
+		throw new Error(`${label} must contribute the native codevibe.agent chat participant`)
+	}
+	if (codeVibeAgentParticipant.name !== "codevibe" || codeVibeAgentParticipant.fullName !== "CodeVibe Agent") {
+		throw new Error(`${label} codevibe.agent chat participant must be named CodeVibe Agent`)
+	}
 	if ("codevibe-ActivityBar" in views) {
 		throw new Error(`${label} must not contribute views under legacy codevibe-ActivityBar`)
 	}
@@ -793,6 +814,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 		throw new Error(`${label} must point main at ./dist/extension.js`)
 	}
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
+	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe.agent", `${label} activationEvents`)
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
 	}
@@ -811,6 +833,9 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	const codexAuth = properties["codevibe.openAiCodex.authSource"]
 	if (codexAuth.default !== "codexHome") {
 		throw new Error(`${label} must default codevibe.openAiCodex.authSource to codexHome`)
+	}
+	if (properties["codevibe.ui.preferOpenAiCodexSidebar"].default !== false) {
+		throw new Error(`${label} must default codevibe.ui.preferOpenAiCodexSidebar to false`)
 	}
 	for (const value of ["codexHome", "vscodeSecret", "auto"]) {
 		assertArrayIncludes(codexAuth.enum, value, `${label} codevibe.openAiCodex.authSource enum`)
@@ -1089,10 +1114,7 @@ async function main() {
 	if (options.preflight) {
 		runCommand(
 			[process.execPath],
-			[
-				"scripts/check-local-release-prereqs.mjs",
-				...(options.requireReleaseGate ? ["--release"] : []),
-			],
+			["scripts/check-local-release-prereqs.mjs", ...(options.requireReleaseGate ? ["--release"] : [])],
 		)
 		return
 	}
@@ -1116,9 +1138,7 @@ async function main() {
 					releaseGateSatisfied: options.requireReleaseGate
 						? process.env.CODEVIBE_ALL_PARITY_VALIDATED === "true"
 						: undefined,
-					releaseGateEvidenceUrl: options.requireReleaseGate
-						? process.env.CODEVIBE_PARITY_EVIDENCE_URL
-						: undefined,
+					releaseGateEvidenceUrl: options.requireReleaseGate ? process.env.CODEVIBE_PARITY_EVIDENCE_URL : undefined,
 				},
 				null,
 				2,

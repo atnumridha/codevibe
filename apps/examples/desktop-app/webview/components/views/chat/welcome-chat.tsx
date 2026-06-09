@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/command";
 import { Label } from "@/components/ui/label";
 import { useWorkspace } from "@/contexts/workspace-context";
+import { getProviderDisplayLabel } from "@/lib/provider-display";
 
 interface QuickAction {
 	id: string;
@@ -53,6 +54,7 @@ function formatWorkspaceLabel(workspacePath: string): string {
 }
 
 export function WelcomeScreen({
+	provider,
 	quickActions,
 }: {
 	provider: string;
@@ -78,6 +80,7 @@ export function WelcomeScreen({
 		}
 		return [...next.values()];
 	}, [workspaceRoot, workspaces]);
+	const providerLabel = getProviderDisplayLabel(provider);
 
 	useEffect(() => {
 		void refreshWorkspaces();
@@ -107,6 +110,16 @@ export function WelcomeScreen({
 		<div className="flex flex-1 flex-col items-center overflow-hidden bg-background">
 			<div className="relative z-10 flex w-full max-w-3xl flex-1 flex-col items-center px-6 py-12">
 				<div className="mb-8 flex flex-col items-center">
+					<div className="mb-5 flex flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground">
+						<span>New session in</span>
+						<span className="rounded-md border border-border bg-card px-2 py-1 font-medium text-foreground">
+							{toWorkspaceName(workspaceRoot)}
+						</span>
+						<span>with</span>
+						<span className="rounded-md border border-primary/35 bg-primary/10 px-2 py-1 font-medium text-primary">
+							{providerLabel}
+						</span>
+					</div>
 					<h1 className="text-balance text-center text-3xl font-bold tracking-tight text-foreground">
 						What would you like to build?
 					</h1>

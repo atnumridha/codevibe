@@ -69,7 +69,9 @@
 		"onCommand:codevibe.openWalkthrough",
 		"onCommand:codevibe.reconstructTaskHistory",
 		"onCommand:codevibe.reviewComment.reply",
-		"onCommand:codevibe.reviewComment.addToChat"
+		"onCommand:codevibe.reviewComment.addToChat",
+		"onChatParticipant:codevibe.agent",
+		"onView:codevibe.agent.chat"
 	],
 	"main": "./dist/extension.js",
 	"contributes": {
@@ -130,6 +132,48 @@
 						"content": {
 							"path": "walkthrough/step5.md"
 						}
+					}
+				]
+			}
+		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "codevibe.agent",
+					"title": "CodeVibe Agent",
+					"icon": "assets/icons/icon.png"
+				}
+			]
+		},
+		"views": {
+			"codevibe.agent": [
+				{
+					"id": "codevibe.agent.chat",
+					"name": "Agent",
+					"type": "webview",
+					"icon": "assets/icons/icon.png"
+				}
+			]
+		},
+		"chatParticipants": [
+			{
+				"id": "codevibe.agent",
+				"name": "codevibe",
+				"fullName": "CodeVibe Agent",
+				"description": "Plan, edit, review, run tools, and work across this repository",
+				"isSticky": true,
+				"commands": [
+					{
+						"name": "plan",
+						"description": "Explore the codebase and prepare an implementation plan"
+					},
+					{
+						"name": "act",
+						"description": "Start an implementation task in CodeVibe"
+					},
+					{
+						"name": "review",
+						"description": "Review the current code or selected changes"
 					}
 				]
 			}
@@ -447,8 +491,8 @@
 				},
 				"codevibe.ui.preferOpenAiCodexSidebar": {
 					"type": "boolean",
-					"default": true,
-					"description": "Opens the installed OpenAI Codex sidebar by default instead of the legacy CodeVibe webview panel, preventing duplicate agent UIs when Codex is available."
+					"default": false,
+					"description": "Opens the installed OpenAI Codex sidebar instead of the native CodeVibe Agent sidebar. Disabled by default so CodeVibe stays the primary agent surface."
 				},
 				"ndjson.port": {
 					"type": "number",

@@ -1,5 +1,6 @@
 import type { ChatSessionConfig } from "@/lib/chat-schema";
 import { readModelSelectionStorageFromWindow } from "@/lib/model-selection";
+import { isCopilotProviderId } from "@/lib/provider-display";
 import { normalizeProviderId } from "@/lib/provider-id";
 
 export const CHAT_TRANSPORT_UNAVAILABLE_MESSAGE =
@@ -45,7 +46,10 @@ export function getInitialChatConfig(): ChatSessionConfig {
 		: undefined;
 	const rememberedModelForDefaultProvider =
 		selection.lastModelByProvider[DEFAULT_CHAT_CONFIG.provider];
-	const provider = rememberedProvider || DEFAULT_CHAT_CONFIG.provider;
+	const provider =
+		rememberedProvider && !isCopilotProviderId(rememberedProvider)
+			? rememberedProvider
+			: DEFAULT_CHAT_CONFIG.provider;
 	const model =
 		rememberedModelForProvider ||
 		(provider === DEFAULT_CHAT_CONFIG.provider

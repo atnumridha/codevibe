@@ -9,7 +9,7 @@ const prefix = name === "claude-dev" ? "cline" : name
  * For Nightly build, the publish script has updated all the commands to use the extension name as prefix.
  * In production, all commands are registered under "cline" for consistency.
  */
-const ClineCommands = {
+const CodeVibeCommands = {
 	PlusButton: prefix + ".plusButtonClicked",
 	McpButton: prefix + ".mcpButtonClicked",
 	SettingsButton: prefix + ".settingsButtonClicked",
@@ -37,8 +37,10 @@ const ClineCommands = {
  * IDs for the views registered by the extension.
  * These should match the name + view IDs defined in package.json.
  */
-const ClineViewIds = {
-	Sidebar: name + ".SidebarProvider",
+const CodeVibeViewIds = {
+	AgentContainer: prefix + ".agent",
+	Sidebar: prefix + ".agent.chat",
+	LegacySidebar: name + ".SidebarProvider",
 }
 
 /**
@@ -50,8 +52,8 @@ export const ExtensionRegistryInfo = {
 	name,
 	version,
 	publisher,
-	commands: ClineCommands,
-	views: ClineViewIds,
+	commands: CodeVibeCommands,
+	views: CodeVibeViewIds,
 }
 
 export interface HostInfo {

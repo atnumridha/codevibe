@@ -54,6 +54,15 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	}
 
 	public async show(preserveEditorFocus = false): Promise<void> {
+		this.closePanel()
+		await closeCompetingAgentSurfaces()
+		if (await this.revealAgentSidebar(preserveEditorFocus)) {
+			return
+		}
+		await this.showPanel(preserveEditorFocus)
+	}
+
+	public async showPanel(preserveEditorFocus = false): Promise<void> {
 		if (this.panel) {
 			await closeCompetingAgentSurfaces()
 			this.panel.reveal(this.panel.viewColumn, preserveEditorFocus)
@@ -89,6 +98,23 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 		)
 
 		Logger.log("[VscodeWebviewProvider] Webview panel opened")
+	}
+
+	private async revealAgentSidebar(preserveEditorFocus: boolean): Promise<boolean> {
+		try {
+			await vscode.commands.executeCommand(`workbench.view.extension.${ExtensionRegistryInfo.views.AgentContainer}`)
+			await vscode.commands.executeCommand(`${VscodeWebviewProvider.SIDEBAR_ID}.focus`)
+			if (preserveEditorFocus) {
+				await vscode.commands.executeCommand("workbench.action.focusActiveEditorGroup").then(
+					() => undefined,
+					() => undefined,
+				)
+			}
+			return true
+		} catch (error) {
+			Logger.warn(`Failed to reveal CodeVibe Agent sidebar: ${error instanceof Error ? error.message : String(error)}`)
+			return false
+		}
 	}
 
 	/**

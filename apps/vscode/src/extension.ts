@@ -20,8 +20,8 @@ import type { ExtensionContext } from "vscode"
 import { HostProvider } from "@/hosts/host-provider"
 import { vscodeHostBridgeClient } from "@/hosts/vscode/hostbridge/client/host-grpc-client"
 import { createStorageContext } from "@/shared/storage/storage-context"
-import { readTextFromClipboard, writeTextToClipboard } from "@/utils/env"
 import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
+import { readTextFromClipboard, writeTextToClipboard } from "@/utils/env"
 import { initialize, tearDown } from "./common"
 import { addToCline } from "./core/controller/commands/addToCline"
 import { explainWithCline } from "./core/controller/commands/explainWithCline"
@@ -53,15 +53,9 @@ import { exportVSCodeStorageToSharedFiles } from "./hosts/vscode/vscode-to-file-
 import { ExtensionRegistryInfo } from "./registry"
 import { AuthService } from "./services/auth/AuthService"
 import { LogoutReason } from "./services/auth/types"
-import {
-	CursorNdjsonIngestServer,
-	type CursorNdjsonIngestServerStatus,
-} from "./services/automation/CursorNdjsonIngestServer"
+import { CursorNdjsonIngestServer, type CursorNdjsonIngestServerStatus } from "./services/automation/CursorNdjsonIngestServer"
 import { telemetryService } from "./services/telemetry"
-import {
-	getCursorCompatibleUriPath,
-	isCursorCompatibleUriPath,
-} from "./services/uri/CursorUriRoutes"
+import { getCursorCompatibleUriPath, isCursorCompatibleUriPath } from "./services/uri/CursorUriRoutes"
 import { getRawExtensionUriString } from "./services/uri/ExtensionUriString"
 import { LG_TASK_URI_PATH, SharedUriHandler, TASK_URI_PATH } from "./services/uri/SharedUriHandler"
 import { redactUriForLogging } from "./services/uri/UriRedaction"
@@ -70,6 +64,7 @@ import { fileExistsAtPath } from "./utils/fs"
 
 const OPENAI_CODEX_EXTENSION_ID = "openai.chatgpt"
 const OPENAI_CODEX_OPEN_SIDEBAR_COMMAND = "chatgpt.openSidebar"
+const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe.agent"
 const LEGACY_CODEVIBE_PANEL_VIEW_TYPE = "codevibe.agentPanel"
 
 // This method is called when the VS Code extension is activated.
@@ -96,6 +91,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	// 4. Register services and perform common initialization
 	// IMPORTANT: Must be done after host provider is setup and migrations are complete
 	const webview = (await initialize(storageContext)) as VscodeWebviewProvider
+	context.subscriptions.push(
+		vscode.window.registerWebviewViewProvider(VscodeWebviewProvider.SIDEBAR_ID, webview, {
+			webviewOptions: { retainContextWhenHidden: true },
+		}),
+	)
+	registerCodeVibeChatParticipant(context)
 	await closeLegacyCodeVibePanels()
 	scheduleLegacyCodeVibePanelCleanup(context)
 
@@ -201,12 +202,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		const uriPath = getUriPath(url)
 		const isTaskUri = uriPath === TASK_URI_PATH || uriPath === LG_TASK_URI_PATH
 		const isMcpAuthCallbackUri = /^\/mcp-auth\/callback\/[^/]+$/.test(uriPath ?? "")
-		const cursorDeepLinksEnabled = getCodeVibeConfigurationValue<boolean>(
-			"cursorCompatibility.deepLinks.enabled",
-			true,
-		)
-		const isCursorCompatibleUri =
-			cursorDeepLinksEnabled && uriPath ? isCursorCompatibleUriPath(uriPath) : false
+		const cursorDeepLinksEnabled = getCodeVibeConfigurationValue<boolean>("cursorCompatibility.deepLinks.enabled", true)
+		const isCursorCompatibleUri = cursorDeepLinksEnabled && uriPath ? isCursorCompatibleUriPath(uriPath) : false
 
 		if (isTaskUri || isCursorCompatibleUri || isMcpAuthCallbackUri) {
 			await openCodeVibeSurfaceForTaskUri()
@@ -607,7 +604,10 @@ ${ctx.cellJson || "{}"}
 	// Register the openWalkthrough command handler
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.Walkthrough, async () => {
-			await vscode.commands.executeCommand("workbench.action.openWalkthrough", `${context.extension.id}#CodeVibeWalkthrough`)
+			await vscode.commands.executeCommand(
+				"workbench.action.openWalkthrough",
+				`${context.extension.id}#CodeVibeWalkthrough`,
+			)
 			telemetryService.captureButtonClick("command_openWalkthrough")
 		}),
 	)
@@ -778,26 +778,105 @@ async function showCursorNdjsonStatus(status: CursorNdjsonIngestServerStatus, ti
 	await vscode.window.showInformationMessage(`${title}: ${detail}`)
 }
 
+type NativeChatApi = {
+	createChatParticipant?: (
+		id: string,
+		handler: (request: unknown, context: unknown, stream: unknown, token: vscode.CancellationToken) => unknown,
+	) => vscode.Disposable & { iconPath?: vscode.Uri }
+}
+
+type NativeChatRequest = {
+	prompt?: unknown
+	command?: unknown
+}
+
+type NativeChatResponseStream = {
+	progress?: (message: string) => void
+	markdown?: (message: string) => void
+}
+
+function buildCodeVibeNativeChatTaskText(request: NativeChatRequest): string {
+	const prompt = typeof request.prompt === "string" ? request.prompt.trim() : ""
+	const command = typeof request.command === "string" ? request.command.trim().toLowerCase() : ""
+	switch (command) {
+		case "plan":
+			return prompt
+				? `Plan this task first before editing.\n\n${prompt}`
+				: "Plan the next CodeVibe task first before editing."
+		case "review":
+			return prompt
+				? `Review this request and prioritize bugs, risks, regressions, and missing tests.\n\n${prompt}`
+				: "Review the current workspace and prioritize bugs, risks, regressions, and missing tests."
+		default:
+			return prompt
+	}
+}
+
+function registerCodeVibeChatParticipant(context: vscode.ExtensionContext): void {
+	const chatApi = (vscode as typeof vscode & { chat?: NativeChatApi }).chat
+	if (!chatApi?.createChatParticipant) {
+		return
+	}
+
+	try {
+		const participant = chatApi.createChatParticipant(
+			CODEVIBE_CHAT_PARTICIPANT_ID,
+			async (request, _chatContext, stream, token) => {
+				const chatRequest = request as NativeChatRequest
+				const responseStream = stream as NativeChatResponseStream
+				const taskText = buildCodeVibeNativeChatTaskText(chatRequest)
+
+				responseStream.progress?.("Opening CodeVibe Agent...")
+				if (token.isCancellationRequested) {
+					return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID, cancelled: true } }
+				}
+
+				await showPreferredCodeVibeSurface(false, { allowOpenAiCodexSidebar: false })
+				await sendShowWebviewEvent(false)
+				if (taskText) {
+					await sendAddToInputEvent(taskText)
+					responseStream.markdown?.(
+						"Opened CodeVibe Agent and moved this prompt into the task box. Start the task there to use CodeVibe's planner, tools, diffs, terminal approvals, MCP, and browser automation.",
+					)
+				} else {
+					responseStream.markdown?.(
+						"Opened CodeVibe Agent. Start a task there to use CodeVibe's planner, tools, diffs, terminal approvals, MCP, and browser automation.",
+					)
+				}
+
+				return { metadata: { routedTo: CODEVIBE_CHAT_PARTICIPANT_ID } }
+			},
+		)
+		participant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
+		context.subscriptions.push(participant)
+	} catch (error) {
+		Logger.warn(
+			`Failed to register CodeVibe native chat participant: ${error instanceof Error ? error.message : String(error)}`,
+		)
+	}
+}
+
 async function openCodeVibeSurfaceForTaskUri(): Promise<void> {
 	await showPreferredCodeVibeSurface(true, { allowLegacyFallback: false })
 }
 
 async function showCodeVibeSurface(preserveEditorFocus: boolean): Promise<VscodeWebviewProvider> {
 	const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
-	await webview.show(preserveEditorFocus)
+	await webview.showPanel(preserveEditorFocus)
 	return webview
 }
 
 async function showPreferredCodeVibeSurface(
 	preserveEditorFocus: boolean,
-	options: { allowLegacyFallback?: boolean } = {},
+	options: { allowLegacyFallback?: boolean; allowOpenAiCodexSidebar?: boolean } = {},
 ): Promise<VscodeWebviewProvider> {
 	const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
 	const allowLegacyFallback = options.allowLegacyFallback ?? true
+	const allowOpenAiCodexSidebar = options.allowOpenAiCodexSidebar ?? true
 
 	await closeLegacyCodeVibePanels()
 
-	if (shouldPreferOpenAiCodexSidebar() && (await openOpenAiCodexSidebar())) {
+	if (allowOpenAiCodexSidebar && shouldPreferOpenAiCodexSidebar() && (await openOpenAiCodexSidebar())) {
 		return webview
 	}
 
@@ -810,7 +889,7 @@ async function showPreferredCodeVibeSurface(
 }
 
 function shouldPreferOpenAiCodexSidebar(): boolean {
-	return getCodeVibeConfigurationValue<boolean>("ui.preferOpenAiCodexSidebar", true)
+	return getCodeVibeConfigurationValue<boolean>("ui.preferOpenAiCodexSidebar", false)
 }
 
 async function openOpenAiCodexSidebar(): Promise<boolean> {
