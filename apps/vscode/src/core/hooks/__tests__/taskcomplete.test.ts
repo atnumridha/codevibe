@@ -101,7 +101,7 @@ console.log(JSON.stringify({
 			const hookPath = path.join(tempDir, ".codevibe", "hooks", "TaskComplete")
 			const hookScript = `#!/usr/bin/env node
 const input = JSON.parse(require('fs').readFileSync(0, 'utf-8'));
-const hasAllFields = input.clineVersion && input.hookName === 'TaskComplete' && 
+const hasAllFields = input.codevibeVersion && input.clineVersion && input.hookName === 'TaskComplete' && 
                      input.timestamp && input.taskId && 
                      input.workspaceRoots !== undefined &&
                      input.model && input.model.provider && input.model.slug;

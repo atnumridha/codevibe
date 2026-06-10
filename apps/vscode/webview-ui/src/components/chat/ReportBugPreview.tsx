@@ -15,6 +15,7 @@ const ReportBugPreview: React.FC<ReportBugPreviewProps> = ({ data }) => {
 			return {}
 		}
 	}, [data])
+	const codeVibeVersion = bugData.codevibe_version ?? bugData.cline_version
 
 	return (
 		<div className="bg-badge-background/50 text-badge-foreground rounded-xs p-3">
@@ -63,10 +64,10 @@ const ReportBugPreview: React.FC<ReportBugPreviewProps> = ({ data }) => {
 					</div>
 				)}
 
-				{bugData.cline_version && (
+				{codeVibeVersion && (
 					<div>
 						<div className="font-semibold">CodeVibe Version</div>
-						<MarkdownBlock markdown={bugData.cline_version} />
+						<MarkdownBlock markdown={codeVibeVersion} />
 					</div>
 				)}
 

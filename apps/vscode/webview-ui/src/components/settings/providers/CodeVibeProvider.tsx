@@ -1,6 +1,6 @@
 import { Mode } from "@shared/storage/types"
 import { CodeVibeAccountInfoCard } from "../CodeVibeAccountInfoCard"
-import ClineModelPicker from "../ClineModelPicker"
+import CodeVibeModelPicker from "../CodeVibeModelPicker"
 
 /**
  * Props for the CodeVibeProvider component
@@ -25,7 +25,7 @@ export const CodeVibeProvider = ({ showModelOptions, isPopup, currentMode, initi
 
 			{showModelOptions && (
 				<>
-					<ClineModelPicker
+					<CodeVibeModelPicker
 						currentMode={currentMode}
 						initialTab={initialModelTab}
 						isPopup={isPopup}

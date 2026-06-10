@@ -17,7 +17,10 @@ const scannedRoots = [
 	"walkthrough",
 	"assets",
 	"src/extension.ts",
+	"src/core/hooks",
+	"src/core/task/tools/handlers/ReportBugHandler.ts",
 	"src/hosts",
+	"src/services/lg-cns-integration",
 	"webview-ui/src",
 ]
 
@@ -53,6 +56,9 @@ const disallowedFragments = [
 	{ pattern: /cursor:\/\/createchat/g, label: "Cursor-first deeplink placeholder" },
 	{ pattern: /Cursor workspace/g, label: "Cursor-first MCP provenance label" },
 	{ pattern: /Cursor global/g, label: "Cursor-first MCP provenance label" },
+	{ pattern: /Current Cline extension version/g, label: "legacy hook metadata docs" },
+	{ pattern: /Cline user ID/g, label: "legacy hook user metadata docs" },
+	{ pattern: /Input:[\s\S]{0,160}clineVersion/g, label: "legacy hook template metadata" },
 ]
 
 const scannedVsixArtifacts = ["dist/e2e.vsix"]
@@ -124,10 +130,11 @@ function collectFindingsFromText(text, file) {
 	if (
 		!file.endsWith("ClineProvider.tsx") &&
 		!file.endsWith("ClineAccountInfoCard.tsx") &&
+		!file.endsWith("ClineModelPicker.tsx") &&
 		!file.endsWith("ClineRulesToggleModal.tsx")
 	) {
 		const legacySettingsProviderImportPattern =
-			/from\s+["'][^"']*(?:providers\/ClineProvider|ClineAccountInfoCard|ClineRulesToggleModal)["']/g
+			/from\s+["'][^"']*(?:providers\/ClineProvider|ClineAccountInfoCard|ClineModelPicker|ClineRulesToggleModal)["']/g
 		for (const match of text.matchAll(legacySettingsProviderImportPattern)) {
 			findings.push({
 				file,

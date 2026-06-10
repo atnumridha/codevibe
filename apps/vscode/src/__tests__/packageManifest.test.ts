@@ -85,7 +85,7 @@ describe("Package manifest", () => {
 		assert.equal(Object.hasOwn(views, "codevibe.agent"), false)
 		assert.equal(packageJSON.activationEvents.includes("onView:codevibe.agent.chat"), false)
 		assert.equal(packageJSON.activationEvents.includes("onView:codevibe-agent-chat"), true)
-		assert.equal(packageJSON.activationEvents.includes(`onChatSession:${CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE}`), true)
+		assert.equal(packageJSON.activationEvents.includes(`onChatSession:${CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE}`), false)
 		assert.equal(nativeAgentView?.visibility, "hidden")
 		assert.equal(
 			codeVibeAgentViews.some((view: { id?: string }) => view.id === "codevibe.SidebarProvider"),
@@ -195,6 +195,7 @@ describe("Package manifest", () => {
 		}
 		assert.equal(brandingAuditScript.includes("stale VSIX artifact version"), true)
 		assert.equal(brandingAuditScript.includes("extension.vsixmanifest"), true)
+		assert.equal(brandingAuditScript.includes("ClineModelPicker"), true)
 	})
 
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
@@ -224,6 +225,8 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("Repaired CodeVibe native agent cache file"), false)
 		assert.equal(packageScript.includes("removeInstalledNativeAgentCache(metadata)"), true)
 		assert.equal(packageScript.includes("Removed stale CodeVibe native agent cache"), true)
+		assert.equal(packageScript.includes("cleanLegacyCodeVibeNativeChatStateDatabase"), true)
+		assert.equal(packageScript.includes("agent-host-codevibe"), true)
 		assert.equal(packageScript.includes("resolveVsCodeExtensionsDir"), true)
 		assert.equal(packageScript.includes("fs.rmSync(extensionPath, { recursive: true, force: true })"), true)
 		assert.equal(packageScript.includes("installed VSIX package.json"), true)
@@ -248,14 +251,9 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("packageJson.contributes?.chatPromptFiles"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatSkills"), true)
 		assert.equal(extensionSource.includes("`id: ${CODEVIBE_CHAT_PARTICIPANT_ID}`"), true)
-		assert.equal(extensionSource.includes("hostChatParticipantRegistered"), true)
-		assert.equal(
-			extensionSource.includes(
-				"registerCodeVibeChatParticipant(\n\t\tcontext,\n\t\tnativeAgentRegistration,\n\t\tCODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE",
-			),
-			true,
-		)
-		assert.equal(extensionSource.includes("agentHostChatParticipant || defaultChatParticipant"), true)
+		assert.equal(extensionSource.includes("hostChatParticipantRegistered"), false)
+		assert.equal(extensionSource.includes("CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE"), false)
+		assert.equal(extensionSource.includes("agentHostChatParticipant || defaultChatParticipant"), false)
 		assert.equal(extensionSource.includes("await webview.showPanel(preserveEditorFocus)"), true)
 		assert.equal(extensionSource.includes("await webview.show(preserveEditorFocus)"), false)
 		assert.equal(webviewProviderSource.includes('createWebviewPanel(ExtensionRegistryInfo.views.Panel'), true)

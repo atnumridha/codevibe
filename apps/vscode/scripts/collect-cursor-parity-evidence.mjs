@@ -216,19 +216,208 @@ const sandboxPolicyCommands = [
 	},
 ]
 
+const deeplinkCommands = [
+	{
+		label: "Cursor-compatible deeplink route and shared handler tests",
+		command: "npm",
+		args: [
+			"--prefix",
+			"apps/vscode",
+			"run",
+			"test:unit",
+			"--",
+			"src/services/uri/CursorUriRoutes.test.ts",
+			"src/services/uri/SharedUriHandler.test.ts",
+			"src/services/uri/__tests__/CursorUriRoutes.background-agent.test.ts",
+			"src/services/uri/__tests__/CursorUriRoutes.git.test.ts",
+			"src/services/uri/__tests__/CursorUriRoutes.pr-review.test.ts",
+		],
+		cwd: repoRoot,
+		category: "deeplinks",
+	},
+]
+
+const ndjsonCommands = [
+	{
+		label: "Cursor NDJSON ingest server/startup/UI bridge tests",
+		command: "npm",
+		args: [
+			"--prefix",
+			"apps/vscode",
+			"run",
+			"test:unit",
+			"--",
+			"src/services/automation/CursorNdjsonIngestServer.test.ts",
+			"src/services/automation/CursorNdjsonIngestStartup.test.ts",
+			"src/core/controller/ui/__tests__/cursorNdjsonIngest.test.ts",
+		],
+		cwd: repoRoot,
+		category: "ndjson-ingest",
+	},
+]
+
+const backgroundAgentCommands = [
+	{
+		label: "Background-agent launch and persistence tests",
+		command: "npm",
+		args: [
+			"--prefix",
+			"apps/vscode",
+			"run",
+			"test:unit",
+			"--",
+			"src/core/controller/background-agent/__tests__/launch.test.ts",
+			"src/core/controller/background-agent/__tests__/persistence.test.ts",
+			"src/services/uri/__tests__/CursorUriRoutes.background-agent.test.ts",
+		],
+		cwd: repoRoot,
+		category: "background-agents",
+	},
+]
+
+const browserToolCommands = [
+	{
+		label: "Browser tool docs, settings, and session tests",
+		command: "npm",
+		args: [
+			"--prefix",
+			"apps/vscode",
+			"run",
+			"test:unit",
+			"--",
+			"src/services/browser/__tests__/BrowserSession.test.ts",
+			"src/shared/__tests__/BrowserSettings.test.ts",
+			"src/core/prompts/system-prompt/__tests__/spec.test.ts",
+			"--grep",
+			"BrowserSession|BrowserSettings|browser_action tool docs",
+		],
+		cwd: repoRoot,
+		category: "browser-tools",
+	},
+]
+
+const mermaidPlanningCommands = [
+	{
+		label: "Mermaid visual planning prompt tests",
+		command: "npm",
+		args: [
+			"--prefix",
+			"apps/vscode",
+			"run",
+			"test:unit",
+			"--",
+			"src/core/prompts/system-prompt/__tests__/visual-plan.test.ts",
+			"src/core/prompts/__tests__/deepPlanning.test.ts",
+			"--grep",
+			"visual planning prompt guidance|deepPlanningToolResponse",
+		],
+		cwd: repoRoot,
+		category: "mermaid-planning",
+	},
+	{
+		label: "Mermaid visual planning renderer tests",
+		command: "npm",
+		args: ["--prefix", "apps/vscode/webview-ui", "run", "test", "--", "src/components/common/MermaidBlock.spec.tsx"],
+		cwd: repoRoot,
+		category: "mermaid-planning",
+	},
+]
+
+const focusedCommandGroups = [
+	{
+		option: "runRetrievalIndexing",
+		flag: "--run-retrieval-indexing",
+		category: "retrieval-indexing",
+		title: "Retrieval/Indexing",
+		emptyLabel: "retrieval/indexing",
+		commands: retrievalIndexingCommands,
+	},
+	{
+		option: "runMcpOAuth",
+		flag: "--run-mcp-oauth",
+		category: "mcp-oauth",
+		title: "MCP Install/OAuth",
+		emptyLabel: "MCP install/OAuth",
+		commands: mcpOAuthCommands,
+	},
+	{
+		option: "runStandaloneUi",
+		flag: "--run-standalone-ui",
+		category: "standalone-ui",
+		title: "Standalone UI",
+		emptyLabel: "standalone UI",
+		commands: standaloneUiCommands,
+	},
+	{
+		option: "runSandboxPolicy",
+		flag: "--run-sandbox-policy",
+		category: "sandbox-policy",
+		title: "Sandbox Policy",
+		emptyLabel: "sandbox policy",
+		commands: sandboxPolicyCommands,
+	},
+	{
+		option: "runDeeplinks",
+		flag: "--run-deeplinks",
+		category: "deeplinks",
+		title: "Deeplinks",
+		emptyLabel: "deeplink",
+		commands: deeplinkCommands,
+	},
+	{
+		option: "runNdjson",
+		flag: "--run-ndjson",
+		category: "ndjson-ingest",
+		title: "NDJSON Ingest",
+		emptyLabel: "NDJSON ingest",
+		commands: ndjsonCommands,
+	},
+	{
+		option: "runBackgroundAgents",
+		flag: "--run-background-agents",
+		category: "background-agents",
+		title: "Background Agents",
+		emptyLabel: "background-agent",
+		commands: backgroundAgentCommands,
+	},
+	{
+		option: "runBrowserTools",
+		flag: "--run-browser-tools",
+		category: "browser-tools",
+		title: "Browser Tools",
+		emptyLabel: "browser-tool",
+		commands: browserToolCommands,
+	},
+	{
+		option: "runMermaidPlanning",
+		flag: "--run-mermaid-planning",
+		category: "mermaid-planning",
+		title: "Mermaid Planning",
+		emptyLabel: "Mermaid planning",
+		commands: mermaidPlanningCommands,
+	},
+]
+
 function usage() {
-	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [--run-retrieval-indexing] [--run-mcp-oauth] [--run-standalone-ui] [--run-sandbox-policy]
+	console.error(`Usage: collect-cursor-parity-evidence.mjs [--out-file <path>] [--run-required] [focused evidence flags]
 
 Generates a local Markdown evidence log for the Cursor-parity release gate.
 
 Default mode records safe, non-mutating probes and marks dependency/build/test
 commands as not run. Use --run-required only in a dependency-equipped checkout
 where npm install, build, test, e2e, package, and VSIX smoke install are expected
-to run. Use --run-retrieval-indexing to execute focused retrieval/indexing
-privacy evidence without running the full dependency/build/e2e gate. Use
---run-mcp-oauth to execute focused Cursor MCP import/install/OAuth evidence.
-Use --run-standalone-ui to execute focused standalone UI/readiness evidence.
-Use --run-sandbox-policy to execute focused .cursor/sandbox.json policy evidence.`)
+to run. Focused evidence flags can run narrower parity slices without running
+the full dependency/build/e2e gate:
+
+  --run-retrieval-indexing
+  --run-mcp-oauth
+  --run-standalone-ui
+  --run-sandbox-policy
+  --run-deeplinks
+  --run-ndjson
+  --run-background-agents
+  --run-browser-tools
+  --run-mermaid-planning`)
 }
 
 function parseArgs(argv) {
@@ -239,6 +428,11 @@ function parseArgs(argv) {
 		runMcpOAuth: false,
 		runStandaloneUi: false,
 		runSandboxPolicy: false,
+		runDeeplinks: false,
+		runNdjson: false,
+		runBackgroundAgents: false,
+		runBrowserTools: false,
+		runMermaidPlanning: false,
 	}
 
 	for (let index = 0; index < argv.length; index++) {
@@ -255,6 +449,11 @@ function parseArgs(argv) {
 			options.runMcpOAuth = true
 			options.runStandaloneUi = true
 			options.runSandboxPolicy = true
+			options.runDeeplinks = true
+			options.runNdjson = true
+			options.runBackgroundAgents = true
+			options.runBrowserTools = true
+			options.runMermaidPlanning = true
 		} else if (arg === "--run-retrieval-indexing") {
 			options.runRetrievalIndexing = true
 		} else if (arg === "--run-mcp-oauth") {
@@ -263,6 +462,16 @@ function parseArgs(argv) {
 			options.runStandaloneUi = true
 		} else if (arg === "--run-sandbox-policy") {
 			options.runSandboxPolicy = true
+		} else if (arg === "--run-deeplinks") {
+			options.runDeeplinks = true
+		} else if (arg === "--run-ndjson") {
+			options.runNdjson = true
+		} else if (arg === "--run-background-agents") {
+			options.runBackgroundAgents = true
+		} else if (arg === "--run-browser-tools") {
+			options.runBrowserTools = true
+		} else if (arg === "--run-mermaid-planning") {
+			options.runMermaidPlanning = true
 		} else if (arg === "-h" || arg === "--help") {
 			usage()
 			process.exit(0)
@@ -326,30 +535,9 @@ function skippedCommand({ label, command, args }, reason) {
 	}
 }
 
-function skippedRetrievalIndexingCommand(command) {
+function skippedFocusedCommand(command, flag) {
 	return {
-		...skippedCommand(command, "Skipped by default; rerun with --run-retrieval-indexing or --run-required."),
-		category: command.category,
-	}
-}
-
-function skippedMcpOAuthCommand(command) {
-	return {
-		...skippedCommand(command, "Skipped by default; rerun with --run-mcp-oauth or --run-required."),
-		category: command.category,
-	}
-}
-
-function skippedStandaloneUiCommand(command) {
-	return {
-		...skippedCommand(command, "Skipped by default; rerun with --run-standalone-ui or --run-required."),
-		category: command.category,
-	}
-}
-
-function skippedSandboxPolicyCommand(command) {
-	return {
-		...skippedCommand(command, "Skipped by default; rerun with --run-sandbox-policy or --run-required."),
+		...skippedCommand(command, `Skipped by default; rerun with ${flag} or --run-required.`),
 		category: command.category,
 	}
 }
@@ -454,77 +642,49 @@ Stderr:${fenced(result.stderr)}
 `
 }
 
-function renderRetrievalIndexingEvidence(results) {
-	const retrievalResults = results.filter((result) => result.category === "retrieval-indexing")
-	if (retrievalResults.length === 0) {
-		return "_No retrieval/indexing evidence commands were configured._"
-	}
-	const rows = retrievalResults.map(
-		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
-	)
-	return [
-		"| Status | Check | Command |",
-		"| --- | --- | --- |",
-		...rows,
-		"",
+const focusedEvidenceDescriptions = {
+	"retrieval-indexing":
 		"Focused evidence covers Cursor-compatible retrieval privacy for `.cursorignore`, `.cursorindexingignore`, host-index search, ripgrep fallback, `list_files`, `search_files`, and hub mention-search workspace boundaries.",
-	].join("\n")
-}
-
-function renderMcpOAuthEvidence(results) {
-	const mcpResults = results.filter((result) => result.category === "mcp-oauth")
-	if (mcpResults.length === 0) {
-		return "_No MCP install/OAuth evidence commands were configured._"
-	}
-	const rows = mcpResults.map(
-		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
-	)
-	return [
-		"| Status | Check | Command |",
-		"| --- | --- | --- |",
-		...rows,
-		"",
+	"mcp-oauth":
 		"Focused evidence covers Cursor-compatible MCP install routes, OAuth callback handling, hub `.cursor/mcp.json` import/source ownership, sanitized OAuth status, and standalone MCP authorization wiring.",
-	].join("\n")
-}
-
-function renderStandaloneUiEvidence(results) {
-	const standaloneResults = results.filter((result) => result.category === "standalone-ui")
-	if (standaloneResults.length === 0) {
-		return "_No standalone UI evidence commands were configured._"
-	}
-	const rows = standaloneResults.map(
-		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
-	)
-	return [
-		"| Status | Check | Command |",
-		"| --- | --- | --- |",
-		...rows,
-		"",
-		"Focused evidence covers the VS-Code-free standalone package artifact, `standalone.zip` manifest contract, extracted-package launchability, hub UI route surface, dynamic standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
-		"",
-		"Standalone package: `npm --prefix apps/vscode run compile-standalone` builds `dist-standalone/standalone.zip` and runs `scripts/verify-standalone-package.mjs` against `standalone-manifest.json`, `codevibe-core.js`, the ProtoBus descriptor set, webview assets, external HostBridge requirements, and packaged native-module targets.",
-		"",
-		"Extracted package smoke: `npm --prefix apps/vscode run smoke:standalone-package` extracts `standalone.zip`, resolves `standalone-manifest.json` target/native-module `NODE_PATH`, starts the mock HostBridge and API server, launches `codevibe-core.js` from the extracted root, and waits for ProtoBus gRPC health.",
-		"",
-		"Readiness endpoint: `GET /api/standalone-readiness` returns redacted capability metadata for CodeVibe standalone mode, Codex Home auth support, live hub/UI-client availability, Cursor-compatible routes, desktop commands, and settings surfaces.",
-	].join("\n")
-}
-
-function renderSandboxPolicyEvidence(results) {
-	const sandboxResults = results.filter((result) => result.category === "sandbox-policy")
-	if (sandboxResults.length === 0) {
-		return "_No sandbox policy evidence commands were configured._"
-	}
-	const rows = sandboxResults.map(
-		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
-	)
-	return [
-		"| Status | Check | Command |",
-		"| --- | --- | --- |",
-		...rows,
-		"",
+	"standalone-ui":
+		[
+			"Focused evidence covers the VS-Code-free standalone package artifact, `standalone.zip` manifest contract, extracted-package launchability, hub UI route surface, dynamic standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
+			"",
+			"Standalone package: `npm --prefix apps/vscode run compile-standalone` builds `dist-standalone/standalone.zip` and runs `scripts/verify-standalone-package.mjs` against `standalone-manifest.json`, `codevibe-core.js`, the ProtoBus descriptor set, webview assets, external HostBridge requirements, and packaged native-module targets.",
+			"",
+			"Extracted package smoke: `npm --prefix apps/vscode run smoke:standalone-package` extracts `standalone.zip`, resolves `standalone-manifest.json` target/native-module `NODE_PATH`, starts the mock HostBridge and API server, launches `codevibe-core.js` from the extracted root, and waits for ProtoBus gRPC health.",
+			"",
+			"Readiness endpoint: `GET /api/standalone-readiness` returns redacted capability metadata for CodeVibe standalone mode, Codex Home auth support, live hub/UI-client availability, Cursor-compatible routes, desktop commands, and settings surfaces.",
+		].join("\n"),
+	"sandbox-policy":
 		"Focused evidence covers Cursor-compatible `.cursor/sandbox.json` parsing, conservative defaults, read/write path enforcement, network allow/deny validation, and path-handler blocking before filesystem, tree-sitter, or ripgrep work starts.",
+	deeplinks:
+		"Focused evidence covers Cursor-compatible URI route validation, confirmation prompts, CodeVibe VS Code authority links, legacy Cline authority aliases, background-agent/git/PR/plugin/rule/command/settings/glass routes, and disabled deep-link gates.",
+	"ndjson-ingest":
+		"Focused evidence covers Cursor-compatible automation NDJSON parser limits, loopback server auth, startup behavior, bridge commands, curl/status controls, and strict-mode preview handling.",
+	"background-agents":
+		"Focused evidence covers conservative background-agent launch defaults, worktree-safe launch records, persistence normalization, route parsing, and lifecycle metadata.",
+	"browser-tools":
+		"Focused evidence covers browser session behavior, safe evaluate defaults, Cursor-compatible browser settings, and prompt/tool documentation for snapshot, screenshot, launch, click, type, and navigate actions.",
+	"mermaid-planning":
+		"Focused evidence covers visual Mermaid planning prompt guidance, deep-planning fallback text, and webview Mermaid rendering.",
+}
+
+function renderFocusedEvidence(results, category, emptyLabel) {
+	const categoryResults = results.filter((result) => result.category === category)
+	if (categoryResults.length === 0) {
+		return `_No ${emptyLabel} evidence commands were configured._`
+	}
+	const rows = categoryResults.map(
+		(result) => `| ${statusMarker(result.status)} | ${result.label.replaceAll("|", "\\|")} | \`${result.command}\` |`,
+	)
+	return [
+		"| Status | Check | Command |",
+		"| --- | --- | --- |",
+		...rows,
+		"",
+		focusedEvidenceDescriptions[category] ?? "",
 	].join("\n")
 }
 
@@ -550,12 +710,19 @@ function renderEvidence({
 	results,
 	prereqSummary,
 	runRequired,
-	runRetrievalIndexing,
-	runMcpOAuth,
-	runStandaloneUi,
-	runSandboxPolicy,
+	options,
 }) {
 	const generatedAt = new Date().toISOString()
+	const focusedExecutionLines = focusedCommandGroups
+		.map((group) => `- Focused ${group.emptyLabel} evidence executed: ${options[group.option] ? "yes" : "no"}`)
+		.join("\n")
+	const focusedEvidenceSections = focusedCommandGroups
+		.map(
+			(group) => `## ${group.title} Evidence
+
+${renderFocusedEvidence(results, group.category, group.emptyLabel)}`,
+		)
+		.join("\n\n")
 	return `# CodeVibe Cursor-Parity Evidence
 
 Generated: ${generatedAt}
@@ -575,30 +742,13 @@ ${fenced(metadata.vsCodeVersion)}
 - Evidence owner:
 - Validation date: ${generatedAt.slice(0, 10)}
 - Required dependency/build commands executed: ${runRequired ? "yes" : "no"}
-- Focused retrieval/indexing evidence executed: ${runRetrievalIndexing ? "yes" : "no"}
-- Focused MCP install/OAuth evidence executed: ${runMcpOAuth ? "yes" : "no"}
-- Focused standalone UI evidence executed: ${runStandaloneUi ? "yes" : "no"}
-- Focused sandbox policy evidence executed: ${runSandboxPolicy ? "yes" : "no"}
+${focusedExecutionLines}
 
 ## Preflight Summary
 
 ${renderPrereqTable(prereqSummary)}
 
-## Retrieval/Indexing Evidence
-
-${renderRetrievalIndexingEvidence(results)}
-
-## MCP Install/OAuth Evidence
-
-${renderMcpOAuthEvidence(results)}
-
-## Standalone UI Evidence
-
-${renderStandaloneUiEvidence(results)}
-
-## Sandbox Policy Evidence
-
-${renderSandboxPolicyEvidence(results)}
+${focusedEvidenceSections}
 
 ## Command Evidence
 
@@ -696,52 +846,18 @@ function main() {
 			results.push(skippedCommand(command, reason))
 		}
 	}
-	if (options.runRetrievalIndexing) {
-		for (const command of retrievalIndexingCommands) {
-			results.push({
-				...runCommand(command),
-				category: command.category,
-			})
-		}
-	} else {
-		for (const command of retrievalIndexingCommands) {
-			results.push(skippedRetrievalIndexingCommand(command))
-		}
-	}
-	if (options.runMcpOAuth) {
-		for (const command of mcpOAuthCommands) {
-			results.push({
-				...runCommand(command),
-				category: command.category,
-			})
-		}
-	} else {
-		for (const command of mcpOAuthCommands) {
-			results.push(skippedMcpOAuthCommand(command))
-		}
-	}
-	if (options.runStandaloneUi) {
-		for (const command of standaloneUiCommands) {
-			results.push({
-				...runCommand(command),
-				category: command.category,
-			})
-		}
-	} else {
-		for (const command of standaloneUiCommands) {
-			results.push(skippedStandaloneUiCommand(command))
-		}
-	}
-	if (options.runSandboxPolicy) {
-		for (const command of sandboxPolicyCommands) {
-			results.push({
-				...runCommand(command),
-				category: command.category,
-			})
-		}
-	} else {
-		for (const command of sandboxPolicyCommands) {
-			results.push(skippedSandboxPolicyCommand(command))
+	for (const group of focusedCommandGroups) {
+		if (options[group.option]) {
+			for (const command of group.commands) {
+				results.push({
+					...runCommand(command),
+					category: command.category,
+				})
+			}
+		} else {
+			for (const command of group.commands) {
+				results.push(skippedFocusedCommand(command, group.flag))
+			}
 		}
 	}
 
@@ -750,10 +866,7 @@ function main() {
 		results,
 		prereqSummary: parsePrereqSummary(results),
 		runRequired: options.runRequired,
-		runRetrievalIndexing: options.runRetrievalIndexing,
-		runMcpOAuth: options.runMcpOAuth,
-		runStandaloneUi: options.runStandaloneUi,
-		runSandboxPolicy: options.runSandboxPolicy,
+		options,
 	})
 
 	fs.mkdirSync(path.dirname(options.outFile), { recursive: true })
@@ -781,13 +894,9 @@ function main() {
 			}
 		}
 	}
+	const ranFocusedEvidence = focusedCommandGroups.some((group) => options[group.option])
 	process.exit(
-		failed === 0 &&
-			(skipped === 0 ||
-				options.runRetrievalIndexing ||
-				options.runMcpOAuth ||
-				options.runStandaloneUi ||
-				options.runSandboxPolicy)
+		failed === 0 && (skipped === 0 || ranFocusedEvidence)
 			? 0
 			: 1,
 	)

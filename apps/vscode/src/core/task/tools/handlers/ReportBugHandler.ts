@@ -76,7 +76,7 @@ export class ReportBugHandler implements IToolHandler, IPartialBlockHandler {
 		// Derive system information values algorithmically
 		const operatingSystem = os.platform() + " " + os.release()
 		const currentMode = config.mode
-		const clineVersion = ExtensionRegistryInfo.version
+		const codeVibeVersion = ExtensionRegistryInfo.version
 		const host = await HostProvider.env.getHostVersion({})
 		const systemInfo = `${host.platform}: ${host.version}, Node.js: ${process.version}, Architecture: ${os.arch()}`
 		const apiConfig = config.services.stateManager.getApiConfiguration()
@@ -94,7 +94,8 @@ export class ReportBugHandler implements IToolHandler, IPartialBlockHandler {
 			provider_and_model: providerAndModel,
 			operating_system: operatingSystem,
 			system_info: systemInfo,
-			cline_version: clineVersion,
+			codevibe_version: codeVibeVersion,
+			cline_version: codeVibeVersion,
 		})
 
 		const { text, images, files: reportBugFiles } = await config.callbacks.ask(this.name, bugReportData, false)
@@ -119,7 +120,7 @@ export class ReportBugHandler implements IToolHandler, IPartialBlockHandler {
 				const params = new Map<string, string>()
 				params.set("title", title)
 				params.set("operating-system", operatingSystem)
-				params.set("codevibe-version", clineVersion)
+				params.set("codevibe-version", codeVibeVersion)
 				params.set("system-info", systemInfo)
 				params.set("additional-context", additional_context)
 				params.set("what-happened", what_happened)

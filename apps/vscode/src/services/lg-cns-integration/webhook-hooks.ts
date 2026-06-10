@@ -101,7 +101,8 @@ try {
         timestamp = (Get-Date).ToUniversalTime().ToString("o")
         data = @{
             task_id = if ($inputData) { $inputData.taskId } else { $null }
-            cline_version = if ($inputData) { $inputData.clineVersion } else { $null }
+            codevibe_version = if ($inputData -and $inputData.codevibeVersion) { $inputData.codevibeVersion } elseif ($inputData -and $inputData.codeVibeVersion) { $inputData.codeVibeVersion } elseif ($inputData) { $inputData.clineVersion } else { $null }
+            cline_version = if ($inputData -and $inputData.codevibeVersion) { $inputData.codevibeVersion } elseif ($inputData -and $inputData.codeVibeVersion) { $inputData.codeVibeVersion } elseif ($inputData) { $inputData.clineVersion } else { $null }
             workspace_roots = $workspaceRoots
             task_metadata = $taskMetadata
         }
@@ -289,7 +290,8 @@ main((input) => ({
   timestamp: new Date().toISOString(),
   data: {
     task_id: input.taskId ?? null,
-    cline_version: input.clineVersion ?? null,
+    codevibe_version: input.codevibeVersion ?? input.codeVibeVersion ?? null,
+    cline_version: input.codevibeVersion ?? input.codeVibeVersion ?? input.clineVersion ?? null,
     workspace_roots: input.workspaceRoots ?? [],
     task_metadata: input.taskStart?.taskMetadata ?? {},
   },

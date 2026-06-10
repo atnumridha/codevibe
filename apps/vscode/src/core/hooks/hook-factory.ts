@@ -1,7 +1,7 @@
 import fs from "fs/promises"
 import path from "path"
 import { Logger } from "@/shared/services/Logger"
-import { version as clineVersion } from "../../../package.json"
+import { version as codeVibeVersion } from "../../../package.json"
 import { getDistinctId } from "../../services/logging/distinctId"
 import { telemetryService } from "../../services/telemetry"
 import {
@@ -139,7 +139,7 @@ type HookName = keyof Hooks
 
 /**
  * The hook input parameters for a named hook. These are the parameters the caller must
- * provide--the other common parameters like clineVersion and userId are handled by the
+ * provide--the other common parameters like codevibeVersion and userId are handled by the
  * hook system.
  */
 export type NamedHookInput<Name extends HookName> = {
@@ -183,11 +183,12 @@ export abstract class HookRunner<Name extends HookName> {
 	 *
 	 * This method enriches the hook-specific input (like preToolUse or postToolUse data)
 	 * with standard information that all hooks receive:
-	 * - clineVersion: Current Cline extension version
+	 * - codevibeVersion: Current CodeVibe extension version
+	 * - clineVersion: Legacy compatibility alias for existing hook scripts
 	 * - hookName: The type of hook being executed (e.g., "PreToolUse")
 	 * - timestamp: Execution time in milliseconds since epoch
 	 * - workspaceRoots: Array of workspace folder paths
-	 * - userId: Cline user ID, machine ID, or generated UUID
+	 * - userId: CodeVibe user ID, machine ID, or generated UUID
 	 *
 	 * This separation allows hook scripts to receive consistent metadata without
 	 * requiring callers to manually provide it each time.
@@ -207,11 +208,12 @@ export abstract class HookRunner<Name extends HookName> {
 		}
 
 		return {
-			clineVersion,
+			codevibeVersion: codeVibeVersion,
+			clineVersion: codeVibeVersion,
 			hookName: this.hookName,
 			timestamp: Date.now().toString(),
 			workspaceRoots,
-			userId: getDistinctId(), // Always available: Cline User ID, machine ID, or generated UUID
+			userId: getDistinctId(), // Always available: CodeVibe user ID, machine ID, or generated UUID
 			...params,
 			model,
 		}
@@ -816,7 +818,7 @@ export class HookFactory {
 
 	/**
 	 * Checks if a hooks directory is a global hooks directory.
-	 * Global hooks are located in paths containing "CodeVibe/Hooks" or the legacy "Cline/Hooks".
+	 * Global hooks are located in CodeVibe hook paths or legacy hook paths from pre-rename installs.
 	 */
 	private static isGlobalHooksDir(dir: string): boolean {
 		return /[/\\](?:[Cc]ode[Vv]ibe|[Cc]line)[/\\][Hh]ooks/i.test(dir)

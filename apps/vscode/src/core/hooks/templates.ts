@@ -57,7 +57,7 @@ function getTaskStartTemplate(): string {
 #   taskStart: { 
 #     taskMetadata: { taskId: string, ulid: string, initialTask: string } 
 #   }, 
-#   clineVersion, timestamp, ... 
+#   codevibeVersion, timestamp, ... 
 # }
 # Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
 # 
@@ -113,7 +113,7 @@ function getTaskResumeTemplate(): string {
 #     taskMetadata: { taskId: string, ulid: string },
 #     previousState: { lastMessageTs: string, messageCount: string, conversationHistoryDeleted: string }
 #   }, 
-#   clineVersion, timestamp, ... 
+#   codevibeVersion, timestamp, ... 
 # }
 # Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
 # 
@@ -153,7 +153,7 @@ function getTaskCancelTemplate(): string {
 #   taskCancel: { 
 #     taskMetadata: { taskId: string, ulid: string, completionStatus: string } 
 #   }, 
-#   clineVersion, timestamp, ... 
+#   codevibeVersion, timestamp, ... 
 # }
 # Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
 # 
@@ -193,7 +193,7 @@ function getTaskCompleteTemplate(): string {
 #   taskComplete: { 
 #     taskMetadata: { taskId: string, ulid: string, result: string, command: string } 
 #   }, 
-#   clineVersion, timestamp, ... 
+#   codevibeVersion, timestamp, ... 
 # }
 # Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
 # 
@@ -321,7 +321,7 @@ function getUserPromptSubmitTemplate(): string {
 # 
 # Executes when the user submits a prompt to CodeVibe.
 # 
-# Input: { taskId, userPromptSubmit: { prompt: string, attachments: string[] }, clineVersion, timestamp, ... }
+# Input: { taskId, userPromptSubmit: { prompt: string, attachments: string[] }, codevibeVersion, timestamp, ... }
 # Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
 # 
 # Use cases:
@@ -370,7 +370,7 @@ function getNotificationTemplate(): string {
 #     requiresUserAction: boolean,
 #     severity: string
 #   },
-#   clineVersion,
+#   codevibeVersion,
 #   timestamp,
 #   ...
 # }
