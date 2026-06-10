@@ -2,6 +2,7 @@
 
 import fs from "node:fs"
 import path from "node:path"
+import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
 
 const __filename = fileURLToPath(import.meta.url)
@@ -19,6 +20,8 @@ Options:
   --title <text>        Release title. Defaults to the tag.
   --notes <text>        Release body text.
   --notes-file <path>   Read release body text from a file.
+  --target-commitish <ref>
+                        Commit/ref to create a new release tag from. Defaults to the current HEAD.
   --prerelease          Mark the release as a prerelease.
   --draft               Create or keep the release as a draft.
   --dry-run             Validate inputs and print the planned release request only.
@@ -33,6 +36,7 @@ function parseArgs(argv) {
 		title: undefined,
 		notes: "",
 		notesFile: undefined,
+		targetCommitish: undefined,
 		prerelease: false,
 		draft: false,
 		dryRun: false,
@@ -52,6 +56,8 @@ function parseArgs(argv) {
 			options.notes = requireValue(argv, ++index, arg)
 		} else if (arg === "--notes-file") {
 			options.notesFile = requireValue(argv, ++index, arg)
+		} else if (arg === "--target-commitish") {
+			options.targetCommitish = requireValue(argv, ++index, arg)
 		} else if (arg === "--prerelease") {
 			options.prerelease = true
 		} else if (arg === "--draft") {
@@ -94,6 +100,17 @@ function defaultVsixPath(version) {
 	return path.join(projectRoot, "dist", `codevibe-${version}.vsix`)
 }
 
+function getCurrentGitHead() {
+	const result = spawnSync("git", ["rev-parse", "HEAD"], {
+		cwd: path.join(projectRoot, "..", ".."),
+		encoding: "utf8",
+	})
+	if (result.status !== 0) {
+		throw new Error(`Unable to resolve current git HEAD for release target: ${result.stderr || result.stdout}`)
+	}
+	return result.stdout.trim()
+}
+
 function resolveInputs(rawOptions) {
 	const version = readPackageVersion()
 	const repo = parseRepo(rawOptions.repo ?? "atnumridha/codevibe")
@@ -103,6 +120,7 @@ function resolveInputs(rawOptions) {
 		? fs.readFileSync(path.resolve(process.cwd(), rawOptions.notesFile), "utf8")
 		: rawOptions.notes
 	const title = rawOptions.title ?? tag
+	const targetCommitish = rawOptions.targetCommitish ?? getCurrentGitHead()
 	const stat = fs.statSync(vsixPath)
 	if (!stat.isFile() || stat.size <= 0) {
 		throw new Error(`VSIX path must point at a non-empty file: ${vsixPath}`)
@@ -116,6 +134,7 @@ function resolveInputs(rawOptions) {
 		assetName: path.basename(vsixPath),
 		title,
 		notes,
+		targetCommitish,
 		vsixBytes: stat.size,
 		version,
 	}
@@ -181,6 +200,7 @@ async function createRelease(inputs, token) {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({
 				tag_name: inputs.tag,
+				target_commitish: inputs.targetCommitish,
 				name: inputs.title,
 				body: inputs.notes,
 				prerelease: inputs.prerelease,
@@ -250,6 +270,7 @@ function printDryRun(inputs) {
 				dryRun: true,
 				repo: inputs.repo.slug,
 				tag: inputs.tag,
+				targetCommitish: inputs.targetCommitish,
 				title: inputs.title,
 				vsixPath: inputs.vsixPath,
 				assetName: inputs.assetName,
