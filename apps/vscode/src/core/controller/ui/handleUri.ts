@@ -5,7 +5,7 @@ import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
 import type { Controller } from "../index"
 
 /**
- * Handles Cline and Cursor-compatible deep links for external/standalone clients.
+ * Handles editor-compatible deep links for external/standalone clients.
  */
 export async function handleUri(_controller: Controller, request: StringRequest): Promise<BooleanResponse> {
 	const value = request.value?.trim()

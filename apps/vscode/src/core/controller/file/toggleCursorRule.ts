@@ -4,10 +4,10 @@ import { Logger } from "@/shared/services/Logger"
 import type { Controller } from "../index"
 
 /**
- * Toggles a Cursor rule (enable or disable)
+ * Toggles an editor-compatible rule (enable or disable)
  * @param controller The controller instance
  * @param request The toggle request
- * @returns The updated Cursor rule toggles
+ * @returns The updated editor-compatible rule toggles
  */
 export async function toggleCursorRule(controller: Controller, request: ToggleCursorRuleRequest): Promise<ClineRulesToggles> {
 	const { rulePath, enabled } = request

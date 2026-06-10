@@ -649,7 +649,9 @@ function createGithubVsixPackageJson(packageJson) {
 		},
 		"",
 	)
-	delete githubVsixPackageJson["lint-staged"]
+	for (const key of ["scripts", "lint-staged", "devDependencies"]) {
+		delete githubVsixPackageJson[key]
+	}
 	return githubVsixPackageJson
 }
 
@@ -1324,6 +1326,18 @@ function assertCodeVibeChatResourceContributions(entries, expectedPaths, kind, l
 	}
 }
 
+function assertPackagedManifestNoDevMetadata(packageJson, label) {
+	for (const key of ["scripts", "lint-staged", "devDependencies"]) {
+		if (Object.hasOwn(packageJson, key)) {
+			throw new Error(`${label} must not include development-only ${key}`)
+		}
+	}
+	const serialized = JSON.stringify(packageJson)
+	if (serialized.includes("upstream:cline") || serialized.includes("prepare-upstream-cline-patch")) {
+		throw new Error(`${label} must not expose legacy upstream patch script names`)
+	}
+}
+
 function brandPackagedMarkdownAssets() {
 	const snapshot = new Map()
 	for (const assetPath of packagedMarkdownAssetPaths) {
@@ -1754,6 +1768,7 @@ function assertPackagedVsix(outPath, metadata) {
 		)
 	}
 	assertCursorParityManifest(packagedPackageJson, "packaged VSIX manifest")
+	assertPackagedManifestNoDevMetadata(packagedPackageJson, "packaged VSIX manifest")
 	for (const assetPath of collectManifestAssetPaths(packagedPackageJson)) {
 		const entryName = `extension/${assetPath.replace(/\\/g, "/")}`
 		if (!zipHasEntry(zip, entryName)) {
@@ -1801,6 +1816,7 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 		const installedPackageJson = JSON.parse(fs.readFileSync(installedManifestPath, "utf8"))
 		assertCursorParityManifest(installedPackageJson, "installed VSIX package.json")
 		assertNativeCodeVibeContributionIds(installedPackageJson, "installed VSIX package.json")
+		assertPackagedManifestNoDevMetadata(installedPackageJson, "installed VSIX package.json")
 		console.log(`VSIX smoke install verified ${expectedExtension} using isolated VS Code directories`)
 	} finally {
 		fs.rmSync(tempRoot, { recursive: true, force: true })

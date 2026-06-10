@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.49",
+	"version": "3.88.50",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -756,9 +756,9 @@
 		"release:cursor-parity:evidence:sandbox": "node scripts/collect-cursor-parity-evidence.mjs --run-sandbox-policy",
 		"release:cursor-parity:evidence:full": "node scripts/collect-cursor-parity-evidence.mjs --run-required",
 		"release:standalone:assets": "node scripts/prepare-standalone-release-assets.mjs",
-		"upstream:cline:plan": "node scripts/prepare-upstream-cline-patch.mjs",
-		"upstream:cline:fetch": "node scripts/prepare-upstream-cline-patch.mjs --fetch --write-report",
-		"upstream:cline:export-patch": "node scripts/prepare-upstream-cline-patch.mjs --export-patch --write-report",
+		"upstream:base:plan": "node scripts/prepare-upstream-base-patch.mjs",
+		"upstream:base:fetch": "node scripts/prepare-upstream-base-patch.mjs --fetch --write-report",
+		"upstream:base:export-patch": "node scripts/prepare-upstream-base-patch.mjs --export-patch --write-report",
 		"package:github-vsix": "node scripts/package-github-vsix.mjs",
 		"package:github-vsix:release": "node scripts/package-github-vsix.mjs --require-release-gate",
 		"test:e2e:build": "node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix",

@@ -253,6 +253,26 @@ describe("Package manifest", () => {
 		assert.equal(stableWorkflow.includes("continue-on-error:"), false)
 	})
 
+	it("keeps upstream base patch scripts CodeVibe-native and strips them from packaged metadata", async () => {
+		const packageJSON = await readPackageManifest()
+		const packageScript = await readFile(path.join(vscodeRoot, "scripts", "package-github-vsix.mjs"), "utf8")
+		const scriptNames = Object.keys(packageJSON.scripts ?? {})
+
+		assert.equal(packageJSON.scripts?.["upstream:base:plan"], "node scripts/prepare-upstream-base-patch.mjs")
+		assert.equal(
+			packageJSON.scripts?.["upstream:base:fetch"],
+			"node scripts/prepare-upstream-base-patch.mjs --fetch --write-report",
+		)
+		assert.equal(
+			packageJSON.scripts?.["upstream:base:export-patch"],
+			"node scripts/prepare-upstream-base-patch.mjs --export-patch --write-report",
+		)
+		assert.equal(scriptNames.some((name) => name.startsWith("upstream:cline:")), false)
+		assert.equal(packageScript.includes('for (const key of ["scripts", "lint-staged", "devDependencies"])'), true)
+		assert.equal(packageScript.includes("assertPackagedManifestNoDevMetadata(packagedPackageJson"), true)
+		assert.equal(packageScript.includes("assertPackagedManifestNoDevMetadata(installedPackageJson"), true)
+	})
+
 	it("brands the standalone runtime entrypoint as CodeVibe core", async () => {
 		const packageJSON = await readPackageManifest()
 		const runtimePackage = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package.json"))

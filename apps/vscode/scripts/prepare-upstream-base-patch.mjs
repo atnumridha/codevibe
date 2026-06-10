@@ -10,11 +10,11 @@ const vscodeRoot = path.resolve(scriptDir, "..")
 const repoRoot = path.resolve(vscodeRoot, "../..")
 
 const defaultOptions = {
-	remoteName: "cline-upstream",
+	remoteName: "codevibe-base-upstream",
 	upstreamUrl: "https://github.com/cline/cline.git",
 	upstreamRef: "main",
 	baseRef: "HEAD",
-	outDir: path.join(repoRoot, ".codevibe", "upstream-cline"),
+	outDir: path.join(repoRoot, ".codevibe", "upstream-base"),
 	fetch: false,
 	exportPatch: false,
 	writeReport: false,
@@ -191,17 +191,17 @@ const overlayRiskRules = [
 ]
 
 function printHelp() {
-	console.log(`CodeVibe upstream Cline patch intake
+	console.log(`CodeVibe upstream base patch intake
 
 Usage:
-  node apps/vscode/scripts/prepare-upstream-cline-patch.mjs [options]
+  node apps/vscode/scripts/prepare-upstream-base-patch.mjs [options]
 
 Options:
-  --remote-name <name>      Upstream git remote name. Default: cline-upstream
-  --upstream-url <url>      Upstream Cline git URL. Default: https://github.com/cline/cline.git
+  --remote-name <name>      Upstream base git remote name. Default: codevibe-base-upstream
+  --upstream-url <url>      Upstream base git URL. Default: https://github.com/cline/cline.git
   --upstream-ref <ref>      Upstream branch/tag/ref to inspect. Default: main
   --base-ref <ref>          CodeVibe base ref to compare against. Default: HEAD
-  --out-dir <path>          Report/patch output directory. Default: .codevibe/upstream-cline
+  --out-dir <path>          Report/patch output directory. Default: .codevibe/upstream-base
   --fetch                   Add/fetch the upstream remote before planning
   --export-patch            Write a binary git patch when the upstream ref is locally available
   --write-report            Write the intake report JSON to --out-dir
@@ -210,9 +210,9 @@ Options:
   --help                    Show this help
 
 Typical flow:
-  npm --prefix apps/vscode run upstream:cline:plan -- --fetch --upstream-ref main --write-report
-  git switch -c codex/cline-upstream-main
-  npm --prefix apps/vscode run upstream:cline:plan -- --export-patch --write-report
+  npm --prefix apps/vscode run upstream:base:plan -- --fetch --upstream-ref main --write-report
+  git switch -c codex/upstream-base-main
+  npm --prefix apps/vscode run upstream:base:plan -- --export-patch --write-report
   Apply one patch layer at a time, then run the guard commands printed in the report.
 `)
 }
@@ -463,8 +463,8 @@ function buildReport(options, dirtyFiles, upstream, exportedPatch) {
 		finalValidationCommands,
 		githubReleaseValidationCommands,
 		recommendedCommands: [
-			`npm --prefix apps/vscode run upstream:cline:plan -- --fetch --upstream-ref ${options.upstreamRef} --write-report`,
-			`git switch -c codex/cline-upstream-${options.upstreamRef.replace(/[^a-zA-Z0-9._-]+/g, "-")}`,
+			`npm --prefix apps/vscode run upstream:base:plan -- --fetch --upstream-ref ${options.upstreamRef} --write-report`,
+			`git switch -c codex/upstream-base-${options.upstreamRef.replace(/[^a-zA-Z0-9._-]+/g, "-")}`,
 			"Apply one layer at a time from the generated report or patch file.",
 			"Re-apply or preserve the CodeVibe overlay files listed in the report before packaging.",
 			...brandGuardCommands,
@@ -482,7 +482,7 @@ function writeReport(options, report) {
 }
 
 function printReadableReport(report, reportPath) {
-	console.log("CodeVibe upstream Cline patch intake")
+	console.log("CodeVibe upstream base patch intake")
 	console.log(`Branch: ${report.branch}`)
 	console.log(`HEAD: ${report.head}`)
 	console.log(`Upstream: ${report.upstream.remoteName} ${report.upstream.requestedRef}`)

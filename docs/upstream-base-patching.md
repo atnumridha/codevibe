@@ -1,22 +1,22 @@
-# Upstream Cline Patch Intake
+# Upstream Base Patch Intake
 
-CodeVibe keeps its Codex auth, native agent placement, visible branding, packaging guards, and standalone UI bridge as product overlays on top of the reusable Cline extension base. Use this workflow when a new upstream Cline branch, tag, or release needs to be reviewed.
+CodeVibe keeps its Codex auth, native agent placement, visible branding, packaging guards, and standalone UI bridge as product overlays on top of the reusable open-source extension base. Use this workflow when a new upstream base branch, tag, or release needs to be reviewed.
 
 ## Plan A Drop
 
 Start from a clean worktree on a CodeVibe branch:
 
 ```sh
-npm --prefix apps/vscode run upstream:cline:fetch -- --upstream-ref main
+npm --prefix apps/vscode run upstream:base:fetch -- --upstream-ref main
 ```
 
 For a tag or specific ref:
 
 ```sh
-npm --prefix apps/vscode run upstream:cline:fetch -- --upstream-ref vX.Y.Z
+npm --prefix apps/vscode run upstream:base:fetch -- --upstream-ref vX.Y.Z
 ```
 
-The command writes `.codevibe/upstream-cline/intake-report.json`. The report includes:
+The command writes `.codevibe/upstream-base/intake-report.json`. The report includes:
 
 - upstream commit and merge-base
 - changed files grouped into patch layers
@@ -29,7 +29,7 @@ The command writes `.codevibe/upstream-cline/intake-report.json`. The report inc
 Create a dedicated branch before applying changes:
 
 ```sh
-git switch -c codex/cline-upstream-vX.Y.Z
+git switch -c codex/upstream-base-vX.Y.Z
 ```
 
 Apply one layer at a time. Keep CodeVibe overlays intact, especially:
@@ -45,7 +45,7 @@ Apply one layer at a time. Keep CodeVibe overlays intact, especially:
 If a direct patch file helps review the upstream delta, export it from the upstream merge-base:
 
 ```sh
-npm --prefix apps/vscode run upstream:cline:export-patch -- --upstream-ref main
+npm --prefix apps/vscode run upstream:base:export-patch -- --upstream-ref main
 ```
 
 ## Review Overlay Risks
