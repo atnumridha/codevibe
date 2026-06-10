@@ -59,6 +59,10 @@ const expectedManifestAssetPaths = [
 	"walkthrough/step5.md",
 ]
 
+const codeVibeNativeAgentRelativePath = "agents/00-codevibe-agent.agent.md"
+const maxCodeLogFilesToScanForNativeAgentTombstones = 250
+const maxCodeLogBytesToScanForNativeAgentTombstones = 5 * 1024 * 1024
+
 const packagedMarkdownAssetPaths = [
 	"README.md",
 	"agents/00-codevibe-agent.agent.md",
@@ -631,6 +635,24 @@ function resolveVsCodeExtensionsDir() {
 	return path.join(os.homedir(), ".vscode", "extensions")
 }
 
+function resolveVsCodeLogsDir() {
+	if (process.env.CODEVIBE_VSCODE_LOGS_DIR?.trim()) {
+		return path.resolve(process.env.CODEVIBE_VSCODE_LOGS_DIR.trim())
+	}
+	if (process.env.VSCODE_PORTABLE) {
+		return path.join(process.env.VSCODE_PORTABLE, "user-data", "logs")
+	}
+	if (process.platform === "darwin") {
+		return path.join(os.homedir(), "Library", "Application Support", "Code", "logs")
+	}
+	if (process.platform === "win32") {
+		const appData = process.env.APPDATA?.trim() || path.join(os.homedir(), "AppData", "Roaming")
+		return path.join(appData, "Code", "logs")
+	}
+	const configHome = process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), ".config")
+	return path.join(configHome, "Code", "logs")
+}
+
 function pruneInstalledCodeVibeExtensionVersions(metadata) {
 	const extensionsDir = resolveVsCodeExtensionsDir()
 	if (!fs.existsSync(extensionsDir)) {
@@ -653,6 +675,88 @@ function pruneInstalledCodeVibeExtensionVersions(metadata) {
 	}
 	if (removed > 0) {
 		console.log(`Removed ${removed} stale CodeVibe extension version folder(s) from ${extensionsDir}`)
+	}
+}
+
+function escapeRegExp(value) {
+	return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function escapePathForRegExp(value) {
+	return String(value).split(/[\\/]+/).map(escapeRegExp).join("[/\\\\]")
+}
+
+function collectCodeLogFiles(dir, logFiles = []) {
+	if (logFiles.length >= maxCodeLogFilesToScanForNativeAgentTombstones || !fs.existsSync(dir)) {
+		return logFiles
+	}
+	for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+		if (logFiles.length >= maxCodeLogFilesToScanForNativeAgentTombstones) {
+			break
+		}
+		const entryPath = path.join(dir, entry.name)
+		if (entry.isDirectory()) {
+			collectCodeLogFiles(entryPath, logFiles)
+		} else if (entry.isFile() && /\.(?:log|txt)$/i.test(entry.name)) {
+			logFiles.push(entryPath)
+		}
+	}
+	return logFiles
+}
+
+function findCachedCodeVibeNativeAgentPaths(metadata) {
+	const logsDir = resolveVsCodeLogsDir()
+	const extensionsDir = resolveVsCodeExtensionsDir()
+	const paths = new Set()
+	if (!fs.existsSync(logsDir)) {
+		return []
+	}
+	const nativeAgentPathPattern = new RegExp(
+		`${escapePathForRegExp(extensionsDir)}[/\\\\]${escapeRegExp(metadata.extensionId)}-[^\\s'"()<>]+[/\\\\]${escapePathForRegExp(
+			codeVibeNativeAgentRelativePath,
+		)}`,
+		"gi",
+	)
+	for (const logFile of collectCodeLogFiles(logsDir)) {
+		let stats
+		try {
+			stats = fs.statSync(logFile)
+		} catch {
+			continue
+		}
+		if (stats.size > maxCodeLogBytesToScanForNativeAgentTombstones) {
+			continue
+		}
+		const text = fs.readFileSync(logFile, "utf8")
+		for (const match of text.matchAll(nativeAgentPathPattern)) {
+			paths.add(path.normalize(match[0]))
+		}
+	}
+	return Array.from(paths).sort()
+}
+
+function createNativeAgentDiscoveryTombstones(metadata) {
+	const currentAgentPath = path.join(
+		resolveVsCodeExtensionsDir(),
+		`${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`,
+		codeVibeNativeAgentRelativePath,
+	)
+	const nativeAgentMarkdown = fs.readFileSync(path.join(projectRoot, codeVibeNativeAgentRelativePath), "utf8")
+	let written = 0
+	for (const cachedAgentPath of findCachedCodeVibeNativeAgentPaths(metadata)) {
+		if (path.normalize(cachedAgentPath) === path.normalize(currentAgentPath) || fs.existsSync(cachedAgentPath)) {
+			continue
+		}
+		const cachedExtensionRoot = path.dirname(path.dirname(cachedAgentPath))
+		if (fs.existsSync(path.join(cachedExtensionRoot, "package.json"))) {
+			continue
+		}
+		fs.mkdirSync(path.dirname(cachedAgentPath), { recursive: true })
+		fs.writeFileSync(cachedAgentPath, nativeAgentMarkdown, "utf8")
+		written++
+	}
+	if (written > 0) {
+		console.log(`Created ${written} CodeVibe native-agent tombstone file(s) for cached VS Code discovery paths`)
 	}
 }
 
@@ -1575,6 +1679,15 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 		)
 		const expectedExtension = `${metadata.extensionId}@${metadata.version}`
 		verifyInstalledExtension(listResult.stdout ?? "", expectedExtension)
+		const installedManifestPath = path.join(
+			extensionsDir,
+			`${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`,
+			"package.json",
+		)
+		assertFileExists(installedManifestPath, "installed VSIX package.json", { nonEmpty: true })
+		const installedPackageJson = JSON.parse(fs.readFileSync(installedManifestPath, "utf8"))
+		assertCursorParityManifest(installedPackageJson, "installed VSIX package.json")
+		assertNativeCodeVibeContributionIds(installedPackageJson, "installed VSIX package.json")
 		console.log(`VSIX smoke install verified ${expectedExtension} using isolated VS Code directories`)
 	} finally {
 		fs.rmSync(tempRoot, { recursive: true, force: true })
@@ -1654,7 +1767,9 @@ async function main() {
 
 		if (options.install) {
 			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
+			enableNativeAgentInVSCodeArgv(metadata)
 			pruneInstalledCodeVibeExtensionVersions(metadata)
+			createNativeAgentDiscoveryTombstones(metadata)
 			try {
 				cleanLegacyCodeVibeViewState()
 			} catch (error) {

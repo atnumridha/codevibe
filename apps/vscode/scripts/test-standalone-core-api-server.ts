@@ -49,6 +49,7 @@ const projectRoot = process.env.PROJECT_ROOT || path.resolve(__dirname, "..")
 const distDir = process.env.CODEVIBE_DIST_DIR || process.env.CLINE_DIST_DIR || path.join(projectRoot, "dist-standalone")
 const codeVibeCoreFile = process.env.CODEVIBE_CORE_FILE || process.env.CLINE_CORE_FILE || "codevibe-core.js"
 const coreFile = path.join(distDir, codeVibeCoreFile)
+const standaloneManifestFile = "standalone-manifest.json"
 
 const childProcesses: ChildProcess[] = []
 
@@ -107,14 +108,15 @@ async function main(): Promise<void> {
 
 	console.log("Extracting standalone.zip to extensions directory...")
 	try {
-		if (!fs.existsSync(extensionsDir)) {
-			execSync(`unzip -o -q "${standaloneZipPath}" -d "${extensionsDir}"`, { stdio: "inherit" })
-		}
+		rmSync(extensionsDir, { recursive: true, force: true })
+		execSync(`unzip -o -q "${standaloneZipPath}" -d "${extensionsDir}"`, { stdio: "inherit" })
 		console.log(`Successfully extracted standalone.zip to: ${extensionsDir}`)
 	} catch (error) {
 		console.error("Failed to extract standalone.zip:", error)
 		process.exit(1)
 	}
+
+	validateStandaloneManifest(path.join(extensionsDir, standaloneManifestFile))
 
 	const covDir = path.join(projectRoot, `coverage/coverage-core-${PROTOBUS_PORT}`)
 
@@ -185,4 +187,80 @@ if (require.main === module) {
 		console.error("Failed to start simple CodeVibe server:", err)
 		process.exit(1)
 	})
+}
+
+function readJsonFile(filePath: string): unknown {
+	return JSON.parse(fs.readFileSync(filePath, "utf8"))
+}
+
+function validateStandaloneManifest(manifestPath: string): void {
+	if (!fs.existsSync(manifestPath)) {
+		console.error(`Standalone manifest not found at: ${manifestPath}`)
+		process.exit(1)
+	}
+
+	const manifest = readJsonFile(manifestPath) as {
+		schemaVersion?: unknown
+		product?: { name?: unknown; runtimeName?: unknown }
+		package?: { coreEntry?: unknown; extensionDirectory?: unknown }
+		services?: {
+			protobus?: { defaultPort?: unknown; addressEnv?: unknown }
+			hostBridge?: { required?: unknown; bundled?: unknown; defaultPort?: unknown; addressEnv?: unknown }
+		}
+		uiContract?: {
+			requiresExternalHostBridge?: unknown
+			selfContainedApp?: unknown
+			providesCoreGrpcServer?: unknown
+			providesHostBridgeServer?: unknown
+			resourceHostname?: unknown
+		}
+		launch?: { command?: unknown; args?: unknown; nodePath?: unknown; environment?: Record<string, unknown> }
+		targets?: unknown
+	}
+
+	const failures: string[] = []
+	const expectEqual = (actual: unknown, expected: unknown, label: string) => {
+		if (actual !== expected) {
+			failures.push(`${label} must be ${JSON.stringify(expected)}; got ${JSON.stringify(actual)}`)
+		}
+	}
+
+	expectEqual(manifest.schemaVersion, 1, "schemaVersion")
+	expectEqual(manifest.product?.name, "CodeVibe", "product.name")
+	expectEqual(manifest.product?.runtimeName, "codevibe-core", "product.runtimeName")
+	expectEqual(manifest.package?.coreEntry, codeVibeCoreFile, "package.coreEntry")
+	expectEqual(manifest.package?.extensionDirectory, "extension", "package.extensionDirectory")
+	expectEqual(manifest.services?.protobus?.defaultPort, 26040, "services.protobus.defaultPort")
+	expectEqual(manifest.services?.protobus?.addressEnv, "PROTOBUS_ADDRESS", "services.protobus.addressEnv")
+	expectEqual(manifest.services?.hostBridge?.required, true, "services.hostBridge.required")
+	expectEqual(manifest.services?.hostBridge?.bundled, false, "services.hostBridge.bundled")
+	expectEqual(manifest.services?.hostBridge?.defaultPort, 26041, "services.hostBridge.defaultPort")
+	expectEqual(manifest.services?.hostBridge?.addressEnv, "HOST_BRIDGE_ADDRESS", "services.hostBridge.addressEnv")
+	expectEqual(manifest.uiContract?.requiresExternalHostBridge, true, "uiContract.requiresExternalHostBridge")
+	expectEqual(manifest.uiContract?.selfContainedApp, false, "uiContract.selfContainedApp")
+	expectEqual(manifest.uiContract?.providesCoreGrpcServer, true, "uiContract.providesCoreGrpcServer")
+	expectEqual(manifest.uiContract?.providesHostBridgeServer, false, "uiContract.providesHostBridgeServer")
+	expectEqual(manifest.uiContract?.resourceHostname, "internal.resources", "uiContract.resourceHostname")
+	expectEqual(manifest.launch?.command, "node", "launch.command")
+	expectEqual(manifest.launch?.nodePath, "{target.binariesPath}:./node_modules", "launch.nodePath")
+	expectEqual(manifest.launch?.environment?.CODEVIBE_DIR, "~/.codevibe", "launch.environment.CODEVIBE_DIR")
+	expectEqual(manifest.launch?.environment?.CODEVIBE_DATA_DIR, "~/.codevibe/data", "launch.environment.CODEVIBE_DATA_DIR")
+
+	if (!Array.isArray(manifest.launch?.args) || !manifest.launch.args.includes(codeVibeCoreFile)) {
+		failures.push("launch.args must include the CodeVibe core entrypoint")
+	}
+
+	if (!Array.isArray(manifest.targets) || manifest.targets.length < 5) {
+		failures.push("targets must list the packaged platform directories")
+	}
+
+	if (failures.length > 0) {
+		console.error(`Invalid standalone manifest at: ${manifestPath}`)
+		for (const failure of failures) {
+			console.error(`  - ${failure}`)
+		}
+		process.exit(1)
+	}
+
+	console.log(`Validated standalone manifest: ${manifestPath}`)
 }

@@ -1,19 +1,30 @@
 #!/usr/bin/env node
 
 import archiver from "archiver"
-import { execSync } from "child_process"
+import { execFileSync, execSync } from "child_process"
 import fs from "fs"
 import { cp } from "fs/promises"
+import { fileURLToPath } from "url"
 import { glob } from "glob"
 import minimatch from "minimatch"
 import os from "os"
 import path from "path"
 import { rmrf } from "./file-utils.mjs"
 
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const PROJECT_ROOT = path.join(__dirname, "..")
+
+process.chdir(PROJECT_ROOT)
+
 const BUILD_DIR = "dist-standalone"
 const BINARIES_DIR = `${BUILD_DIR}/binaries`
 const RUNTIME_DEPS_DIR = "standalone/runtime-files"
 const IS_DEBUG_BUILD = process.env.IS_DEBUG_BUILD === "true"
+const CODEVIBE_CORE_ENTRY = "codevibe-core.js"
+const STANDALONE_MANIFEST_FILE = "standalone-manifest.json"
+const DEFAULT_PROTOBUS_PORT = 26040
+const DEFAULT_HOSTBRIDGE_PORT = 26041
 
 // This should match the node version packaged with the JetBrains plugin.
 const TARGET_NODE_VERSION = "22.15.0"
@@ -28,8 +39,14 @@ const SUPPORTED_BINARY_MODULES = ["better-sqlite3"]
 
 const UNIVERSAL_BUILD = !process.argv.includes("-s")
 const IS_VERBOSE = process.argv.includes("-v") || process.argv.includes("--verbose")
+const PRINT_MANIFEST = process.argv.includes("--print-manifest")
 
 async function main() {
+	if (PRINT_MANIFEST) {
+		console.log(JSON.stringify(createStandaloneManifest(), null, 2))
+		return
+	}
+
 	await installNodeDependencies()
 	if (UNIVERSAL_BUILD) {
 		console.log("Building universal package for all platforms...")
@@ -37,7 +54,9 @@ async function main() {
 	} else {
 		console.log(`Building package for ${os.platform()}-${os.arch()}...`)
 	}
+	writeStandaloneManifest()
 	await zipDistribution()
+	verifyStandalonePackage()
 }
 
 async function installNodeDependencies() {
@@ -106,6 +125,98 @@ async function packageAllBinaryDeps() {
 	}
 }
 
+function readPackageJson(filePath) {
+	return JSON.parse(fs.readFileSync(filePath, "utf8"))
+}
+
+function createStandaloneManifest() {
+	const extensionPackage = readPackageJson("package.json")
+	const runtimePackage = readPackageJson(path.join(RUNTIME_DEPS_DIR, "package.json"))
+
+	return {
+		schemaVersion: 1,
+		product: {
+			name: "CodeVibe",
+			extensionId: `${extensionPackage.publisher}.${extensionPackage.name}`,
+			extensionVersion: extensionPackage.version,
+			runtimeName: runtimePackage.name,
+			runtimeVersion: runtimePackage.version,
+		},
+		package: {
+			artifact: "standalone.zip",
+			format: "zip",
+			entryDirectory: ".",
+			extensionDirectory: "extension",
+			runtimePackageFile: "package.json",
+			coreEntry: CODEVIBE_CORE_ENTRY,
+			nodeTargetVersion: TARGET_NODE_VERSION,
+			debugBuild: IS_DEBUG_BUILD,
+		},
+		services: {
+			protobus: {
+				protocol: "grpc",
+				defaultHost: "127.0.0.1",
+				defaultPort: DEFAULT_PROTOBUS_PORT,
+				addressEnv: "PROTOBUS_ADDRESS",
+				portArg: "--port",
+				healthService: "grpc.health.v1.Health",
+			},
+			hostBridge: {
+				protocol: "grpc",
+				required: true,
+				bundled: false,
+				defaultHost: "127.0.0.1",
+				defaultPort: DEFAULT_HOSTBRIDGE_PORT,
+				addressEnv: "HOST_BRIDGE_ADDRESS",
+				portArg: "--host-bridge-port",
+				healthService: "grpc.health.v1.Health",
+			},
+		},
+		uiContract: {
+			requiresExternalHostBridge: true,
+			selfContainedApp: false,
+			providesCoreGrpcServer: true,
+			providesHostBridgeServer: false,
+			providesExtensionAssets: true,
+			webviewBuildPath: "extension/webview-ui/build",
+			descriptorSetPath: "proto/descriptor_set.pb",
+			resourceHostname: "internal.resources",
+		},
+		launch: {
+			command: "node",
+			args: [CODEVIBE_CORE_ENTRY],
+			nodePath: "{target.binariesPath}:./node_modules",
+			environment: {
+				PROTOBUS_ADDRESS: `127.0.0.1:${DEFAULT_PROTOBUS_PORT}`,
+				HOST_BRIDGE_ADDRESS: `127.0.0.1:${DEFAULT_HOSTBRIDGE_PORT}`,
+				CODEVIBE_DIR: "~/.codevibe",
+				CODEVIBE_DATA_DIR: "~/.codevibe/data",
+				INSTALL_DIR: ".",
+			},
+		},
+		targets: TARGET_PLATFORMS.map(({ platform, arch, targetDir }) => ({
+			platform,
+			arch,
+			targetDir,
+			binariesPath: `binaries/${targetDir}/node_modules`,
+		})),
+		binaryModules: {
+			supported: SUPPORTED_BINARY_MODULES,
+			universalBuild: UNIVERSAL_BUILD,
+		},
+		compatibility: {
+			upstreamPatchBase: "cline",
+			legacyEnvironmentAliases: ["CLINE_DIR", "CLINE_ENVIRONMENT"],
+		},
+	}
+}
+
+function writeStandaloneManifest() {
+	const manifestPath = path.join(BUILD_DIR, STANDALONE_MANIFEST_FILE)
+	fs.writeFileSync(manifestPath, `${JSON.stringify(createStandaloneManifest(), null, 2)}\n`)
+	console.log(`Wrote ${manifestPath}`)
+}
+
 async function zipDistribution() {
 	// Zip the build directory (excluding any pre-existing output zip).
 	const zipPath = path.join(BUILD_DIR, "standalone.zip")
@@ -113,10 +224,16 @@ async function zipDistribution() {
 	const startTime = Date.now()
 	const archive = archiver("zip", { zlib: { level: 6 } })
 
-	output.on("close", () => {
-		const endTime = Date.now()
-		const duration = (endTime - startTime) / 1000
-		console.log(`Created ${zipPath} (${(archive.pointer() / 1024 / 1024).toFixed(1)} MB) in ${duration.toFixed(2)} seconds`)
+	const closed = new Promise((resolve, reject) => {
+		output.on("close", () => {
+			const endTime = Date.now()
+			const duration = (endTime - startTime) / 1000
+			console.log(
+				`Created ${zipPath} (${(archive.pointer() / 1024 / 1024).toFixed(1)} MB) in ${duration.toFixed(2)} seconds`,
+			)
+			resolve(undefined)
+		})
+		output.on("error", reject)
 	})
 	archive.on("warning", (err) => {
 		console.warn(`Warning: ${err}`)
@@ -147,6 +264,14 @@ async function zipDistribution() {
 
 	console.log("Zipping package...")
 	await archive.finalize()
+	await closed
+}
+
+function verifyStandalonePackage() {
+	execFileSync(process.execPath, ["scripts/verify-standalone-package.mjs", "--zip", path.join(BUILD_DIR, "standalone.zip")], {
+		cwd: process.cwd(),
+		stdio: "inherit",
+	})
 }
 
 /**

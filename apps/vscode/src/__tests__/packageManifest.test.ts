@@ -31,6 +31,16 @@ describe("Package manifest", () => {
 		assert.equal(participant.id, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.match(participant.id, /^[A-Za-z0-9_-]+$/)
 		assert.deepEqual(activitybarContainerIds, ["codevibe-agent"])
+		for (const containerId of activitybarContainerIds) {
+			assert.match(containerId, /^[A-Za-z0-9_-]+$/)
+		}
+		for (const [viewContainerId, viewEntries] of Object.entries(views)) {
+			assert.match(viewContainerId, /^[A-Za-z0-9_-]+$/)
+			assert.equal(activitybarContainerIds.includes(viewContainerId), true)
+			for (const view of Array.isArray(viewEntries) ? viewEntries : []) {
+				assert.match((view as { id: string }).id, /^[A-Za-z0-9_-]+$/)
+			}
+		}
 		assert.ok(Object.hasOwn(views, "codevibe-agent"))
 		assert.equal(Object.hasOwn(views, "codevibe.agent"), false)
 		assert.equal(packageJSON.activationEvents.includes("onView:codevibe.agent.chat"), false)
@@ -77,7 +87,9 @@ describe("Package manifest", () => {
 		for (const command of packageJSON.contributes.commands ?? []) {
 			assert.equal(String(command.command).startsWith("cline."), false)
 		}
-		const commandIds = new Set((packageJSON.contributes.commands ?? []).map((command: { command?: string }) => command.command))
+		const commandIds = new Set(
+			(packageJSON.contributes.commands ?? []).map((command: { command?: string }) => command.command),
+		)
 		assert.equal(commandIds.has("codevibe.fixWithCodeVibe"), true)
 		assert.equal(packageJSON.activationEvents.includes("onCommand:codevibe.fixWithCodeVibe"), true)
 		for (const [menuId, items] of Object.entries(packageJSON.contributes.menus ?? {})) {
@@ -91,8 +103,11 @@ describe("Package manifest", () => {
 		const packageScript = await readFile(path.join(__dirname, "..", "..", "scripts", "package-github-vsix.mjs"), "utf8")
 
 		assert.equal(packageScript.includes("pruneInstalledCodeVibeExtensionVersions"), true)
+		assert.equal(packageScript.includes("createNativeAgentDiscoveryTombstones(metadata)"), true)
+		assert.equal(packageScript.includes("enableNativeAgentInVSCodeArgv(metadata)"), true)
 		assert.equal(packageScript.includes("resolveVsCodeExtensionsDir"), true)
 		assert.equal(packageScript.includes("fs.rmSync(extensionPath, { recursive: true, force: true })"), true)
+		assert.equal(packageScript.includes("installed VSIX package.json"), true)
 		assert.equal(packageScript.includes("workbench.view.extension.codevibe.agent"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state.hidden'"), true)
@@ -117,7 +132,9 @@ describe("Package manifest", () => {
 		assert.equal(candidateWorkflow.includes("package_args=(--out-dir .)"), true)
 		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --require-release-gate)"), true)
 		assert.equal(
-			candidateWorkflow.includes("continue-on-error: ${{ (github.event.inputs.release_stage || 'candidate') == 'candidate' }}"),
+			candidateWorkflow.includes(
+				"continue-on-error: ${{ (github.event.inputs.release_stage || 'candidate') == 'candidate' }}",
+			),
 			true,
 		)
 		assert.equal(stableWorkflow.includes("continue-on-error:"), false)
@@ -127,7 +144,12 @@ describe("Package manifest", () => {
 		const runtimePackage = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package.json"))
 		const runtimePackageLock = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package-lock.json"))
 		const esbuildScript = await readFile(path.join(vscodeRoot, "esbuild.mjs"), "utf8")
-		const standaloneServerScript = await readFile(path.join(vscodeRoot, "scripts", "test-standalone-core-api-server.ts"), "utf8")
+		const standaloneServerScript = await readFile(
+			path.join(vscodeRoot, "scripts", "test-standalone-core-api-server.ts"),
+			"utf8",
+		)
+		const standalonePackageScript = await readFile(path.join(vscodeRoot, "scripts", "package-standalone.mjs"), "utf8")
+		const standaloneVerifierScript = await readFile(path.join(vscodeRoot, "scripts", "verify-standalone-package.mjs"), "utf8")
 
 		assert.equal(runtimePackage.name, "codevibe-core")
 		assert.equal(runtimePackage.main, "codevibe-core.js")
@@ -138,5 +160,17 @@ describe("Package manifest", () => {
 		assert.equal(esbuildScript.includes("src/standalone/cline-core.ts"), false)
 		assert.equal(standaloneServerScript.includes("CODEVIBE_CORE_FILE"), true)
 		assert.equal(standaloneServerScript.includes('"codevibe-core.js"'), true)
+		assert.equal(standalonePackageScript.includes("standalone-manifest.json"), true)
+		assert.equal(standalonePackageScript.includes("requiresExternalHostBridge: true"), true)
+		assert.equal(standalonePackageScript.includes("selfContainedApp: false"), true)
+		assert.equal(standalonePackageScript.includes("providesCoreGrpcServer: true"), true)
+		assert.equal(standalonePackageScript.includes("providesHostBridgeServer: false"), true)
+		assert.equal(standalonePackageScript.includes("verify-standalone-package.mjs"), true)
+		assert.equal(standaloneServerScript.includes("validateStandaloneManifest"), true)
+		assert.equal(standaloneServerScript.includes("manifest.uiContract?.selfContainedApp, false"), true)
+		assert.equal(standaloneServerScript.includes("manifest.services?.hostBridge?.bundled, false"), true)
+		assert.equal(standaloneVerifierScript.includes("standalone-manifest.json"), true)
+		assert.equal(standaloneVerifierScript.includes("requiresExternalHostBridge"), true)
+		assert.equal(standaloneVerifierScript.includes("manifest.uiContract?.webviewBuildPath"), true)
 	})
 })
