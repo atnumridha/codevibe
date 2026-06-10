@@ -264,7 +264,8 @@ const RequestyModelPicker: React.FC<RequestyModelPickerProps> = ({ isPopup, base
 						<VSCodeLink href={requestyModelListUrl?.toString()} style={{ display: "inline", fontSize: "inherit" }}>
 							Requesty.
 						</VSCodeLink>
-						If you're unsure which model to choose, CodeVibe works best with{" "}
+						If you're unsure which model to choose, start with your Codex default or a high-capability coding model with
+						tool use and strong reasoning. A popular fallback on Requesty is{" "}
 						<VSCodeLink
 							onClick={() => handleModelChange("anthropic/claude-3-7-sonnet-latest")}
 							style={{ display: "inline", fontSize: "inherit" }}>

@@ -263,7 +263,8 @@ const GroqModelPicker: React.FC<GroqModelPickerProps> = ({ isPopup, currentMode 
 					<VSCodeLink className="inline text-inherit" href="https://console.groq.com/docs/models">
 						Groq.
 					</VSCodeLink>
-					If you're unsure which model to choose, CodeVibe works best with{" "}
+					If you're unsure which model to choose, start with your Codex default or a high-capability coding model with
+					tool use and strong reasoning. A popular fallback on Groq is{" "}
 					<VSCodeLink className="inline text-inherit" onClick={() => handleModelChange("llama-3.3-70b-versatile")}>
 						llama-3.3-70b-versatile.
 					</VSCodeLink>

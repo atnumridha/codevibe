@@ -47,6 +47,7 @@ const disallowedFragments = [
 	{ pattern: /Starter workflows/g, label: "legacy starter workflow copy" },
 	{ pattern: /Workspace console/g, label: "legacy workspace console copy" },
 	{ pattern: /works best with Claude models/g, label: "Claude-first provider warning copy" },
+	{ pattern: /CodeVibe works best with[\s\S]{0,200}anthropic\/claude/g, label: "Claude-first model fallback copy" },
 	{ pattern: /recommended to use Claude 4\.5 Sonnet/g, label: "Claude-first recovery prompt copy" },
 	{ pattern: /models like Claude Sonnet/g, label: "Claude-first welcome copy" },
 	{ pattern: /cursor:\/\/createchat/g, label: "Cursor-first deeplink placeholder" },

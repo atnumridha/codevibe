@@ -608,7 +608,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand(commands.FocusChatInput, async (preserveEditorFocus = false) => {
 			const webview = isInTestMode()
 				? await showCodeVibeSurface(preserveEditorFocus)
-				: await showPreferredCodeVibeSurface(preserveEditorFocus)
+				: await openCodeVibeNativeChatSession("sidebar").then((opened) =>
+						opened ? (WebviewProvider.getInstance() as VscodeWebviewProvider) : showPreferredCodeVibeSurface(preserveEditorFocus),
+					)
 			await sendShowWebviewEvent(preserveEditorFocus)
 			telemetryService.captureButtonClick("command_focusChatInput", webview.controller?.task?.ulid)
 		}),
@@ -1533,7 +1535,7 @@ async function showPreferredCodeVibeSurface(
 		return webview
 	}
 
-	await webview.show(preserveEditorFocus)
+	await webview.showPanel(preserveEditorFocus)
 	return webview
 }
 

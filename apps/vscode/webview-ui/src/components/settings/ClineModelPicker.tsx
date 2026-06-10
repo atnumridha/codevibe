@@ -597,7 +597,7 @@ const ClineModelPicker: React.FC<ClineModelPickerProps> = ({ isPopup, currentMod
 						color: "var(--vscode-descriptionForeground)",
 					}}>
 					The extension automatically fetches the latest CodeVibe model list. If you're unsure which model to choose,
-					CodeVibe works best with <strong>anthropic/claude-sonnet-4.5</strong>.
+					start with your Codex default or a high-capability coding model with tool use and strong reasoning.
 				</p>
 			)}
 		</div>

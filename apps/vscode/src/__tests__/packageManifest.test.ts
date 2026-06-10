@@ -194,6 +194,7 @@ describe("Package manifest", () => {
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
 		const packageScript = await readFile(path.join(vscodeRoot, "scripts", "package-github-vsix.mjs"), "utf8")
 		const extensionSource = await readFile(path.join(vscodeRoot, "src", "extension.ts"), "utf8")
+		const webviewProviderSource = await readFile(path.join(vscodeRoot, "src", "hosts", "vscode", "VscodeWebviewProvider.ts"), "utf8")
 
 		assert.equal(packageScript.includes("pruneInstalledCodeVibeExtensionVersions"), true)
 		assert.equal(packageScript.includes("createNativeAgentDiscoveryTombstones"), false)
@@ -214,6 +215,9 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("packageJson.contributes?.chatPromptFiles"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatSkills"), true)
 		assert.equal(extensionSource.includes("`id: ${CODEVIBE_CHAT_PARTICIPANT_ID}`"), true)
+		assert.equal(extensionSource.includes("await webview.showPanel(preserveEditorFocus)"), true)
+		assert.equal(extensionSource.includes("await webview.show(preserveEditorFocus)"), false)
+		assert.equal(webviewProviderSource.includes("revealAgentSidebar"), false)
 	})
 
 	it("keeps GitHub release packaging non-interactive", async () => {
