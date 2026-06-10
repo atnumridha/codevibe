@@ -240,6 +240,13 @@ message ShowWebviewEvent {
   bool preserve_editor_focus = 1; // When true, webview should not steal focus from editor
 }
 
+message CursorNdjsonIngestStatus {
+  bool running = 1;
+  string bind_address = 2;
+  int32 port = 3;
+  string url = 4;
+}
+
 // UiService provides methods for managing UI interactions
 service UiService {
   // Scrolls to a specific settings section in the settings view
@@ -298,4 +305,19 @@ service UiService {
 
   // Opens the CodeVibe walkthrough
   rpc openWalkthrough(EmptyRequest) returns (Empty);
+
+  // Returns CodeVibe compatibility NDJSON ingest server status without exposing the session secret.
+  rpc getCursorNdjsonIngestStatus(EmptyRequest) returns (CursorNdjsonIngestStatus);
+
+  // Starts the CodeVibe compatibility NDJSON ingest server.
+  rpc startCursorNdjsonIngest(EmptyRequest) returns (CursorNdjsonIngestStatus);
+
+  // Stops the CodeVibe compatibility NDJSON ingest server.
+  rpc stopCursorNdjsonIngest(EmptyRequest) returns (CursorNdjsonIngestStatus);
+
+  // Reassigns the CodeVibe compatibility NDJSON ingest server to a fresh auto port.
+  rpc reassignCursorNdjsonIngestPort(EmptyRequest) returns (CursorNdjsonIngestStatus);
+
+  // Returns a curl command containing the one-session NDJSON ingest token. Call only after explicit user action.
+  rpc getCursorNdjsonIngestCurlCommand(EmptyRequest) returns (String);
 }

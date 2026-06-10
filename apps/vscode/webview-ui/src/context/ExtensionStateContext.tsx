@@ -290,6 +290,16 @@ export const ExtensionStateContextProvider: React.FC<{
 		hooksEnabled: false,
 		nativeToolCallSetting: false,
 		enableParallelToolCalling: false,
+		compatibilityStatus: {
+			enabled: true,
+			deepLinksEnabled: true,
+			retrievalIndexingPrivacyGate: true,
+			sandboxPolicy: "prompt",
+			safeBrowserEvaluateEnabled: false,
+			effectiveBrowserEvaluateEnabled: false,
+			openAiCodexAuthSource: "codexHome",
+			openAiCodexAuthenticated: false,
+		},
 	})
 	const [expandTaskHeader, setExpandTaskHeader] = useState(true)
 	const [didHydrateState, setDidHydrateState] = useState(false)

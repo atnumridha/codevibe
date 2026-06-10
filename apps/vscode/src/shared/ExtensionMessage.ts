@@ -36,6 +36,18 @@ export type Platform = "aix" | "darwin" | "freebsd" | "linux" | "openbsd" | "sun
 export const DEFAULT_PLATFORM = "unknown"
 
 export const COMMAND_CANCEL_TOKEN = "__cline_command_cancel__"
+
+export interface CodeVibeCompatibilityStatus {
+	enabled: boolean
+	deepLinksEnabled: boolean
+	retrievalIndexingPrivacyGate: boolean
+	sandboxPolicy: "prompt" | "workspace" | "readOnly" | "disabled"
+	safeBrowserEvaluateEnabled: boolean
+	effectiveBrowserEvaluateEnabled: boolean
+	openAiCodexAuthSource: "codexHome" | "vscodeSecret" | "auto"
+	openAiCodexAuthenticated: boolean
+}
+
 export interface ExtensionState {
 	isNewUser: boolean
 	welcomeViewCompleted: boolean
@@ -114,6 +126,7 @@ export interface ExtensionState {
 	welcomeBanners?: BannerCardData[]
 	openAiCodexIsAuthenticated?: boolean
 	openAiCodexModels?: Record<string, ModelInfo>
+	compatibilityStatus?: CodeVibeCompatibilityStatus
 }
 
 export interface ClineMessage {

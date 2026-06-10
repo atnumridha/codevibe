@@ -211,8 +211,15 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 				if (
 					e &&
 					(e.affectsConfiguration("codevibe.compatibility.enabled") ||
+						e.affectsConfiguration("codevibe.compatibility.deepLinks.enabled") ||
+						e.affectsConfiguration("codevibe.compatibility.retrievalIndexing.privacyGate") ||
+						e.affectsConfiguration("codevibe.compatibility.sandboxPolicy") ||
 						e.affectsConfiguration("codevibe.compatibility.safeBrowserEvaluate.enabled") ||
+						e.affectsConfiguration("codevibe.openAiCodex.authSource") ||
 						e.affectsConfiguration("codevibe.cursorCompatibility.enabled") ||
+						e.affectsConfiguration("codevibe.cursorCompatibility.deepLinks.enabled") ||
+						e.affectsConfiguration("codevibe.cursorCompatibility.retrievalIndexing.privacyGate") ||
+						e.affectsConfiguration("codevibe.cursorCompatibility.sandboxPolicy") ||
 						e.affectsConfiguration("codevibe.cursorCompatibility.safeBrowserEvaluate.enabled") ||
 						e.affectsConfiguration("mcpMarketplace.enabled"))
 				) {

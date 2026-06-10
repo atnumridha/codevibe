@@ -14,6 +14,7 @@ import {
 	type ApiProvider,
 	type ModelInfo,
 } from "@shared/api"
+import { getEffectiveBrowserSettings } from "@shared/BrowserSettings"
 import type { ChatContent } from "@shared/ChatContent"
 import type { ExtensionState, Platform } from "@shared/ExtensionMessage"
 import type { HistoryItem } from "@shared/HistoryItem"
@@ -1143,6 +1144,32 @@ export class Controller {
 		const openAiCodexIsAuthenticated = await openAiCodexOAuthManager.isAuthenticated()
 		const openAiCodexBackendModels =
 			await this.getOpenAiCodexBackendModelsForState(openAiCodexIsAuthenticated)
+		const compatibilitySafeBrowserEvaluateEnabled = getCodeVibeConfigurationValue<boolean>(
+			"cursorCompatibility.safeBrowserEvaluate.enabled",
+			false,
+		)
+		const effectiveBrowserSettings = getEffectiveBrowserSettings(browserSettings, {
+			cursorCompatibilitySafeBrowserEvaluateEnabled: compatibilitySafeBrowserEvaluateEnabled,
+		})
+		const compatibilityStatus: ExtensionState["compatibilityStatus"] = {
+			enabled: getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true),
+			deepLinksEnabled: getCodeVibeConfigurationValue<boolean>("cursorCompatibility.deepLinks.enabled", true),
+			retrievalIndexingPrivacyGate: getCodeVibeConfigurationValue<boolean>(
+				"cursorCompatibility.retrievalIndexing.privacyGate",
+				true,
+			),
+			sandboxPolicy: getCodeVibeConfigurationValue<"prompt" | "workspace" | "readOnly" | "disabled">(
+				"cursorCompatibility.sandboxPolicy",
+				"prompt",
+			),
+			safeBrowserEvaluateEnabled: compatibilitySafeBrowserEvaluateEnabled,
+			effectiveBrowserEvaluateEnabled: effectiveBrowserSettings.allowBrowserEvaluate,
+			openAiCodexAuthSource: getCodeVibeConfigurationValue<"codexHome" | "vscodeSecret" | "auto">(
+				"openAiCodex.authSource",
+				"codexHome",
+			),
+			openAiCodexAuthenticated: openAiCodexIsAuthenticated,
+		}
 
 		return {
 			version,
@@ -1229,6 +1256,7 @@ export class Controller {
 			welcomeBanners,
 			openAiCodexIsAuthenticated,
 			...(openAiCodexBackendModels ? { openAiCodexModels: openAiCodexBackendModels } : {}),
+			compatibilityStatus,
 		}
 	}
 

@@ -7,7 +7,7 @@ const packagePath = path.join(vscodeRoot, "package.json")
 const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
-const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
+const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
 	"type",
 	"name",
@@ -110,7 +110,8 @@ describe("Package manifest", () => {
 		for (const [index, command] of (chatSession.commands ?? []).entries()) {
 			assertOnlyAllowedKeys(command, CHAT_SESSION_COMMAND_KEYS, `chatSessions[0].commands[${index}]`)
 		}
-		assert.equal(Object.hasOwn(chatAgent ?? {}, "id"), false)
+		assert.equal(chatAgent?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
+		assert.match(chatAgent?.id, /^[A-Za-z0-9_-]+$/)
 		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
 		assert.match(agentFile, /^---\nid: codevibe\n/m)
 		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)

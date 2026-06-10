@@ -1,8 +1,10 @@
-import { StringRequest } from "@shared/proto/cline/common"
+import { EmptyRequest, StringRequest } from "@shared/proto/cline/common"
+import type { CursorNdjsonIngestStatus } from "@shared/proto/cline/ui"
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
-import { useCallback, useMemo, useState, type FormEvent } from "react"
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
 import { Badge } from "@/components/ui/badge"
-import { UiServiceClient } from "@/services/grpc-client"
+import { useExtensionState } from "@/context/ExtensionStateContext"
+import { FileServiceClient, UiServiceClient } from "@/services/grpc-client"
 import Section from "../Section"
 import {
 	buildCursorUriPreview,
@@ -41,11 +43,107 @@ type LaunchStatus =
 	| { kind: "success"; message: string }
 	| { kind: "error"; message: string }
 
+type CompatibilityBadgeVariant = "success" | "warning" | "danger" | "outline" | "info"
+
+const DEFAULT_NDJSON_STATUS: CursorNdjsonIngestStatus = {
+	running: false,
+	bindAddress: "127.0.0.1",
+	port: 0,
+	url: "",
+}
+
+function yesNoBadge(value: boolean): { label: string; variant: CompatibilityBadgeVariant } {
+	return value ? { label: "On", variant: "success" } : { label: "Off", variant: "warning" }
+}
+
+function renderStatusTile(
+	label: string,
+	detail: string,
+	badge: { label: string; variant: CompatibilityBadgeVariant },
+) {
+	return (
+		<div className="flex min-w-0 flex-col gap-1 rounded border border-input-foreground/20 bg-input-background/35 p-2">
+			<div className="flex items-center justify-between gap-2">
+				<span className="truncate text-xs font-medium text-foreground">{label}</span>
+				<Badge variant={badge.variant}>{badge.label}</Badge>
+			</div>
+			<div className="truncate text-[11px] text-foreground/65">{detail}</div>
+		</div>
+	)
+}
+
 const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibilitySectionProps) => {
+	const {
+		browserSettings,
+		compatibilityStatus,
+		enableParallelToolCalling,
+		openAiCodexIsAuthenticated,
+		subagentsEnabled,
+		vscodeTerminalExecutionMode,
+		worktreesEnabled,
+	} = useExtensionState()
 	const [uri, setUri] = useState("")
 	const [isLaunching, setIsLaunching] = useState(false)
 	const [status, setStatus] = useState<LaunchStatus | null>(null)
+	const [ndjsonStatus, setNdjsonStatus] = useState<CursorNdjsonIngestStatus>(DEFAULT_NDJSON_STATUS)
+	const [ndjsonBusyAction, setNdjsonBusyAction] = useState<string | null>(null)
+	const [ndjsonMessage, setNdjsonMessage] = useState<LaunchStatus | null>(null)
 	const preview = useMemo(() => buildCursorUriPreview(uri), [uri])
+	const dashboard = compatibilityStatus ?? {
+		enabled: true,
+		deepLinksEnabled: true,
+		retrievalIndexingPrivacyGate: true,
+		sandboxPolicy: "prompt" as const,
+		safeBrowserEvaluateEnabled: false,
+		effectiveBrowserEvaluateEnabled: !!browserSettings.allowBrowserEvaluate,
+		openAiCodexAuthSource: "codexHome" as const,
+		openAiCodexAuthenticated: !!openAiCodexIsAuthenticated,
+	}
+
+	const refreshNdjsonStatus = useCallback(async () => {
+		const nextStatus = await UiServiceClient.getCursorNdjsonIngestStatus(EmptyRequest.create({}))
+		setNdjsonStatus(nextStatus)
+		return nextStatus
+	}, [])
+
+	useEffect(() => {
+		void refreshNdjsonStatus().catch((error) => {
+			setNdjsonMessage({
+				kind: "error",
+				message: error instanceof Error ? error.message : "Unable to read NDJSON status.",
+			})
+		})
+	}, [refreshNdjsonStatus])
+
+	const runNdjsonAction = useCallback(
+		async (
+			action: "start" | "stop" | "reassign" | "copyCurl" | "refresh",
+			operation: () => Promise<CursorNdjsonIngestStatus | string>,
+		) => {
+			setNdjsonBusyAction(action)
+			setNdjsonMessage(null)
+			try {
+				const result = await operation()
+				if (typeof result === "string") {
+					await FileServiceClient.copyToClipboard(StringRequest.create({ value: result }))
+					setNdjsonMessage({ kind: "success", message: "Copied NDJSON ingest curl command." })
+					await refreshNdjsonStatus()
+				} else {
+					setNdjsonStatus(result)
+					const state = result.running && result.url ? `${result.url}/ingest` : "not running"
+					setNdjsonMessage({ kind: "success", message: `NDJSON ingest is ${state}.` })
+				}
+			} catch (error) {
+				setNdjsonMessage({
+					kind: "error",
+					message: error instanceof Error ? error.message : "NDJSON ingest action failed.",
+				})
+			} finally {
+				setNdjsonBusyAction(null)
+			}
+		},
+		[refreshNdjsonStatus],
+	)
 
 	const launchUri = useCallback(async () => {
 		const trimmedUri = uri.trim()
@@ -85,6 +183,148 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 	return (
 		<div>
 			{renderSectionHeader("cursor-compat")}
+			<Section>
+				<div className="mb-2 flex items-center justify-between gap-2">
+					<div className="text-xs font-medium text-foreground/80 uppercase tracking-wider">Live Status</div>
+					<Badge variant={dashboard.enabled ? "success" : "danger"}>
+						{dashboard.enabled ? "Compatibility on" : "Compatibility off"}
+					</Badge>
+				</div>
+				<div className="grid grid-cols-2 gap-2">
+					{renderStatusTile(
+						"Codex auth",
+						`${dashboard.openAiCodexAuthSource} provider source`,
+						{
+							label: dashboard.openAiCodexAuthenticated || openAiCodexIsAuthenticated ? "Ready" : "Needs sign-in",
+							variant: dashboard.openAiCodexAuthenticated || openAiCodexIsAuthenticated ? "success" : "warning",
+						},
+					)}
+					{renderStatusTile(
+						"Deep links",
+						"Validated Cursor-style route families",
+						yesNoBadge(dashboard.deepLinksEnabled),
+					)}
+					{renderStatusTile(
+						"Retrieval privacy",
+						".cursorignore and .cursorindexingignore gate search/indexing",
+						yesNoBadge(dashboard.retrievalIndexingPrivacyGate),
+					)}
+					{renderStatusTile(
+						"Sandbox policy",
+						".cursor/sandbox.json terminal and path policy",
+						{
+							label: dashboard.sandboxPolicy,
+							variant: dashboard.sandboxPolicy === "disabled" ? "danger" : "info",
+						},
+					)}
+					{renderStatusTile(
+						"Browser evaluate",
+						"Effective browser JavaScript evaluation gate",
+						yesNoBadge(dashboard.effectiveBrowserEvaluateEnabled),
+					)}
+					{renderStatusTile(
+						"Parallel agents",
+						"Subagents, worktrees, and parallel tool calls",
+						{
+							label: subagentsEnabled || worktreesEnabled?.user || enableParallelToolCalling ? "Ready" : "Manual",
+							variant: subagentsEnabled || worktreesEnabled?.user || enableParallelToolCalling ? "success" : "outline",
+						},
+					)}
+					{renderStatusTile(
+						"Terminal mode",
+						"Inline command execution surface",
+						{
+							label: vscodeTerminalExecutionMode === "backgroundExec" ? "Background" : "VS Code",
+							variant: "outline",
+						},
+					)}
+					{renderStatusTile(
+						"Safe evaluate setting",
+						"Compatibility override for trusted browser automation",
+						yesNoBadge(dashboard.safeBrowserEvaluateEnabled),
+					)}
+				</div>
+			</Section>
+			<Section>
+				<div className="mb-2 flex items-center justify-between gap-2">
+					<div>
+						<div className="text-xs font-medium text-foreground/80 uppercase tracking-wider">NDJSON Ingest</div>
+						<div className="mt-1 text-xs text-foreground/65">
+							{ndjsonStatus.running && ndjsonStatus.url
+								? `${ndjsonStatus.url}/ingest`
+								: `Stopped on ${ndjsonStatus.bindAddress || "127.0.0.1"}`}
+						</div>
+					</div>
+					<Badge variant={ndjsonStatus.running ? "success" : "outline"}>
+						{ndjsonStatus.running ? "Running" : "Stopped"}
+					</Badge>
+				</div>
+				<div className="flex flex-wrap gap-2">
+					<VSCodeButton
+						appearance="secondary"
+						disabled={!!ndjsonBusyAction}
+						onClick={() =>
+							void runNdjsonAction("refresh", () =>
+								UiServiceClient.getCursorNdjsonIngestStatus(EmptyRequest.create({})),
+							)
+						}
+						type="button">
+						{ndjsonBusyAction === "refresh" ? "Refreshing..." : "Refresh"}
+					</VSCodeButton>
+					<VSCodeButton
+						appearance="secondary"
+						disabled={!!ndjsonBusyAction || ndjsonStatus.running}
+						onClick={() =>
+							void runNdjsonAction("start", () => UiServiceClient.startCursorNdjsonIngest(EmptyRequest.create({})))
+						}
+						type="button">
+						{ndjsonBusyAction === "start" ? "Starting..." : "Start"}
+					</VSCodeButton>
+					<VSCodeButton
+						appearance="secondary"
+						disabled={!!ndjsonBusyAction || !ndjsonStatus.running}
+						onClick={() =>
+							void runNdjsonAction("stop", () => UiServiceClient.stopCursorNdjsonIngest(EmptyRequest.create({})))
+						}
+						type="button">
+						{ndjsonBusyAction === "stop" ? "Stopping..." : "Stop"}
+					</VSCodeButton>
+					<VSCodeButton
+						appearance="secondary"
+						disabled={!!ndjsonBusyAction}
+						onClick={() =>
+							void runNdjsonAction("reassign", () =>
+								UiServiceClient.reassignCursorNdjsonIngestPort(EmptyRequest.create({})),
+							)
+						}
+						type="button">
+						{ndjsonBusyAction === "reassign" ? "Reassigning..." : "Reassign Port"}
+					</VSCodeButton>
+					<VSCodeButton
+						appearance="secondary"
+						disabled={!!ndjsonBusyAction}
+						onClick={() =>
+							void runNdjsonAction("copyCurl", async () => {
+								const command = await UiServiceClient.getCursorNdjsonIngestCurlCommand(EmptyRequest.create({}))
+								return command.value
+							})
+						}
+						type="button">
+						{ndjsonBusyAction === "copyCurl" ? "Copying..." : "Copy curl"}
+					</VSCodeButton>
+				</div>
+				{ndjsonMessage && (
+					<div
+						className={
+							ndjsonMessage.kind === "success"
+								? "mt-2 text-xs text-success"
+								: "mt-2 text-xs text-(--vscode-errorForeground)"
+						}
+						role="status">
+						{ndjsonMessage.message}
+					</div>
+				)}
+			</Section>
 			<Section>
 				<form className="flex flex-col gap-3" onSubmit={handleSubmit}>
 					<div className="flex flex-col gap-1">

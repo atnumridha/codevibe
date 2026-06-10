@@ -79,6 +79,7 @@ import { exportVSCodeStorageToSharedFiles } from "./hosts/vscode/vscode-to-file-
 import { ExtensionRegistryInfo } from "./registry"
 import { AuthService } from "./services/auth/AuthService"
 import { LogoutReason } from "./services/auth/types"
+import { registerCursorNdjsonIngestBridge } from "./services/automation/CursorNdjsonIngestBridge"
 import { CursorNdjsonIngestServer, type CursorNdjsonIngestServerStatus } from "./services/automation/CursorNdjsonIngestServer"
 import { maybeAutoStartCursorNdjsonIngestServer } from "./services/automation/CursorNdjsonIngestStartup"
 import { telemetryService } from "./services/telemetry"
@@ -298,6 +299,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const stopCursorNdjsonIngestServer = async () => {
 		const status = await cursorNdjsonIngestServer.stop()
 		await showCursorNdjsonStatus(status, "CodeVibe compatibility NDJSON ingest server stopped")
+		return status
 	}
 	const showCursorNdjsonIngestStatus = async () => {
 		await showCursorNdjsonStatus(cursorNdjsonIngestServer.getStatus(), "CodeVibe compatibility NDJSON ingest server status")
@@ -314,6 +316,23 @@ export async function activate(context: vscode.ExtensionContext) {
 		await vscode.env.clipboard.writeText(command)
 		await vscode.window.showInformationMessage("Copied CodeVibe compatibility NDJSON ingest curl command.")
 	}
+	const getCursorNdjsonIngestCurlCommand = async () => {
+		let status = cursorNdjsonIngestServer.getStatus()
+		if (!status.running) {
+			status = (await startCursorNdjsonIngestServer(false)) ?? status
+		}
+		if (!status.running) {
+			throw new Error("CodeVibe compatibility NDJSON ingest server is not running.")
+		}
+		return cursorNdjsonIngestServer.buildCurlCommand()
+	}
+	registerCursorNdjsonIngestBridge({
+		getStatus: () => cursorNdjsonIngestServer.getStatus(),
+		start: async () => (await startCursorNdjsonIngestServer(false)) ?? cursorNdjsonIngestServer.getStatus(),
+		stop: stopCursorNdjsonIngestServer,
+		reassignPort: async () => (await startCursorNdjsonIngestServer(true)) ?? cursorNdjsonIngestServer.getStatus(),
+		buildCurlCommand: getCursorNdjsonIngestCurlCommand,
+	})
 	const triggerCursorCompatibleDeeplink = async () => {
 		const uri = await vscode.window.showInputBox({
 			placeHolder: "codevibe://createchat?prompt=Review%20this",
