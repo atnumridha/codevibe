@@ -99,7 +99,7 @@ async function packageAllBinaryDeps() {
 		console.log(`Installing binaries for ${module}...`)
 		const src = path.join(BUILD_DIR, "node_modules", module)
 		if (!fs.existsSync(src)) {
-			console.warn(`Warning: Trying to install binaries for the module '${module}', but it is not being used by cline.`)
+			console.warn(`Warning: Trying to install binaries for the module '${module}', but it is not being used by CodeVibe.`)
 			continue
 		}
 
@@ -204,10 +204,6 @@ function createStandaloneManifest() {
 			supported: SUPPORTED_BINARY_MODULES,
 			universalBuild: UNIVERSAL_BUILD,
 		},
-		compatibility: {
-			upstreamPatchBase: "cline",
-			legacyEnvironmentAliases: ["CLINE_DIR", "CLINE_ENVIRONMENT"],
-		},
 	}
 }
 
@@ -220,6 +216,7 @@ function writeStandaloneManifest() {
 async function zipDistribution() {
 	// Zip the build directory (excluding any pre-existing output zip).
 	const zipPath = path.join(BUILD_DIR, "standalone.zip")
+	await rmrf(path.join(BUILD_DIR, "standalone.zip.sha256"))
 	const output = fs.createWriteStream(zipPath)
 	const startTime = Date.now()
 	const archive = archiver("zip", { zlib: { level: 6 } })
@@ -246,7 +243,7 @@ async function zipDistribution() {
 	// Add all the files from the standalone build dir.
 	archive.glob("**/*", {
 		cwd: BUILD_DIR,
-		ignore: ["standalone.zip"],
+		ignore: ["standalone.zip", "standalone.zip.sha256"],
 	})
 
 	// Exclude the same files as the VCE vscode extension packager.

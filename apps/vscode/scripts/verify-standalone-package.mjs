@@ -120,12 +120,25 @@ function verifyStandalonePackage(zipPath) {
 	const manifest = readJsonEntry(zip, "standalone-manifest.json")
 	const runtimePackage = readJsonEntry(zip, "package.json")
 	const extensionPackage = readJsonEntry(zip, "extension/package.json")
+	const serializedManifest = JSON.stringify(manifest)
 
 	assert(manifest.schemaVersion === 1, "manifest.schemaVersion must be 1", failures)
 	assert(manifest.product?.name === "CodeVibe", "manifest.product.name must be CodeVibe", failures)
+	assert(!hasEntry(zip, "standalone.zip.sha256"), "standalone.zip must not include standalone.zip.sha256", failures)
 	assert(
 		manifest.product?.extensionVersion === extensionPackage.version,
 		"manifest.product.extensionVersion must match extension/package.json",
+		failures,
+	)
+	assert(!manifest.compatibility?.upstreamPatchBase, "manifest.compatibility.upstreamPatchBase must not be public", failures)
+	assert(
+		!serializedManifest.includes("upstreamPatchBase") && !serializedManifest.includes("legacyEnvironmentAliases"),
+		"manifest must not expose upstream patch metadata",
+		failures,
+	)
+	assert(
+		!serializedManifest.includes("CLINE_") && !serializedManifest.includes("Cline"),
+		"manifest.compatibility must not expose legacy CLINE_* environment aliases",
 		failures,
 	)
 	assert(
