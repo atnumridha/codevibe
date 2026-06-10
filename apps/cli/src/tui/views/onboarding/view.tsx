@@ -22,6 +22,7 @@ export interface OnboardingViewProps {
 	onComplete: (result: OnboardingResult) => void;
 	onExit: () => void;
 	providerSettingsManager?: ProviderSettingsManager;
+	workspaceRoot?: string;
 }
 
 export function OnboardingView(props: OnboardingViewProps) {

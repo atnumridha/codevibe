@@ -63,6 +63,7 @@ export interface OnboardingControllerProps {
 	onComplete: (result: OnboardingResult) => void;
 	onExit: () => void;
 	providerSettingsManager?: ProviderSettingsManager;
+	workspaceRoot?: string;
 }
 
 export function useOnboardingController(props: OnboardingControllerProps) {
@@ -106,7 +107,10 @@ export function useOnboardingController(props: OnboardingControllerProps) {
 	useEffect(() => {
 		listLocalProviders(providerSettingsManager)
 			.then(({ providers: list }) => {
-				const codexHomeAuthAvailable = hasOpenAICodexHomeCredentials();
+				const workspaceRoot = props.workspaceRoot?.trim();
+				const codexHomeAuthAvailable = hasOpenAICodexHomeCredentials(
+					workspaceRoot ? { workspaceRoots: [workspaceRoot] } : undefined,
+				);
 				setProviders(
 					list.map((provider) =>
 						toProviderEntry(provider, { codexHomeAuthAvailable }),
@@ -115,7 +119,7 @@ export function useOnboardingController(props: OnboardingControllerProps) {
 			})
 			.catch(() => {})
 			.finally(() => setProvidersLoading(false));
-	}, [providerSettingsManager]);
+	}, [props.workspaceRoot, providerSettingsManager]);
 
 	const providerItems: SearchableItem[] = useMemo(
 		() =>

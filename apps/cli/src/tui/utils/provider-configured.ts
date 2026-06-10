@@ -11,5 +11,8 @@ export function isProviderConfigured(config: TuiProps["config"]): boolean {
 	const providerConfig = manager.getProviderConfig(config.providerId, {
 		includeKnownModels: false,
 	});
-	return isProviderSettingsUsable(config.providerId, settings, providerConfig);
+	const workspaceRoot = config.workspaceRoot?.trim() || config.cwd;
+	return isProviderSettingsUsable(config.providerId, settings, providerConfig, {
+		workspaceRoots: [workspaceRoot],
+	});
 }

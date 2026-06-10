@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { isProviderSettingsUsable } from "./provider-readiness";
 
 const ORIGINAL_CODEX_HOME = process.env.CODEX_HOME;
+const tempRoots: string[] = [];
 
 function makeJwt(payload: Record<string, unknown>): string {
 	return [
@@ -20,6 +21,7 @@ function createCodexHomeAuth(): string {
 		tmpdir(),
 		`codevibe-cli-codex-home-${Date.now()}-${Math.random().toString(36).slice(2)}`,
 	);
+	tempRoots.push(root);
 	mkdirSync(root, { recursive: true });
 	const accessToken = makeJwt({
 		exp: Math.floor(Date.now() / 1000) + 3600,
@@ -41,10 +43,37 @@ function createCodexHomeAuth(): string {
 	return root;
 }
 
+function createWorkspaceCodexAuth(): string {
+	const root = join(
+		tmpdir(),
+		`codevibe-cli-codex-workspace-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+	);
+	tempRoots.push(root);
+	mkdirSync(join(root, ".codex"), { recursive: true });
+	const accessToken = makeJwt({
+		exp: Math.floor(Date.now() / 1000) + 3600,
+		email: "workspace-codex@example.com",
+		"https://api.openai.com/auth": {
+			chatgpt_account_id: "acct_workspace_codex",
+		},
+	});
+	writeFileSync(
+		join(root, ".codex", "auth.json"),
+		JSON.stringify({
+			tokens: {
+				access_token: accessToken,
+				refresh_token: "workspace-refresh-secret",
+			},
+		}),
+		"utf8",
+	);
+	return root;
+}
+
 describe("provider readiness", () => {
 	afterEach(() => {
-		if (process.env.CODEX_HOME?.includes("codevibe-cli-codex-home-")) {
-			rmSync(process.env.CODEX_HOME, { recursive: true, force: true });
+		for (const tempRoot of tempRoots.splice(0)) {
+			rmSync(tempRoot, { recursive: true, force: true });
 		}
 		if (ORIGINAL_CODEX_HOME === undefined) {
 			delete process.env.CODEX_HOME;
@@ -87,6 +116,27 @@ describe("provider readiness", () => {
 				provider: "openai-codex",
 				model: "gpt-5.3-codex",
 			} satisfies ProviderSettings),
+		).toBe(true);
+	});
+
+	it("accepts workspace .codex auth for OpenAI Codex readiness", () => {
+		const workspaceRoot = createWorkspaceCodexAuth();
+
+		expect(
+			isProviderSettingsUsable("openai-codex", undefined, undefined, {
+				workspaceRoots: [workspaceRoot],
+			}),
+		).toBe(true);
+		expect(
+			isProviderSettingsUsable(
+				"openai-codex",
+				{
+					provider: "openai-codex",
+					model: "gpt-5.3-codex",
+				} satisfies ProviderSettings,
+				undefined,
+				{ workspaceRoots: [workspaceRoot] },
+			),
 		).toBe(true);
 	});
 

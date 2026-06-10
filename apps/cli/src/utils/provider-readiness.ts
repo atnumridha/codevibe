@@ -14,10 +14,14 @@ function hasText(value: string | undefined): boolean {
 	return typeof value === "string" && value.trim().length > 0;
 }
 
-export function hasOpenAICodexHomeCredentials(options?: {
+export type ProviderReadinessOptions = {
 	workspaceRoots?: readonly string[];
 	codexHome?: string;
-}): boolean {
+};
+
+export function hasOpenAICodexHomeCredentials(
+	options?: ProviderReadinessOptions,
+): boolean {
 	try {
 		return Boolean(loadOpenAICodexHomeCredentialsSync(options));
 	} catch {
@@ -66,12 +70,13 @@ export function isProviderSettingsUsable(
 	providerId: string,
 	settings: ProviderSettings | undefined,
 	config?: Pick<ProviderConfig, "baseUrl" | "modelId">,
+	options?: ProviderReadinessOptions,
 ): boolean {
 	const normalizedProviderId = normalizeProviderId(providerId);
 	if (!settings) {
 		return (
 			normalizedProviderId === "openai-codex" &&
-			hasOpenAICodexHomeCredentials()
+			hasOpenAICodexHomeCredentials(options)
 		);
 	}
 	if (normalizeProviderId(settings.provider) !== normalizedProviderId) {
@@ -93,7 +98,7 @@ export function isProviderSettingsUsable(
 	if (isOAuthProvider(normalizedProviderId)) {
 		return (
 			normalizedProviderId === "openai-codex" &&
-			hasOpenAICodexHomeCredentials()
+			hasOpenAICodexHomeCredentials(options)
 		);
 	}
 	const fields = getProviderConfigFields(normalizedProviderId);

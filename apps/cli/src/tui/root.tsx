@@ -930,6 +930,7 @@ function App(props: TuiProps) {
 				onExit={() => {
 					exitCline();
 				}}
+				workspaceRoot={workspaceRoot}
 			/>
 		);
 	} else if (session.hasSubmitted || appView === "chat") {
