@@ -18,7 +18,7 @@ CodeVibe is an editor-native coding agent for VS Code with Codex auth by default
 3. Run **CodeVibe: Open CodeVibe** from the command palette.
 4. Start with a task such as “review this repo and suggest the first safe improvement.”
 
-CodeVibe opens the Codex-native sidebar by default and keeps the legacy compatibility webview available only for flows that still need it while the UI is being rebuilt.
+CodeVibe opens the Codex-native sidebar by default and keeps the compatibility webview available only for fallback flows that still depend on the older VS Code webview host.
 
 ## Safety
 

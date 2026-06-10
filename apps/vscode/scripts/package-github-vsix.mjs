@@ -1583,6 +1583,7 @@ async function main() {
 	if (options.preflight) {
 		const githubVsixPackageJson = createGithubVsixPackageJson(readPackageJson())
 		assertManifestInputs(githubVsixPackageJson)
+		runCommand([process.execPath], ["scripts/check-codevibe-branding.mjs"])
 		runCommand(
 			[process.execPath],
 			["scripts/check-local-release-prereqs.mjs", ...(options.requireReleaseGate ? ["--release"] : [])],

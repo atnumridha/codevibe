@@ -1551,7 +1551,7 @@ async function closeLegacyCodeVibePanels(): Promise<void> {
 			await vscode.window.tabGroups.close(tabs)
 		}
 	} catch (error) {
-		Logger.warn(`Failed to close restored CodeVibe legacy panels: ${error instanceof Error ? error.message : String(error)}`)
+		Logger.warn(`Failed to close restored CodeVibe compatibility panels: ${error instanceof Error ? error.message : String(error)}`)
 	}
 
 	try {
@@ -1566,7 +1566,7 @@ function scheduleLegacyCodeVibePanelCleanup(context: vscode.ExtensionContext): v
 		const timer = setTimeout(() => {
 			closeLegacyCodeVibePanels().catch((error) => {
 				Logger.warn(
-					`Failed to close restored CodeVibe legacy panel after layout restore: ${
+					`Failed to close restored CodeVibe compatibility panel after layout restore: ${
 						error instanceof Error ? error.message : String(error)
 					}`,
 				)
@@ -1650,7 +1650,7 @@ async function cleanupLegacyVSCodeStorage(context: ExtensionContext): Promise<vo
 
 		Logger.info("[VS Code Storage Migrations] Starting")
 
-		// Migrate custom instructions to global Cline rules (one-time cleanup)
+		// Migrate custom instructions to global CodeVibe rules (one-time cleanup)
 		await migrateCustomInstructionsToGlobalRules(context)
 
 		// Migrate welcomeViewCompleted setting based on existing API keys (one-time cleanup)

@@ -366,7 +366,7 @@
 			},
 			{
 				"command": "codevibe.openLegacyWebview",
-				"title": "Show CodeVibe Legacy Panel",
+				"title": "Show CodeVibe Compatibility Panel",
 				"category": "CodeVibe"
 			},
 			{
@@ -674,7 +674,7 @@
 		"format": "biome format --config-path ./biome.jsonc --changed --since main --no-errors-on-unmatched --files-ignore-unknown=true --diagnostic-level=error",
 		"format:fix": "biome check --config-path ./biome.jsonc --changed --since main --no-errors-on-unmatched --files-ignore-unknown=true --write",
 		"fix:all": "biome check --config-path ./biome.jsonc --no-errors-on-unmatched --files-ignore-unknown=true --write --diagnostic-level=error --unsafe",
-		"ci:check-all": "npx npm-run-all -p check-types lint format",
+		"ci:check-all": "npx npm-run-all -p check-types lint format branding:audit",
 		"ci:build": "npm run protos && npm run build:webview && node esbuild.mjs && npm run compile-tests",
 		"pretest": "npm run compile && npm run compile-tests && npm run compile-standalone && npm run lint",
 		"test": "npx npm-run-all test:unit test:integration",
@@ -684,6 +684,7 @@
 		"test:sca-server": "npx tsx watch scripts/test-standalone-core-api-server.ts",
 		"test:tp-orchestrator": "npx tsx scripts/testing-platform-orchestrator.ts",
 		"e2e": "playwright test -c playwright.config.ts",
+		"branding:audit": "node scripts/check-codevibe-branding.mjs",
 		"package:github-vsix:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight:release": "node scripts/check-local-release-prereqs.mjs --release --github-release",

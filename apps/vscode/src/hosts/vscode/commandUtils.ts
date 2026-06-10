@@ -56,7 +56,7 @@ export async function getContextForCommand(
 	options?: {
 		/**
 		 * When true, the editor keeps focus when showing the sidebar webview.
-		 * Use this for non-interruptive flows (e.g. copy terminal output to Cline).
+		 * Use this for non-interruptive flows (e.g. copy terminal output to CodeVibe).
 		 */
 		preserveEditorFocus?: boolean
 	},
