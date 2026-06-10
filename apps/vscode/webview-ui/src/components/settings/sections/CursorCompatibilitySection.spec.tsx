@@ -84,7 +84,7 @@ describe("CursorCompatibilitySection", () => {
 	it("shows a redacted preview but launches the original URI", async () => {
 		vi.mocked(UiServiceClient.handleUri).mockResolvedValue({ value: true })
 		const rawUri =
-			"vscode://cline.cline/mcp/install?name=docs&token=secret-token&url=https%3A%2F%2Fmcp.example.com%2Fcallback%3Fapi_key%3Dsecret-query"
+			"vscode://atnumridha.codevibe/mcp/install?name=docs&token=secret-token&url=https%3A%2F%2Fmcp.example.com%2Fcallback%3Fapi_key%3Dsecret-query"
 		const { container } = render(<CursorCompatibilitySection renderSectionHeader={() => null} />)
 
 		const textarea = container.querySelector("#cursor-compatible-uri")

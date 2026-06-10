@@ -52,6 +52,7 @@ import {
 } from "./hosts/vscode/native-chat-adapter"
 import {
 	canRegisterCodeVibeNativeChatSessions,
+	CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE,
 	CODEVIBE_CHAT_PARTICIPANT_ID,
 	CODEVIBE_CHAT_SESSION_TYPE,
 	CODEVIBE_NATIVE_AGENT_CACHE_DIR,
@@ -126,7 +127,17 @@ export async function activate(context: vscode.ExtensionContext) {
 	)
 	const nativeAgentRegistration = createCodeVibeNativeAgentRegistrationState()
 	const codeVibeChatParticipant = registerCodeVibeChatParticipant(context, nativeAgentRegistration)
-	registerCodeVibeNativeChatSessionProvider(context, nativeAgentRegistration, codeVibeChatParticipant)
+	const codeVibeHostChatParticipant = registerCodeVibeChatParticipant(
+		context,
+		nativeAgentRegistration,
+		CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE,
+	)
+	registerCodeVibeNativeChatSessionProvider(
+		context,
+		nativeAgentRegistration,
+		codeVibeChatParticipant,
+		codeVibeHostChatParticipant,
+	)
 	await closeLegacyCodeVibePanels()
 	scheduleLegacyCodeVibePanelCleanup(context)
 
@@ -999,6 +1010,8 @@ type CodeVibeNewChatSessionItemContext = {
 
 type CodeVibeNativeAgentRegistrationState = {
 	chatParticipantRegistered: boolean
+	hostChatParticipantRegistered: boolean
+	chatParticipantIds: string[]
 	customAgentProviderRegistered: boolean
 	chatSessionProviderRegistered: boolean
 	chatSessionItemProviderRegistered: boolean
@@ -1021,6 +1034,8 @@ const codeVibeNativeChatSessionRefreshTargets = new Map<string, CodeVibeNativeCh
 function createCodeVibeNativeAgentRegistrationState(): CodeVibeNativeAgentRegistrationState {
 	return {
 		chatParticipantRegistered: false,
+		hostChatParticipantRegistered: false,
+		chatParticipantIds: [],
 		customAgentProviderRegistered: false,
 		chatSessionProviderRegistered: false,
 		chatSessionItemProviderRegistered: false,
@@ -1090,6 +1105,8 @@ function buildCodeVibeNativeAgentDiagnostics(
 		},
 		registration: {
 			chatParticipant: registration.chatParticipantRegistered,
+			hostChatParticipant: registration.hostChatParticipantRegistered,
+			chatParticipantIds: registration.chatParticipantIds,
 			customAgentProvider: registration.customAgentProviderRegistered,
 			chatSessionProvider: registration.chatSessionProviderRegistered,
 			chatSessionItemProvider: registration.chatSessionItemProviderRegistered,
@@ -1182,6 +1199,7 @@ function buildCodeVibeNativeChatRequestHandler() {
 function registerCodeVibeChatParticipant(
 	context: vscode.ExtensionContext,
 	registration: CodeVibeNativeAgentRegistrationState,
+	participantId: string = CODEVIBE_CHAT_PARTICIPANT_ID,
 ): NativeChatParticipant | undefined {
 	const chatApi = getNativeChatApi()
 	if (!chatApi?.createChatParticipant) {
@@ -1189,15 +1207,22 @@ function registerCodeVibeChatParticipant(
 	}
 
 	try {
-		const participant = chatApi.createChatParticipant(CODEVIBE_CHAT_PARTICIPANT_ID, buildCodeVibeNativeChatRequestHandler())
+		const participant = chatApi.createChatParticipant(participantId, buildCodeVibeNativeChatRequestHandler())
 		participant.iconPath = vscode.Uri.joinPath(context.extensionUri, "assets", "icons", "icon.png")
 		context.subscriptions.push(participant)
-		registration.chatParticipantRegistered = true
+		registration.chatParticipantIds.push(participantId)
+		if (participantId === CODEVIBE_CHAT_PARTICIPANT_ID) {
+			registration.chatParticipantRegistered = true
+		} else if (participantId === CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE) {
+			registration.hostChatParticipantRegistered = true
+		}
 		return participant
 	} catch (error) {
-		registration.failures.push(`chatParticipant: ${error instanceof Error ? error.message : String(error)}`)
+		registration.failures.push(`chatParticipant:${participantId}: ${error instanceof Error ? error.message : String(error)}`)
 		Logger.warn(
-			`Failed to register CodeVibe native chat participant: ${error instanceof Error ? error.message : String(error)}`,
+			`Failed to register CodeVibe native chat participant ${participantId}: ${
+				error instanceof Error ? error.message : String(error)
+			}`,
 		)
 		return undefined
 	}
@@ -1272,6 +1297,7 @@ function registerCodeVibeNativeChatSessionProvider(
 	context: vscode.ExtensionContext,
 	registration: CodeVibeNativeAgentRegistrationState,
 	defaultChatParticipant: NativeChatParticipant | undefined,
+	agentHostChatParticipant: NativeChatParticipant | undefined,
 ): void {
 	const chatApi = getNativeChatApi()
 	if (
@@ -1286,7 +1312,11 @@ function registerCodeVibeNativeChatSessionProvider(
 	}
 
 	registerCodeVibeNativeChatSessionTypes((chatSessionType) => {
-		registerCodeVibeNativeChatSessionType(context, registration, chatApi, chatSessionType, defaultChatParticipant)
+		const participant =
+			chatSessionType === CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE
+				? agentHostChatParticipant || defaultChatParticipant
+				: defaultChatParticipant
+		registerCodeVibeNativeChatSessionType(context, registration, chatApi, chatSessionType, participant)
 	})
 }
 

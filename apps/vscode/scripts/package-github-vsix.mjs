@@ -164,6 +164,7 @@ const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
 
 const vscodeChatPromptContributionKeys = new Set(["path", "name", "description", "when", "sessionTypes"])
 const vscodeChatSessionContributionKeys = new Set([
+	"id",
 	"type",
 	"name",
 	"displayName",
@@ -1178,9 +1179,21 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
 		assertOnlyAllowedObjectKeys(session, vscodeChatSessionContributionKeys, `${label} chatSessions[${index}]`)
+		const sessionId = session?.id
+		if (typeof sessionId !== "string" || sessionId.trim() === "") {
+			throw new Error(`${label} chatSessions[${index}] must declare a non-empty id`)
+		}
+		if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) {
+			throw new Error(
+				`${label} chatSessions[${index}] id '${sessionId}' must use only alphanumeric characters, '_' or '-'`,
+			)
+		}
 		const sessionType = session?.type
 		if (typeof sessionType !== "string" || sessionType.trim() === "") {
 			throw new Error(`${label} chatSessions[${index}] must declare a non-empty type`)
+		}
+		if (sessionId !== sessionType) {
+			throw new Error(`${label} chatSessions[${index}] id must match type while VS Code chatSessions is proposed`)
 		}
 		if (!/^[A-Za-z0-9_-]+$/.test(sessionType)) {
 			throw new Error(
@@ -1734,8 +1747,21 @@ function assertNativeChatRegistrationSource() {
 	if (!registrationSource.includes("CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE")) {
 		throw new Error("Native Chat session types must register the VS Code CodeVibe host alias")
 	}
+	if (
+		!source.includes(
+			"registerCodeVibeChatParticipant(\n\t\tcontext,\n\t\tnativeAgentRegistration,\n\t\tCODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE",
+		)
+	) {
+		throw new Error("Native Chat activation must register the agent-host-codevibe participant implementation")
+	}
+	if (!source.includes("hostChatParticipantRegistered")) {
+		throw new Error("Native Chat diagnostics must report the agent-host-codevibe participant registration")
+	}
 	if (!/registerChatSessionContentProvider!\(\s*chatSessionType,\s*contentProvider,\s*defaultChatParticipant/.test(source)) {
 		throw new Error("Native Chat session providers must register with the declared CodeVibe chat participant")
+	}
+	if (!source.includes("agentHostChatParticipant || defaultChatParticipant")) {
+		throw new Error("Native Chat session providers must prefer the agent-host-codevibe participant when available")
 	}
 	if (source.includes("registerCodeVibeNativeAgentProvider(context")) {
 		throw new Error("Native Chat activation must not register the external CodeVibe agent-host provider")

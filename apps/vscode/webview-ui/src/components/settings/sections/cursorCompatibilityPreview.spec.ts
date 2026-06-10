@@ -6,7 +6,7 @@ import {
 
 describe("cursorCompatibilityPreview", () => {
 	it("infers Cursor-compatible routes across vscode, cursor, and codevibe URI forms", () => {
-		expect(buildCursorUriPreview("vscode://cline.cline/createchat?prompt=hi").route).to.equal("/createchat")
+		expect(buildCursorUriPreview("vscode://atnumridha.codevibe/createchat?prompt=hi").route).to.equal("/createchat")
 		expect(buildCursorUriPreview("cursor://settings?tab=NDJSON").route).to.equal("/settings")
 		expect(buildCursorUriPreview("codevibe://git/checkout?branch=feature%2Fdemo").route).to.equal("/git/checkout")
 		expect(buildCursorUriPreview("vscode://anysphere.cursor-mcp/install?name=docs").route).to.equal("/mcp/install")
@@ -25,7 +25,7 @@ describe("cursorCompatibilityPreview", () => {
 			}),
 		)
 		const preview = buildCursorUriPreview(
-			`vscode://cline.cline/mcp/install?name=docs&access_token=query-secret&config=${config}`,
+			`vscode://atnumridha.codevibe/mcp/install?name=docs&access_token=query-secret&config=${config}`,
 		)
 
 		expect(preview.ok).to.equal(true)

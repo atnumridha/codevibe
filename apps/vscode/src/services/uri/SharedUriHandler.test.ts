@@ -168,21 +168,21 @@ describe("SharedUriHandler", () => {
 	describe("handleUri", () => {
 		describe("OpenRouter callback handling", () => {
 			it("should successfully handle OpenRouter callback with code", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/openrouter?code=test123")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/openrouter?code=test123")
 
 				expect(result).to.be.true
 				sinon.assert.calledOnceWithExactly(handleOpenRouterCallbackStub, "test123")
 			})
 
 			it("should return false when OpenRouter code is missing", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/openrouter")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/openrouter")
 
 				expect(result).to.be.false
 				expect(handleOpenRouterCallbackStub.called).to.be.false
 			})
 
 			it("should handle URL with plus signs in code parameter", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/openrouter?code=test+123+abc")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/openrouter?code=test+123+abc")
 
 				expect(result).to.be.true
 				// Plus signs in query params are preserved
@@ -192,21 +192,21 @@ describe("SharedUriHandler", () => {
 
 		describe("Auth callback handling", () => {
 			it("should successfully handle auth callback with idToken", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/auth?idToken=jwt123&provider=google")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/auth?idToken=jwt123&provider=google")
 
 				expect(result).to.be.true
 				sinon.assert.calledOnceWithExactly(handleAuthCallbackStub, "jwt123", "google")
 			})
 
 			it("should successfully handle auth callback without provider", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/auth?idToken=jwt123")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/auth?idToken=jwt123")
 
 				expect(result).to.be.true
 				sinon.assert.calledOnceWithExactly(handleAuthCallbackStub, "jwt123", null)
 			})
 
 			it("should return false when idToken is missing", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/auth?provider=google")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/auth?provider=google")
 
 				expect(result).to.be.false
 				expect(handleAuthCallbackStub.called).to.be.false
@@ -215,7 +215,7 @@ describe("SharedUriHandler", () => {
 
 		describe("Unknown path handling", () => {
 			it("should return false for unknown paths", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/unknown?param=value")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/unknown?param=value")
 
 				expect(result).to.be.false
 				expect(handleAuthCallbackStub.called).to.be.false
@@ -228,7 +228,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Create Task" })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/createchat?prompt=Review%20the%20diff")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/createchat?prompt=Review%20the%20diff")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe chat task?")
@@ -267,7 +267,7 @@ describe("SharedUriHandler", () => {
 
 				const prompt = "Review A & B = ok #section"
 				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/createchat?prompt=${encodeURIComponent(prompt)}`,
+					`vscode://atnumridha.codevibe/createchat?prompt=${encodeURIComponent(prompt)}`,
 				)
 
 				expect(result).to.be.true
@@ -278,7 +278,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/prompt?text=Review%20the%20diff")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/prompt?text=Review%20the%20diff")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe prompt task?")
@@ -291,7 +291,7 @@ describe("SharedUriHandler", () => {
 				const config = encodeConfig({ placement: "top", token: "secret-value" })
 
 				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/glass?text=Continue%20here&config=${config}`,
+					`vscode://atnumridha.codevibe/glass?text=Continue%20here&config=${config}`,
 				)
 
 				expect(result).to.be.true
@@ -309,7 +309,7 @@ describe("SharedUriHandler", () => {
 
 			it("should confirm and install a Cursor MCP install route", async () => {
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+					"vscode://atnumridha.codevibe/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				)
 
 				expect(result).to.be.true
@@ -337,7 +337,7 @@ describe("SharedUriHandler", () => {
 				])
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+					"vscode://atnumridha.codevibe/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				)
 
 				expect(result).to.be.true
@@ -367,7 +367,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.onSecondCall().resolves({ selectedOption: "Authenticate" })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+					"vscode://atnumridha.codevibe/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				)
 
 				expect(result).to.be.true
@@ -411,7 +411,7 @@ describe("SharedUriHandler", () => {
 
 			it("should redact Cursor MCP install URL query values in confirmation text", async () => {
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fsse%3Ftoken%3Dsecret-value%23secret-fragment",
+					"vscode://atnumridha.codevibe/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fsse%3Ftoken%3Dsecret-value%23secret-fragment",
 				)
 
 				expect(result).to.be.true
@@ -439,7 +439,7 @@ describe("SharedUriHandler", () => {
 					},
 				})
 
-				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/mcp/install?name=docs&config=${config}`)
+				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/mcp/install?name=docs&config=${config}`)
 
 				expect(result).to.be.true
 				const modal = showMessageStub.firstCall.args[0]
@@ -473,7 +473,7 @@ describe("SharedUriHandler", () => {
 					},
 				})
 
-				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/mcp/install?config=${config}`)
+				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/mcp/install?config=${config}`)
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Choose MCP server to install")
@@ -506,7 +506,7 @@ describe("SharedUriHandler", () => {
 					},
 				})
 
-				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/mcp/install?name=postgres&config=${config}`)
+				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/mcp/install?name=postgres&config=${config}`)
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal('Install MCP server "postgres"?')
@@ -527,7 +527,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+					"vscode://atnumridha.codevibe/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				)
 
 				expect(result).to.be.true
@@ -544,7 +544,7 @@ describe("SharedUriHandler", () => {
 				})
 
 				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main&config=${config}`,
+					`vscode://atnumridha.codevibe/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main&config=${config}`,
 				)
 
 				expect(result).to.be.true
@@ -597,7 +597,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/automation/ingest?ndjson=${ndjson}&defaultSource=cursor`,
+					`vscode://atnumridha.codevibe/automation/ingest?ndjson=${ndjson}&defaultSource=cursor`,
 				)
 
 				expect(result).to.be.true
@@ -621,7 +621,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: undefined })
 				const ndjson = encodeURIComponent(JSON.stringify({ eventId: "evt-1", eventType: "git.commit.created" }))
 
-				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/automation/ingest?ndjson=${ndjson}`)
+				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/automation/ingest?ndjson=${ndjson}`)
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Ingest automation NDJSON?")
@@ -644,7 +644,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/automation/ingest?ndjson=${ndjson}&strict=true`,
+					`vscode://atnumridha.codevibe/automation/ingest?ndjson=${ndjson}&strict=true`,
 				)
 
 				expect(result).to.be.true
@@ -667,7 +667,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/git/checkout?branch=feature%2Fcursor-parity",
+					"vscode://atnumridha.codevibe/git/checkout?branch=feature%2Fcursor-parity",
 				)
 
 				expect(result).to.be.true
@@ -686,7 +686,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/git/branch?name=feature%2Fcursor-uri&base=main&checkout=true",
+					"vscode://atnumridha.codevibe/git/branch?name=feature%2Fcursor-uri&base=main&checkout=true",
 				)
 
 				expect(result).to.be.true
@@ -707,7 +707,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/git/commit?message=fix%3A%20cursor%20routes&all=true",
+					"vscode://atnumridha.codevibe/git/commit?message=fix%3A%20cursor%20routes&all=true",
 				)
 
 				expect(result).to.be.true
@@ -723,7 +723,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "OK" })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/git/commit?message=fix%3A%20empty%20commit")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/git/commit?message=fix%3A%20empty%20commit")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Git helper needs review")
@@ -743,7 +743,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/git/checkout?branch=feature%2Fsafe-changes")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/git/checkout?branch=feature%2Fsafe-changes")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe checkout/switch helper?")
@@ -756,7 +756,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main",
+					"vscode://atnumridha.codevibe/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main",
 				)
 
 				expect(result).to.be.true
@@ -767,7 +767,7 @@ describe("SharedUriHandler", () => {
 
 			it("should open settings routes directly through the host", async () => {
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/settings?query=%40id%3Acodevibe.openAiCodex.authSource",
+					"vscode://atnumridha.codevibe/settings?query=%40id%3Acodevibe.openAiCodex.authSource",
 				)
 
 				expect(result).to.be.true
@@ -777,7 +777,7 @@ describe("SharedUriHandler", () => {
 
 			it("should open Cursor settings section and tab routes through the host", async () => {
 				const sectionResult = await SharedUriHandler.handleUri("cursor://settings?section=Providers")
-				const tabResult = await SharedUriHandler.handleUri("vscode://cline.cline/settings?tab=Cursor%20Links")
+				const tabResult = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/settings?tab=Cursor%20Links")
 
 				expect(sectionResult).to.be.true
 				expect(tabResult).to.be.true
@@ -824,7 +824,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Install Plugin" })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/plugin/add?id=docs-helper")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
@@ -844,7 +844,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Install Plugin" })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper&replace=true")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/plugin/add?id=docs-helper&replace=true")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Replace existing: requested")
@@ -861,7 +861,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/plugin/add?id=docs-helper")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/plugin/add?id=docs-helper")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
@@ -875,7 +875,7 @@ describe("SharedUriHandler", () => {
 
 				const pluginUrl = "https://example.com/plugins/docs.js?token=secret-value#secret-fragment"
 				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/plugin/add?url=${encodeURIComponent(pluginUrl)}`,
+					`vscode://atnumridha.codevibe/plugin/add?url=${encodeURIComponent(pluginUrl)}`,
 				)
 
 				expect(result).to.be.true
@@ -901,7 +901,7 @@ describe("SharedUriHandler", () => {
 					source: "docs-helper",
 				})
 
-				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/plugin/add?config=${config}`)
+				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/plugin/add?config=${config}`)
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
@@ -923,7 +923,7 @@ describe("SharedUriHandler", () => {
 					manifest: { name: "docs-helper" },
 				})
 
-				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/plugin/add?config=${config}`)
+				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/plugin/add?config=${config}`)
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Plugin add requires review")
@@ -938,7 +938,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: "Start Review" })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42&base=origin%2Fmain&head=pr-42&instructions=focus%20tests",
+					"vscode://atnumridha.codevibe/pr-review?repo=owner%2Frepo&number=42&base=origin%2Fmain&head=pr-42&instructions=focus%20tests",
 				)
 
 				expect(result).to.be.true
@@ -963,7 +963,7 @@ describe("SharedUriHandler", () => {
 				const reviewUrl = "https://github.com/owner/repo/pull/42?token=secret-value#secret-fragment"
 
 				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/pr-review?url=${encodeURIComponent(reviewUrl)}`,
+					`vscode://atnumridha.codevibe/pr-review?url=${encodeURIComponent(reviewUrl)}`,
 				)
 
 				expect(result).to.be.true
@@ -983,7 +983,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: undefined })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/pr-review?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Fpull%2F42",
+					"vscode://atnumridha.codevibe/pr-review?url=https%3A%2F%2Fgithub.com%2Fowner%2Frepo%2Fpull%2F42",
 				)
 
 				expect(result).to.be.true
@@ -1000,7 +1000,7 @@ describe("SharedUriHandler", () => {
 				})
 
 				const result = await SharedUriHandler.handleUri(
-					`vscode://cline.cline/pr-review?repo=owner%2Frepo&number=42&config=${config}`,
+					`vscode://atnumridha.codevibe/pr-review?repo=owner%2Frepo&number=42&config=${config}`,
 				)
 
 				expect(result).to.be.true
@@ -1013,7 +1013,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: undefined })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/rule?name=team-style")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/rule?name=team-style")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal('Create or open rule "team-style.mdc"?')
@@ -1026,7 +1026,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: "OK" })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/rule?path=team-style&url=https%3A%2F%2Fexample.com%2Frules%2Fteam.mdc%3Ftoken%3Dsecret-value%23frag",
+					"vscode://atnumridha.codevibe/rule?path=team-style&url=https%3A%2F%2Fexample.com%2Frules%2Fteam.mdc%3Ftoken%3Dsecret-value%23frag",
 				)
 
 				expect(result).to.be.true
@@ -1048,7 +1048,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: "OK" })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/rule?name=team-style&url=https%3A%2F%2Fexample.com%2Frules%2Fteam.mdc",
+					"vscode://atnumridha.codevibe/rule?name=team-style&url=https%3A%2F%2Fexample.com%2Frules%2Fteam.mdc",
 				)
 
 				expect(result).to.be.true
@@ -1066,7 +1066,7 @@ describe("SharedUriHandler", () => {
 					url: "https://example.com/rules/team.mdc?token=secret-value",
 				})
 
-				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/rule?config=${config}`)
+				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/rule?config=${config}`)
 
 				expect(result).to.be.true
 				const modal = showMessageStub.firstCall.args[0]
@@ -1083,7 +1083,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Create/Open" })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/rule?name=team-style")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/rule?name=team-style")
 
 				expect(result).to.be.true
 				const rulePath = path.join(workspaceDir, ".cursor", "rules", "team-style.mdc")
@@ -1101,7 +1101,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: "Import Rule" })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/rule?name=team-style&content=Use%20short%20commits%20with%20token%3Dsecret-value",
+					"vscode://atnumridha.codevibe/rule?name=team-style&content=Use%20short%20commits%20with%20token%3Dsecret-value",
 				)
 
 				expect(result).to.be.true
@@ -1125,7 +1125,7 @@ describe("SharedUriHandler", () => {
 					token: "secret-value",
 				})
 
-				const result = await SharedUriHandler.handleUri(`vscode://cline.cline/rule?config=${config}`)
+				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/rule?config=${config}`)
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal('Import rule "team-style.mdc"?')
@@ -1143,7 +1143,7 @@ describe("SharedUriHandler", () => {
 				await fs.writeFile(rulePath, "Existing guidance.\n", "utf8")
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/rule?name=team-style&content=Replacement%20guidance",
+					"vscode://atnumridha.codevibe/rule?name=team-style&content=Replacement%20guidance",
 				)
 
 				expect(result).to.be.true
@@ -1162,7 +1162,7 @@ describe("SharedUriHandler", () => {
 				await fs.writeFile(rulePath, "Existing guidance.\n", "utf8")
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/rule?name=team-style&content=Replacement%20guidance&replace=true",
+					"vscode://atnumridha.codevibe/rule?name=team-style&content=Replacement%20guidance&replace=true",
 				)
 
 				expect(result).to.be.true
@@ -1178,7 +1178,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resolves({ selectedOption: "Create Task" })
 
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/command?command=npm%20test&cwd=packages%2Fwebview",
+					"vscode://atnumridha.codevibe/command?command=npm%20test&cwd=packages%2Fwebview",
 				)
 
 				expect(result).to.be.true
@@ -1208,7 +1208,7 @@ describe("SharedUriHandler", () => {
 					"utf8",
 				)
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=review-code")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe command task?")
@@ -1232,7 +1232,7 @@ describe("SharedUriHandler", () => {
 					await fs.mkdir(commandsDir, { recursive: true })
 					await fs.writeFile(path.join(commandsDir, "review-code.md"), "Review the second workspace diff.", "utf8")
 
-					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+					const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=review-code")
 
 					expect(result).to.be.true
 					sinon.assert.calledOnce(handleTaskCreationStub)
@@ -1254,7 +1254,7 @@ describe("SharedUriHandler", () => {
 					await fs.mkdir(commandsDir, { recursive: true })
 					await fs.writeFile(path.join(commandsDir, "review-code.md"), "Review the global command target.", "utf8")
 
-					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+					const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=review-code")
 
 					expect(result).to.be.true
 					expect(showMessageStub.firstCall.args[0].options.detail).to.contain("~/.cursor/commands/review-code.md")
@@ -1287,7 +1287,7 @@ describe("SharedUriHandler", () => {
 					)
 					await fs.writeFile(path.join(globalCommandsDir, "review-code.md"), "SHOULD_NOT_LOAD_GLOBAL_COMMAND", "utf8")
 
-					const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+					const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=review-code")
 
 					expect(result).to.be.true
 					sinon.assert.calledOnce(handleTaskCreationStub)
@@ -1305,7 +1305,7 @@ describe("SharedUriHandler", () => {
 				showMessageStub.resetBehavior()
 				showMessageStub.resolves({ selectedOption: "Create Task" })
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=missing-command")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=missing-command")
 
 				expect(result).to.be.true
 				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe command task?")
@@ -1322,7 +1322,7 @@ describe("SharedUriHandler", () => {
 				await fs.mkdir(commandsDir, { recursive: true })
 				await fs.writeFile(path.join(commandsDir, "secret.md"), "SHOULD_NOT_LOAD", "utf8")
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=..%2Fsecret")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=..%2Fsecret")
 
 				expect(result).to.be.true
 				sinon.assert.calledOnce(handleTaskCreationStub)
@@ -1338,7 +1338,7 @@ describe("SharedUriHandler", () => {
 				await fs.writeFile(targetPath, "SHOULD_NOT_LOAD", "utf8")
 				await fs.symlink(targetPath, path.join(commandsDir, "review-code.md"))
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=review-code")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=review-code")
 
 				expect(result).to.be.true
 				sinon.assert.calledOnce(handleTaskCreationStub)
@@ -1354,7 +1354,7 @@ describe("SharedUriHandler", () => {
 				await fs.mkdir(commandsDir, { recursive: true })
 				await fs.writeFile(path.join(commandsDir, ".md"), "SHOULD_NOT_LOAD", "utf8")
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?name=.")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=.")
 
 				expect(result).to.be.true
 				sinon.assert.calledOnce(handleTaskCreationStub)
@@ -1362,14 +1362,14 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should reject invalid Cursor command routes", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/command?extra=value")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?extra=value")
 
 				expect(result).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
 			it("should ignore Cursor-compatible routes when disabled", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/createchat?prompt=Hello", {
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/createchat?prompt=Hello", {
 					cursorCompatibleDeepLinksEnabled: false,
 				})
 
@@ -1381,7 +1381,7 @@ describe("SharedUriHandler", () => {
 		describe("MCP OAuth callback handling", () => {
 			it("should handle MCP OAuth callbacks with code and state", async () => {
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/mcp-auth/callback/hash123?code=code123&state=state123",
+					"vscode://atnumridha.codevibe/mcp-auth/callback/hash123?code=code123&state=state123",
 				)
 
 				expect(result).to.be.true
@@ -1389,7 +1389,7 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should reject MCP OAuth callbacks without state", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/mcp-auth/callback/hash123?code=code123")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/mcp-auth/callback/hash123?code=code123")
 
 				expect(result).to.be.false
 				expect(handleMcpOAuthCallbackStub.called).to.be.false
@@ -1409,7 +1409,7 @@ describe("SharedUriHandler", () => {
 					const writeHooksStub = sandbox.stub(webhookHooks, "writeLgWebhookHooks").resolves()
 
 					const result = await SharedUriHandler.handleUri(
-						`vscode://cline.cline/lg-task?prompt-file=${encodeURIComponent(
+						`vscode://atnumridha.codevibe/lg-task?prompt-file=${encodeURIComponent(
 							promptFilePath,
 						)}&webhook-url=${encodeURIComponent(webhookUrl)}&webhook-token=${encodeURIComponent(webhookToken)}`,
 					)
@@ -1431,7 +1431,7 @@ describe("SharedUriHandler", () => {
 				const writeConfigStub = sandbox.stub(webhookHooks, "writeLgWebhookConfig").resolves()
 				const writeHooksStub = sandbox.stub(webhookHooks, "writeLgWebhookHooks").resolves()
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/lg-task?prompt-file=%2Ftmp%2Fspec.md&webhook-url=https%3A%2F%2Fexample.com",
+					"vscode://atnumridha.codevibe/lg-task?prompt-file=%2Ftmp%2Fspec.md&webhook-url=https%3A%2F%2Fexample.com",
 				)
 
 				expect(result).to.be.false
@@ -1445,7 +1445,7 @@ describe("SharedUriHandler", () => {
 			it("should catch and log errors from controller methods", async () => {
 				handleOpenRouterCallbackStub.rejects(new Error("Controller error"))
 
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/openrouter?code=test123")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/openrouter?code=test123")
 
 				expect(result).to.be.false
 			})
@@ -1462,7 +1462,7 @@ describe("SharedUriHandler", () => {
 		describe("Query parameter parsing", () => {
 			it("should correctly parse multiple query parameters", async () => {
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/auth?idToken=jwt123&provider=github&extra=param",
+					"vscode://atnumridha.codevibe/auth?idToken=jwt123&provider=github&extra=param",
 				)
 
 				expect(result).to.be.true
@@ -1471,7 +1471,7 @@ describe("SharedUriHandler", () => {
 
 			it("should handle URL-encoded parameters", async () => {
 				const result = await SharedUriHandler.handleUri(
-					"vscode://cline.cline/auth?idToken=jwt%20with%20spaces&provider=google",
+					"vscode://atnumridha.codevibe/auth?idToken=jwt%20with%20spaces&provider=google",
 				)
 
 				expect(result).to.be.true
@@ -1480,7 +1480,7 @@ describe("SharedUriHandler", () => {
 			})
 
 			it("should handle empty query string", async () => {
-				const result = await SharedUriHandler.handleUri("vscode://cline.cline/openrouter")
+				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/openrouter")
 
 				expect(result).to.be.false
 				expect(handleAuthCallbackStub.called).to.be.false

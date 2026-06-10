@@ -18,7 +18,7 @@ describe("installCursorMcpServer", () => {
 		const response = await installCursorMcpServer(
 			createController(addServerFromConfig),
 			CursorMcpServerInstallRequest.create({
-				uri: "vscode://cline.cline/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				uri: "vscode://atnumridha.codevibe/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				confirmed: false,
 			}),
 		)
@@ -60,7 +60,7 @@ describe("installCursorMcpServer", () => {
 		const response = await installCursorMcpServer(
 			createController(addServerFromConfig),
 			CursorMcpServerInstallRequest.create({
-				uri: "vscode://cline.cline/mcp/install?name=linear&package=%40modelcontextprotocol%2Fserver-linear",
+				uri: "vscode://atnumridha.codevibe/mcp/install?name=linear&package=%40modelcontextprotocol%2Fserver-linear",
 				confirmed: true,
 			}),
 		)
@@ -112,7 +112,7 @@ describe("installCursorMcpServer", () => {
 		const response = await installCursorMcpServer(
 			createController(),
 			CursorMcpServerInstallRequest.create({
-				uri: "vscode://cline.cline/createchat?prompt=hello",
+				uri: "vscode://atnumridha.codevibe/createchat?prompt=hello",
 				confirmed: true,
 			}),
 		)

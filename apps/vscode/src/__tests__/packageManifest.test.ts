@@ -10,6 +10,7 @@ const CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
+	"id",
 	"type",
 	"name",
 	"displayName",
@@ -116,8 +117,8 @@ describe("Package manifest", () => {
 		assert.match(agentFile, /elevated trust/)
 		assert.match(agentFile, /OpenAI skills/)
 		assert.match(agentFile, /subagents/)
+		assert.equal(chatSession?.id, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)
-		assert.equal(chatSession?.id, undefined)
 		assert.equal(chatSession?.customAgentTarget, undefined)
 		assert.equal(chatSession?.alternativeIds, undefined)
 		assert.equal(chatSession?.order, -1000)
@@ -247,6 +248,14 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("packageJson.contributes?.chatPromptFiles"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatSkills"), true)
 		assert.equal(extensionSource.includes("`id: ${CODEVIBE_CHAT_PARTICIPANT_ID}`"), true)
+		assert.equal(extensionSource.includes("hostChatParticipantRegistered"), true)
+		assert.equal(
+			extensionSource.includes(
+				"registerCodeVibeChatParticipant(\n\t\tcontext,\n\t\tnativeAgentRegistration,\n\t\tCODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE",
+			),
+			true,
+		)
+		assert.equal(extensionSource.includes("agentHostChatParticipant || defaultChatParticipant"), true)
 		assert.equal(extensionSource.includes("await webview.showPanel(preserveEditorFocus)"), true)
 		assert.equal(extensionSource.includes("await webview.show(preserveEditorFocus)"), false)
 		assert.equal(webviewProviderSource.includes('createWebviewPanel(ExtensionRegistryInfo.views.Panel'), true)

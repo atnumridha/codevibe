@@ -16,7 +16,7 @@ describe("UriRedaction", () => {
 		)
 
 		const redacted = redactUriForLogging(
-			`vscode://cline.cline/mcp/install?name=docs&access_token=query-secret&config=${config}`,
+			`vscode://atnumridha.codevibe/mcp/install?name=docs&access_token=query-secret&config=${config}`,
 		)
 
 		expect(redacted).to.contain("name=docs")

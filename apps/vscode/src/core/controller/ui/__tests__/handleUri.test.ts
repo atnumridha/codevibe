@@ -30,14 +30,14 @@ describe("ui handleUri", () => {
 			}) as any
 		const response = await handleUri(
 			controller,
-			StringRequest.create({ value: "vscode://cline.cline/createchat?prompt=hello" }),
+			StringRequest.create({ value: "vscode://atnumridha.codevibe/createchat?prompt=hello" }),
 		)
 
 		expect(response.value).to.equal(true)
 		sinon.assert.calledOnceWithExactly(
 			handleUriStub,
 			controller,
-			"vscode://cline.cline/createchat?prompt=hello",
+			"vscode://atnumridha.codevibe/createchat?prompt=hello",
 			{ cursorCompatibleDeepLinksEnabled: false },
 		)
 	})
@@ -46,7 +46,7 @@ describe("ui handleUri", () => {
 		sinon.stub(SharedUriHandler, "handleUriWithController").rejects(new Error("bad URI"))
 		const response = await handleUri(
 			{} as any,
-			StringRequest.create({ value: "vscode://cline.cline/createchat?prompt=hello" }),
+			StringRequest.create({ value: "vscode://atnumridha.codevibe/createchat?prompt=hello" }),
 		)
 
 		expect(response.value).to.equal(false)

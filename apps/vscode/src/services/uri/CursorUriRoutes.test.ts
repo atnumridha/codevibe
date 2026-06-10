@@ -70,6 +70,16 @@ describe("CursorUriRoutes", () => {
 		)
 	})
 
+	it("normalizes CodeVibe VS Code links while preserving the legacy Cline authority", () => {
+		expect(getCursorCompatibleUriPath(new URL("vscode://atnumridha.codevibe/createchat?prompt=hi"))).to.equal(
+			"/createchat",
+		)
+		expect(getCursorCompatibleUriPath(new URL("vscode://atnumridha.codevibe/mcp/install?name=docs"))).to.equal(
+			"/mcp/install",
+		)
+		expect(getCursorCompatibleUriPath(new URL("vscode://cline.cline/createchat?prompt=hi"))).to.equal("/createchat")
+	})
+
 	it("parses createchat and prompt routes into task prompts", () => {
 		const result = parseCursorCompatibleUri("/createchat", new URLSearchParams("prompt=Fix%20the%20tests"))
 
