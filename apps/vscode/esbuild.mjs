@@ -6,11 +6,12 @@ import * as esbuild from "esbuild"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const production = process.argv.includes("--production") || process.env["IS_DEBUG_BUILD"] === "false"
 const watch = process.argv.includes("--watch")
 const standalone = process.argv.includes("--standalone")
 const e2eBuild = process.argv.includes("--e2e-build")
 const destDir = standalone ? "dist-standalone" : "dist"
+const standaloneDebugBuild = standalone && process.env["IS_DEBUG_BUILD"] === "true"
+const production = process.argv.includes("--production") || process.env["IS_DEBUG_BUILD"] === "false" || (standalone && !standaloneDebugBuild)
 
 /**
  * @type {import('esbuild').Plugin}

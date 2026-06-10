@@ -133,6 +133,9 @@ function inspectStandaloneReleaseAssets({ requireChecksum = true } = {}) {
 			}
 			const zipManifest = readZipJsonEntry(zip, "standalone-manifest.json")
 			const extensionPackage = readZipJsonEntry(zip, "extension/package.json")
+			if (zipManifest.package?.debugBuild !== true && zip.entries.has("codevibe-core.js.map")) {
+				issues.push("standalone.zip contains codevibe-core.js.map even though debugBuild is false")
+			}
 			if (zipManifest.product?.extensionVersion !== expectedVersion) {
 				issues.push(
 					`standalone.zip manifest version ${zipManifest.product?.extensionVersion ?? "missing"} does not match ${expectedVersion}`,

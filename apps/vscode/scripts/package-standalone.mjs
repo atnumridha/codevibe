@@ -241,9 +241,14 @@ async function zipDistribution() {
 
 	archive.pipe(output)
 	// Add all the files from the standalone build dir.
+	const buildDirIgnore = ["standalone.zip", "standalone.zip.sha256"]
+	if (!IS_DEBUG_BUILD) {
+		buildDirIgnore.push("**/*.map")
+	}
+
 	archive.glob("**/*", {
 		cwd: BUILD_DIR,
-		ignore: ["standalone.zip", "standalone.zip.sha256"],
+		ignore: buildDirIgnore,
 	})
 
 	// Exclude the same files as the VCE vscode extension packager.

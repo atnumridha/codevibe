@@ -126,6 +126,11 @@ function verifyStandalonePackage(zipPath) {
 	assert(manifest.product?.name === "CodeVibe", "manifest.product.name must be CodeVibe", failures)
 	assert(!hasEntry(zip, "standalone.zip.sha256"), "standalone.zip must not include standalone.zip.sha256", failures)
 	assert(
+		manifest.package?.debugBuild === true || !hasEntry(zip, "codevibe-core.js.map"),
+		"non-debug standalone.zip must not include codevibe-core.js.map",
+		failures,
+	)
+	assert(
 		manifest.product?.extensionVersion === extensionPackage.version,
 		"manifest.product.extensionVersion must match extension/package.json",
 		failures,
