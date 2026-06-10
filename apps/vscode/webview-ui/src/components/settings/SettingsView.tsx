@@ -21,7 +21,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { type ClineUser, useClineAuth } from "@/context/ClineAuthContext";
+import { type CodeVibeUser, useCodeVibeAuth } from "@/context/CodeVibeAuthContext";
 import { useExtensionState } from "@/context/ExtensionStateContext";
 import { cn } from "@/lib/utils";
 import { StateServiceClient } from "@/services/grpc-client";
@@ -59,7 +59,7 @@ interface SettingsTab {
 	headerText: string;
 	icon: LucideIcon;
 	hidden?: (params?: {
-		user: ClineUser | null;
+		user: CodeVibeUser | null;
 		activeOrganization: UserOrganization | null;
 	}) => boolean;
 }
@@ -176,7 +176,7 @@ const SettingsView = ({ onDone, targetSection }: SettingsViewProps) => {
 	); // Empty deps - these imports never change
 
 	const { version, environment, settingsInitialModelTab } = useExtensionState();
-	const { activeOrganization, clineUser } = useClineAuth();
+	const { activeOrganization, codeVibeUser } = useCodeVibeAuth();
 
 	const [activeTab, setActiveTab] = useState<string>(
 		targetSection || SETTINGS_TABS[0].id,
@@ -313,7 +313,7 @@ const SettingsView = ({ onDone, targetSection }: SettingsViewProps) => {
 					value={activeTab}
 				>
 					{SETTINGS_TABS.filter(
-						(tab) => !tab.hidden?.({ user: clineUser, activeOrganization }),
+						(tab) => !tab.hidden?.({ user: codeVibeUser, activeOrganization }),
 					).map(renderTabItem)}
 				</TabList>
 

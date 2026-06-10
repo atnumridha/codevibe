@@ -7,7 +7,7 @@ import deepEqual from "fast-deep-equal"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useInterval } from "react-use"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { type ClineUser, handleSignOut } from "@/context/ClineAuthContext"
+import { type CodeVibeUser, handleSignOut } from "@/context/CodeVibeAuthContext"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { AccountServiceClient } from "@/services/grpc-client"
 import ViewHeader from "../common/ViewHeader"
@@ -22,17 +22,17 @@ import { RemoteConfigToggle } from "./RemoteConfigToggle"
 const CODEVIBE_HOME_URL = "https://github.com/atnumridha/codevibe"
 
 type AccountViewProps = {
-	clineUser: ClineUser | null
+	codeVibeUser: CodeVibeUser | null
 	organizations: UserOrganization[] | null
 	activeOrganization: UserOrganization | null
 	onDone: () => void
 }
 
-type ClineAccountViewProps = {
-	clineUser: ClineUser
+type CodeVibeAccountViewProps = {
+	codeVibeUser: CodeVibeUser
 	userOrganizations: UserOrganization[] | null
 	activeOrganization: UserOrganization | null
-	clineEnv: "Production" | "Staging" | "Local"
+	codeVibeEnv: "Production" | "Staging" | "Local"
 }
 
 type CachedData = {
@@ -42,21 +42,21 @@ type CachedData = {
 	lastFetchTime: number
 }
 
-const ClineEnvOptions = ["Production", "Staging", "Local"] as const
+const CodeVibeEnvOptions = ["Production", "Staging", "Local"] as const
 
-const AccountView = ({ onDone, clineUser, organizations, activeOrganization }: AccountViewProps) => {
+const AccountView = ({ onDone, codeVibeUser, organizations, activeOrganization }: AccountViewProps) => {
 	const { environment } = useExtensionState()
 
 	return (
 		<div className="fixed inset-0 flex flex-col overflow-hidden">
 			<ViewHeader environment={environment} onDone={onDone} showEnvironmentSuffix title="Account" />
 			<div className="grow flex flex-col px-5 overflow-y-auto">
-				{clineUser?.uid ? (
-					<ClineAccountView
+				{codeVibeUser?.uid ? (
+					<CodeVibeAccountView
 						activeOrganization={activeOrganization}
-						clineEnv={environment === "local" ? "Local" : environment === "staging" ? "Staging" : "Production"}
-						clineUser={clineUser}
-						key={clineUser.uid}
+						codeVibeEnv={environment === "local" ? "Local" : environment === "staging" ? "Staging" : "Production"}
+						codeVibeUser={codeVibeUser}
+						key={codeVibeUser.uid}
 						userOrganizations={organizations}
 					/>
 				) : (
@@ -67,8 +67,13 @@ const AccountView = ({ onDone, clineUser, organizations, activeOrganization }: A
 	)
 }
 
-export const ClineAccountView = ({ clineUser, userOrganizations, activeOrganization, clineEnv }: ClineAccountViewProps) => {
-	const { email, displayName, appBaseUrl, uid } = clineUser
+export const CodeVibeAccountView = ({
+	codeVibeUser,
+	userOrganizations,
+	activeOrganization,
+	codeVibeEnv,
+}: CodeVibeAccountViewProps) => {
+	const { email, displayName, appBaseUrl, uid } = codeVibeUser
 	const { remoteConfigSettings, environment } = useExtensionState()
 
 	// Determine if dropdown should be locked by remote config
@@ -398,7 +403,7 @@ export const ClineAccountView = ({ clineUser, userOrganizations, activeOrganizat
 						<div className="text-sm font-semibold">CodeVibe Environment</div>
 						<VSCodeDropdown
 							className="w-full mt-1"
-							currentValue={clineEnv}
+							currentValue={codeVibeEnv}
 							onChange={async (e) => {
 								const target = e.target as HTMLSelectElement
 								if (target?.value) {
@@ -406,7 +411,7 @@ export const ClineAccountView = ({ clineUser, userOrganizations, activeOrganizat
 									updateSetting("clineEnv", value.toLowerCase())
 								}
 							}}>
-							{ClineEnvOptions.map((env) => (
+							{CodeVibeEnvOptions.map((env) => (
 								<VSCodeOption key={env} value={env}>
 									{env}
 								</VSCodeOption>

@@ -1,11 +1,11 @@
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import CodeVibeMark from "@/assets/CodeVibeMark"
-import { useClineSignIn } from "@/context/ClineAuthContext"
+import { useCodeVibeSignIn } from "@/context/CodeVibeAuthContext"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 
 export const AccountWelcomeView = () => {
 	const { environment } = useExtensionState()
-	const { isLoginLoading, handleSignIn } = useClineSignIn()
+	const { isLoginLoading, handleSignIn } = useCodeVibeSignIn()
 
 	return (
 		<div className="flex flex-col items-center gap-2.5">

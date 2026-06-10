@@ -108,6 +108,18 @@ function collectFindingsFromText(text, file) {
 			})
 		}
 	}
+
+	if (file.startsWith("webview-ui/src/") && file !== "webview-ui/src/context/ClineAuthContext.tsx") {
+		const legacyAuthImportPattern = /from\s+["'][^"']*ClineAuthContext["']/g
+		for (const match of text.matchAll(legacyAuthImportPattern)) {
+			findings.push({
+				file,
+				line: lineNumberForIndex(text, match.index ?? 0),
+				label: "legacy auth context import",
+				value: match[0],
+			})
+		}
+	}
 }
 
 for (const root of scannedRoots) {

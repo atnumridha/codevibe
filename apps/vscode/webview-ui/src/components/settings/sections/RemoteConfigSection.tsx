@@ -2,7 +2,7 @@ import { EmptyRequest } from "@shared/proto/index.cline"
 import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react"
 import { useEffect, useRef, useState } from "react"
 import { RemoteConfigToggle } from "@/components/account/RemoteConfigToggle"
-import { useClineAuth } from "@/context/ClineAuthContext"
+import { useCodeVibeAuth } from "@/context/CodeVibeAuthContext"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { StateServiceClient } from "@/services/grpc-client"
 import Section from "../Section"
@@ -270,7 +270,7 @@ function PromptUploadingSection() {
 
 export function RemoteConfigSection({ renderSectionHeader }: RemoteConfigSectionProps) {
 	const { remoteConfigSettings, optOutOfRemoteConfig } = useExtensionState()
-	const { activeOrganization } = useClineAuth()
+	const { activeOrganization } = useCodeVibeAuth()
 
 	if (optOutOfRemoteConfig) {
 		return (

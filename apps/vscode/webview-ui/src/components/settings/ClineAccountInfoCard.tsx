@@ -1,16 +1,16 @@
 import { EmptyRequest } from "@shared/proto/cline/common"
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import { useState } from "react"
-import { useClineAuth } from "@/context/ClineAuthContext"
+import { useCodeVibeAuth } from "@/context/CodeVibeAuthContext"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { AccountServiceClient } from "@/services/grpc-client"
 
 export const ClineAccountInfoCard = () => {
-	const { clineUser } = useClineAuth()
+	const { codeVibeUser } = useCodeVibeAuth()
 	const { navigateToAccount } = useExtensionState()
 	const [isLoading, setIsLoading] = useState(false)
 
-	const user = clineUser || undefined
+	const user = codeVibeUser || undefined
 
 	const handleLogin = () => {
 		setIsLoading(true)

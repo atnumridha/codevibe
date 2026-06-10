@@ -4,11 +4,11 @@ import { describe, expect, it, vi } from "vitest"
 import ErrorRow from "./ErrorRow"
 
 // Mock the auth context
-vi.mock("@/context/ClineAuthContext", () => ({
-	useClineAuth: () => ({
-		clineUser: null,
+vi.mock("@/context/CodeVibeAuthContext", () => ({
+	useCodeVibeAuth: () => ({
+		codeVibeUser: null,
 	}),
-	useClineSignIn: () => ({
+	useCodeVibeSignIn: () => ({
 		isLoginLoading: false,
 	}),
 	handleSignOut: vi.fn(),

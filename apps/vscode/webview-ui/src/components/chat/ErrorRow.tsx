@@ -3,7 +3,7 @@ import { memo } from "react"
 import CreditLimitError from "@/components/chat/CreditLimitError"
 import SpendLimitError from "@/components/chat/SpendLimitError"
 import { Button } from "@/components/ui/button"
-import { useClineAuth, useClineSignIn } from "@/context/ClineAuthContext"
+import { useCodeVibeAuth, useCodeVibeSignIn } from "@/context/CodeVibeAuthContext"
 import { ClineError, ClineErrorType } from "../../../../src/services/error/ClineError"
 
 const _errorColor = "var(--vscode-errorForeground)"
@@ -16,10 +16,10 @@ interface ErrorRowProps {
 }
 
 const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStreamingFailedMessage }: ErrorRowProps) => {
-	const { clineUser } = useClineAuth()
+	const { codeVibeUser } = useCodeVibeAuth()
 	const rawApiError = apiRequestFailedMessage || apiReqStreamingFailedMessage
 
-	const { isLoginLoading, handleSignIn } = useClineSignIn()
+	const { isLoginLoading, handleSignIn } = useCodeVibeSignIn()
 
 	const renderErrorContent = () => {
 		switch (errorType) {
@@ -77,7 +77,7 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 					}
 
 					if (clineError?.isErrorType(ClineErrorType.Auth) && isClineProvider) {
-						return !clineUser ? (
+						return !codeVibeUser ? (
 							// User is using the CodeVibe-hosted provider and is not logged in
 							<div className="flex flex-col gap-3">
 								<div className="flex items-center justify-center rounded border border-neutral-500/30 bg-vscode-editor-background p-6 text-center text-vscode-foreground">
