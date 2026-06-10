@@ -80,6 +80,8 @@ describe("getButtonConfig", () => {
 			}
 			const config = getButtonConfig(commandMessage)
 			expect(config).toEqual(BUTTON_CONFIGS.command)
+			expect(config.enableButtons).toBe(false)
+			expect(config.primaryText).toBeUndefined()
 		})
 
 		it("returns command_output config for command_output ask", () => {

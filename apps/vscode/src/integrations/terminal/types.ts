@@ -5,6 +5,7 @@
  */
 
 import type { ClineToolResponseContent } from "@shared/messages"
+import type { CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
 import type { EventEmitter } from "events"
 
 // =============================================================================
@@ -357,6 +358,12 @@ export interface CommandExecutionOptions {
 	 * Command output is still captured and returned as the tool result.
 	 */
 	suppressUserInteraction?: boolean
+	/**
+	 * Explicit trust boundary chosen for this command approval.
+	 * "sandboxed" keeps workspace sandbox command gates and uses the cancellable background runner.
+	 * "elevated" means the user explicitly approved a trusted terminal run.
+	 */
+	terminalRunMode?: CodeVibeTerminalRunMode
 }
 
 /**

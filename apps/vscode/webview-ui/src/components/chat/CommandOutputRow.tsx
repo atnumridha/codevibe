@@ -1,10 +1,13 @@
 import { COMMAND_OUTPUT_STRING, COMMAND_REQ_APP_STRING } from "@shared/combineCommandSequences"
 import { ClineMessage } from "@shared/ExtensionMessage"
 import { StringRequest } from "@shared/proto/cline/common"
+import { AskResponseRequest } from "@shared/proto/cline/task"
+import { encodeTerminalRunMode, type CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
+import { ShieldAlertIcon, ShieldCheckIcon, XIcon } from "lucide-react"
 import { memo, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { FileServiceClient } from "@/services/grpc-client"
+import { FileServiceClient, TaskServiceClient } from "@/services/grpc-client"
 import CodeBlock from "../common/CodeBlock"
 import ExpandHandle from "./ExpandHandle"
 
@@ -163,8 +166,19 @@ export const CommandOutputRow = memo(
 
 		const requestsApproval = rawCommand.endsWith(COMMAND_REQ_APP_STRING)
 		const command = requestsApproval ? rawCommand.slice(0, -COMMAND_REQ_APP_STRING.length) : rawCommand
+		const canAnswerCommandApproval = isCommandPending && message.partial !== true
 		const showCancelButton =
 			(isCommandExecuting || isCommandPending) && typeof onCancelCommand === "function" && isBackgroundExec
+		const answerCommandApproval = async (responseType: "yesButtonClicked" | "noButtonClicked", mode?: CodeVibeTerminalRunMode) => {
+			await TaskServiceClient.askResponse(
+				AskResponseRequest.create({
+					responseType,
+					text: mode ? encodeTerminalRunMode(mode) : undefined,
+					images: [],
+					files: [],
+				}),
+			).catch((err) => console.error("Failed to answer command approval:", err))
+		}
 
 		const commandHeader = (
 			<div className="flex items-center gap-2.5 mb-3">
@@ -234,6 +248,38 @@ export const CommandOutputRow = memo(
 						/>
 					)}
 				</div>
+				{canAnswerCommandApproval && (
+					<div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
+						<Button
+							aria-label="Run command in sandbox"
+							className="justify-center"
+							onClick={() => answerCommandApproval("yesButtonClicked", "sandboxed")}
+							size="sm"
+							title="Run with workspace sandbox policy"
+							variant="success">
+							<ShieldCheckIcon />
+							Sandbox
+						</Button>
+						<Button
+							aria-label="Run command as trusted"
+							className="justify-center"
+							onClick={() => answerCommandApproval("yesButtonClicked", "elevated")}
+							size="sm"
+							title="Run as a trusted terminal command"
+							variant="secondary">
+							<ShieldAlertIcon />
+							Trusted
+						</Button>
+						<Button
+							aria-label="Reject command"
+							onClick={() => answerCommandApproval("noButtonClicked")}
+							size="sm"
+							title="Reject command"
+							variant="danger">
+							<XIcon />
+						</Button>
+					</div>
+				)}
 				{requestsApproval && (
 					<div className="flex items-center gap-2.5 p-2 text-[12px] text-editor-warning-foreground">
 						<i className="codicon codicon-warning" />

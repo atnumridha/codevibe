@@ -69,11 +69,11 @@ export const BUTTON_CONFIGS: Record<string, ButtonConfig> = {
 	// Command execution states
 	command: {
 		sendingDisabled: false,
-		enableButtons: true,
-		primaryText: "Run Command",
-		secondaryText: "Reject",
-		primaryAction: "approve",
-		secondaryAction: "reject",
+		enableButtons: false,
+		primaryText: undefined,
+		secondaryText: undefined,
+		primaryAction: undefined,
+		secondaryAction: undefined,
 	},
 	command_output: {
 		sendingDisabled: false,

@@ -1,9 +1,12 @@
 import type { ToolUse } from "@core/assistant-message"
+import { CommandPermissionController } from "@core/permissions"
 import { formatResponse } from "@core/prompts/responses"
 import { WorkspacePathAdapter } from "@core/workspace/WorkspacePathAdapter"
+import { processFilesIntoText } from "@integrations/misc/extract-text"
 import { showApprovalNotification, showSystemNotification } from "@integrations/notifications"
 import { COMMAND_REQ_APP_STRING } from "@shared/combineCommandSequences"
 import { ClineAsk } from "@shared/ExtensionMessage"
+import { decodeTerminalRunMode, type CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
 import { arePathsEqual } from "@utils/path"
 import { telemetryService } from "@/services/telemetry"
 import { ClineDefaultTool } from "@/shared/tools"
@@ -53,6 +56,10 @@ export function resolveCommandTimeoutSeconds(
 	}
 
 	return isLikelyLongRunningCommand(command) ? LONG_RUNNING_COMMAND_TIMEOUT_SECONDS : DEFAULT_COMMAND_TIMEOUT_SECONDS
+}
+
+export function getDefaultTerminalRunMode(hasSandboxPolicy: boolean): CodeVibeTerminalRunMode {
+	return hasSandboxPolicy ? "sandboxed" : "default"
 }
 
 export class ExecuteCommandToolHandler implements IFullyManagedTool {
@@ -158,28 +165,6 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			// If no hint, use primary workspace (cwd)
 		}
 
-		// Check command permission validation (env var and task-level sandbox policy)
-		const permissionResult = config.services.commandPermissionController.validateCommand(actualCommand)
-		if (!permissionResult.allowed) {
-			let errorMessage: string
-			if (permissionResult.failedSegment) {
-				errorMessage =
-					`Command "${actualCommand}" was denied by configured command permissions. ` +
-					`Segment "${permissionResult.failedSegment}" ${permissionResult.reason}.`
-			} else {
-				const matchedPattern = permissionResult.matchedPattern
-					? ` (matched pattern: ${permissionResult.matchedPattern})`
-					: ""
-				errorMessage =
-					`Command "${actualCommand}" was denied by configured command permissions. ` +
-					`Reason: ${permissionResult.reason}${matchedPattern}`
-			}
-			if (!config.isSubagentExecution) {
-				await config.callbacks.say("command_permission_denied", errorMessage)
-			}
-			return formatResponse.toolError(formatResponse.permissionDeniedError(errorMessage))
-		}
-
 		// Check clineignore validation for command
 		const ignoredFileAttemptedToAccess = config.services.clineIgnoreController.validateCommand(actualCommand)
 		if (ignoredFileAttemptedToAccess) {
@@ -190,6 +175,7 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 		}
 
 		let didAutoApprove = false
+		let terminalRunMode: CodeVibeTerminalRunMode = getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
 
 		// If the model says this command is safe and auto approval for safe commands is true, execute the command
 		// If the model says the command is risky, but *BOTH* auto approve settings are true, execute the command
@@ -226,6 +212,7 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			(requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)
 		) {
 			// Auto-approve flow
+			terminalRunMode = getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
 			if (!config.isSubagentExecution) {
 				await config.callbacks.removeLastPartialMessageIfExistsWithType("ask", "command")
 				await config.callbacks.say("command", actualCommand, undefined, undefined, false)
@@ -248,12 +235,11 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 				config.autoApprovalSettings.enableNotifications,
 			)
 
-			const didApprove = await ToolResultUtils.askApprovalAndPushFeedback(
-				"command",
+			const approval = await askCommandApprovalAndResolveRunMode(
 				actualCommand + `${autoApproveSafe && requiresApprovalPerLLM ? COMMAND_REQ_APP_STRING : ""}`,
 				config,
 			)
-			if (!didApprove) {
+			if (!approval.didApprove) {
 				telemetryService.captureToolUsage(
 					config.ulid,
 					block.name,
@@ -266,6 +252,7 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 				)
 				return formatResponse.toolDenied()
 			}
+			terminalRunMode = approval.terminalRunMode ?? getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
 			telemetryService.captureToolUsage(
 				config.ulid,
 				block.name,
@@ -276,6 +263,11 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 				workspaceContext,
 				block.isNativeToolCall,
 			)
+		}
+
+		const commandPermissionError = await validateCommandPermissionForRunMode(config, actualCommand, terminalRunMode)
+		if (commandPermissionError) {
+			return commandPermissionError
 		}
 
 		// Run PreToolUse hook after approval but before execution
@@ -310,7 +302,10 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			finalCommand = `cd "${executionDir}" && ${actualCommand}`
 		}
 
-		const [userRejected, result] = await config.callbacks.executeCommandTool(finalCommand, timeoutSeconds)
+		const [userRejected, result] = await config.callbacks.executeCommandTool(finalCommand, timeoutSeconds, {
+			terminalRunMode,
+			useBackgroundExecution: terminalRunMode === "sandboxed",
+		})
 
 		if (timeoutId) {
 			clearTimeout(timeoutId)
@@ -332,4 +327,65 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 
 		return result
 	}
+}
+
+async function askCommandApprovalAndResolveRunMode(
+	completeMessage: string,
+	config: TaskConfig,
+): Promise<{ didApprove: boolean; terminalRunMode?: CodeVibeTerminalRunMode }> {
+	if (config.isSubagentExecution) {
+		return { didApprove: true, terminalRunMode: getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy)) }
+	}
+
+	const { response, text, images, files } = await config.callbacks.ask("command", completeMessage, false)
+	const terminalRunMode = decodeTerminalRunMode(text)
+	const hasPolicyMarker = Boolean(terminalRunMode)
+
+	if (!hasPolicyMarker && (text || (images && images.length > 0) || (files && files.length > 0))) {
+		let fileContentString = ""
+		if (files && files.length > 0) {
+			fileContentString = await processFilesIntoText(files)
+		}
+
+		ToolResultUtils.pushAdditionalToolFeedback(config.taskState.userMessageContent, text, images, fileContentString)
+		await config.callbacks.say("user_feedback", text, images, files)
+	}
+
+	if (response !== "yesButtonClicked") {
+		config.taskState.didRejectTool = true
+		return { didApprove: false }
+	}
+
+	return { didApprove: true, terminalRunMode }
+}
+
+async function validateCommandPermissionForRunMode(
+	config: TaskConfig,
+	actualCommand: string,
+	terminalRunMode: CodeVibeTerminalRunMode,
+): Promise<ToolResponse | undefined> {
+	const commandPermissionController =
+		terminalRunMode === "elevated" ? new CommandPermissionController() : config.services.commandPermissionController
+	const permissionResult = commandPermissionController.validateCommand(actualCommand)
+	if (permissionResult.allowed) {
+		return undefined
+	}
+
+	let errorMessage: string
+	if (permissionResult.failedSegment) {
+		errorMessage =
+			`Command "${actualCommand}" was denied by configured command permissions. ` +
+			`Segment "${permissionResult.failedSegment}" ${permissionResult.reason}.`
+	} else {
+		const matchedPattern = permissionResult.matchedPattern
+			? ` (matched pattern: ${permissionResult.matchedPattern})`
+			: ""
+		errorMessage =
+			`Command "${actualCommand}" was denied by configured command permissions. ` +
+			`Reason: ${permissionResult.reason}${matchedPattern}`
+	}
+	if (!config.isSubagentExecution) {
+		await config.callbacks.say("command_permission_denied", errorMessage)
+	}
+	return formatResponse.toolError(formatResponse.permissionDeniedError(errorMessage))
 }

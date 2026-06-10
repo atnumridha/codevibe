@@ -1,6 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "mocha"
-import { isLikelyLongRunningCommand, resolveCommandTimeoutSeconds } from "../ExecuteCommandToolHandler"
+import { decodeTerminalRunMode, encodeTerminalRunMode } from "@shared/terminalPolicy"
+import {
+	getDefaultTerminalRunMode,
+	isLikelyLongRunningCommand,
+	resolveCommandTimeoutSeconds,
+} from "../ExecuteCommandToolHandler"
 
 describe("ExecuteCommandToolHandler timeout policy", () => {
 	it("returns undefined when managed timeout is disabled", () => {
@@ -27,5 +32,17 @@ describe("ExecuteCommandToolHandler timeout policy", () => {
 		assert.equal(isLikelyLongRunningCommand("cargo build --release"), true)
 		assert.equal(isLikelyLongRunningCommand("docker build ."), true)
 		assert.equal(isLikelyLongRunningCommand("pytest -q"), true)
+	})
+
+	it("defaults manual command approvals to sandboxed when a sandbox policy exists", () => {
+		assert.equal(getDefaultTerminalRunMode(true), "sandboxed")
+		assert.equal(getDefaultTerminalRunMode(false), "default")
+	})
+
+	it("round-trips hidden terminal run mode markers", () => {
+		assert.equal(decodeTerminalRunMode(encodeTerminalRunMode("sandboxed")), "sandboxed")
+		assert.equal(decodeTerminalRunMode(encodeTerminalRunMode("elevated")), "elevated")
+		assert.equal(decodeTerminalRunMode("__codevibe_terminal_policy__:unknown"), undefined)
+		assert.equal(decodeTerminalRunMode("normal user feedback"), undefined)
 	})
 })
