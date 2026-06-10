@@ -44,6 +44,7 @@ import {
 	getProviderDisplayName,
 	prioritizeCodeVibeProviders,
 } from "@/lib/provider-display";
+import { cursorSettingsSectionFromPreview } from "@/lib/cursor-settings-intent";
 import type {
 	Provider,
 	ProviderCatalogResponse,
@@ -133,44 +134,6 @@ function browserResultSummary(result: BrowserToolResult | undefined): string {
 	const url = recordString(payload, "url");
 	const logs = recordString(payload, "logs");
 	return [title, url, logs ? "logs" : ""].filter(Boolean).join(" | ");
-}
-
-function cursorSettingsSectionFromPreview(
-	previewRecord: Record<string, unknown> | undefined,
-): SettingsSection {
-	const sourceParam = recordString(previewRecord, "sourceParam").toLowerCase();
-	const query = recordString(previewRecord, "query").toLowerCase();
-	const target = `${sourceParam} ${query}`;
-	if (
-		/\b(provider|model|api|apikey|api-key|api_provider|api-provider)\b/.test(
-			target,
-		)
-	) {
-		return "Providers";
-	}
-	if (/\b(mcp|server|servers|tool)\b/.test(target)) {
-		return "MCP";
-	}
-	if (
-		/\b(rule|rules|custom|customization|customizations|hook|hooks|skill|skills)\b/.test(
-			target,
-		)
-	) {
-		return "Customizations";
-	}
-	if (/\b(cursor.?link|deeplink|deep-link|uri|url)\b/.test(target)) {
-		return "Compatibility";
-	}
-	if (/\b(channel|connector|slack|outlook|sharepoint)\b/.test(target)) {
-		return "Channels";
-	}
-	if (/\b(schedule|schedules|routine|cron|automation)\b/.test(target)) {
-		return "Schedules";
-	}
-	if (/\b(account|auth|codex|login|sign.?in|oauth)\b/.test(target)) {
-		return "Account";
-	}
-	return "General";
 }
 
 const PROVIDER_CATALOG_CACHE_TTL_MS = 60_000;
@@ -272,8 +235,6 @@ export function SettingsView({
 		}
 	}, [setProvidersWithCache]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: initial deep links should only replay when the incoming URI changes.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: initial deep links should only replay when the incoming URI changes.
 	useEffect(() => {
 		const timeoutId = window.setTimeout(() => {
 			void loadProviderCatalog();

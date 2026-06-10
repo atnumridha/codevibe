@@ -54,6 +54,12 @@ import {
 	SettingsView,
 } from "./components/views/settings/settings-view";
 import { desktopClient } from "./lib/desktop-client";
+import {
+	cursorSettingsSectionFromSearch,
+	isCursorLinkPreviewIntentPath,
+	isCursorSettingsIntentPath,
+	normalizeCursorLinkPath,
+} from "./lib/cursor-settings-intent";
 import { getVsCodeApi, postToHost } from "./vscode";
 
 type View = "home" | "chat" | "settings";
@@ -70,28 +76,6 @@ const VIEW_PATHS: Record<View, string> = {
 };
 
 const CHAT_SESSION_QUERY_PARAM = "id";
-const CURSOR_LINK_INTENT_PATHS = new Set([
-	"/createchat",
-	"/mcp/install",
-	"/background-agent",
-	"/settings",
-	"/prompt",
-	"/command",
-	"/rule",
-	"/pr-review",
-	"/plugin/add",
-	"/glass",
-	"/automation/ingest",
-	"/git/checkout",
-	"/git/branch",
-	"/git/commit",
-]);
-const CURSOR_SETTINGS_INTENT_PARAMS = new Set([
-	"config",
-	"query",
-	"section",
-	"tab",
-]);
 const CURSOR_LINK_APP_ONLY_PARAMS = new Set(["roomSecret"]);
 
 const SETTINGS_SECTION_PATHS: Record<SettingsSection, string> = {
@@ -105,31 +89,6 @@ const SETTINGS_SECTION_PATHS: Record<SettingsSection, string> = {
 	Account: "/settings/account",
 };
 
-function normalizeCursorLinkPath(pathname: string): string {
-	if (pathname.length > 1 && pathname.endsWith("/")) {
-		return pathname.replace(/\/+$/, "");
-	}
-	return pathname;
-}
-
-function hasCursorSettingsIntentParams(search: string): boolean {
-	const params = new URLSearchParams(search);
-	for (const key of params.keys()) {
-		if (CURSOR_SETTINGS_INTENT_PARAMS.has(key)) {
-			return true;
-		}
-	}
-	return false;
-}
-
-function isCursorLinkIntentPath(pathname: string, search = ""): boolean {
-	const normalized = normalizeCursorLinkPath(pathname);
-	if (normalized === "/settings") {
-		return hasCursorSettingsIntentParams(search);
-	}
-	return CURSOR_LINK_INTENT_PATHS.has(normalized);
-}
-
 function cursorLinkSearchFromLocation(search: string): string {
 	const params = new URLSearchParams(search);
 	for (const key of CURSOR_LINK_APP_ONLY_PARAMS) {
@@ -142,7 +101,7 @@ function cursorLinkSearchFromLocation(search: string): string {
 function buildCursorLinkIntentFromLocation(): CursorLinkIntent | undefined {
 	if (typeof window === "undefined") return undefined;
 	const path = normalizeCursorLinkPath(window.location.pathname);
-	if (!isCursorLinkIntentPath(path, window.location.search)) {
+	if (!isCursorLinkPreviewIntentPath(path, window.location.search)) {
 		return undefined;
 	}
 	const route = path.replace(/^\/+/, "");
@@ -186,7 +145,7 @@ function writeTheme(theme: Theme): void {
 function viewFromPath(pathname: string): View {
 	if (
 		typeof window !== "undefined" &&
-		isCursorLinkIntentPath(pathname, window.location.search)
+		isCursorLinkPreviewIntentPath(pathname, window.location.search)
 	) {
 		return "settings";
 	}
@@ -232,7 +191,17 @@ function chatPath(sessionId?: string): string {
 function readCurrentSettingsSection(): SettingsSection {
 	if (typeof window === "undefined") return "General";
 	if (
-		isCursorLinkIntentPath(window.location.pathname, window.location.search)
+		isCursorSettingsIntentPath(window.location.pathname, window.location.search)
+	) {
+		return cursorSettingsSectionFromSearch(
+			window.location.search,
+		) as SettingsSection;
+	}
+	if (
+		isCursorLinkPreviewIntentPath(
+			window.location.pathname,
+			window.location.search,
+		)
 	) {
 		return "Compatibility";
 	}
@@ -464,9 +433,7 @@ function HomeView({
 	backgroundAgentSessions: WebviewSessionSummary[];
 	hubState: WebviewHubState;
 	onDismissBackgroundAgent: (sessionId: string) => Promise<void> | void;
-	onOpenBackgroundAgentWorktree: (
-		sessionId: string,
-	) => Promise<void> | void;
+	onOpenBackgroundAgentWorktree: (sessionId: string) => Promise<void> | void;
 	onOpenSession: (sessionId: string) => void;
 	onDeleteSession: (sessionId: string) => Promise<void> | void;
 	onRenameSession: (sessionId: string, title: string) => Promise<void> | void;
