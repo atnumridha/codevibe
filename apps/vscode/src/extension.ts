@@ -1219,6 +1219,7 @@ function registerCodeVibeNativeAgentProvider(
 async function writeCodeVibeNativeAgentFile(agentDirUri: vscode.Uri, agentUri: vscode.Uri): Promise<void> {
 	const markdown = [
 		"---",
+		`id: ${CODEVIBE_CHAT_PARTICIPANT_ID}`,
 		"name: CodeVibe Agent",
 		"description: Use for repository coding tasks where CodeVibe should plan, edit, review, run terminal checks, manage diffs, use MCP/browser automation, and keep approval boundaries clear.",
 		"argument-hint: Describe the coding task for CodeVibe",

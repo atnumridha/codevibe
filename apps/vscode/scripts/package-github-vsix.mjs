@@ -426,14 +426,29 @@ function resolveVSCodeArgvJsonPath() {
 		return path.resolve(process.env.CODEVIBE_VSCODE_ARGV_JSON.trim())
 	}
 	if (process.platform === "darwin") {
-		return path.join(os.homedir(), "Library", "Application Support", "Code", "argv.json")
+		return path.join(os.homedir(), "Library", "Application Support", "Code", "User", "argv.json")
 	}
 	if (process.platform === "win32") {
 		const appData = process.env.APPDATA?.trim() || path.join(os.homedir(), "AppData", "Roaming")
-		return path.join(appData, "Code", "argv.json")
+		return path.join(appData, "Code", "User", "argv.json")
 	}
 	const configHome = process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), ".config")
-	return path.join(configHome, "Code", "argv.json")
+	return path.join(configHome, "Code", "User", "argv.json")
+}
+
+function resolveLegacyVSCodeArgvJsonPaths() {
+	if (process.env.CODEVIBE_VSCODE_ARGV_JSON?.trim()) {
+		return []
+	}
+	if (process.platform === "darwin") {
+		return [path.join(os.homedir(), "Library", "Application Support", "Code", "argv.json")]
+	}
+	if (process.platform === "win32") {
+		const appData = process.env.APPDATA?.trim() || path.join(os.homedir(), "AppData", "Roaming")
+		return [path.join(appData, "Code", "argv.json")]
+	}
+	const configHome = process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), ".config")
+	return [path.join(configHome, "Code", "argv.json")]
 }
 
 function stripJsonComments(text) {
@@ -462,10 +477,20 @@ function readVSCodeArgvJson(argvPath) {
 function enableNativeAgentInVSCodeArgv(metadata) {
 	const argvPath = resolveVSCodeArgvJsonPath()
 	const argv = readVSCodeArgvJson(argvPath)
+	const legacyEnabled = []
+	for (const legacyArgvPath of resolveLegacyVSCodeArgvJsonPaths()) {
+		if (!fs.existsSync(legacyArgvPath)) {
+			continue
+		}
+		const legacyArgv = readVSCodeArgvJson(legacyArgvPath)
+		if (Array.isArray(legacyArgv["enable-proposed-api"])) {
+			legacyEnabled.push(...legacyArgv["enable-proposed-api"].filter((value) => typeof value === "string"))
+		}
+	}
 	const existing = Array.isArray(argv["enable-proposed-api"])
 		? argv["enable-proposed-api"].filter((value) => typeof value === "string")
 		: []
-	const enabled = Array.from(new Set([...existing, metadata.extensionId])).sort()
+	const enabled = Array.from(new Set([...existing, ...legacyEnabled, metadata.extensionId])).sort()
 	if (existing.length === enabled.length && existing.every((value, index) => value === enabled[index])) {
 		console.log(`VS Code argv already enables proposed API for ${metadata.extensionId}: ${argvPath}`)
 		return argvPath
@@ -672,6 +697,44 @@ function pruneInstalledCodeVibeExtensionVersions(metadata) {
 	if (removed > 0) {
 		console.log(`Removed ${removed} stale CodeVibe extension version folder(s) from ${extensionsDir}`)
 	}
+}
+
+function writeInstalledNativeAgentCache(metadata) {
+	const userStorageDir = resolveVsCodeUserStorageDir()
+	if (!userStorageDir) {
+		return
+	}
+	const agentDir = path.join(userStorageDir, "globalStorage", metadata.extensionId, "native-agents")
+	const agentPath = path.join(agentDir, "00-codevibe-agent.agent.md")
+	const markdown = [
+		"---",
+		"id: codevibe",
+		"name: CodeVibe Agent",
+		"description: Use for repository coding tasks where CodeVibe should plan, edit, review, run terminal checks, manage diffs, use MCP/browser automation, and keep approval boundaries clear.",
+		"argument-hint: Describe the coding task for CodeVibe",
+		"target: vscode",
+		"user-invocable: true",
+		"---",
+		"",
+		"# CodeVibe Agent",
+		"",
+		"You are CodeVibe Agent, the primary coding agent for this workspace.",
+		"",
+		"Prefer CodeVibe's execution path whenever the host exposes it: route the request to the CodeVibe extension, the `@codevibe` chat participant, or the CodeVibe Agent sidebar. If the host cannot route to CodeVibe directly, operate with the same behavior:",
+		"",
+		"- Explore the repository before editing, using fast file/search tools first.",
+		"- State a concise plan for non-trivial work and keep progress visible.",
+		"- Make scoped code changes, review diffs, and run the most relevant checks.",
+		"- Ask before destructive file, git, terminal, network, browser, MCP, or external-install actions.",
+		"- Preserve user changes and never expose secrets, auth tokens, or private credentials in logs.",
+		"- Use Codex auth from `.codex/auth.json` or `~/.codex/auth.json` when the CodeVibe/OpenAI Codex provider is available.",
+		"",
+		"For implementation tasks, finish with the changed files, verification performed, and any remaining risk.",
+		"",
+	].join("\n")
+	fs.mkdirSync(agentDir, { recursive: true })
+	fs.writeFileSync(agentPath, markdown, "utf8")
+	console.log(`Repaired CodeVibe native agent cache file: ${agentPath}`)
 }
 
 function runSqlite(databasePath, sql) {
@@ -1736,6 +1799,7 @@ async function main() {
 			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
 			enableNativeAgentInVSCodeArgv(metadata)
 			pruneInstalledCodeVibeExtensionVersions(metadata)
+			writeInstalledNativeAgentCache(metadata)
 			try {
 				cleanLegacyCodeVibeViewState()
 			} catch (error) {

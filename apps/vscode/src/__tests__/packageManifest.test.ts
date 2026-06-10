@@ -145,11 +145,16 @@ describe("Package manifest", () => {
 
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
 		const packageScript = await readFile(path.join(vscodeRoot, "scripts", "package-github-vsix.mjs"), "utf8")
+		const extensionSource = await readFile(path.join(vscodeRoot, "src", "extension.ts"), "utf8")
 
 		assert.equal(packageScript.includes("pruneInstalledCodeVibeExtensionVersions"), true)
 		assert.equal(packageScript.includes("createNativeAgentDiscoveryTombstones"), false)
 		assert.equal(packageScript.includes("native-agent tombstone"), false)
 		assert.equal(packageScript.includes("enableNativeAgentInVSCodeArgv(metadata)"), true)
+		assert.equal(packageScript.includes('"Code", "User", "argv.json"'), true)
+		assert.equal(packageScript.includes("resolveLegacyVSCodeArgvJsonPaths"), true)
+		assert.equal(packageScript.includes("writeInstalledNativeAgentCache(metadata)"), true)
+		assert.equal(packageScript.includes("Repaired CodeVibe native agent cache file"), true)
 		assert.equal(packageScript.includes("resolveVsCodeExtensionsDir"), true)
 		assert.equal(packageScript.includes("fs.rmSync(extensionPath, { recursive: true, force: true })"), true)
 		assert.equal(packageScript.includes("installed VSIX package.json"), true)
@@ -160,6 +165,7 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("assertCodeVibeChatResourceContributions"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatPromptFiles"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatSkills"), true)
+		assert.equal(extensionSource.includes("`id: ${CODEVIBE_CHAT_PARTICIPANT_ID}`"), true)
 	})
 
 	it("keeps GitHub release packaging non-interactive", async () => {
