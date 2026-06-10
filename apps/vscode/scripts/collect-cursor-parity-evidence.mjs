@@ -647,7 +647,7 @@ ${results.map(renderCommandResult).join("\n")}
   - \`/git/branch\`
   - \`/git/commit\`
 - \`/plugin/add?replace=true\` replaces only after confirmation:
-- Disabling \`codevibe.cursorCompatibility.deepLinks.enabled\` blocks Cursor-compatible URI handling:
+- Disabling \`codevibe.compatibility.deepLinks.enabled\` blocks compatible URI handling:
 
 ## Standalone UI Validation
 

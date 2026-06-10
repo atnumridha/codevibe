@@ -16,6 +16,11 @@ const packageJsonPath = path.join(projectRoot, "package.json")
 
 const requiredCursorParityConfigKeys = [
 	"codevibe.openAiCodex.authSource",
+	"codevibe.compatibility.enabled",
+	"codevibe.compatibility.deepLinks.enabled",
+	"codevibe.compatibility.retrievalIndexing.privacyGate",
+	"codevibe.compatibility.sandboxPolicy",
+	"codevibe.compatibility.safeBrowserEvaluate.enabled",
 	"codevibe.cursorCompatibility.enabled",
 	"codevibe.cursorCompatibility.deepLinks.enabled",
 	"codevibe.cursorCompatibility.retrievalIndexing.privacyGate",
@@ -1117,19 +1122,12 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
-		const sessionId = session?.id
-		if (typeof sessionId !== "string" || sessionId.trim() === "") {
-			throw new Error(`${label} chatSessions[${index}] must declare a non-empty id`)
-		}
-		if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) {
-			throw new Error(`${label} chatSessions[${index}] id '${sessionId}' must use only alphanumeric characters, '_' or '-'`)
+		if (Object.hasOwn(session ?? {}, "id")) {
+			throw new Error(`${label} chatSessions[${index}] must use VS Code's type identity and not declare id`)
 		}
 		const sessionType = session?.type
 		if (typeof sessionType !== "string" || sessionType.trim() === "") {
 			throw new Error(`${label} chatSessions[${index}] must declare a non-empty type`)
-		}
-		if (sessionId !== sessionType) {
-			throw new Error(`${label} chatSessions[${index}] id must match type for native session compatibility`)
 		}
 		if (!/^[A-Za-z0-9_-]+$/.test(sessionType)) {
 			throw new Error(
@@ -1360,6 +1358,9 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 		assertArrayIncludes(codexAuth.enum, value, `${label} codevibe.openAiCodex.authSource enum`)
 	}
 	for (const key of [
+		"codevibe.compatibility.enabled",
+		"codevibe.compatibility.deepLinks.enabled",
+		"codevibe.compatibility.retrievalIndexing.privacyGate",
 		"codevibe.cursorCompatibility.enabled",
 		"codevibe.cursorCompatibility.deepLinks.enabled",
 		"codevibe.cursorCompatibility.retrievalIndexing.privacyGate",
@@ -1368,20 +1369,39 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 			throw new Error(`${label} must default ${key} to true`)
 		}
 	}
-	if (properties["codevibe.cursorCompatibility.safeBrowserEvaluate.enabled"].default !== false) {
+	for (const key of [
+		"codevibe.compatibility.safeBrowserEvaluate.enabled",
+		"codevibe.cursorCompatibility.safeBrowserEvaluate.enabled",
+	]) {
+		if (properties[key].default !== false) {
+			throw new Error(`${label} must default ${key} to false`)
+		}
+	}
+	for (const key of [
+		"codevibe.cursorCompatibility.enabled",
+		"codevibe.cursorCompatibility.deepLinks.enabled",
+		"codevibe.cursorCompatibility.retrievalIndexing.privacyGate",
+		"codevibe.cursorCompatibility.sandboxPolicy",
+		"codevibe.cursorCompatibility.safeBrowserEvaluate.enabled",
+	]) {
+		if (!String(properties[key].deprecationMessage ?? "").startsWith("Use codevibe.compatibility.")) {
+			throw new Error(`${label} must mark ${key} as a deprecated compatibility alias`)
+		}
+	}
+	if (properties["codevibe.compatibility.safeBrowserEvaluate.enabled"].default !== false) {
 		throw new Error(`${label} must default safe browser evaluate to false`)
 	}
-	if (properties["codevibe.cursorCompatibility.sandboxPolicy"].default !== "prompt") {
-		throw new Error(`${label} must default codevibe.cursorCompatibility.sandboxPolicy to prompt`)
+	for (const key of ["codevibe.compatibility.sandboxPolicy", "codevibe.cursorCompatibility.sandboxPolicy"]) {
+		if (properties[key].default !== "prompt") {
+			throw new Error(`${label} must default ${key} to prompt`)
+		}
 	}
 	assertVisibleManifestStringsBranded(packageJson, label)
 	assertNativeCodeVibeContributionIds(packageJson, label)
-	for (const value of ["prompt", "workspace", "readOnly", "disabled"]) {
-		assertArrayIncludes(
-			properties["codevibe.cursorCompatibility.sandboxPolicy"].enum,
-			value,
-			`${label} codevibe.cursorCompatibility.sandboxPolicy enum`,
-		)
+	for (const key of ["codevibe.compatibility.sandboxPolicy", "codevibe.cursorCompatibility.sandboxPolicy"]) {
+		for (const value of ["prompt", "workspace", "readOnly", "disabled"]) {
+			assertArrayIncludes(properties[key].enum, value, `${label} ${key} enum`)
+		}
 	}
 }
 

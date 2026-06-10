@@ -314,7 +314,7 @@ export class BrowserToolHandler implements IFullyManagedTool {
 					if (!config.browserSettings.allowBrowserEvaluate) {
 						config.taskState.consecutiveMistakeCount++
 						return formatResponse.toolError(
-							"Browser JavaScript evaluation is disabled. Ask the user to enable it in Browser Settings or set codevibe.cursorCompatibility.safeBrowserEvaluate.enabled before using the evaluate action.",
+							"Browser JavaScript evaluation is disabled. Ask the user to enable it in Browser Settings or set codevibe.compatibility.safeBrowserEvaluate.enabled before using the evaluate action.",
 						)
 					}
 				}

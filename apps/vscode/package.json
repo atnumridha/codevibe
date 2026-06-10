@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.43",
+	"version": "3.88.44",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -183,7 +183,6 @@
 		],
 		"chatSessions": [
 			{
-				"id": "agent-host-codevibe",
 				"type": "agent-host-codevibe",
 				"name": "CodeVibe Agent",
 				"displayName": "CodeVibe Agent",
@@ -609,22 +608,22 @@
 					"default": "codexHome",
 					"description": "Controls where OpenAI Codex credentials are loaded from. Codex Home reads workspace .codex/auth.json first, then ~/.codex/auth.json, unless an explicit path or CODEX_HOME is set."
 				},
-				"codevibe.cursorCompatibility.enabled": {
+				"codevibe.compatibility.enabled": {
 					"type": "boolean",
 					"default": true,
 					"description": "Enables CodeVibe compatibility inputs such as .cursorrules, .cursor/rules, .cursorignore, .cursorindexingignore, .cursor/mcp.json, and .cursor/sandbox.json."
 				},
-				"codevibe.cursorCompatibility.deepLinks.enabled": {
+				"codevibe.compatibility.deepLinks.enabled": {
 					"type": "boolean",
 					"default": true,
 					"description": "Enables validation for compatible deep-link route families before routing them into CodeVibe tasks."
 				},
-				"codevibe.cursorCompatibility.retrievalIndexing.privacyGate": {
+				"codevibe.compatibility.retrievalIndexing.privacyGate": {
 					"type": "boolean",
 					"default": true,
 					"description": "Requires compatible indexing and retrieval features to respect workspace ignore files and privacy gates."
 				},
-				"codevibe.cursorCompatibility.sandboxPolicy": {
+				"codevibe.compatibility.sandboxPolicy": {
 					"type": "string",
 					"enum": [
 						"prompt",
@@ -641,10 +640,52 @@
 					"default": "prompt",
 					"description": "Default policy for untrusted compatibility sandbox inputs such as .cursor/sandbox.json."
 				},
-				"codevibe.cursorCompatibility.safeBrowserEvaluate.enabled": {
+				"codevibe.compatibility.safeBrowserEvaluate.enabled": {
 					"type": "boolean",
 					"default": false,
 					"description": "Enables the same gated browser_action evaluate permission as Browser Settings > Allow browser JavaScript evaluation for compatible browser automation flows. Keep disabled unless you trust the active task."
+				},
+				"codevibe.cursorCompatibility.enabled": {
+					"type": "boolean",
+					"default": true,
+					"deprecationMessage": "Use codevibe.compatibility.enabled.",
+					"description": "Legacy alias for codevibe.compatibility.enabled."
+				},
+				"codevibe.cursorCompatibility.deepLinks.enabled": {
+					"type": "boolean",
+					"default": true,
+					"deprecationMessage": "Use codevibe.compatibility.deepLinks.enabled.",
+					"description": "Legacy alias for codevibe.compatibility.deepLinks.enabled."
+				},
+				"codevibe.cursorCompatibility.retrievalIndexing.privacyGate": {
+					"type": "boolean",
+					"default": true,
+					"deprecationMessage": "Use codevibe.compatibility.retrievalIndexing.privacyGate.",
+					"description": "Legacy alias for codevibe.compatibility.retrievalIndexing.privacyGate."
+				},
+				"codevibe.cursorCompatibility.sandboxPolicy": {
+					"type": "string",
+					"enum": [
+						"prompt",
+						"workspace",
+						"readOnly",
+						"disabled"
+					],
+					"enumItemLabels": [
+						"Prompt",
+						"Workspace",
+						"Read Only",
+						"Disabled"
+					],
+					"default": "prompt",
+					"deprecationMessage": "Use codevibe.compatibility.sandboxPolicy.",
+					"description": "Legacy alias for codevibe.compatibility.sandboxPolicy."
+				},
+				"codevibe.cursorCompatibility.safeBrowserEvaluate.enabled": {
+					"type": "boolean",
+					"default": false,
+					"deprecationMessage": "Use codevibe.compatibility.safeBrowserEvaluate.enabled.",
+					"description": "Legacy alias for codevibe.compatibility.safeBrowserEvaluate.enabled."
 				},
 				"codevibe.ui.preferOpenAiCodexSidebar": {
 					"type": "boolean",

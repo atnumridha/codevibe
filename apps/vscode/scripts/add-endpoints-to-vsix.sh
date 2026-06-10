@@ -68,6 +68,11 @@ validate_codevibe_manifest() {
 
     local required_config_keys=(
         "codevibe.openAiCodex.authSource"
+        "codevibe.compatibility.enabled"
+        "codevibe.compatibility.deepLinks.enabled"
+        "codevibe.compatibility.retrievalIndexing.privacyGate"
+        "codevibe.compatibility.sandboxPolicy"
+        "codevibe.compatibility.safeBrowserEvaluate.enabled"
         "codevibe.cursorCompatibility.enabled"
         "codevibe.cursorCompatibility.deepLinks.enabled"
         "codevibe.cursorCompatibility.retrievalIndexing.privacyGate"

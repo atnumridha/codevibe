@@ -101,7 +101,7 @@ Manual checks:
   - `/git/branch`
   - `/git/commit`
 - `/plugin/add?replace=true` replaces only after confirmation.
-- Disabling `codevibe.cursorCompatibility.deepLinks.enabled` blocks Cursor-compatible URI handling from external and webview launch paths.
+- Disabling `codevibe.compatibility.deepLinks.enabled` blocks compatible URI handling from external and webview launch paths.
 
 ## Standalone UI Validation
 

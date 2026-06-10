@@ -210,7 +210,9 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 			async (e) => {
 				if (
 					e &&
-					(e.affectsConfiguration("codevibe.cursorCompatibility.enabled") ||
+					(e.affectsConfiguration("codevibe.compatibility.enabled") ||
+						e.affectsConfiguration("codevibe.compatibility.safeBrowserEvaluate.enabled") ||
+						e.affectsConfiguration("codevibe.cursorCompatibility.enabled") ||
 						e.affectsConfiguration("codevibe.cursorCompatibility.safeBrowserEvaluate.enabled") ||
 						e.affectsConfiguration("mcpMarketplace.enabled"))
 				) {

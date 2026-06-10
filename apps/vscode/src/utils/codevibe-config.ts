@@ -19,6 +19,18 @@ type ConfigurationInspect<T> = {
 	workspaceFolderLanguageValue?: T
 }
 
+const CODEVIBE_CONFIGURATION_ALIASES = new Map<string, string>([
+	["cursorCompatibility.enabled", "compatibility.enabled"],
+	["cursorCompatibility.deepLinks.enabled", "compatibility.deepLinks.enabled"],
+	["cursorCompatibility.retrievalIndexing.privacyGate", "compatibility.retrievalIndexing.privacyGate"],
+	["cursorCompatibility.sandboxPolicy", "compatibility.sandboxPolicy"],
+	["cursorCompatibility.safeBrowserEvaluate.enabled", "compatibility.safeBrowserEvaluate.enabled"],
+])
+
+function compatibilityAliasFor(section: string, key: string): string | undefined {
+	return section === "codevibe" ? CODEVIBE_CONFIGURATION_ALIASES.get(key) : undefined
+}
+
 function inspectConfiguration<T>(section: string, key: string): ConfigurationInspect<T> | undefined {
 	const config = vscode.workspace.getConfiguration(section)
 	return typeof config.inspect === "function" ? config.inspect<T>(key) : undefined
@@ -49,14 +61,19 @@ export function getCodeVibeConfigurationValue<T>(
 ): T {
 	const primarySection = options.primarySection ?? "codevibe"
 	const legacySection = options.legacySection ?? "cline"
+	const primaryAliasKey = compatibilityAliasFor(primarySection, key)
+	const primaryAlias = primaryAliasKey ? inspectConfiguration<T>(primarySection, primaryAliasKey) : undefined
 	const primary = inspectConfiguration<T>(primarySection, key)
 	const legacy = inspectConfiguration<T>(legacySection, key)
 
 	return (
+		firstExplicitValue(primaryAlias) ??
 		firstExplicitValue(primary) ??
 		firstExplicitValue(legacy) ??
+		primaryAlias?.defaultValue ??
 		primary?.defaultValue ??
 		legacy?.defaultValue ??
+		(primaryAliasKey ? directConfigurationValue<T>(primarySection, primaryAliasKey) : undefined) ??
 		directConfigurationValue<T>(primarySection, key) ??
 		directConfigurationValue<T>(legacySection, key) ??
 		defaultValue

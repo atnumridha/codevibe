@@ -784,7 +784,7 @@ describe("SharedUriHandler", () => {
 				sinon.assert.calledTwice(openSettingsStub)
 				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({ query: "@id:codevibe.openAiCodex.authSource" })
 				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({
-					query: "@id:codevibe.cursorCompatibility.deepLinks.enabled",
+					query: "@id:codevibe.compatibility.deepLinks.enabled",
 				})
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -812,10 +812,10 @@ describe("SharedUriHandler", () => {
 				expect(browserEvaluateResult).to.be.true
 				sinon.assert.calledTwice(openSettingsStub)
 				expect(openSettingsStub.firstCall.args[0]).to.deep.equal({
-					query: "@id:codevibe.cursorCompatibility.safeBrowserEvaluate.enabled",
+					query: "@id:codevibe.compatibility.safeBrowserEvaluate.enabled",
 				})
 				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({
-					query: "@id:codevibe.cursorCompatibility.safeBrowserEvaluate.enabled",
+					query: "@id:codevibe.compatibility.safeBrowserEvaluate.enabled",
 				})
 				expect(handleTaskCreationStub.called).to.be.false
 			})

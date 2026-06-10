@@ -179,7 +179,7 @@ describe("browser_action tool docs", () => {
 			expect(docs).to.include("browser_snapshot")
 			expect(docs).to.include("browser_screenshot")
 			expect(docs).to.include("browser JavaScript evaluation")
-			expect(docs).to.include("codevibe.cursorCompatibility.safeBrowserEvaluate.enabled")
+			expect(docs).to.include("codevibe.compatibility.safeBrowserEvaluate.enabled")
 		}
 	})
 

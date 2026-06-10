@@ -246,7 +246,7 @@ export async function browserAction(
 			const browserSettings = getEffectiveControllerBrowserSettings(controller)
 			if (!browserSettings.allowBrowserEvaluate) {
 				throw new Error(
-					"Browser JavaScript evaluation is disabled. Enable Browser Settings or codevibe.cursorCompatibility.safeBrowserEvaluate.enabled before using evaluate.",
+					"Browser JavaScript evaluation is disabled. Enable Browser Settings or codevibe.compatibility.safeBrowserEvaluate.enabled before using evaluate.",
 				)
 			}
 			return toBrowserPageResult(await browserSession.evaluate(text))
