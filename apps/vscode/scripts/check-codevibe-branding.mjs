@@ -3,6 +3,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import zlib from "node:zlib"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -51,10 +52,13 @@ const disallowedFragments = [
 	{ pattern: /github\.com\/cline\/cline/gi, label: "upstream Cline repository URL" },
 	{ pattern: /saoudrizwan\.claude-dev/gi, label: "legacy extension id" },
 	{ pattern: /claude-dev\.SidebarProvider/g, label: "legacy sidebar provider id" },
+	{ pattern: /Legacy Panel/g, label: "stale legacy panel label" },
 	{ pattern: /What can I do for you\?/g, label: "legacy welcome headline" },
 	{ pattern: /Starter workflows/g, label: "legacy starter workflow copy" },
 	{ pattern: /Workspace console/g, label: "legacy workspace console copy" },
 ]
+
+const scannedVsixArtifacts = ["dist/e2e.vsix"]
 
 function toPosix(filePath) {
 	return filePath.split(path.sep).join("/")
@@ -93,22 +97,95 @@ function lineNumberForIndex(text, index) {
 }
 
 const findings = []
+
+function collectFindingsFromText(text, file) {
+	for (const { pattern, label } of disallowedFragments) {
+		pattern.lastIndex = 0
+		for (const match of text.matchAll(pattern)) {
+			findings.push({
+				file,
+				line: lineNumberForIndex(text, match.index ?? 0),
+				label,
+				value: match[0],
+			})
+		}
+	}
+}
+
 for (const root of scannedRoots) {
 	const absoluteRoot = path.join(projectRoot, root)
 	for (const filePath of collectFiles(absoluteRoot)) {
-		const text = fs.readFileSync(filePath, "utf8")
-		for (const { pattern, label } of disallowedFragments) {
-			pattern.lastIndex = 0
-			for (const match of text.matchAll(pattern)) {
-				findings.push({
-					file: toPosix(path.relative(projectRoot, filePath)),
-					line: lineNumberForIndex(text, match.index ?? 0),
-					label,
-					value: match[0],
-				})
-			}
+		collectFindingsFromText(fs.readFileSync(filePath, "utf8"), toPosix(path.relative(projectRoot, filePath)))
+	}
+}
+
+function findZipEndOfCentralDirectory(buffer) {
+	const minimumOffset = Math.max(0, buffer.length - 22 - 0xffff)
+	for (let offset = buffer.length - 22; offset >= minimumOffset; offset--) {
+		if (buffer.readUInt32LE(offset) === 0x06054b50) {
+			return offset
 		}
 	}
+	throw new Error("VSIX artifact is not a readable zip archive")
+}
+
+function listZipEntries(zipPath) {
+	const buffer = fs.readFileSync(zipPath)
+	const eocdOffset = findZipEndOfCentralDirectory(buffer)
+	const entryCount = buffer.readUInt16LE(eocdOffset + 10)
+	const centralDirectoryOffset = buffer.readUInt32LE(eocdOffset + 16)
+	const entries = new Map()
+	let offset = centralDirectoryOffset
+	for (let index = 0; index < entryCount; index++) {
+		if (buffer.readUInt32LE(offset) !== 0x02014b50) {
+			throw new Error(`VSIX central directory is corrupt at entry ${index}`)
+		}
+		const compressionMethod = buffer.readUInt16LE(offset + 10)
+		const compressedSize = buffer.readUInt32LE(offset + 20)
+		const fileNameLength = buffer.readUInt16LE(offset + 28)
+		const extraFieldLength = buffer.readUInt16LE(offset + 30)
+		const fileCommentLength = buffer.readUInt16LE(offset + 32)
+		const localHeaderOffset = buffer.readUInt32LE(offset + 42)
+		const fileName = buffer.toString("utf8", offset + 46, offset + 46 + fileNameLength)
+		entries.set(fileName, {
+			compressionMethod,
+			compressedSize,
+			localHeaderOffset,
+		})
+		offset += 46 + fileNameLength + extraFieldLength + fileCommentLength
+	}
+	return { buffer, entries }
+}
+
+function readZipEntry(zip, entryName) {
+	const entry = zip.entries.get(entryName)
+	if (!entry) {
+		throw new Error(`VSIX artifact is missing ${entryName}`)
+	}
+	const { buffer } = zip
+	if (buffer.readUInt32LE(entry.localHeaderOffset) !== 0x04034b50) {
+		throw new Error(`VSIX local file header is corrupt for ${entryName}`)
+	}
+	const fileNameLength = buffer.readUInt16LE(entry.localHeaderOffset + 26)
+	const extraFieldLength = buffer.readUInt16LE(entry.localHeaderOffset + 28)
+	const dataOffset = entry.localHeaderOffset + 30 + fileNameLength + extraFieldLength
+	const compressed = buffer.subarray(dataOffset, dataOffset + entry.compressedSize)
+	if (entry.compressionMethod === 0) {
+		return compressed
+	}
+	if (entry.compressionMethod === 8) {
+		return zlib.inflateRawSync(compressed)
+	}
+	throw new Error(`VSIX entry ${entryName} uses unsupported compression method ${entry.compressionMethod}`)
+}
+
+for (const artifact of scannedVsixArtifacts) {
+	const artifactPath = path.join(projectRoot, artifact)
+	if (!fs.existsSync(artifactPath)) {
+		continue
+	}
+	const packageJsonText = readZipEntry(listZipEntries(artifactPath), "extension/package.json").toString("utf8")
+	collectFindingsFromText(packageJsonText, `${artifact}!/extension/package.json`)
 }
 
 if (findings.length > 0) {

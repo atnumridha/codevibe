@@ -4,7 +4,6 @@ import path from "node:path"
 import {
 	CODEVIBE_CHAT_PARTICIPANT_ID,
 	CODEVIBE_CHAT_SESSION_TYPE,
-	CODEVIBE_LEGACY_CHAT_SESSION_TYPE,
 	CODEVIBE_NATIVE_AGENT_FILE_NAME,
 } from "@/hosts/vscode/native-chat-registration"
 
@@ -50,8 +49,9 @@ describe("Package manifest", () => {
 	it("places CodeVibe before Copilot-style native agents", async () => {
 		const packageJSON = await readPackageManifest()
 		const [chatAgent] = packageJSON.contributes.chatAgents ?? []
-		const [chatSession, legacyAliasSession] = packageJSON.contributes.chatSessions ?? []
+		const [chatSession] = packageJSON.contributes.chatSessions ?? []
 		const [newSessionMenu] = packageJSON.contributes.menus?.["chatSessions/newSession"] ?? []
+		const sessionTypes = (packageJSON.contributes.chatSessions ?? []).map((session: { type?: string }) => session.type)
 
 		assert.equal(chatAgent?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
@@ -61,11 +61,8 @@ describe("Package manifest", () => {
 		assert.equal(chatSession?.order, -1000)
 		assert.match(chatSession?.id, /^[A-Za-z0-9_-]+$/)
 		assert.match(chatSession?.type, /^[A-Za-z0-9_-]+$/)
-		assert.equal(legacyAliasSession?.id, CODEVIBE_LEGACY_CHAT_SESSION_TYPE)
-		assert.equal(legacyAliasSession?.type, CODEVIBE_LEGACY_CHAT_SESSION_TYPE)
-		assert.equal(legacyAliasSession?.order, -999)
-		assert.match(legacyAliasSession?.id, /^[A-Za-z0-9_-]+$/)
-		assert.match(legacyAliasSession?.type, /^[A-Za-z0-9_-]+$/)
+		assert.deepEqual(sessionTypes, [CODEVIBE_CHAT_SESSION_TYPE])
+		assert.equal(sessionTypes.includes("codevibe-agent"), false)
 		assert.equal(newSessionMenu?.command, "codevibe.newNativeAgentSession")
 		assert.equal(newSessionMenu?.group, "navigation@-1000")
 		assert.equal(newSessionMenu?.when, undefined)

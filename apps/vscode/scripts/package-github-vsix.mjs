@@ -917,6 +917,12 @@ function assertArrayIncludes(values, expected, label) {
 	}
 }
 
+function assertArrayExcludes(values, expected, label) {
+	if (Array.isArray(values) && values.includes(expected)) {
+		throw new Error(`${label} must not include ${expected}`)
+	}
+}
+
 function assertObjectHasKey(object, key, label) {
 	if (!object || typeof object !== "object" || Array.isArray(object) || !(key in object)) {
 		throw new Error(`${label} is missing ${key}`)
@@ -1063,11 +1069,8 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		throw new Error(`${label} agent-host-codevibe chat session must target CodeVibe custom agents`)
 	}
 	const codeVibeLegacySession = chatSessions.find((session) => session?.type === "codevibe-agent")
-	if (!codeVibeLegacySession) {
-		throw new Error(`${label} must keep the legacy codevibe-agent chat session alias`)
-	}
-	if (typeof codeVibeLegacySession.order !== "number" || codeVibeLegacySession.order <= codeVibeSession.order) {
-		throw new Error(`${label} legacy codevibe-agent chat session must remain after agent-host-codevibe`)
+	if (codeVibeLegacySession) {
+		throw new Error(`${label} must not contribute duplicate codevibe-agent chat session alias`)
 	}
 	const newSessionMenu = Array.isArray(packageJson.contributes?.menus?.["chatSessions/newSession"])
 		? packageJson.contributes.menus["chatSessions/newSession"]
@@ -1184,7 +1187,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatSession:agent-host-codevibe", `${label} activationEvents`)
-	assertArrayIncludes(packageJson.activationEvents, "onChatSession:codevibe-agent", `${label} activationEvents`)
+	assertArrayExcludes(packageJson.activationEvents, "onChatSession:codevibe-agent", `${label} activationEvents`)
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
 	}

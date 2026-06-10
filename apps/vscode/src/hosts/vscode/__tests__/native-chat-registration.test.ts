@@ -3,7 +3,6 @@ import {
 	canRegisterCodeVibeNativeChatSessions,
 	CODEVIBE_CHAT_PARTICIPANT_ID,
 	CODEVIBE_CHAT_SESSION_TYPE,
-	CODEVIBE_LEGACY_CHAT_SESSION_TYPE,
 	CODEVIBE_NATIVE_AGENT_CACHE_DIR,
 	CODEVIBE_NATIVE_AGENT_FILE_NAME,
 	CODEVIBE_NATIVE_CHAT_SESSION_TYPES,
@@ -17,8 +16,7 @@ describe("native CodeVibe chat registration", () => {
 	it("defines the CodeVibe participant and ordered session types used by VS Code Chat", () => {
 		expect(CODEVIBE_CHAT_PARTICIPANT_ID).to.equal("codevibe")
 		expect(CODEVIBE_CHAT_SESSION_TYPE).to.equal("agent-host-codevibe")
-		expect(CODEVIBE_LEGACY_CHAT_SESSION_TYPE).to.equal("codevibe-agent")
-		expect(CODEVIBE_NATIVE_CHAT_SESSION_TYPES).to.deep.equal(["agent-host-codevibe", "codevibe-agent"])
+		expect(CODEVIBE_NATIVE_CHAT_SESSION_TYPES).to.deep.equal(["agent-host-codevibe"])
 		expect(CODEVIBE_OPEN_NATIVE_CHAT_SIDEBAR_COMMAND).to.equal(
 			"workbench.action.chat.openNewSessionSidebar.agent-host-codevibe",
 		)
@@ -29,10 +27,9 @@ describe("native CodeVibe chat registration", () => {
 		expect(CODEVIBE_NATIVE_AGENT_FILE_NAME).to.equal("00-codevibe-agent.agent.md")
 	})
 
-	it("exposes both CodeVibe session types plus local for custom agent discovery", () => {
+	it("exposes CodeVibe and local session types for custom agent discovery", () => {
 		expect(getCodeVibeNativeCustomAgentSessionTypes()).to.deep.equal([
 			"agent-host-codevibe",
-			"codevibe-agent",
 			"local",
 		])
 	})
@@ -58,13 +55,13 @@ describe("native CodeVibe chat registration", () => {
 		).to.equal(false)
 	})
 
-	it("registers primary CodeVibe before the compatibility alias", () => {
+	it("registers one native CodeVibe session type", () => {
 		const registered: string[] = []
 		const returned = registerCodeVibeNativeChatSessionTypes((chatSessionType) => {
 			registered.push(chatSessionType)
 		})
 
-		expect(registered).to.deep.equal(["agent-host-codevibe", "codevibe-agent"])
+		expect(registered).to.deep.equal(["agent-host-codevibe"])
 		expect(returned).to.deep.equal(registered)
 	})
 })
