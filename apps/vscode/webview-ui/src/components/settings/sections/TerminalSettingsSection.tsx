@@ -19,6 +19,7 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 		terminalReuseEnabled,
 		defaultTerminalProfile,
 		availableTerminalProfiles,
+		compatibilityStatus,
 		vscodeTerminalExecutionMode,
 	} = useExtensionState()
 	const platformConfig = usePlatform()
@@ -85,6 +86,8 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 	}
 
 	const profilesToShow = availableTerminalProfiles
+	const sandboxPolicy = compatibilityStatus?.sandboxPolicy ?? "prompt"
+	const hasSandboxPolicy = sandboxPolicy !== "disabled"
 
 	return (
 		<div>
@@ -162,6 +165,36 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 							</p>
 						</div>
 					)}
+					<div className="mb-4">
+						<div className="font-medium block mb-2">Terminal Approval Policy</div>
+						<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+							<div className="rounded border border-(--vscode-input-border) bg-(--vscode-input-background) p-2">
+								<div className="flex items-center justify-between gap-2">
+									<span className="text-xs font-medium">Sandboxed</span>
+									<span className="rounded-full bg-(--vscode-button-background) px-2 py-0.5 text-[10px] text-(--vscode-button-foreground)">
+										{hasSandboxPolicy ? "Default" : "Available"}
+									</span>
+								</div>
+								<div className="mt-1 text-[11px] text-(--vscode-descriptionForeground)">
+									Background execution with workspace sandbox policy.
+								</div>
+							</div>
+							<div className="rounded border border-(--vscode-input-border) bg-(--vscode-input-background) p-2">
+								<div className="flex items-center justify-between gap-2">
+									<span className="text-xs font-medium">Elevated</span>
+									<span className="rounded-full border border-(--vscode-input-border) px-2 py-0.5 text-[10px] text-(--vscode-descriptionForeground)">
+										Explicit
+									</span>
+								</div>
+								<div className="mt-1 text-[11px] text-(--vscode-descriptionForeground)">
+									Trusted terminal command after manual approval.
+								</div>
+							</div>
+						</div>
+						<p className="text-xs text-[var(--vscode-descriptionForeground)] mt-2">
+							Current sandbox source: {hasSandboxPolicy ? sandboxPolicy : "disabled"}.
+						</p>
+					</div>
 					<TerminalOutputLineLimitSlider />
 					<div className="mt-5 p-3 bg-(--vscode-textBlockQuote-background) rounded border border-(--vscode-textBlockQuote-border)">
 						<p className="text-[13px] m-0">

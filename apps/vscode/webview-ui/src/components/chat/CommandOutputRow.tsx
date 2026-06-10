@@ -255,20 +255,20 @@ export const CommandOutputRow = memo(
 							className="justify-center"
 							onClick={() => answerCommandApproval("yesButtonClicked", "sandboxed")}
 							size="sm"
-							title="Run with workspace sandbox policy"
+							title="Run constrained by the workspace sandbox policy"
 							variant="success">
 							<ShieldCheckIcon />
-							Sandbox
+							Sandboxed
 						</Button>
 						<Button
-							aria-label="Run command as trusted"
+							aria-label="Run command elevated"
 							className="justify-center"
 							onClick={() => answerCommandApproval("yesButtonClicked", "elevated")}
 							size="sm"
-							title="Run as a trusted terminal command"
+							title="Run as an elevated trusted terminal command"
 							variant="secondary">
 							<ShieldAlertIcon />
-							Trusted
+							Elevated
 						</Button>
 						<Button
 							aria-label="Reject command"
@@ -278,6 +278,9 @@ export const CommandOutputRow = memo(
 							variant="danger">
 							<XIcon />
 						</Button>
+						<div className="col-span-3 text-[11px] text-description">
+							Sandboxed commands use the workspace policy; elevated commands require this explicit approval.
+						</div>
 					</div>
 				)}
 				{requestsApproval && (
