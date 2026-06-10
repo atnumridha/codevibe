@@ -164,6 +164,7 @@ const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
 const vscodeChatAgentContributionKeys = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
 const vscodeChatPromptContributionKeys = new Set(["path", "name", "description", "when", "sessionTypes"])
 const vscodeChatSessionContributionKeys = new Set([
+	"id",
 	"type",
 	"name",
 	"displayName",
@@ -1204,6 +1205,15 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
 		assertOnlyAllowedObjectKeys(session, vscodeChatSessionContributionKeys, `${label} chatSessions[${index}]`)
+		const sessionId = session?.id
+		if (typeof sessionId !== "string" || sessionId.trim() === "") {
+			throw new Error(`${label} chatSessions[${index}] must declare a non-empty id`)
+		}
+		if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) {
+			throw new Error(
+				`${label} chatSessions[${index}] id '${sessionId}' must use only alphanumeric characters, '_' or '-'`,
+			)
+		}
 		const sessionType = session?.type
 		if (typeof sessionType !== "string" || sessionType.trim() === "") {
 			throw new Error(`${label} chatSessions[${index}] must declare a non-empty type`)
@@ -1212,6 +1222,9 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 			throw new Error(
 				`${label} chatSessions[${index}] type '${sessionType}' must use only alphanumeric characters, '_' or '-'`,
 			)
+		}
+		if (sessionId !== sessionType) {
+			throw new Error(`${label} chatSessions[${index}] id must match type for native VS Code registration`)
 		}
 		if (session.capabilities !== undefined) {
 			assertOnlyAllowedObjectKeys(

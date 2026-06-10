@@ -10,6 +10,7 @@ const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const CHAT_AGENT_CONTRIBUTION_KEYS = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
+	"id",
 	"type",
 	"name",
 	"displayName",
@@ -116,10 +117,11 @@ describe("Package manifest", () => {
 		assert.equal(chatAgent?.name, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
 		assert.match(agentFile, /^---\nid: codevibe\n/m)
+		assert.equal(chatSession?.id, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.customAgentTarget, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.equal(chatSession?.order, -1000)
-		assert.equal(Object.hasOwn(chatSession ?? {}, "id"), false)
+		assert.match(chatSession?.id, /^[A-Za-z0-9_-]+$/)
 		assert.match(chatSession?.type, /^[A-Za-z0-9_-]+$/)
 		assert.deepEqual(sessionTypes, [CODEVIBE_CHAT_SESSION_TYPE])
 		assert.equal(sessionTypes.includes("codevibe-agent"), false)
