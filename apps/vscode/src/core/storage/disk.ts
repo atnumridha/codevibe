@@ -13,7 +13,7 @@ import * as path from "path"
 import { HostProvider } from "@/hosts/host-provider"
 import { ExtensionRegistryInfo } from "@/registry"
 import { telemetryService } from "@/services/telemetry"
-import { McpMarketplaceCatalog } from "@/shared/mcp"
+import { normalizeMcpMarketplaceCatalog, type McpMarketplaceCatalog } from "@/shared/mcp"
 import { Logger } from "@/shared/services/Logger"
 import { syncWorker } from "@/shared/services/worker/sync"
 import { reconstructTaskHistory } from "../commands/reconstructTaskHistory"
@@ -381,7 +381,7 @@ export async function readMcpMarketplaceCatalogFromCache(): Promise<McpMarketpla
 		const fileExists = await fileExistsAtPath(mcpMarketplaceCatalogFilePath)
 		if (fileExists) {
 			const fileContents = await fs.readFile(mcpMarketplaceCatalogFilePath, "utf8")
-			return JSON.parse(fileContents)
+			return normalizeMcpMarketplaceCatalog(JSON.parse(fileContents))
 		}
 		return undefined
 	} catch (error) {
@@ -393,7 +393,7 @@ export async function readMcpMarketplaceCatalogFromCache(): Promise<McpMarketpla
 export async function writeMcpMarketplaceCatalogToCache(catalog: McpMarketplaceCatalog): Promise<void> {
 	try {
 		const mcpMarketplaceCatalogFilePath = path.join(await ensureCacheDirectoryExists(), GlobalFileNames.mcpMarketplaceCatalog)
-		await fs.writeFile(mcpMarketplaceCatalogFilePath, JSON.stringify(catalog))
+		await fs.writeFile(mcpMarketplaceCatalogFilePath, JSON.stringify(normalizeMcpMarketplaceCatalog(catalog)))
 	} catch (error) {
 		Logger.error("Failed to write MCP marketplace catalog to cache:", error)
 	}

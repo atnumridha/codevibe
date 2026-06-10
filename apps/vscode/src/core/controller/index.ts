@@ -18,7 +18,7 @@ import { getEffectiveBrowserSettings } from "@shared/BrowserSettings"
 import type { ChatContent } from "@shared/ChatContent"
 import type { ExtensionState, Platform } from "@shared/ExtensionMessage"
 import type { HistoryItem } from "@shared/HistoryItem"
-import type { McpMarketplaceCatalog, McpMarketplaceItem } from "@shared/mcp"
+import { normalizeMcpMarketplaceCatalog, type McpMarketplaceCatalog, type McpMarketplaceItem } from "@shared/mcp"
 import { type Settings } from "@shared/storage/state-keys"
 import type { Mode } from "@shared/storage/types"
 import type { TelemetrySetting } from "@shared/TelemetrySetting"
@@ -195,7 +195,7 @@ export class Controller {
 		// Check CLI installation status once on startup
 		checkCliInstallation(this)
 
-			Logger.log("[Controller] CodeVibe provider instantiated")
+		Logger.log("[Controller] CodeVibe provider instantiated")
 	}
 
 	/*
@@ -818,12 +818,7 @@ export class Controller {
 		// Get allowlist from remote config
 		const allowedMCPServers = this.stateManager.getRemoteConfigSettings().allowedMCPServers
 
-		let items: McpMarketplaceItem[] = (response.data || []).map((item: McpMarketplaceItem) => ({
-			...item,
-			githubStars: item.githubStars ?? 0,
-			downloadCount: item.downloadCount ?? 0,
-			tags: item.tags ?? [],
-		}))
+		let items: McpMarketplaceItem[] = normalizeMcpMarketplaceCatalog({ items: response.data || [] }).items
 
 		// Filter by allowlist if configured
 		if (allowedMCPServers) {

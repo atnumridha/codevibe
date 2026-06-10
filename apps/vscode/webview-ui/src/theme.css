@@ -1,6 +1,8 @@
 /* Editor theme mapping */
 @theme {
-	--color-codevibe: #2f8cff;
+	--color-codevibe: #22b8a8;
+	--color-codevibe-alt: #6f8df5;
+	--color-codevibe-warm: #d6a84f;
 	--color-background: var(--vscode-sideBar-background);
 	--color-border: var(--vscode-focusBorder);
 	--color-border-panel: var(--vscode-panel-border);
@@ -27,10 +29,22 @@
 	--color-input-background: var(--vscode-input-background);
 	--color-input-border: var(--vscode-input-border);
 	--color-input-placeholder: var(--vscode-input-placeholderForeground);
-	--color-input-error-background: var(--vscode-inputValidation-errorBackground, #a82424);
-	--color-input-error-foreground: var(--vscode-inputValidation-errorForeground, #8f1f1f);
-	--color-input-warning-background: var(--vscode-inputValidation-warningBackground, #663c00);
-	--color-input-warning-foreground: var(--vscode-inputValidation-warningForeground, #7e5100);
+	--color-input-error-background: var(
+		--vscode-inputValidation-errorBackground,
+		#a82424
+	);
+	--color-input-error-foreground: var(
+		--vscode-inputValidation-errorForeground,
+		#8f1f1f
+	);
+	--color-input-warning-background: var(
+		--vscode-inputValidation-warningBackground,
+		#663c00
+	);
+	--color-input-warning-foreground: var(
+		--vscode-inputValidation-warningForeground,
+		#7e5100
+	);
 	--color-selection: var(--vscode-list-activeSelectionBackground);
 	--color-selection-foreground: var(--vscode-list-activeSelectionForeground);
 	--color-selection-inactive: var(--vscode-editor-inactiveSelectionBackground);
@@ -40,9 +54,15 @@
 	--color-button-separator: var(--vscode-button-separator);
 	--color-text-separator: var(--vscode-textSeparator-foreground, #424242);
 	--color-button-secondary-background: var(--vscode-button-secondaryBackground);
-	--color-button-secondary-background-hover: var(--vscode-button-secondaryHoverBackground);
+	--color-button-secondary-background-hover: var(
+		--vscode-button-secondaryHoverBackground
+	);
 	--color-button-secondary-foreground: var(--vscode-button-secondaryForeground);
-	--color-muted: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 65%, transparent);
+	--color-muted: color-mix(
+		in srgb,
+		var(--vscode-toolbar-hoverBackground) 65%,
+		transparent
+	);
 	--color-muted-foreground: var(--vscode-editor-foldPlaceholderForeground);
 	--color-menu: var(--vscode-menu-background);
 	--color-menu-foreground: var(--vscode-menu-foreground);
@@ -57,9 +77,13 @@
 	--color-banner-background: var(--vscode-banner-background);
 	--color-banner-foreground: var(--vscode-banner-foreground);
 	--color-banner-icon: var(--vscode-banner-iconForeground);
-	--color-editor-match-highlight: var(--vscode-editor-findMatchHighlightBackground);
+	--color-editor-match-highlight: var(
+		--vscode-editor-findMatchHighlightBackground
+	);
 	--color-icon-foreground: var(--vscode-icon-foreground);
-	--color-notification-foreground: var(--vscode-notificationsInfoIcon-foreground);
+	--color-notification-foreground: var(
+		--vscode-notificationsInfoIcon-foreground
+	);
 	--color-toolbar-default: var(--vscode-toolbar-background);
 	--color-toolbar-hover: var(--vscode-toolbar-hoverBackground);
 	--color-diff-added: var(--vscode-diffEditor-insertedTextBackground);
@@ -73,11 +97,12 @@
 	--color-success: var(--vscode-charts-green);
 	--color-warning: var(--vscode-charts-yellow);
 	--font-base:
-		var(--vscode-font-family), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell,
-		"Open Sans", "Helvetica Neue", sans-serif;
+		var(--vscode-font-family), system-ui, -apple-system, BlinkMacSystemFont,
+		"Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans",
+		"Helvetica Neue", sans-serif;
 	--font-mono:
-		var(--vscode-editor-font-family), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
-		monospace;
+		var(--vscode-editor-font-family), ui-monospace, SFMono-Regular, Menlo,
+		Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 	--font-azeret-mono: Azeret Mono, monospace;
 	--font-editor: var(--vscode-editor-font-family);
 	--text-editor-size: var(--vscode-editor-font-size);
@@ -164,7 +189,11 @@
 	--color-primary-foreground: var(--primary-foreground);
 	--color-secondary: var(--secondary);
 	--color-secondary-foreground: var(--secondary-foreground);
-	--color-muted: color-mix(in srgb, var(--vscode-toolbar-hoverBackground) 65%, transparent);
+	--color-muted: color-mix(
+		in srgb,
+		var(--vscode-toolbar-hoverBackground) 65%,
+		transparent
+	);
 	--color-muted-foreground: var(--muted-foreground);
 	--color-accent: var(--accent);
 	--color-accent-foreground: var(--accent-foreground);

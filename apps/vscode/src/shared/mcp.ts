@@ -170,6 +170,31 @@ export interface McpMarketplaceCatalog {
 	items: McpMarketplaceItem[]
 }
 
+function normalizeCodeVibeMarketplaceText(value: string | undefined): string | undefined {
+	return value
+		?.replace(/\bCline's\b/g, "CodeVibe's")
+		.replace(/\bcline's\b/g, "CodeVibe's")
+		.replace(/\bCline\b/g, "CodeVibe")
+		.replace(/\bcline\b/g, "CodeVibe")
+}
+
+export function normalizeMcpMarketplaceItem(item: McpMarketplaceItem): McpMarketplaceItem {
+	return {
+		...item,
+		name: normalizeCodeVibeMarketplaceText(item.name) ?? item.name,
+		description: normalizeCodeVibeMarketplaceText(item.description) ?? item.description,
+		readmeContent: normalizeCodeVibeMarketplaceText(item.readmeContent),
+		llmsInstallationContent: normalizeCodeVibeMarketplaceText(item.llmsInstallationContent),
+		githubStars: item.githubStars ?? 0,
+		downloadCount: item.downloadCount ?? 0,
+		tags: item.tags ?? [],
+	}
+}
+
+export function normalizeMcpMarketplaceCatalog(catalog: McpMarketplaceCatalog): McpMarketplaceCatalog {
+	return { items: (catalog.items ?? []).map((item) => normalizeMcpMarketplaceItem(item)) }
+}
+
 export interface McpDownloadResponse {
 	mcpId: string
 	githubUrl: string

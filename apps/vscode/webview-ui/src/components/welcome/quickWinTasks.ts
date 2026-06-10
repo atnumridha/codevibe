@@ -1,39 +1,48 @@
 export interface QuickWinTask {
-	id: string
-	title: string
-	description: string
-	icon?: string
-	prompt: string
-	buttonText?: string
+	id: string;
+	title: string;
+	description: string;
+	icon?: string;
+	meta?: string;
+	prompt: string;
+	buttonText?: string;
 }
 
 export const quickWinTasks: QuickWinTask[] = [
 	{
-		id: "visual_plan",
-		title: "Draw the patch plan",
-		description: "Explore, then render the flow as Mermaid",
+		id: "review_current_diff",
+		title: "Review current diff",
+		description: "Find regressions, edge cases, and missing checks",
+		icon: "ReviewIcon",
+		meta: "Review",
+		prompt:
+			"Review the current workspace diff like a senior engineer. Prioritize bugs, behavioral regressions, missing tests, and risky assumptions. Do not modify files; report findings first with file and line references where possible.",
+	},
+	{
+		id: "find_entry_points",
+		title: "Find the entry points",
+		description: "Map the files and flows before editing",
+		icon: "SearchIcon",
+		meta: "Explore",
+		prompt:
+			"Inspect this workspace and identify the most relevant entry points for the current task. Summarize the files, ownership boundaries, data flow, and likely edit locations. Do not modify files until the implementation path is clear.",
+	},
+	{
+		id: "draft_patch_plan",
+		title: "Draft a patch plan",
+		description: "Sequence the work with clear file ownership",
 		icon: "DiagramIcon",
-		prompt: "Create a visual implementation plan for this workspace. Explore the relevant files first, then produce a concise plan with a fenced Mermaid diagram that maps ownership, data flow, and the patch sequence. Do not modify files until I approve the plan.",
+		meta: "Plan",
+		prompt:
+			"Create a concise implementation plan for this workspace. Explore the relevant files first, then produce the patch sequence, validation steps, and a fenced Mermaid diagram for any non-trivial flow. Do not modify files until I approve the plan.",
 	},
 	{
-		id: "parallel_agents",
-		title: "Split into agents",
-		description: "Find independent slices and ownership",
-		icon: "AgentsIcon",
-		prompt: "Plan this work for parallel CodeVibe agents. Inspect the repo structure, identify independent implementation slices with non-overlapping file ownership, and propose the exact prompts for each spawned agent. Keep the critical path local and wait for approval before launching or editing.",
-	},
-	{
-		id: "sandbox_audit",
-		title: "Audit terminal safety",
-		description: "Classify commands by sandbox policy",
+		id: "focused_smoke",
+		title: "Run focused checks",
+		description: "Pick the smallest useful test or typecheck",
 		icon: "VerifyIcon",
-		prompt: "Audit the current workspace task for terminal safety. List the commands you would run, classify each as sandboxed or elevated with the reason, then execute only safe read/check commands after the normal approval boundary.",
+		meta: "Verify",
+		prompt:
+			"Inspect the current changes and choose the smallest meaningful validation command for this workspace. Run it if it is safe in the current sandbox; otherwise explain the approval needed and the exact command.",
 	},
-	{
-		id: "ship_smoke",
-		title: "Package and smoke test",
-		description: "VSIX, install, MCP, browser, diffs",
-		icon: "ShipIcon",
-		prompt: "Harden the current CodeVibe changes for release. Inspect the diff, run focused checks, package the VSIX, install it into VS Code, and smoke-test Codex auth, native chat, diffs, terminal approvals, MCP, and browser automation where practical.",
-	},
-]
+];

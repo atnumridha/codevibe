@@ -203,6 +203,9 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("native-agent tombstone"), false)
 		assert.equal(packageScript.includes("enableNativeAgentInVSCodeArgv(metadata)"), true)
 		assert.equal(packageScript.includes('"Code", "User", "argv.json"'), true)
+		assert.equal(packageScript.includes("resolveVsCodeUserStorageDirs"), true)
+		assert.equal(/path\.join\([\s\S]*"VibeCode IDE"[\s\S]*"User"[\s\S]*\)/.test(packageScript), true)
+		assert.equal(packageScript.includes("CODEVIBE_VSCODE_USER_STORAGE_DIRS"), true)
 		assert.equal(packageScript.includes("resolveLegacyVSCodeArgvJsonPaths"), true)
 		assert.equal(packageScript.includes("writeInstalledNativeAgentCache(metadata)"), true)
 		assert.equal(packageScript.includes("Repaired CodeVibe native agent cache file"), true)
@@ -213,6 +216,12 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state.hidden'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.numberOfVisibleViews'"), true)
+		assert.equal(/filterJsonArrayByIdSql\(\s*"workbench\.auxiliarybar\.placeholderPanels"/.test(packageScript), true)
+		assert.equal(/filterJsonArrayByIdSql\(\s*"workbench\.auxiliarybar\.pinnedPanels"/.test(packageScript), true)
+		assert.equal(
+			/filterJsonArrayByIdSql\(\s*"workbench\.auxiliarybar\.viewContainersWorkspaceState"/.test(packageScript),
+			true,
+		)
 		assert.equal(packageScript.includes("assertCodeVibeChatResourceContributions"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatPromptFiles"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatSkills"), true)
@@ -271,8 +280,8 @@ describe("Package manifest", () => {
 		)
 		assert.equal(scriptNames.some((name) => name.startsWith("upstream:cline:")), false)
 		assert.equal(packageScript.includes('for (const key of ["scripts", "lint-staged", "devDependencies"])'), true)
-		assert.equal(packageScript.includes("assertPackagedManifestNoDevMetadata(packagedPackageJson"), true)
-		assert.equal(packageScript.includes("assertPackagedManifestNoDevMetadata(installedPackageJson"), true)
+		assert.equal(/assertPackagedManifestNoDevMetadata\(\s*packagedPackageJson/.test(packageScript), true)
+		assert.equal(/assertPackagedManifestNoDevMetadata\(\s*installedPackageJson/.test(packageScript), true)
 	})
 
 	it("brands the standalone runtime entrypoint as CodeVibe core", async () => {

@@ -710,6 +710,25 @@ function resolveVsCodeUserStorageDir() {
 	return path.join(configHome, "Code", "User")
 }
 
+function resolveVsCodeUserStorageDirs() {
+	const dirs = new Set()
+	const primary = resolveVsCodeUserStorageDir()
+	if (primary) {
+		dirs.add(primary)
+	}
+	if (process.env.CODEVIBE_VSCODE_USER_STORAGE_DIRS?.trim()) {
+		for (const entry of process.env.CODEVIBE_VSCODE_USER_STORAGE_DIRS.split(path.delimiter)) {
+			if (entry.trim()) {
+				dirs.add(path.resolve(entry.trim()))
+			}
+		}
+	}
+	if (!process.env.VSCODE_PORTABLE && process.platform === "darwin") {
+		dirs.add(path.join(os.homedir(), "Library", "Application Support", "VibeCode IDE", "User"))
+	}
+	return [...dirs]
+}
+
 function resolveVsCodeExtensionsDir() {
 	if (process.env.CODEVIBE_VSCODE_EXTENSIONS_DIR?.trim()) {
 		return path.resolve(process.env.CODEVIBE_VSCODE_EXTENSIONS_DIR.trim())
@@ -746,12 +765,6 @@ function pruneInstalledCodeVibeExtensionVersions(metadata) {
 }
 
 function writeInstalledNativeAgentCache(metadata) {
-	const userStorageDir = resolveVsCodeUserStorageDir()
-	if (!userStorageDir) {
-		return
-	}
-	const agentDir = path.join(userStorageDir, "globalStorage", metadata.extensionId, "native-agents")
-	const agentPath = path.join(agentDir, "00-codevibe-agent.agent.md")
 	const markdown = [
 		"---",
 		"id: codevibe",
@@ -778,9 +791,16 @@ function writeInstalledNativeAgentCache(metadata) {
 		"For implementation tasks, finish with the changed files, verification performed, and any remaining risk.",
 		"",
 	].join("\n")
-	fs.mkdirSync(agentDir, { recursive: true })
-	fs.writeFileSync(agentPath, markdown, "utf8")
-	console.log(`Repaired CodeVibe native agent cache file: ${agentPath}`)
+	for (const userStorageDir of resolveVsCodeUserStorageDirs()) {
+		if (!userStorageDir) {
+			continue
+		}
+		const agentDir = path.join(userStorageDir, "globalStorage", metadata.extensionId, "native-agents")
+		const agentPath = path.join(agentDir, "00-codevibe-agent.agent.md")
+		fs.mkdirSync(agentDir, { recursive: true })
+		fs.writeFileSync(agentPath, markdown, "utf8")
+		console.log(`Repaired CodeVibe native agent cache file: ${agentPath}`)
+	}
 }
 
 function runSqlite(databasePath, sql) {
@@ -929,7 +949,10 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 		filterJsonObjectKeysByNamePatternSql("workbench.%.views.state", legacyWebviewViewIds),
 		filterJsonObjectKeysContainingSql("memento/webviewViews.origins", legacyWebviewViewIds),
 		filterJsonObjectKeysContainingSql("__$__targetStorageMarker", legacyStateKeyFragments),
-		hideAuxiliaryBarForViewIdsSql(competingAuxiliaryViewIds),
+		hideAuxiliaryBarForViewIdsSql([...legacyActivityViewIds, ...competingAuxiliaryViewIds]),
+		filterJsonArrayByIdSql("workbench.auxiliarybar.placeholderPanels", legacyActivityViewIds),
+		filterJsonArrayByIdSql("workbench.auxiliarybar.pinnedPanels", legacyActivityViewIds),
+		filterJsonArrayByIdSql("workbench.auxiliarybar.viewContainersWorkspaceState", legacyActivityViewIds),
 		hideJsonArrayEntriesByIdSql("workbench.auxiliarybar.viewContainersWorkspaceState", competingAuxiliaryViewIds),
 		hideJsonArrayEntriesByIdSql("workbench.auxiliarybar.pinnedPanels", competingAuxiliaryViewIds),
 		`
@@ -973,6 +996,11 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 		delete from ItemTable
 		where key = 'workbench.auxiliarybar.activepanelid'
 			and value in (
+				'workbench.view.extension.claude-dev-ActivityBar',
+				'workbench.view.extension.codevibe-ActivityBar',
+				'workbench.view.extension.codevibe.agent',
+				'workbench.view.extension.vibecodeAgentSidebar',
+				'workbench.view.extension.vibecodex-agent-extension-container',
 				'workbench.view.extension.codexSecondaryViewContainer',
 				'workbench.panel.chat',
 				'workbench.viewContainer.agentSessions'
@@ -993,24 +1021,25 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 }
 
 function cleanLegacyCodeVibeViewState() {
-	const userStorageDir = resolveVsCodeUserStorageDir()
-	if (!userStorageDir || !fs.existsSync(userStorageDir)) {
-		return
-	}
 	const databasePaths = []
-	const globalState = path.join(userStorageDir, "globalStorage", "state.vscdb")
-	if (fs.existsSync(globalState)) {
-		databasePaths.push(globalState)
-	}
-	const workspaceStorageDir = path.join(userStorageDir, "workspaceStorage")
-	if (fs.existsSync(workspaceStorageDir)) {
-		for (const entry of fs.readdirSync(workspaceStorageDir, { withFileTypes: true })) {
-			if (!entry.isDirectory()) {
-				continue
-			}
-			const stateDb = path.join(workspaceStorageDir, entry.name, "state.vscdb")
-			if (fs.existsSync(stateDb)) {
-				databasePaths.push(stateDb)
+	for (const userStorageDir of resolveVsCodeUserStorageDirs()) {
+		if (!userStorageDir || !fs.existsSync(userStorageDir)) {
+			continue
+		}
+		const globalState = path.join(userStorageDir, "globalStorage", "state.vscdb")
+		if (fs.existsSync(globalState)) {
+			databasePaths.push(globalState)
+		}
+		const workspaceStorageDir = path.join(userStorageDir, "workspaceStorage")
+		if (fs.existsSync(workspaceStorageDir)) {
+			for (const entry of fs.readdirSync(workspaceStorageDir, { withFileTypes: true })) {
+				if (!entry.isDirectory()) {
+					continue
+				}
+				const stateDb = path.join(workspaceStorageDir, entry.name, "state.vscdb")
+				if (fs.existsSync(stateDb)) {
+					databasePaths.push(stateDb)
+				}
 			}
 		}
 	}

@@ -329,6 +329,44 @@ describe("Controller Marketplace Filtering", () => {
 			catalog!.items[0].tags.should.be.an.Array()
 			catalog!.items[0].tags.should.have.length(0)
 		})
+
+		it("should normalize Cline-branded marketplace display text to CodeVibe", async () => {
+			axiosGetStub.resolves({
+				data: [
+					{
+						mcpId: "github.com/test/sendgrid",
+						name: "Cline SendGrid",
+						author: "Test",
+						description: "Ask Cline's SendGrid agent to inspect campaigns",
+						readmeContent: "Install this server in Cline and ask cline to send a report.",
+						llmsInstallationContent: "Configure Cline before launch.",
+						githubStars: 12,
+						downloadCount: 34,
+						tags: ["email"],
+						githubUrl: "https://github.com/test/sendgrid",
+						codiconIcon: "mail",
+						logoUrl: "https://storage.googleapis.com/cline_public_images/sendgrid.png",
+						category: "marketing",
+						requiresApiKey: false,
+						isRecommended: false,
+						createdAt: "2024-01-01T00:00:00Z",
+						updatedAt: "2024-01-01T00:00:00Z",
+						lastGithubSync: "2024-01-01T00:00:00Z",
+					},
+				],
+			})
+			mockStateManager.getRemoteConfigSettings.returns({})
+
+			const catalog = await controller.refreshMcpMarketplace(false)
+			const item = catalog!.items[0]
+
+			item.name.should.equal("CodeVibe SendGrid")
+			item.description.should.equal("Ask CodeVibe's SendGrid agent to inspect campaigns")
+			item.readmeContent!.should.equal("Install this server in CodeVibe and ask CodeVibe to send a report.")
+			item.llmsInstallationContent!.should.equal("Configure CodeVibe before launch.")
+			item.logoUrl.should.equal("https://storage.googleapis.com/cline_public_images/sendgrid.png")
+			item.mcpId.should.equal("github.com/test/sendgrid")
+		})
 	})
 
 	describe("Edge cases", () => {
