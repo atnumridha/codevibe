@@ -14,7 +14,7 @@ settings/
 │   ├── ModelInfoView.tsx       # Model information display
 │   └── ModelSelector.tsx       # Model selection dropdown
 ├── providers/                   # Provider-specific components
-│   ├── ClineProvider.tsx       # CodeVibe cloud-provider compatibility configuration
+│   ├── CodeVibeProvider.tsx    # CodeVibe cloud-provider compatibility configuration
 │   ├── AnthropicProvider.tsx   # Anthropic-specific configuration
 │   ├── BedrockProvider.tsx     # AWS Bedrock configuration
 │   ├── GeminiProvider.tsx      # Google Gemini configuration

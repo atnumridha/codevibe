@@ -120,6 +120,19 @@ function collectFindingsFromText(text, file) {
 			})
 		}
 	}
+
+	if (!file.endsWith("ClineProvider.tsx") && !file.endsWith("ClineAccountInfoCard.tsx")) {
+		const legacySettingsProviderImportPattern =
+			/from\s+["'][^"']*(?:providers\/ClineProvider|ClineAccountInfoCard)["']/g
+		for (const match of text.matchAll(legacySettingsProviderImportPattern)) {
+			findings.push({
+				file,
+				line: lineNumberForIndex(text, match.index ?? 0),
+				label: "legacy settings provider import",
+				value: match[0],
+			})
+		}
+	}
 }
 
 for (const root of scannedRoots) {

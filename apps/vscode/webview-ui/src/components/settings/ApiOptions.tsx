@@ -19,7 +19,7 @@ import { BasetenProvider } from "./providers/BasetenProvider"
 import { BedrockProvider } from "./providers/BedrockProvider"
 import { CerebrasProvider } from "./providers/CerebrasProvider"
 import { ClaudeCodeProvider } from "./providers/ClaudeCodeProvider"
-import { ClineProvider } from "./providers/ClineProvider"
+import { CodeVibeProvider } from "./providers/CodeVibeProvider"
 import { DeepSeekProvider } from "./providers/DeepSeekProvider"
 import { DifyProvider } from "./providers/DifyProvider"
 import { DoubaoProvider } from "./providers/DoubaoProvider"
@@ -360,7 +360,7 @@ const ApiOptions = ({
 			)}
 
 			{apiConfiguration && selectedProvider === "cline" && (
-				<ClineProvider
+				<CodeVibeProvider
 					currentMode={currentMode}
 					initialModelTab={initialModelTab}
 					isPopup={isPopup}
