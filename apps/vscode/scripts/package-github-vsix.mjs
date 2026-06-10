@@ -160,6 +160,43 @@ const disallowedPackagedVisibleTextFragments = [
 
 const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
 
+const vscodeChatPromptContributionKeys = new Set(["path", "name", "description", "when", "sessionTypes"])
+const vscodeChatSessionContributionKeys = new Set([
+	"type",
+	"name",
+	"displayName",
+	"description",
+	"when",
+	"icon",
+	"order",
+	"alternativeIds",
+	"welcomeTitle",
+	"welcomeMessage",
+	"welcomeTips",
+	"inputPlaceholder",
+	"capabilities",
+	"commands",
+	"canDelegate",
+	"customAgentTarget",
+	"requiresCustomModels",
+	"autoAttachReferences",
+	"useRequestToPopulateBuiltInPickers",
+])
+const vscodeChatSessionCapabilitiesKeys = new Set([
+	"supportsFileAttachments",
+	"supportsToolAttachments",
+	"supportsMCPAttachments",
+	"supportsImageAttachments",
+	"supportsSearchResultAttachments",
+	"supportsInstructionAttachments",
+	"supportsSourceControlAttachments",
+	"supportsProblemAttachments",
+	"supportsSymbolAttachments",
+	"supportsPromptAttachments",
+	"supportsHandOffs",
+])
+const vscodeChatSessionCommandKeys = new Set(["name", "description", "when"])
+
 const disallowedVsixEntryPrefixes = [
 	"extension/testing-platform/",
 	"extension/tests/",
@@ -1015,6 +1052,17 @@ function assertArrayExcludes(values, expected, label) {
 	}
 }
 
+function assertOnlyAllowedObjectKeys(value, allowedKeys, label) {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		throw new Error(`${label} must be an object`)
+	}
+	for (const key of Object.keys(value)) {
+		if (!allowedKeys.has(key)) {
+			throw new Error(`${label} contains unsupported VS Code contribution property '${key}'`)
+		}
+	}
+}
+
 function assertObjectHasKey(object, key, label) {
 	if (!object || typeof object !== "object" || Array.isArray(object) || !(key in object)) {
 		throw new Error(`${label} is missing ${key}`)
@@ -1098,12 +1146,9 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 	const chatAgents = Array.isArray(packageJson.contributes?.chatAgents) ? packageJson.contributes.chatAgents : []
 	for (const [index, agent] of chatAgents.entries()) {
-		const agentId = agent?.id
-		if (typeof agentId !== "string" || agentId.trim() === "") {
-			throw new Error(`${label} chatAgents[${index}] must declare a non-empty id`)
-		}
-		if (!/^[A-Za-z0-9_-]+$/.test(agentId)) {
-			throw new Error(`${label} chatAgents[${index}] id '${agentId}' must use only alphanumeric characters, '_' or '-'`)
+		assertOnlyAllowedObjectKeys(agent, vscodeChatPromptContributionKeys, `${label} chatAgents[${index}]`)
+		if (typeof agent?.path !== "string" || agent.path.trim() === "") {
+			throw new Error(`${label} chatAgents[${index}] must declare a non-empty path`)
 		}
 	}
 	const codeVibeAgent = chatAgents.find((agent) => agent?.path === "agents/00-codevibe-agent.agent.md")
@@ -1114,7 +1159,6 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		throw new Error(`${label} must list CodeVibe chat agent before other chat agents`)
 	}
 	if (
-		codeVibeAgent.id !== "codevibe" ||
 		codeVibeAgent.name !== "codevibe" ||
 		!String(codeVibeAgent.description ?? "").includes("CodeVibe Agent")
 	) {
@@ -1122,9 +1166,7 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
-		if (Object.hasOwn(session ?? {}, "id")) {
-			throw new Error(`${label} chatSessions[${index}] must use VS Code's type identity and not declare id`)
-		}
+		assertOnlyAllowedObjectKeys(session, vscodeChatSessionContributionKeys, `${label} chatSessions[${index}]`)
 		const sessionType = session?.type
 		if (typeof sessionType !== "string" || sessionType.trim() === "") {
 			throw new Error(`${label} chatSessions[${index}] must declare a non-empty type`)
@@ -1132,6 +1174,20 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		if (!/^[A-Za-z0-9_-]+$/.test(sessionType)) {
 			throw new Error(
 				`${label} chatSessions[${index}] type '${sessionType}' must use only alphanumeric characters, '_' or '-'`,
+			)
+		}
+		if (session.capabilities !== undefined) {
+			assertOnlyAllowedObjectKeys(
+				session.capabilities,
+				vscodeChatSessionCapabilitiesKeys,
+				`${label} chatSessions[${index}].capabilities`,
+			)
+		}
+		for (const [commandIndex, command] of (Array.isArray(session.commands) ? session.commands : []).entries()) {
+			assertOnlyAllowedObjectKeys(
+				command,
+				vscodeChatSessionCommandKeys,
+				`${label} chatSessions[${index}].commands[${commandIndex}]`,
 			)
 		}
 	}
@@ -1175,6 +1231,12 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		? packageJson.contributes.chatPromptFiles
 		: []
 	const skillFiles = Array.isArray(packageJson.contributes?.chatSkills) ? packageJson.contributes.chatSkills : []
+	for (const [index, promptFile] of promptFiles.entries()) {
+		assertOnlyAllowedObjectKeys(promptFile, vscodeChatPromptContributionKeys, `${label} chatPromptFiles[${index}]`)
+	}
+	for (const [index, skillFile] of skillFiles.entries()) {
+		assertOnlyAllowedObjectKeys(skillFile, vscodeChatPromptContributionKeys, `${label} chatSkills[${index}]`)
+	}
 	assertCodeVibeChatResourceContributions(promptFiles, expectedPromptPaths, "prompt", label)
 	assertCodeVibeChatResourceContributions(skillFiles, expectedSkillPaths, "skill", label)
 

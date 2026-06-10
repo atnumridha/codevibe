@@ -7,6 +7,42 @@ const packagePath = path.join(vscodeRoot, "package.json")
 const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
+const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
+const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
+	"type",
+	"name",
+	"displayName",
+	"description",
+	"when",
+	"icon",
+	"order",
+	"alternativeIds",
+	"welcomeTitle",
+	"welcomeMessage",
+	"welcomeTips",
+	"inputPlaceholder",
+	"capabilities",
+	"commands",
+	"canDelegate",
+	"customAgentTarget",
+	"requiresCustomModels",
+	"autoAttachReferences",
+	"useRequestToPopulateBuiltInPickers",
+])
+const CHAT_SESSION_CAPABILITY_KEYS = new Set([
+	"supportsFileAttachments",
+	"supportsToolAttachments",
+	"supportsMCPAttachments",
+	"supportsImageAttachments",
+	"supportsSearchResultAttachments",
+	"supportsInstructionAttachments",
+	"supportsSourceControlAttachments",
+	"supportsProblemAttachments",
+	"supportsSymbolAttachments",
+	"supportsPromptAttachments",
+	"supportsHandOffs",
+])
+const CHAT_SESSION_COMMAND_KEYS = new Set(["name", "description", "when"])
 
 async function readPackageManifest(): Promise<Record<string, any>> {
 	return JSON.parse(await readFile(packagePath, "utf8"))
@@ -14,6 +50,12 @@ async function readPackageManifest(): Promise<Record<string, any>> {
 
 async function readJsonFile(filePath: string): Promise<Record<string, any>> {
 	return JSON.parse(await readFile(filePath, "utf8"))
+}
+
+function assertOnlyAllowedKeys(value: Record<string, any>, allowedKeys: Set<string>, label: string) {
+	for (const key of Object.keys(value)) {
+		assert.equal(allowedKeys.has(key), true, `${label} unsupported key: ${key}`)
+	}
 }
 
 describe("Package manifest", () => {
@@ -62,7 +104,13 @@ describe("Package manifest", () => {
 		const sessionTypes = (packageJSON.contributes.chatSessions ?? []).map((session: { type?: string }) => session.type)
 		const agentFile = await readFile(path.join(vscodeRoot, "agents", CODEVIBE_NATIVE_AGENT_FILE_NAME), "utf8")
 
-		assert.equal(chatAgent?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
+		assertOnlyAllowedKeys(chatAgent, CHAT_PROMPT_CONTRIBUTION_KEYS, "chatAgents[0]")
+		assertOnlyAllowedKeys(chatSession, CHAT_SESSION_CONTRIBUTION_KEYS, "chatSessions[0]")
+		assertOnlyAllowedKeys(chatSession.capabilities, CHAT_SESSION_CAPABILITY_KEYS, "chatSessions[0].capabilities")
+		for (const [index, command] of (chatSession.commands ?? []).entries()) {
+			assertOnlyAllowedKeys(command, CHAT_SESSION_COMMAND_KEYS, `chatSessions[0].commands[${index}]`)
+		}
+		assert.equal(Object.hasOwn(chatAgent ?? {}, "id"), false)
 		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
 		assert.match(agentFile, /^---\nid: codevibe\n/m)
 		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)
