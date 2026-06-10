@@ -36,6 +36,12 @@ export const window = {
 	showErrorMessage: (_message: string) => Promise.resolve(),
 	showWarningMessage: (_message: string) => Promise.resolve(),
 	showInformationMessage: (_message: string) => Promise.resolve(),
+	createTerminal: (_options: any) => ({
+		exitStatus: undefined,
+		show: () => {},
+		sendText: (_text: string, _addNewLine?: boolean) => {},
+		dispose: () => {},
+	}),
 	createTextEditorDecorationType: (_options: any) => ({
 		key: "mock-decoration-type",
 		dispose: () => {},
@@ -62,3 +68,7 @@ export const Uri = {
 export const ExtensionContextMock = {}
 export const StatusBarAlignmentMock = { Left: 1, Right: 2 }
 export const ViewColumnMock = { One: 1, Two: 2, Three: 3 }
+
+export class ThemeIcon {
+	constructor(public readonly id: string) {}
+}

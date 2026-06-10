@@ -1,4 +1,5 @@
 import * as vscode from "vscode"
+import { createCodeVibeTerminalOptions } from "./codevibeTerminalEnv"
 
 export interface TerminalInfo {
 	terminal: vscode.Terminal
@@ -21,20 +22,7 @@ export class TerminalRegistry {
 	private static nextTerminalId = 1
 
 	static createTerminal(cwd?: string | vscode.Uri | undefined, shellPath?: string): TerminalInfo {
-		const terminalOptions: vscode.TerminalOptions = {
-			cwd,
-			name: "CodeVibe",
-			iconPath: new vscode.ThemeIcon("codevibe-icon"),
-			env: {
-				CLINE_ACTIVE: "true",
-				CODEVIBE_ACTIVE: "true",
-			},
-		}
-
-		// If a specific shell path is provided, use it
-		if (shellPath) {
-			terminalOptions.shellPath = shellPath
-		}
+		const terminalOptions = createCodeVibeTerminalOptions({ cwd, shellPath })
 
 		const terminal = vscode.window.createTerminal(terminalOptions)
 		TerminalRegistry.nextTerminalId++

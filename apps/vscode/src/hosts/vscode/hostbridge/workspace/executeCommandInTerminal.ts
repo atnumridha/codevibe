@@ -1,6 +1,7 @@
 import { ExecuteCommandInTerminalRequest, ExecuteCommandInTerminalResponse } from "@shared/proto/host/workspace"
 import * as vscode from "vscode"
 import { Logger } from "@/shared/services/Logger"
+import { createCodeVibeTerminalOptions } from "@/hosts/vscode/terminal/codevibeTerminalEnv"
 
 /**
  * Executes a command in a new terminal
@@ -11,18 +12,8 @@ export async function executeCommandInTerminal(
 	request: ExecuteCommandInTerminalRequest,
 ): Promise<ExecuteCommandInTerminalResponse> {
 	try {
-		// Create terminal with fixed options
-		const terminalOptions: vscode.TerminalOptions = {
-			name: "CodeVibe",
-			iconPath: new vscode.ThemeIcon("codevibe-icon"),
-			env: {
-				CLINE_ACTIVE: "true",
-				CODEVIBE_ACTIVE: "true",
-			},
-		}
-
 		// Create a new terminal
-		const terminal = vscode.window.createTerminal(terminalOptions)
+		const terminal = vscode.window.createTerminal(createCodeVibeTerminalOptions())
 
 		// Show the terminal to the user
 		terminal.show()
