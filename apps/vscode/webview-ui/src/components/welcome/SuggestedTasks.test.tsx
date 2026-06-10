@@ -22,6 +22,8 @@ describe("SuggestedTasks", () => {
 
 		expect(screen.getByText("Agent command deck")).toBeInTheDocument();
 		expect(screen.getByText("Spawn parallel agents")).toBeInTheDocument();
+		expect(screen.getByText("Plan terminal safety")).toBeInTheDocument();
+		expect(screen.getByText("Use OpenAI skills")).toBeInTheDocument();
 		expect(screen.getByText("Check Codex auth")).toBeInTheDocument();
 		expect(screen.queryByText("Suggested commands")).not.toBeInTheDocument();
 	});

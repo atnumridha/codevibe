@@ -1,6 +1,7 @@
 import React from "react";
 import {
 	ArrowRightIcon,
+	BookOpenCheckIcon,
 	GitBranchIcon,
 	KeyRoundIcon,
 	ListChecksIcon,
@@ -8,6 +9,7 @@ import {
 	SearchIcon,
 	ShieldCheckIcon,
 	SparklesIcon,
+	TerminalSquareIcon,
 	WorkflowIcon,
 } from "lucide-react";
 import { QuickWinTask } from "./quickWinTasks";
@@ -36,6 +38,10 @@ const renderIcon = (iconName?: string) => {
 			return <NetworkIcon className="size-4" />;
 		case "KeyIcon":
 			return <KeyRoundIcon className="size-4" />;
+		case "SkillIcon":
+			return <BookOpenCheckIcon className="size-4" />;
+		case "TerminalIcon":
+			return <TerminalSquareIcon className="size-4" />;
 		case "ShipIcon":
 			return <GitBranchIcon className="size-4" />;
 		default:

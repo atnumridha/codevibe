@@ -29,8 +29,8 @@ export const quickWinTasks: QuickWinTask[] = [
 	},
 	{
 		id: "draft_patch_plan",
-		title: "Draw the plan graph",
-		description: "Map the change with Mermaid before editing",
+		title: "Map a Mermaid plan",
+		description: "Draw the change graph before editing",
 		icon: "DiagramIcon",
 		meta: "Plan",
 		prompt:
@@ -44,6 +44,24 @@ export const quickWinTasks: QuickWinTask[] = [
 		meta: "Agents",
 		prompt:
 			"Use subagents to inspect up to four independent areas of this workspace in parallel. Ask each subagent for evidence-backed findings, then synthesize the implementation path, risks, and validation plan before editing.",
+	},
+	{
+		id: "sandbox_terminal_plan",
+		title: "Plan terminal safety",
+		description: "Separate sandboxed and elevated commands",
+		icon: "TerminalIcon",
+		meta: "Sandbox",
+		prompt:
+			"Inspect the current task and produce a terminal execution plan. Split commands into sandbox-safe, approval-required elevated, network-required, and destructive categories. Explain the minimum command set needed, then run only sandbox-safe checks unless I approve escalation.",
+	},
+	{
+		id: "openai_skills_bootstrap",
+		title: "Use OpenAI skills",
+		description: "Load skills before making changes",
+		icon: "SkillIcon",
+		meta: "Skills",
+		prompt:
+			"Inspect this workspace for available OpenAI/Codex skills and project skills. Select the smallest relevant skill set for the current task, explain why each applies, then use those instructions while planning and implementing the next safe change.",
 	},
 	{
 		id: "focused_smoke",
