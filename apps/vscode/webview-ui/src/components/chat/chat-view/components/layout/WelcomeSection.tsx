@@ -257,6 +257,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 				{!showWhatsNewModal && (
 					<>
 						<BannerCarousel banners={activeBanners} />
+						<SuggestedTasks shouldShowStarterWorkflows={shouldShowStarterWorkflows} />
 						{!shouldShowStarterWorkflows && taskHistory.length > 0 && (
 							<HistoryPreview showHistoryView={showHistoryView} />
 						)}
@@ -309,7 +310,6 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 					</>
 				)}
 			</div>
-			<SuggestedTasks shouldShowStarterWorkflows={shouldShowStarterWorkflows} />
 
 			{/* Quick launch worktree modal */}
 			<CreateWorktreeModal

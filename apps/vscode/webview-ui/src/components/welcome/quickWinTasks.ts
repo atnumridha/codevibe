@@ -29,20 +29,38 @@ export const quickWinTasks: QuickWinTask[] = [
 	},
 	{
 		id: "draft_patch_plan",
-		title: "Draft a patch plan",
-		description: "Sequence the work with clear file ownership",
+		title: "Draw the plan graph",
+		description: "Map the change with Mermaid before editing",
 		icon: "DiagramIcon",
 		meta: "Plan",
 		prompt:
 			"Create a concise implementation plan for this workspace. Explore the relevant files first, then produce the patch sequence, validation steps, and a fenced Mermaid diagram for any non-trivial flow. Do not modify files until I approve the plan.",
 	},
 	{
+		id: "spawn_parallel_agents",
+		title: "Spawn parallel agents",
+		description: "Split research across focused subagents",
+		icon: "AgentsIcon",
+		meta: "Agents",
+		prompt:
+			"Use subagents to inspect up to four independent areas of this workspace in parallel. Ask each subagent for evidence-backed findings, then synthesize the implementation path, risks, and validation plan before editing.",
+	},
+	{
 		id: "focused_smoke",
-		title: "Run focused checks",
+		title: "Verify the slice",
 		description: "Pick the smallest useful test or typecheck",
 		icon: "VerifyIcon",
 		meta: "Verify",
 		prompt:
 			"Inspect the current changes and choose the smallest meaningful validation command for this workspace. Run it if it is safe in the current sandbox; otherwise explain the approval needed and the exact command.",
+	},
+	{
+		id: "codex_auth_probe",
+		title: "Check Codex auth",
+		description: "Validate .codex/auth.json provider wiring",
+		icon: "KeyIcon",
+		meta: "Codex",
+		prompt:
+			"Inspect the CodeVibe Codex auth path for this workspace. Verify provider defaults, .codex/auth.json import behavior, token redaction, model loading, and backend headers. Report evidence and patch any small safe regression you find.",
 	},
 ];

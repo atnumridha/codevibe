@@ -2,6 +2,7 @@ import React from "react";
 import {
 	ArrowRightIcon,
 	GitBranchIcon,
+	KeyRoundIcon,
 	ListChecksIcon,
 	NetworkIcon,
 	SearchIcon,
@@ -33,6 +34,8 @@ const renderIcon = (iconName?: string) => {
 			return <WorkflowIcon className="size-4" />;
 		case "AgentsIcon":
 			return <NetworkIcon className="size-4" />;
+		case "KeyIcon":
+			return <KeyRoundIcon className="size-4" />;
 		case "ShipIcon":
 			return <GitBranchIcon className="size-4" />;
 		default:
