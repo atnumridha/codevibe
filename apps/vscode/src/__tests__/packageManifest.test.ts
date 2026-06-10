@@ -7,6 +7,7 @@ const packagePath = path.join(vscodeRoot, "package.json")
 const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
+const CHAT_AGENT_CONTRIBUTION_KEYS = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
 	"type",
@@ -104,13 +105,14 @@ describe("Package manifest", () => {
 		const sessionTypes = (packageJSON.contributes.chatSessions ?? []).map((session: { type?: string }) => session.type)
 		const agentFile = await readFile(path.join(vscodeRoot, "agents", CODEVIBE_NATIVE_AGENT_FILE_NAME), "utf8")
 
-		assertOnlyAllowedKeys(chatAgent, CHAT_PROMPT_CONTRIBUTION_KEYS, "chatAgents[0]")
+		assertOnlyAllowedKeys(chatAgent, CHAT_AGENT_CONTRIBUTION_KEYS, "chatAgents[0]")
 		assertOnlyAllowedKeys(chatSession, CHAT_SESSION_CONTRIBUTION_KEYS, "chatSessions[0]")
 		assertOnlyAllowedKeys(chatSession.capabilities, CHAT_SESSION_CAPABILITY_KEYS, "chatSessions[0].capabilities")
 		for (const [index, command] of (chatSession.commands ?? []).entries()) {
 			assertOnlyAllowedKeys(command, CHAT_SESSION_COMMAND_KEYS, `chatSessions[0].commands[${index}]`)
 		}
-		assert.equal(Object.hasOwn(chatAgent ?? {}, "id"), false)
+		assert.equal(chatAgent?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
+		assert.match(chatAgent?.id, /^[A-Za-z0-9_-]+$/)
 		assert.equal(chatAgent?.name, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
 		assert.match(agentFile, /^---\nid: codevibe\n/m)

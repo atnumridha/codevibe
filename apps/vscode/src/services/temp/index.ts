@@ -1,1 +1,1 @@
-export { ClineTempManager } from "./ClineTempManager"
+export { ClineTempManager, CodeVibeTempManager } from "./ClineTempManager"

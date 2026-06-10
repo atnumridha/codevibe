@@ -161,6 +161,7 @@ const disallowedPackagedVisibleTextFragments = [
 
 const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
 
+const vscodeChatAgentContributionKeys = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
 const vscodeChatPromptContributionKeys = new Set(["path", "name", "description", "when", "sessionTypes"])
 const vscodeChatSessionContributionKeys = new Set([
 	"type",
@@ -1149,9 +1150,12 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 	const chatAgents = Array.isArray(packageJson.contributes?.chatAgents) ? packageJson.contributes.chatAgents : []
 	for (const [index, agent] of chatAgents.entries()) {
-		assertOnlyAllowedObjectKeys(agent, vscodeChatPromptContributionKeys, `${label} chatAgents[${index}]`)
+		assertOnlyAllowedObjectKeys(agent, vscodeChatAgentContributionKeys, `${label} chatAgents[${index}]`)
 		if (typeof agent?.path !== "string" || agent.path.trim() === "") {
 			throw new Error(`${label} chatAgents[${index}] must declare a non-empty path`)
+		}
+		if (typeof agent?.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(agent.id)) {
+			throw new Error(`${label} chatAgents[${index}] must declare a package-safe id`)
 		}
 	}
 	const codeVibeAgent = chatAgents.find((agent) => agent?.path === "agents/00-codevibe-agent.agent.md")
@@ -1162,6 +1166,7 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		throw new Error(`${label} must list CodeVibe chat agent before other chat agents`)
 	}
 	if (
+		codeVibeAgent.id !== "codevibe" ||
 		codeVibeAgent.name !== "codevibe" ||
 		!String(codeVibeAgent.description ?? "").includes("CodeVibe Agent")
 	) {

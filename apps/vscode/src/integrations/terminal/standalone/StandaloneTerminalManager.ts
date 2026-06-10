@@ -12,7 +12,7 @@
  * - Provides summary for environment details
  */
 
-import { ClineTempManager } from "@services/temp"
+import { CodeVibeTempManager } from "@services/temp"
 import * as fs from "fs"
 import { BACKGROUND_COMMAND_TIMEOUT_MS, DEFAULT_TERMINAL_OUTPUT_LINE_LIMIT } from "../constants"
 import type { BackgroundCommand, ITerminalManager, TerminalInfo, TerminalProcessResultPromise } from "../types"
@@ -410,8 +410,8 @@ export class StandaloneTerminalManager implements ITerminalManager {
 		existingOutput: string[] = [],
 	): BackgroundCommand {
 		const id = `background-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-		// Use ClineTempManager for proper temp file management and cleanup
-		const logFilePath = ClineTempManager.createTempFilePath("background")
+		// Use CodeVibeTempManager for proper temp file management and cleanup
+		const logFilePath = CodeVibeTempManager.createTempFilePath("background")
 
 		const backgroundCommand: BackgroundCommand = {
 			id,

@@ -1,8 +1,8 @@
 /**
- * ClineTempManager - Manages temporary files for Cline with automatic cleanup.
+ * CodeVibeTempManager - Manages temporary files for CodeVibe with automatic cleanup.
  *
  * Simple approach:
- * - Uses a "cline" subdirectory inside the system temp dir (falls back to system temp if creation fails)
+ * - Uses a "codevibe" subdirectory inside the system temp dir (falls back to system temp if creation fails)
  * - Cleans up files older than 50 hours on extension activation
  * - Enforces 2GB total size cap to prevent disk bloat
  * - Cross-platform (macOS, Windows, Linux)
@@ -27,21 +27,23 @@ interface TempFileInfo {
 /**
  * Singleton manager for CodeVibe's temporary files.
  */
-class ClineTempManagerImpl {
+class CodeVibeTempManagerImpl {
 	private readonly tempDir: string
+	private readonly legacyTempDir: string | null = null
 	private cleanupIntervalId: NodeJS.Timeout | null = null
 
 	constructor() {
-		// Uses system temp directory with a dedicated "cline" subdirectory when possible:
-		// macOS: /var/folders/xx/.../T/cline
-		// Windows: C:\Users\{user}\AppData\Local\Temp\cline
-		// Linux: /tmp/cline
+		// Uses system temp directory with a dedicated "codevibe" subdirectory when possible:
+		// macOS: /var/folders/xx/.../T/codevibe
+		// Windows: C:\Users\{user}\AppData\Local\Temp\codevibe
+		// Linux: /tmp/codevibe
 		const baseTempDir = os.tmpdir()
-		const clineTempDir = path.join(baseTempDir, "cline")
+		const codeVibeTempDir = path.join(baseTempDir, "codevibe")
+		this.legacyTempDir = path.join(baseTempDir, "cline")
 
 		try {
-			fs.mkdirSync(clineTempDir, { recursive: true })
-			this.tempDir = clineTempDir
+			fs.mkdirSync(codeVibeTempDir, { recursive: true })
+			this.tempDir = codeVibeTempDir
 		} catch {
 			this.tempDir = baseTempDir
 		}
@@ -80,7 +82,7 @@ class ClineTempManagerImpl {
 	 * Called on extension activation.
 	 *
 	 * Strategy:
-	 * 1. Scan the CodeVibe temp directory
+	 * 1. Scan the CodeVibe temp directory and the legacy CodeVibe/Cline temp directory
 	 * 2. Delete all files older than 50 hours
 	 * 3. If still over 2GB total, delete oldest files until under limit
 	 */
@@ -91,16 +93,41 @@ class ClineTempManagerImpl {
 		try {
 			this.ensureTempDirExists()
 
+			if (this.legacyTempDir && this.legacyTempDir !== this.tempDir && fs.existsSync(this.legacyTempDir)) {
+				const legacyCleanup = await this.cleanupDirectory(this.legacyTempDir)
+				deletedCount += legacyCleanup.deletedCount
+				freedBytes += legacyCleanup.freedBytes
+			}
+
+			const currentCleanup = await this.cleanupDirectory(this.tempDir)
+			deletedCount += currentCleanup.deletedCount
+			freedBytes += currentCleanup.freedBytes
+
+			if (deletedCount > 0) {
+				Logger.info(`CodeVibe temp cleanup: deleted ${deletedCount} files, freed ${Math.round(freedBytes / 1024 / 1024)}MB`)
+			}
+		} catch (error) {
+			Logger.error("Error during CodeVibe temp cleanup", error)
+		}
+
+		return { deletedCount, freedBytes }
+	}
+
+	private async cleanupDirectory(tempDir: string): Promise<{ deletedCount: number; freedBytes: number }> {
+		let deletedCount = 0
+		let freedBytes = 0
+
+		try {
 			let files: string[]
 			try {
-				files = await fs.promises.readdir(this.tempDir)
+				files = await fs.promises.readdir(tempDir)
 			} catch {
 				return { deletedCount: 0, freedBytes: 0 }
 			}
 
 			const fileInfos: TempFileInfo[] = []
 			for (const file of files) {
-				const filePath = path.join(this.tempDir, file)
+				const filePath = path.join(tempDir, file)
 				try {
 					const stats = await fs.promises.stat(filePath)
 					if (stats.isFile()) {
@@ -152,12 +179,8 @@ class ClineTempManagerImpl {
 					}
 				}
 			}
-
-			if (deletedCount > 0) {
-				Logger.info(`CodeVibe temp cleanup: deleted ${deletedCount} files, freed ${Math.round(freedBytes / 1024 / 1024)}MB`)
-			}
 		} catch (error) {
-			Logger.error("Error during CodeVibe temp cleanup", error)
+			Logger.error(`Error during CodeVibe temp cleanup for ${tempDir}`, error)
 		}
 
 		return { deletedCount, freedBytes }
@@ -214,5 +237,6 @@ class ClineTempManagerImpl {
 	}
 }
 
-// Export singleton instance
-export const ClineTempManager = new ClineTempManagerImpl()
+// Export singleton instance. Keep the Cline alias for older internal imports.
+export const CodeVibeTempManager = new CodeVibeTempManagerImpl()
+export const ClineTempManager = CodeVibeTempManager
