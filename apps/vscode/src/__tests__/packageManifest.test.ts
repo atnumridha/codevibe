@@ -78,6 +78,44 @@ describe("Package manifest", () => {
 		assert.equal(newSessionMenu?.when, undefined)
 	})
 
+	it("ships native CodeVibe prompt and skill contributions", async () => {
+		const packageJSON = await readPackageManifest()
+		const promptFiles = packageJSON.contributes.chatPromptFiles ?? []
+		const skillFiles = packageJSON.contributes.chatSkills ?? []
+		const expectedPrompts = [
+			"./assets/prompts/codevibe-plan.prompt.md",
+			"./assets/prompts/codevibe-review.prompt.md",
+			"./assets/prompts/codevibe-standalone-readiness.prompt.md",
+		]
+		const expectedSkills = [
+			"./assets/prompts/skills/codevibe-customizations/SKILL.md",
+			"./assets/prompts/skills/codevibe-cursor-compatibility/SKILL.md",
+			"./assets/prompts/skills/codevibe-mcp/SKILL.md",
+			"./assets/prompts/skills/codevibe-background-sessions/SKILL.md",
+			"./assets/prompts/skills/codevibe-release-validation/SKILL.md",
+			"./assets/prompts/skills/codevibe-performance-troubleshooting/SKILL.md",
+		]
+
+		assert.deepEqual(
+			promptFiles.map((entry: { path?: string }) => entry.path),
+			expectedPrompts,
+		)
+		assert.deepEqual(
+			skillFiles.map((entry: { path?: string }) => entry.path),
+			expectedSkills,
+		)
+
+		for (const entry of [...promptFiles, ...skillFiles] as Array<{ path?: string; sessionTypes?: string[] }>) {
+			assert.deepEqual(entry.sessionTypes, [CODEVIBE_CHAT_SESSION_TYPE], entry.path)
+			assert.equal(typeof entry.path, "string")
+			assert.match(entry.path ?? "", /^\.\/assets\/prompts\//)
+			const fileText = await readFile(path.join(vscodeRoot, entry.path?.replace(/^\.\//, "") ?? ""), "utf8")
+			assert.match(fileText, /^---\nname: [a-z0-9-]+\n/m, entry.path)
+			assert.match(fileText, /\ndescription: .+\n/m, entry.path)
+			assert.equal(/\bCline\b/.test(fileText), false, entry.path)
+		}
+	})
+
 	it("keeps visible contribution strings on CodeVibe branding", async () => {
 		const packageJSON = await readPackageManifest()
 		const serializedContributions = JSON.stringify(packageJSON.contributes)
@@ -119,6 +157,9 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state.hidden'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.numberOfVisibleViews'"), true)
+		assert.equal(packageScript.includes("assertCodeVibeChatResourceContributions"), true)
+		assert.equal(packageScript.includes("packageJson.contributes?.chatPromptFiles"), true)
+		assert.equal(packageScript.includes("packageJson.contributes?.chatSkills"), true)
 	})
 
 	it("keeps GitHub release packaging non-interactive", async () => {

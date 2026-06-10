@@ -70,6 +70,8 @@ code --list-extensions --show-versions | rg '^atnumridha\.codevibe@'
 Manual checks:
 
 - CodeVibe sidebar opens and renders the chat/composer.
+- Native CodeVibe prompt files are discoverable from VS Code Chat and target the CodeVibe Agent session.
+- Native CodeVibe chat skills are discoverable from VS Code Chat and target the CodeVibe Agent session.
 - `openai-codex` is the default Plan provider and Act provider.
 - Codex auth imports from `~/.codex/auth.json` without logging token values.
 - Codex account, installation id, and model list are visible without exposing secrets.

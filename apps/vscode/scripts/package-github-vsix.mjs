@@ -50,6 +50,15 @@ const requiredCursorParityLegacyActivationCommands = [
 
 const expectedManifestAssetPaths = [
 	"agents/00-codevibe-agent.agent.md",
+	"assets/prompts/codevibe-plan.prompt.md",
+	"assets/prompts/codevibe-review.prompt.md",
+	"assets/prompts/codevibe-standalone-readiness.prompt.md",
+	"assets/prompts/skills/codevibe-background-sessions/SKILL.md",
+	"assets/prompts/skills/codevibe-cursor-compatibility/SKILL.md",
+	"assets/prompts/skills/codevibe-customizations/SKILL.md",
+	"assets/prompts/skills/codevibe-mcp/SKILL.md",
+	"assets/prompts/skills/codevibe-performance-troubleshooting/SKILL.md",
+	"assets/prompts/skills/codevibe-release-validation/SKILL.md",
 	"assets/icons/icon.png",
 	"assets/icons/codevibe-glyph.woff",
 	"walkthrough/step1.md",
@@ -62,6 +71,15 @@ const expectedManifestAssetPaths = [
 const packagedMarkdownAssetPaths = [
 	"README.md",
 	"agents/00-codevibe-agent.agent.md",
+	"assets/prompts/codevibe-plan.prompt.md",
+	"assets/prompts/codevibe-review.prompt.md",
+	"assets/prompts/codevibe-standalone-readiness.prompt.md",
+	"assets/prompts/skills/codevibe-background-sessions/SKILL.md",
+	"assets/prompts/skills/codevibe-cursor-compatibility/SKILL.md",
+	"assets/prompts/skills/codevibe-customizations/SKILL.md",
+	"assets/prompts/skills/codevibe-mcp/SKILL.md",
+	"assets/prompts/skills/codevibe-performance-troubleshooting/SKILL.md",
+	"assets/prompts/skills/codevibe-release-validation/SKILL.md",
 	"walkthrough/step1.md",
 	"walkthrough/step2.md",
 	"walkthrough/step3.md",
@@ -1089,6 +1107,16 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (codeVibeNewSessionMenu.when !== undefined) {
 		throw new Error(`${label} CodeVibe chatSessions/newSession menu must be visible before Copilot sessions`)
 	}
+
+	const expectedPromptPaths = expectedManifestAssetPaths.filter((assetPath) => assetPath.endsWith(".prompt.md"))
+	const expectedSkillPaths = expectedManifestAssetPaths.filter((assetPath) => assetPath.endsWith("/SKILL.md"))
+	const promptFiles = Array.isArray(packageJson.contributes?.chatPromptFiles)
+		? packageJson.contributes.chatPromptFiles
+		: []
+	const skillFiles = Array.isArray(packageJson.contributes?.chatSkills) ? packageJson.contributes.chatSkills : []
+	assertCodeVibeChatResourceContributions(promptFiles, expectedPromptPaths, "prompt", label)
+	assertCodeVibeChatResourceContributions(skillFiles, expectedSkillPaths, "skill", label)
+
 	if ("codevibe-ActivityBar" in views) {
 		throw new Error(`${label} must not contribute views under legacy codevibe-ActivityBar`)
 	}
@@ -1133,6 +1161,41 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 			if (typeof item?.when === "string" && item.when.includes("claude-dev.SidebarProvider")) {
 				throw new Error(`${label} menu ${menuId} must not target legacy claude-dev.SidebarProvider`)
 			}
+		}
+	}
+}
+
+function assertCodeVibeChatResourceContributions(entries, expectedPaths, kind, label) {
+	if (entries.length !== expectedPaths.length) {
+		throw new Error(`${label} must contribute ${expectedPaths.length} native CodeVibe ${kind} file(s)`)
+	}
+	const actualPaths = entries.map((entry) => entry?.path).filter(Boolean)
+	for (const expectedPath of expectedPaths.map((assetPath) => `./${assetPath}`)) {
+		if (!actualPaths.includes(expectedPath)) {
+			throw new Error(`${label} must contribute native CodeVibe ${kind} file ${expectedPath}`)
+		}
+	}
+	for (const [index, entry] of entries.entries()) {
+		const resourcePath = entry?.path
+		if (typeof resourcePath !== "string" || !resourcePath.startsWith("./assets/prompts/")) {
+			throw new Error(`${label} chat ${kind}s[${index}] must use a packaged assets/prompts path`)
+		}
+		const normalized = path.posix.normalize(resourcePath.replace(/^\.\//, "").replace(/\\/g, "/"))
+		if (normalized.startsWith("../") || normalized.includes("\0")) {
+			throw new Error(`${label} chat ${kind}s[${index}] uses an unsafe path`)
+		}
+		if (kind === "prompt" && !normalized.endsWith(".prompt.md")) {
+			throw new Error(`${label} chatPromptFiles[${index}] must reference a .prompt.md file`)
+		}
+		if (kind === "skill" && !normalized.endsWith("/SKILL.md")) {
+			throw new Error(`${label} chatSkills[${index}] must reference a SKILL.md file`)
+		}
+		if (!Array.isArray(entry.sessionTypes) || entry.sessionTypes.length !== 1 || entry.sessionTypes[0] !== "agent-host-codevibe") {
+			throw new Error(`${label} chat ${kind}s[${index}] must target only agent-host-codevibe`)
+		}
+		const visiblePath = resourcePath.toLowerCase()
+		if (visiblePath.includes("copilot") || visiblePath.includes("cline")) {
+			throw new Error(`${label} chat ${kind}s[${index}] must use CodeVibe-branded paths`)
 		}
 	}
 }
@@ -1400,7 +1463,7 @@ function addManifestAsset(assetPaths, value) {
 		) {
 			throw new Error(`Manifest asset path is unsafe: ${trimmed}`)
 		}
-		assetPaths.add(trimmed)
+		assetPaths.add(normalized)
 	}
 }
 
@@ -1433,6 +1496,14 @@ function collectManifestAssetPaths(packageJson) {
 
 	for (const agent of packageJson.contributes?.chatAgents ?? []) {
 		addManifestAsset(assetPaths, agent?.path)
+	}
+
+	for (const promptFile of packageJson.contributes?.chatPromptFiles ?? []) {
+		addManifestAsset(assetPaths, promptFile?.path)
+	}
+
+	for (const skillFile of packageJson.contributes?.chatSkills ?? []) {
+		addManifestAsset(assetPaths, skillFile?.path)
 	}
 
 	return Array.from(assetPaths).sort()

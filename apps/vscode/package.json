@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.39",
+	"version": "3.88.40",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -250,6 +250,64 @@
 						"name": "review",
 						"description": "Review the current code or selected changes"
 					}
+				]
+			}
+		],
+		"chatPromptFiles": [
+			{
+				"path": "./assets/prompts/codevibe-plan.prompt.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
+				]
+			},
+			{
+				"path": "./assets/prompts/codevibe-review.prompt.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
+				]
+			},
+			{
+				"path": "./assets/prompts/codevibe-standalone-readiness.prompt.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
+				]
+			}
+		],
+		"chatSkills": [
+			{
+				"path": "./assets/prompts/skills/codevibe-customizations/SKILL.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
+				]
+			},
+			{
+				"path": "./assets/prompts/skills/codevibe-cursor-compatibility/SKILL.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
+				]
+			},
+			{
+				"path": "./assets/prompts/skills/codevibe-mcp/SKILL.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
+				]
+			},
+			{
+				"path": "./assets/prompts/skills/codevibe-background-sessions/SKILL.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
+				]
+			},
+			{
+				"path": "./assets/prompts/skills/codevibe-release-validation/SKILL.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
+				]
+			},
+			{
+				"path": "./assets/prompts/skills/codevibe-performance-troubleshooting/SKILL.md",
+				"sessionTypes": [
+					"agent-host-codevibe"
 				]
 			}
 		],
