@@ -42,6 +42,19 @@ export interface CodeVibeCompatibilityStatus {
 	deepLinksEnabled: boolean
 	retrievalIndexingPrivacyGate: boolean
 	sandboxPolicy: "prompt" | "workspace" | "readOnly" | "disabled"
+	sandboxRuntime: {
+		status: "loaded" | "invalid" | "missing" | "disabled"
+		effectiveAccess: "prompt" | "workspace" | "readOnly" | "disabled"
+		configPath?: string
+		workspaceRoot?: string
+		error?: string
+		readablePathCount: number
+		writablePathCount: number
+		networkDefault: "allow" | "deny"
+		networkAllowCount: number
+		blockGitWrites: boolean
+		allowTerminalAutoApprove: boolean
+	}
 	safeBrowserEvaluateEnabled: boolean
 	effectiveBrowserEvaluateEnabled: boolean
 	openAiCodexAuthSource: "codexHome" | "vscodeSecret" | "auto"

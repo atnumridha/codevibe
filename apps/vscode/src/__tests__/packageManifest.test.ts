@@ -6,6 +6,7 @@ const vscodeRoot = process.cwd()
 const packagePath = path.join(vscodeRoot, "package.json")
 const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "codevibe-agent"
+const CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
@@ -84,6 +85,7 @@ describe("Package manifest", () => {
 		assert.equal(Object.hasOwn(views, "codevibe.agent"), false)
 		assert.equal(packageJSON.activationEvents.includes("onView:codevibe.agent.chat"), false)
 		assert.equal(packageJSON.activationEvents.includes("onView:codevibe-agent-chat"), true)
+		assert.equal(packageJSON.activationEvents.includes(`onChatSession:${CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE}`), true)
 		assert.equal(nativeAgentView?.visibility, "hidden")
 		assert.equal(
 			codeVibeAgentViews.some((view: { id?: string }) => view.id === "codevibe.SidebarProvider"),
@@ -125,6 +127,7 @@ describe("Package manifest", () => {
 		assert.equal(chatSession?.type.startsWith("agent-host-"), false)
 		assert.deepEqual(sessionTypes, [CODEVIBE_CHAT_SESSION_TYPE])
 		assert.equal(sessionTypes.some((sessionType?: string) => sessionType?.startsWith("agent-host-")), false)
+		assert.equal(sessionTypes.includes(CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE), false)
 		assert.equal(newSessionMenu?.command, "codevibe.newNativeAgentSession")
 		assert.equal(newSessionMenu?.group, "navigation@-1000")
 		assert.equal(newSessionMenu?.when, undefined)

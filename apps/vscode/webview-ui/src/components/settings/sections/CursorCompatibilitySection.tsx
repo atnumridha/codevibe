@@ -1,4 +1,5 @@
 import { EmptyRequest, StringRequest } from "@shared/proto/cline/common"
+import type { CodeVibeCompatibilityStatus } from "@shared/ExtensionMessage"
 import type { CursorNdjsonIngestStatus } from "@shared/proto/cline/ui"
 import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react"
@@ -72,6 +73,25 @@ function renderStatusTile(
 	)
 }
 
+type SandboxRuntimeSummary = CodeVibeCompatibilityStatus["sandboxRuntime"]
+
+function sandboxRuntimeBadge(runtime: SandboxRuntimeSummary): { label: string; variant: CompatibilityBadgeVariant } {
+	switch (runtime.status) {
+		case "loaded":
+			return { label: "loaded", variant: "success" }
+		case "invalid":
+			return { label: "invalid", variant: "warning" }
+		case "disabled":
+			return { label: "disabled", variant: "danger" }
+		default:
+			return { label: "missing", variant: "outline" }
+	}
+}
+
+function sandboxRuntimeDetail(runtime: SandboxRuntimeSummary, configuredPolicy: string): string {
+	return `Configured ${configuredPolicy}; access ${runtime.effectiveAccess}; writes ${runtime.writablePathCount}; network ${runtime.networkDefault}.`
+}
+
 const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibilitySectionProps) => {
 	const {
 		browserSettings,
@@ -94,6 +114,16 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 		deepLinksEnabled: true,
 		retrievalIndexingPrivacyGate: true,
 		sandboxPolicy: "prompt" as const,
+		sandboxRuntime: {
+			status: "missing" as const,
+			effectiveAccess: "disabled" as const,
+			readablePathCount: 0,
+			writablePathCount: 0,
+			networkDefault: "deny" as const,
+			networkAllowCount: 0,
+			blockGitWrites: false,
+			allowTerminalAutoApprove: false,
+		},
 		safeBrowserEvaluateEnabled: false,
 		effectiveBrowserEvaluateEnabled: !!browserSettings.allowBrowserEvaluate,
 		openAiCodexAuthSource: "codexHome" as const,
@@ -211,11 +241,8 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 					)}
 					{renderStatusTile(
 						"Sandbox policy",
-						".cursor/sandbox.json terminal and path policy",
-						{
-							label: dashboard.sandboxPolicy,
-							variant: dashboard.sandboxPolicy === "disabled" ? "danger" : "info",
-						},
+						sandboxRuntimeDetail(dashboard.sandboxRuntime, dashboard.sandboxPolicy),
+						sandboxRuntimeBadge(dashboard.sandboxRuntime),
 					)}
 					{renderStatusTile(
 						"Browser evaluate",

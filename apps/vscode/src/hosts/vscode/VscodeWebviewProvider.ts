@@ -81,6 +81,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 
 		this.setWebviewMessageListener(this.panel.webview, this.panelDisposables)
 		this.registerConfigurationListener(this.panelDisposables)
+		this.registerCursorSandboxWatcher(this.panelDisposables)
 
 		this.panel.onDidDispose(
 			() => {
@@ -151,6 +152,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 		)
 
 		this.registerConfigurationListener(this.disposables)
+		this.registerCursorSandboxWatcher(this.disposables)
 
 		// if the extension is starting a new session, clear previous task state
 		this.controller.clearTask()
@@ -209,6 +211,26 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 			null,
 			disposables,
 		)
+	}
+
+	private registerCursorSandboxWatcher(disposables: vscode.Disposable[]) {
+		const watcher = vscode.workspace.createFileSystemWatcher("**/.cursor/sandbox.json")
+		const refreshState = async () => {
+			try {
+				await this.controller.postStateToWebview()
+			} catch (error) {
+				Logger.warn(
+					`Failed to refresh CodeVibe sandbox status after .cursor/sandbox.json changed: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
+				)
+			}
+		}
+
+		watcher.onDidCreate(refreshState, null, disposables)
+		watcher.onDidChange(refreshState, null, disposables)
+		watcher.onDidDelete(refreshState, null, disposables)
+		disposables.push(watcher)
 	}
 
 	private setWebviewMessageListener(webview: vscode.Webview, disposables = this.disposables) {

@@ -1,6 +1,10 @@
 import type { Anthropic } from "@anthropic-ai/sdk"
 import { buildApiHandler } from "@core/api"
-import { resolveCursorSandboxPolicy } from "@core/config/cursor-sandbox"
+import {
+	resolveCursorSandboxConfigPath,
+	resolveCursorSandboxPolicy,
+	type CursorSandboxRuntimePolicy,
+} from "@core/config/cursor-sandbox"
 import { getHooksEnabledSafe } from "@core/hooks/hooks-utils"
 import { tryAcquireTaskLockWithRetry } from "@core/task/TaskLockUtils"
 import { detectWorkspaceRoots } from "@core/workspace/detection"
@@ -16,7 +20,7 @@ import {
 } from "@shared/api"
 import { getEffectiveBrowserSettings } from "@shared/BrowserSettings"
 import type { ChatContent } from "@shared/ChatContent"
-import type { ExtensionState, Platform } from "@shared/ExtensionMessage"
+import type { CodeVibeCompatibilityStatus, ExtensionState, Platform } from "@shared/ExtensionMessage"
 import type { HistoryItem } from "@shared/HistoryItem"
 import { normalizeMcpMarketplaceCatalog, type McpMarketplaceCatalog, type McpMarketplaceItem } from "@shared/mcp"
 import { type Settings } from "@shared/storage/state-keys"
@@ -96,6 +100,43 @@ https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/c
 
 const OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS = 5 * 60 * 1000
 const OPENAI_CODEX_BACKEND_MODELS_AUTH_FAILURE_RETRY_MS = 15 * 1000
+
+type CodeVibeSandboxRuntimeSummary = CodeVibeCompatibilityStatus["sandboxRuntime"]
+
+function summarizeCursorSandboxRuntimePolicy(policy: CursorSandboxRuntimePolicy): CodeVibeSandboxRuntimeSummary {
+	return {
+		status: policy.status,
+		effectiveAccess: policy.effectiveAccess,
+		configPath: policy.configPath,
+		workspaceRoot: policy.workspaceRoot,
+		error: policy.error,
+		readablePathCount: policy.readablePaths.length,
+		writablePathCount: policy.writablePaths.length,
+		networkDefault: policy.networkPolicy.default,
+		networkAllowCount: policy.networkPolicy.allow.length,
+		blockGitWrites: policy.blockGitWrites,
+		allowTerminalAutoApprove: policy.allowTerminalAutoApprove,
+	}
+}
+
+function createInactiveSandboxRuntimeSummary(options: {
+	status: "missing" | "disabled"
+	configPath?: string
+	workspaceRoot?: string
+}): CodeVibeSandboxRuntimeSummary {
+	return {
+		status: options.status,
+		effectiveAccess: "disabled",
+		configPath: options.configPath,
+		workspaceRoot: options.workspaceRoot,
+		readablePathCount: 0,
+		writablePathCount: 0,
+		networkDefault: "deny",
+		networkAllowCount: 0,
+		blockGitWrites: false,
+		allowTerminalAutoApprove: false,
+	}
+}
 
 export class Controller {
 	task?: Task
@@ -1139,6 +1180,28 @@ export class Controller {
 		const openAiCodexIsAuthenticated = await openAiCodexOAuthManager.isAuthenticated()
 		const openAiCodexBackendModels =
 			await this.getOpenAiCodexBackendModelsForState(openAiCodexIsAuthenticated)
+		const compatibilityEnabled = getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true)
+		const compatibilitySandboxPolicy = getCodeVibeConfigurationValue<"prompt" | "workspace" | "readOnly" | "disabled">(
+			"cursorCompatibility.sandboxPolicy",
+			"prompt",
+		)
+		const sandboxWorkspaceRoot = this.workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
+		const sandboxRuntime =
+			compatibilityEnabled && compatibilitySandboxPolicy !== "disabled"
+				? await resolveCursorSandboxPolicy({
+						workspaceRoot: sandboxWorkspaceRoot,
+						enabled: true,
+						policySetting: compatibilitySandboxPolicy,
+						logger: { warn: (message) => Logger.warn(message) },
+					})
+				: undefined
+		const sandboxRuntimeSummary = sandboxRuntime
+			? summarizeCursorSandboxRuntimePolicy(sandboxRuntime)
+			: createInactiveSandboxRuntimeSummary({
+					status: compatibilityEnabled && compatibilitySandboxPolicy !== "disabled" ? "missing" : "disabled",
+					configPath: sandboxWorkspaceRoot ? resolveCursorSandboxConfigPath(sandboxWorkspaceRoot) : undefined,
+					workspaceRoot: sandboxWorkspaceRoot,
+				})
 		const compatibilitySafeBrowserEvaluateEnabled = getCodeVibeConfigurationValue<boolean>(
 			"cursorCompatibility.safeBrowserEvaluate.enabled",
 			false,
@@ -1147,16 +1210,14 @@ export class Controller {
 			cursorCompatibilitySafeBrowserEvaluateEnabled: compatibilitySafeBrowserEvaluateEnabled,
 		})
 		const compatibilityStatus: ExtensionState["compatibilityStatus"] = {
-			enabled: getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true),
+			enabled: compatibilityEnabled,
 			deepLinksEnabled: getCodeVibeConfigurationValue<boolean>("cursorCompatibility.deepLinks.enabled", true),
 			retrievalIndexingPrivacyGate: getCodeVibeConfigurationValue<boolean>(
 				"cursorCompatibility.retrievalIndexing.privacyGate",
 				true,
 			),
-			sandboxPolicy: getCodeVibeConfigurationValue<"prompt" | "workspace" | "readOnly" | "disabled">(
-				"cursorCompatibility.sandboxPolicy",
-				"prompt",
-			),
+			sandboxPolicy: compatibilitySandboxPolicy,
+			sandboxRuntime: sandboxRuntimeSummary,
 			safeBrowserEvaluateEnabled: compatibilitySafeBrowserEvaluateEnabled,
 			effectiveBrowserEvaluateEnabled: effectiveBrowserSettings.allowBrowserEvaluate,
 			openAiCodexAuthSource: getCodeVibeConfigurationValue<"codexHome" | "vscodeSecret" | "auto">(

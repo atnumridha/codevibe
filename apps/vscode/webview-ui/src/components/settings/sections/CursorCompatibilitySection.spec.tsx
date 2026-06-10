@@ -11,6 +11,16 @@ const extensionState = vi.hoisted(() => ({
 		deepLinksEnabled: true,
 		retrievalIndexingPrivacyGate: true,
 		sandboxPolicy: "prompt",
+		sandboxRuntime: {
+			status: "loaded",
+			effectiveAccess: "workspace",
+			readablePathCount: 2,
+			writablePathCount: 1,
+			networkDefault: "deny",
+			networkAllowCount: 1,
+			blockGitWrites: true,
+			allowTerminalAutoApprove: true,
+		},
 		safeBrowserEvaluateEnabled: false,
 		effectiveBrowserEvaluateEnabled: false,
 		openAiCodexAuthSource: "codexHome",
@@ -65,6 +75,8 @@ describe("CursorCompatibilitySection", () => {
 		expect(screen.getByText("Compatibility on")).toBeInTheDocument()
 		expect(screen.getByText("Retrieval privacy")).toBeInTheDocument()
 		expect(screen.getByText("Sandbox policy")).toBeInTheDocument()
+		expect(screen.getByText("Configured prompt; access workspace; writes 1; network deny.")).toBeInTheDocument()
+		expect(screen.getByText("loaded")).toBeInTheDocument()
 		expect(screen.getByText("Terminal mode")).toBeInTheDocument()
 		await waitFor(() => expect(UiServiceClient.getCursorNdjsonIngestStatus).toHaveBeenCalled())
 	})

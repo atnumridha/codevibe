@@ -1222,6 +1222,10 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (!codeVibeSession) {
 		throw new Error(`${label} must contribute the native ${codeVibeNativeChatSessionType} chat session`)
 	}
+	const activationEvents = Array.isArray(packageJson.activationEvents) ? packageJson.activationEvents : []
+	if (!activationEvents.includes(`onChatSession:${reservedAgentHostChatSessionType}`)) {
+		throw new Error(`${label} must activate for VS Code's ${reservedAgentHostChatSessionType} host alias`)
+	}
 	if (codeVibeSession !== chatSessions[0]) {
 		throw new Error(`${label} must list ${codeVibeNativeChatSessionType} before Copilot-style providers`)
 	}
@@ -1423,7 +1427,16 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, `onChatSession:${codeVibeNativeChatSessionType}`, `${label} activationEvents`)
-	assertArrayExcludes(packageJson.activationEvents, `onChatSession:${reservedAgentHostChatSessionType}`, `${label} activationEvents`)
+	assertArrayIncludes(packageJson.activationEvents, `onChatSession:${reservedAgentHostChatSessionType}`, `${label} activationEvents`)
+	for (const activationEvent of packageJson.activationEvents ?? []) {
+		if (
+			typeof activationEvent === "string" &&
+			activationEvent.startsWith("onChatSession:agent-host-") &&
+			activationEvent !== `onChatSession:${reservedAgentHostChatSessionType}`
+		) {
+			throw new Error(`${label} activationEvents must not include unexpected reserved host session ${activationEvent}`)
+		}
+	}
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
 	}
@@ -1714,10 +1727,17 @@ function assertManifestAssets(packageJson) {
 
 function assertNativeChatRegistrationSource() {
 	const source = fs.readFileSync(path.join(projectRoot, "src", "extension.ts"), "utf8")
+	const registrationSource = fs.readFileSync(path.join(projectRoot, "src", "hosts", "vscode", "native-chat-registration.ts"), "utf8")
 	for (const fragment of ["createChatParticipant!(chatSessionType", "createChatParticipant(chatSessionType"]) {
 		if (source.includes(fragment)) {
 			throw new Error(`Native Chat session providers must reuse the declared codevibe participant instead of ${fragment}`)
 		}
+	}
+	if (!registrationSource.includes('CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE = "agent-host-codevibe"')) {
+		throw new Error("Native Chat registration must include the VS Code agent-host-codevibe compatibility alias")
+	}
+	if (!registrationSource.includes("CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE")) {
+		throw new Error("Native Chat session types must register the VS Code CodeVibe host alias")
 	}
 	if (!/registerChatSessionContentProvider!\(\s*chatSessionType,\s*contentProvider,\s*defaultChatParticipant/.test(source)) {
 		throw new Error("Native Chat session providers must register with the declared CodeVibe chat participant")

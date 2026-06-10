@@ -1,5 +1,5 @@
 import { COMMAND_OUTPUT_STRING, COMMAND_REQ_APP_STRING } from "@shared/combineCommandSequences"
-import { ClineMessage } from "@shared/ExtensionMessage"
+import { ClineMessage, type CodeVibeCompatibilityStatus } from "@shared/ExtensionMessage"
 import { StringRequest } from "@shared/proto/cline/common"
 import { AskResponseRequest } from "@shared/proto/cline/task"
 import {
@@ -7,9 +7,10 @@ import {
 	extractTerminalRunModeMarker,
 	type CodeVibeTerminalRunMode,
 } from "@shared/terminalPolicy"
-import { ShieldAlertIcon, ShieldCheckIcon, XIcon } from "lucide-react"
+import { PlayIcon, ShieldAlertIcon, ShieldCheckIcon, XIcon } from "lucide-react"
 import { memo, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { useExtensionState } from "@/context/ExtensionStateContext"
 import { cn } from "@/lib/utils"
 import { FileServiceClient, TaskServiceClient } from "@/services/grpc-client"
 import CodeBlock from "../common/CodeBlock"
@@ -137,6 +138,17 @@ export const CommandOutputRow = memo(
 		isOutputFullyExpanded: boolean
 		setIsOutputFullyExpanded: (expanded: boolean) => void
 	}) => {
+		const { compatibilityStatus } = useExtensionState()
+		const sandboxRuntime = compatibilityStatus?.sandboxRuntime
+		const hasActiveSandbox = sandboxRuntime?.status === "loaded" || sandboxRuntime?.status === "invalid"
+		const safeRunMode: CodeVibeTerminalRunMode = hasActiveSandbox ? "sandboxed" : "default"
+		const safeRunLabel = hasActiveSandbox ? "Sandboxed" : "Default"
+		const safeRunAriaLabel = hasActiveSandbox ? "Run command in sandbox" : "Run command with default terminal policy"
+		const safeRunTitle = hasActiveSandbox
+			? "Run constrained by the active .cursor/sandbox.json policy"
+			: "No active .cursor/sandbox.json policy; run with the default terminal permissions"
+		const SafeRunIcon = hasActiveSandbox ? ShieldCheckIcon : PlayIcon
+		const sandboxPolicySummary = getSandboxPolicySummary(sandboxRuntime)
 		const splitMessage = (text: string) => {
 			const outputIndex = text.indexOf(COMMAND_OUTPUT_STRING)
 			if (outputIndex === -1) {
@@ -257,14 +269,14 @@ export const CommandOutputRow = memo(
 				{canAnswerCommandApproval && (
 					<div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
 						<Button
-							aria-label="Run command in sandbox"
+							aria-label={safeRunAriaLabel}
 							className="justify-center"
-							onClick={() => answerCommandApproval("yesButtonClicked", "sandboxed")}
+							onClick={() => answerCommandApproval("yesButtonClicked", safeRunMode)}
 							size="sm"
-							title="Run constrained by the workspace sandbox policy"
+							title={safeRunTitle}
 							variant="success">
-							<ShieldCheckIcon />
-							Sandboxed
+							<SafeRunIcon />
+							{safeRunLabel}
 						</Button>
 						<Button
 							aria-label="Run command elevated"
@@ -285,7 +297,7 @@ export const CommandOutputRow = memo(
 							<XIcon />
 						</Button>
 						<div className="col-span-3 text-[11px] text-description">
-							Sandboxed commands use the workspace policy; elevated commands require this explicit approval.
+							{sandboxPolicySummary} Elevated commands require this explicit approval.
 						</div>
 					</div>
 				)}
@@ -336,6 +348,28 @@ function TerminalRunModeBadge({ mode }: { mode: CodeVibeTerminalRunMode }) {
 			<span>{label}</span>
 		</span>
 	)
+}
+
+type SandboxRuntimeSummary = CodeVibeCompatibilityStatus["sandboxRuntime"]
+
+function getSandboxPolicySummary(runtime: SandboxRuntimeSummary | undefined) {
+	if (!runtime) {
+		return "No sandbox status is available; default runs use current terminal permissions."
+	}
+
+	if (runtime.status === "loaded") {
+		return `Sandbox active: ${runtime.effectiveAccess} access, ${runtime.writablePathCount} writable path(s), network ${runtime.networkDefault}.`
+	}
+
+	if (runtime.status === "invalid") {
+		return "Sandbox config is invalid; CodeVibe is failing closed to read-only policy."
+	}
+
+	if (runtime.status === "disabled") {
+		return "Sandbox compatibility is disabled; default runs use current terminal permissions."
+	}
+
+	return "No .cursor/sandbox.json is active; default runs use current terminal permissions."
 }
 
 function getCommandStatusText(isExecuting: boolean, isPending: boolean, isCompleted: boolean): string {

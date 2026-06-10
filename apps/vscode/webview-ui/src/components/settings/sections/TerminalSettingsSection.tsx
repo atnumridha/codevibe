@@ -87,7 +87,25 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 
 	const profilesToShow = availableTerminalProfiles
 	const sandboxPolicy = compatibilityStatus?.sandboxPolicy ?? "prompt"
-	const hasSandboxPolicy = sandboxPolicy !== "disabled"
+	const sandboxRuntime = compatibilityStatus?.sandboxRuntime
+	const sandboxRuntimeStatus = sandboxRuntime?.status ?? "missing"
+	const sandboxRuntimeBadge =
+		sandboxRuntimeStatus === "loaded"
+			? "Active"
+			: sandboxRuntimeStatus === "invalid"
+				? "Fail closed"
+				: sandboxRuntimeStatus === "disabled"
+					? "Disabled"
+					: "Missing"
+	const sandboxRuntimeDescription =
+		sandboxRuntimeStatus === "loaded"
+			? "Background execution constrained by .cursor/sandbox.json."
+			: sandboxRuntimeStatus === "invalid"
+				? "Invalid sandbox config; CodeVibe falls back to read-only policy."
+				: "No active sandbox policy; default approvals use current terminal permissions."
+	const sandboxRuntimeSummary = `Sandbox runtime: ${sandboxRuntimeStatus}; access: ${
+		sandboxRuntime?.effectiveAccess ?? "disabled"
+	}; writable paths: ${sandboxRuntime?.writablePathCount ?? 0}; network: ${sandboxRuntime?.networkDefault ?? "deny"}.`
 
 	return (
 		<div>
@@ -172,12 +190,10 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 								<div className="flex items-center justify-between gap-2">
 									<span className="text-xs font-medium">Sandboxed</span>
 									<span className="rounded-full bg-(--vscode-button-background) px-2 py-0.5 text-[10px] text-(--vscode-button-foreground)">
-										{hasSandboxPolicy ? "Default" : "Available"}
+										{sandboxRuntimeBadge}
 									</span>
 								</div>
-								<div className="mt-1 text-[11px] text-(--vscode-descriptionForeground)">
-									Background execution with workspace sandbox policy.
-								</div>
+								<div className="mt-1 text-[11px] text-(--vscode-descriptionForeground)">{sandboxRuntimeDescription}</div>
 							</div>
 							<div className="rounded border border-(--vscode-input-border) bg-(--vscode-input-background) p-2">
 								<div className="flex items-center justify-between gap-2">
@@ -192,8 +208,11 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 							</div>
 						</div>
 						<p className="text-xs text-[var(--vscode-descriptionForeground)] mt-2">
-							Current sandbox source: {hasSandboxPolicy ? sandboxPolicy : "disabled"}.
+							Current sandbox source: {sandboxPolicy}. {sandboxRuntimeSummary}
 						</p>
+						{sandboxRuntime?.status === "invalid" && sandboxRuntime.error && (
+							<p className="text-xs text-[var(--vscode-errorForeground)] mt-1">{sandboxRuntime.error}</p>
+						)}
 					</div>
 					<TerminalOutputLineLimitSlider />
 					<div className="mt-5 p-3 bg-(--vscode-textBlockQuote-background) rounded border border-(--vscode-textBlockQuote-border)">

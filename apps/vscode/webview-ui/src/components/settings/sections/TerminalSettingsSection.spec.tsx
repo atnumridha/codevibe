@@ -8,6 +8,16 @@ vi.mock("@/context/ExtensionStateContext", () => ({
 		availableTerminalProfiles: [{ id: "default", name: "Default", description: "VS Code default terminal" }],
 		compatibilityStatus: {
 			sandboxPolicy: "prompt",
+			sandboxRuntime: {
+				status: "loaded",
+				effectiveAccess: "workspace",
+				readablePathCount: 2,
+				writablePathCount: 1,
+				networkDefault: "deny",
+				networkAllowCount: 1,
+				blockGitWrites: true,
+				allowTerminalAutoApprove: true,
+			},
 		},
 		defaultTerminalProfile: "default",
 		shellIntegrationTimeout: 5000,
@@ -38,8 +48,13 @@ describe("TerminalSettingsSection", () => {
 		expect(screen.getByText("Terminal Approval Policy")).toBeInTheDocument()
 		expect(screen.getByText("Sandboxed")).toBeInTheDocument()
 		expect(screen.getByText("Elevated")).toBeInTheDocument()
-		expect(screen.getByText("Background execution with workspace sandbox policy.")).toBeInTheDocument()
+		expect(screen.getByText("Active")).toBeInTheDocument()
+		expect(screen.getByText("Background execution constrained by .cursor/sandbox.json.")).toBeInTheDocument()
 		expect(screen.getByText("Trusted terminal command after manual approval.")).toBeInTheDocument()
-		expect(screen.getByText("Current sandbox source: prompt.")).toBeInTheDocument()
+		expect(
+			screen.getByText(
+				"Current sandbox source: prompt. Sandbox runtime: loaded; access: workspace; writable paths: 1; network: deny.",
+			),
+		).toBeInTheDocument()
 	})
 })
