@@ -932,6 +932,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 	const legacyWebviewViewIds = [
 		"claude-dev.SidebarProvider",
 		"codevibe.SidebarProvider",
+		"codevibe.agentPanel",
 		"vibecode.agent",
 		"vibecode.agentPanel",
 		"vibecodex-agent-extension-view",
@@ -949,6 +950,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 		filterJsonArrayByIdPatternSql("workbench.%.views.state.hidden", legacyWebviewViewIds),
 		filterJsonObjectKeysByNamePatternSql("workbench.%.views.state", legacyWebviewViewIds),
 		filterJsonObjectKeysContainingSql("memento/webviewViews.origins", legacyWebviewViewIds),
+		filterJsonObjectKeysContainingSql("memento/mainThreadWebviewPanel.origins", legacyWebviewViewIds),
 		filterJsonObjectKeysContainingSql("__$__targetStorageMarker", legacyStateKeyFragments),
 		hideAuxiliaryBarForViewIdsSql([...legacyActivityViewIds, ...competingAuxiliaryViewIds]),
 		filterJsonArrayByIdSql("workbench.auxiliarybar.placeholderPanels", legacyActivityViewIds),
@@ -976,6 +978,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 			'workbench.view.extension.vibecodex-agent-extension-container.numberOfVisibleViews',
 			'memento/webviewView.claude-dev.SidebarProvider',
 			'memento/webviewView.codevibe.SidebarProvider',
+			'memento/webviewView.codevibe.agentPanel',
 			'memento/webviewView.vibecode.agent',
 			'memento/webviewView.vibecode.agentPanel',
 			'memento/webviewView.vibecodex-agent-extension-view'

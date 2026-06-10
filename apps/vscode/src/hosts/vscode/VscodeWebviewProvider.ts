@@ -68,7 +68,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 		await closeCompetingAgentSurfaces(this.webview?.visible)
 
 		const viewColumn = vscode.window.activeTextEditor ? vscode.ViewColumn.Beside : vscode.ViewColumn.One
-		this.panel = vscode.window.createWebviewPanel("codevibe.agentPanel", "CodeVibe", viewColumn, {
+		this.panel = vscode.window.createWebviewPanel(ExtensionRegistryInfo.views.Panel, "CodeVibe", viewColumn, {
 			enableScripts: true,
 			retainContextWhenHidden: true,
 			localResourceRoots: [vscode.Uri.file(HostProvider.get().extensionFsPath)],

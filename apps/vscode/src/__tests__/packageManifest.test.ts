@@ -218,6 +218,8 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state.hidden'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.numberOfVisibleViews'"), true)
+		assert.equal(packageScript.includes('"codevibe.agentPanel"'), true)
+		assert.equal(packageScript.includes('"memento/mainThreadWebviewPanel.origins"'), true)
 		assert.equal(/filterJsonArrayByIdSql\(\s*"workbench\.auxiliarybar\.placeholderPanels"/.test(packageScript), true)
 		assert.equal(/filterJsonArrayByIdSql\(\s*"workbench\.auxiliarybar\.pinnedPanels"/.test(packageScript), true)
 		assert.equal(
@@ -230,6 +232,8 @@ describe("Package manifest", () => {
 		assert.equal(extensionSource.includes("`id: ${CODEVIBE_CHAT_PARTICIPANT_ID}`"), true)
 		assert.equal(extensionSource.includes("await webview.showPanel(preserveEditorFocus)"), true)
 		assert.equal(extensionSource.includes("await webview.show(preserveEditorFocus)"), false)
+		assert.equal(webviewProviderSource.includes('createWebviewPanel(ExtensionRegistryInfo.views.Panel'), true)
+		assert.equal(webviewProviderSource.includes('"codevibe.agentPanel"'), false)
 		assert.equal(webviewProviderSource.includes("revealAgentSidebar"), false)
 	})
 

@@ -51,6 +51,7 @@ const CodeVibeCommands = {
 const CodeVibeViewIds = {
 	AgentContainer: viewPrefix + "-agent",
 	Sidebar: viewPrefix + "-agent-chat",
+	Panel: viewPrefix + "-agent-panel",
 	LegacySidebar: name + ".SidebarProvider",
 }
 
