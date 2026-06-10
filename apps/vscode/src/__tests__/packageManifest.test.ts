@@ -109,7 +109,8 @@ describe("Package manifest", () => {
 		const packageScript = await readFile(path.join(__dirname, "..", "..", "scripts", "package-github-vsix.mjs"), "utf8")
 
 		assert.equal(packageScript.includes("pruneInstalledCodeVibeExtensionVersions"), true)
-		assert.equal(packageScript.includes("createNativeAgentDiscoveryTombstones(metadata)"), true)
+		assert.equal(packageScript.includes("createNativeAgentDiscoveryTombstones"), false)
+		assert.equal(packageScript.includes("native-agent tombstone"), false)
 		assert.equal(packageScript.includes("enableNativeAgentInVSCodeArgv(metadata)"), true)
 		assert.equal(packageScript.includes("resolveVsCodeExtensionsDir"), true)
 		assert.equal(packageScript.includes("fs.rmSync(extensionPath, { recursive: true, force: true })"), true)
