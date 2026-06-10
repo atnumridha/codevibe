@@ -2,7 +2,11 @@ import { COMMAND_OUTPUT_STRING, COMMAND_REQ_APP_STRING } from "@shared/combineCo
 import { ClineMessage } from "@shared/ExtensionMessage"
 import { StringRequest } from "@shared/proto/cline/common"
 import { AskResponseRequest } from "@shared/proto/cline/task"
-import { encodeTerminalRunMode, type CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
+import {
+	encodeTerminalRunMode,
+	extractTerminalRunModeMarker,
+	type CodeVibeTerminalRunMode,
+} from "@shared/terminalPolicy"
 import { ShieldAlertIcon, ShieldCheckIcon, XIcon } from "lucide-react"
 import { memo, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
@@ -162,7 +166,8 @@ export const CommandOutputRow = memo(
 			}
 		}
 
-		const { command: rawCommand, output } = splitMessage(message.text || "")
+		const { command: rawCommandWithMarker, output } = splitMessage(message.text || "")
+		const { command: rawCommand, terminalRunMode } = extractTerminalRunModeMarker(rawCommandWithMarker)
 
 		const requestsApproval = rawCommand.endsWith(COMMAND_REQ_APP_STRING)
 		const command = requestsApproval ? rawCommand.slice(0, -COMMAND_REQ_APP_STRING.length) : rawCommand
@@ -213,6 +218,7 @@ export const CommandOutputRow = memo(
 								</span>
 							</div>
 							<div className="flex items-center gap-2 shrink-0">
+								{terminalRunMode && <TerminalRunModeBadge mode={terminalRunMode} />}
 								{showCancelButton && (
 									<Button
 										onClick={(e) => {
@@ -301,6 +307,35 @@ const CommandStatusMap = {
 	pending: "Pending",
 	completed: "Completed",
 	skipped: "Skipped",
+}
+
+function TerminalRunModeBadge({ mode }: { mode: CodeVibeTerminalRunMode }) {
+	const label = {
+		sandboxed: "Sandboxed",
+		elevated: "Elevated",
+		default: "Default",
+	}[mode]
+	const Icon = mode === "elevated" ? ShieldAlertIcon : ShieldCheckIcon
+
+	return (
+		<span
+			className={cn(
+				"inline-flex h-6 items-center gap-1 rounded-[3px] border px-1.5 text-[11px] font-medium",
+				mode === "elevated"
+					? "border-editor-warning-foreground/50 text-editor-warning-foreground"
+					: "border-success/50 text-success",
+			)}
+			title={
+				mode === "sandboxed"
+					? "Ran with the workspace sandbox policy"
+					: mode === "elevated"
+						? "Ran as an elevated trusted terminal command"
+						: "Ran with the default terminal policy"
+			}>
+			<Icon className="size-3.5" />
+			<span>{label}</span>
+		</span>
+	)
 }
 
 function getCommandStatusText(isExecuting: boolean, isPending: boolean, isCompleted: boolean): string {

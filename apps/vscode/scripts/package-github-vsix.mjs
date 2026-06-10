@@ -198,7 +198,7 @@ const vscodeChatSessionCapabilitiesKeys = new Set([
 	"supportsPromptAttachments",
 	"supportsHandOffs",
 ])
-const vscodeChatSessionCommandKeys = new Set(["name", "description", "when"])
+const vscodeChatSessionCommandKeys = new Set(["id", "description", "when"])
 
 const disallowedVsixEntryPrefixes = [
 	"extension/testing-platform/",

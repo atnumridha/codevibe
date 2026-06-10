@@ -18,3 +18,30 @@ export function decodeTerminalRunMode(value: string | undefined): CodeVibeTermin
 		? (candidate as CodeVibeTerminalRunMode)
 		: undefined
 }
+
+export function appendTerminalRunModeMarker(commandText: string, mode: CodeVibeTerminalRunMode): string {
+	return `${commandText.replace(/\s+$/, "")}\n${encodeTerminalRunMode(mode)}`
+}
+
+export function extractTerminalRunModeMarker(commandText: string): {
+	command: string
+	terminalRunMode?: CodeVibeTerminalRunMode
+} {
+	const lines = commandText.split(/\r?\n/)
+	let terminalRunMode: CodeVibeTerminalRunMode | undefined
+	const commandLines: string[] = []
+
+	for (const line of lines) {
+		const decoded = decodeTerminalRunMode(line.trim())
+		if (decoded) {
+			terminalRunMode = decoded
+			continue
+		}
+		commandLines.push(line)
+	}
+
+	return {
+		command: commandLines.join("\n").trim(),
+		terminalRunMode,
+	}
+}

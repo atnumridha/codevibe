@@ -1,6 +1,11 @@
 import assert from "node:assert/strict"
 import { describe, it } from "mocha"
-import { decodeTerminalRunMode, encodeTerminalRunMode } from "@shared/terminalPolicy"
+import {
+	appendTerminalRunModeMarker,
+	decodeTerminalRunMode,
+	encodeTerminalRunMode,
+	extractTerminalRunModeMarker,
+} from "@shared/terminalPolicy"
 import {
 	getDefaultTerminalRunMode,
 	isLikelyLongRunningCommand,
@@ -44,5 +49,13 @@ describe("ExecuteCommandToolHandler timeout policy", () => {
 		assert.equal(decodeTerminalRunMode(encodeTerminalRunMode("elevated")), "elevated")
 		assert.equal(decodeTerminalRunMode("__codevibe_terminal_policy__:unknown"), undefined)
 		assert.equal(decodeTerminalRunMode("normal user feedback"), undefined)
+	})
+
+	it("extracts persisted run-mode markers from command text", () => {
+		const marked = appendTerminalRunModeMarker("npm test  ", "sandboxed")
+		const parsed = extractTerminalRunModeMarker(marked)
+
+		assert.equal(parsed.command, "npm test")
+		assert.equal(parsed.terminalRunMode, "sandboxed")
 	})
 })

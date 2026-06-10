@@ -6,7 +6,7 @@ import { processFilesIntoText } from "@integrations/misc/extract-text"
 import { showApprovalNotification, showSystemNotification } from "@integrations/notifications"
 import { COMMAND_REQ_APP_STRING } from "@shared/combineCommandSequences"
 import { ClineAsk } from "@shared/ExtensionMessage"
-import { decodeTerminalRunMode, type CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
+import { appendTerminalRunModeMarker, decodeTerminalRunMode, type CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
 import { arePathsEqual } from "@utils/path"
 import { telemetryService } from "@/services/telemetry"
 import { ClineDefaultTool } from "@/shared/tools"
@@ -215,7 +215,13 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			terminalRunMode = getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
 			if (!config.isSubagentExecution) {
 				await config.callbacks.removeLastPartialMessageIfExistsWithType("ask", "command")
-				await config.callbacks.say("command", actualCommand, undefined, undefined, false)
+				await config.callbacks.say(
+					"command",
+					appendTerminalRunModeMarker(actualCommand, terminalRunMode),
+					undefined,
+					undefined,
+					false,
+				)
 			}
 			didAutoApprove = true
 			telemetryService.captureToolUsage(
@@ -253,6 +259,7 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 				return formatResponse.toolDenied()
 			}
 			terminalRunMode = approval.terminalRunMode ?? getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
+			await annotateLatestCommandMessageWithRunMode(config, actualCommand, terminalRunMode)
 			telemetryService.captureToolUsage(
 				config.ulid,
 				block.name,
@@ -326,6 +333,24 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 		}
 
 		return result
+	}
+}
+
+async function annotateLatestCommandMessageWithRunMode(
+	config: TaskConfig,
+	actualCommand: string,
+	terminalRunMode: CodeVibeTerminalRunMode,
+): Promise<void> {
+	const clineMessages = config.messageState.getClineMessages()
+	for (let index = clineMessages.length - 1; index >= 0; index--) {
+		const message = clineMessages[index]
+		if (message.ask !== "command" && message.say !== "command") {
+			continue
+		}
+		await config.messageState.updateClineMessage(index, {
+			text: appendTerminalRunModeMarker(actualCommand, terminalRunMode),
+		})
+		return
 	}
 }
 

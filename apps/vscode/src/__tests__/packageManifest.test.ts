@@ -44,7 +44,7 @@ const CHAT_SESSION_CAPABILITY_KEYS = new Set([
 	"supportsPromptAttachments",
 	"supportsHandOffs",
 ])
-const CHAT_SESSION_COMMAND_KEYS = new Set(["name", "description", "when"])
+const CHAT_SESSION_COMMAND_KEYS = new Set(["id", "description", "when"])
 
 async function readPackageManifest(): Promise<Record<string, any>> {
 	return JSON.parse(await readFile(packagePath, "utf8"))
@@ -111,6 +111,7 @@ describe("Package manifest", () => {
 		assertOnlyAllowedKeys(chatSession.capabilities, CHAT_SESSION_CAPABILITY_KEYS, "chatSessions[0].capabilities")
 		for (const [index, command] of (chatSession.commands ?? []).entries()) {
 			assertOnlyAllowedKeys(command, CHAT_SESSION_COMMAND_KEYS, `chatSessions[0].commands[${index}]`)
+			assert.match(command.id, /^[A-Za-z0-9_-]+$/)
 		}
 		assert.equal(chatAgent?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.match(chatAgent?.id, /^[A-Za-z0-9_-]+$/)

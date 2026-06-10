@@ -1,6 +1,6 @@
 import type { ClineMessage } from "@shared/ExtensionMessage"
 import { COMMAND_REQ_APP_STRING } from "@shared/combineCommandSequences"
-import { decodeTerminalRunMode } from "@shared/terminalPolicy"
+import { appendTerminalRunModeMarker, decodeTerminalRunMode } from "@shared/terminalPolicy"
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { TaskServiceClient } from "@/services/grpc-client"
@@ -62,5 +62,28 @@ describe("CommandOutputRow", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Run command elevated" }))
 		await waitFor(() => expect(TaskServiceClient.askResponse).toHaveBeenCalledTimes(2))
 		expect(decodeTerminalRunMode(vi.mocked(TaskServiceClient.askResponse).mock.calls[1][0].text)).toBe("elevated")
+	})
+
+	it("renders persisted run mode without leaking the hidden marker into the command", () => {
+		const completedCommand: ClineMessage = {
+			ts: 2,
+			type: "say",
+			say: "command",
+			commandCompleted: true,
+			text: appendTerminalRunModeMarker("npm test", "sandboxed"),
+		}
+
+		render(
+			<CommandOutputRow
+				isCommandCompleted={true}
+				isOutputFullyExpanded={false}
+				message={completedCommand}
+				setIsOutputFullyExpanded={() => undefined}
+			/>,
+		)
+
+		expect(screen.getByText("Sandboxed")).toBeInTheDocument()
+		expect(screen.getByText((content) => content.includes("npm test") && content.includes("```shell"))).toBeInTheDocument()
+		expect(screen.queryByText(/__codevibe_terminal_policy__/)).not.toBeInTheDocument()
 	})
 })
