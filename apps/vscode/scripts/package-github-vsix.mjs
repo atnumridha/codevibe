@@ -160,7 +160,7 @@ const disallowedPackagedVisibleTextFragments = [
 
 const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
 
-const vscodeChatPromptContributionKeys = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
+const vscodeChatPromptContributionKeys = new Set(["path", "name", "description", "when", "sessionTypes"])
 const vscodeChatSessionContributionKeys = new Set([
 	"type",
 	"name",
@@ -1161,11 +1161,10 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		throw new Error(`${label} must list CodeVibe chat agent before other chat agents`)
 	}
 	if (
-		codeVibeAgent.id !== "codevibe" ||
 		codeVibeAgent.name !== "codevibe" ||
 		!String(codeVibeAgent.description ?? "").includes("CodeVibe Agent")
 	) {
-		throw new Error(`${label} CodeVibe chat agent contribution must be identified, named, and described as CodeVibe Agent`)
+		throw new Error(`${label} CodeVibe chat agent contribution must be named and described as CodeVibe Agent`)
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
