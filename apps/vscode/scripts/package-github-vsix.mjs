@@ -16,7 +16,7 @@ const repoRoot = path.join(projectRoot, "..", "..")
 const packageJsonPath = path.join(projectRoot, "package.json")
 const nativeAgentMarkdownPath = path.join(projectRoot, "agents", "00-codevibe-agent.agent.md")
 const codeVibeNativeChatSessionType = "codevibe-agent"
-const legacyAgentHostChatSessionType = "agent-host-codevibe"
+const reservedAgentHostChatSessionType = "agent-host-codevibe"
 
 const requiredCursorParityConfigKeys = [
 	"codevibe.openAiCodex.authSource",
@@ -175,7 +175,6 @@ const vscodeChatSessionContributionKeys = new Set([
 	"when",
 	"icon",
 	"order",
-	"alternativeIds",
 	"welcomeTitle",
 	"welcomeMessage",
 	"welcomeTips",
@@ -1251,16 +1250,12 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (codeVibeSession.customAgentTarget !== "codevibe") {
 		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must target CodeVibe custom agents`)
 	}
-	if (
-		!Array.isArray(codeVibeSession.alternativeIds) ||
-		codeVibeSession.alternativeIds.length !== 1 ||
-		codeVibeSession.alternativeIds[0] !== legacyAgentHostChatSessionType
-	) {
-		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must preserve the legacy agent-host alias`)
+	if (codeVibeSession.alternativeIds !== undefined) {
+		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must not preserve an agent-host alias`)
 	}
-	const codeVibeLegacySession = chatSessions.find((session) => session?.type === legacyAgentHostChatSessionType)
-	if (codeVibeLegacySession) {
-		throw new Error(`${label} must not contribute duplicate ${legacyAgentHostChatSessionType} chat session alias`)
+	const codeVibeReservedSession = chatSessions.find((session) => session?.type === reservedAgentHostChatSessionType)
+	if (codeVibeReservedSession) {
+		throw new Error(`${label} must not contribute reserved ${reservedAgentHostChatSessionType} chat session alias`)
 	}
 	const newSessionMenu = Array.isArray(packageJson.contributes?.menus?.["chatSessions/newSession"])
 		? packageJson.contributes.menus["chatSessions/newSession"]
@@ -1444,7 +1439,7 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, `onChatSession:${codeVibeNativeChatSessionType}`, `${label} activationEvents`)
-	assertArrayExcludes(packageJson.activationEvents, `onChatSession:${legacyAgentHostChatSessionType}`, `${label} activationEvents`)
+	assertArrayExcludes(packageJson.activationEvents, `onChatSession:${reservedAgentHostChatSessionType}`, `${label} activationEvents`)
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
 	}

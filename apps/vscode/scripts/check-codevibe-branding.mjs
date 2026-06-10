@@ -138,13 +138,14 @@ function collectFindingsFromText(text, file) {
 		}
 	}
 
-	if (!file.endsWith("ClineRulesToggleModal.tsx")) {
-		const legacyRulesModalImportPattern = /from\s+["'][^"']*cline-rules\/CodeVibeRulesToggleModal["']/g
+	if (!file.includes("webview-ui/src/components/cline-rules/")) {
+		const legacyRulesModalImportPattern =
+			/from\s+["'][^"']*cline-rules\/(?:CodeVibeRulesToggleModal|HookRow|NewRuleRow|RuleRow|RulesToggleList)["']/g
 		for (const match of text.matchAll(legacyRulesModalImportPattern)) {
 			findings.push({
 				file,
 				line: lineNumberForIndex(text, match.index ?? 0),
-				label: "legacy rules modal import path",
+				label: "legacy rules import path",
 				value: match[0],
 			})
 		}

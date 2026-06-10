@@ -20,10 +20,10 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { FileServiceClient } from "@/services/grpc-client"
 import { isMacOSOrLinux } from "@/utils/platformUtils"
-import HookRow from "../cline-rules/HookRow"
-import NewRuleRow from "../cline-rules/NewRuleRow"
-import RuleRow from "../cline-rules/RuleRow"
-import RulesToggleList from "../cline-rules/RulesToggleList"
+import HookRow from "./HookRow"
+import NewRuleRow from "./NewRuleRow"
+import RuleRow from "./RuleRow"
+import RulesToggleList from "./RulesToggleList"
 
 const CodeVibeRulesToggleModal: React.FC = () => {
 	const {

@@ -3,7 +3,6 @@ import {
 	canRegisterCodeVibeNativeChatSessions,
 	CODEVIBE_CHAT_PARTICIPANT_ID,
 	CODEVIBE_CHAT_SESSION_TYPE,
-	CODEVIBE_LEGACY_AGENT_HOST_CHAT_SESSION_TYPE,
 	CODEVIBE_NATIVE_AGENT_CACHE_DIR,
 	CODEVIBE_NATIVE_AGENT_FILE_NAME,
 	CODEVIBE_NATIVE_CHAT_SESSION_TYPES,
@@ -17,7 +16,6 @@ describe("native CodeVibe chat registration", () => {
 	it("defines the CodeVibe participant and ordered session types used by VS Code Chat", () => {
 		expect(CODEVIBE_CHAT_PARTICIPANT_ID).to.equal("codevibe")
 		expect(CODEVIBE_CHAT_SESSION_TYPE).to.equal("codevibe-agent")
-		expect(CODEVIBE_LEGACY_AGENT_HOST_CHAT_SESSION_TYPE).to.equal("agent-host-codevibe")
 		expect(CODEVIBE_CHAT_SESSION_TYPE.startsWith("agent-host-")).to.equal(false)
 		expect(CODEVIBE_NATIVE_CHAT_SESSION_TYPES).to.deep.equal(["codevibe-agent"])
 		expect(CODEVIBE_OPEN_NATIVE_CHAT_SIDEBAR_COMMAND).to.equal(

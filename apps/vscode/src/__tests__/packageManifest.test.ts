@@ -6,7 +6,6 @@ const vscodeRoot = process.cwd()
 const packagePath = path.join(vscodeRoot, "package.json")
 const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "codevibe-agent"
-const CODEVIBE_LEGACY_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const CHAT_AGENT_CONTRIBUTION_KEYS = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
@@ -19,7 +18,6 @@ const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
 	"when",
 	"icon",
 	"order",
-	"alternativeIds",
 	"welcomeTitle",
 	"welcomeMessage",
 	"welcomeTips",
@@ -128,13 +126,13 @@ describe("Package manifest", () => {
 		assert.equal(chatSession?.id, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.customAgentTarget, CODEVIBE_CHAT_PARTICIPANT_ID)
-		assert.deepEqual(chatSession?.alternativeIds, [CODEVIBE_LEGACY_CHAT_SESSION_TYPE])
+		assert.equal(chatSession?.alternativeIds, undefined)
 		assert.equal(chatSession?.order, -1000)
 		assert.match(chatSession?.id, /^[A-Za-z0-9_-]+$/)
 		assert.match(chatSession?.type, /^[A-Za-z0-9_-]+$/)
 		assert.equal(chatSession?.type.startsWith("agent-host-"), false)
 		assert.deepEqual(sessionTypes, [CODEVIBE_CHAT_SESSION_TYPE])
-		assert.equal(sessionTypes.includes(CODEVIBE_LEGACY_CHAT_SESSION_TYPE), false)
+		assert.equal(sessionTypes.some((sessionType?: string) => sessionType?.startsWith("agent-host-")), false)
 		assert.equal(newSessionMenu?.command, "codevibe.newNativeAgentSession")
 		assert.equal(newSessionMenu?.group, "navigation@-1000")
 		assert.equal(newSessionMenu?.when, undefined)
