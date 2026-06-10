@@ -27,7 +27,7 @@ CodeVibe is a Codex-first coding agent for VS Code and standalone workflows. It 
 node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install
 ```
 
-The packaged extension is written to `/private/tmp/codevibe-vsix/codevibe-3.88.0.vsix` by default.
+The packaged extension is written to `/private/tmp/codevibe-vsix/codevibe-<version>.vsix` by default.
 
 ## Cursor-Parity Evidence
 

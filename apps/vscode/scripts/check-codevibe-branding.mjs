@@ -55,6 +55,7 @@ const disallowedFragments = [
 ]
 
 const scannedVsixArtifacts = ["dist/e2e.vsix"]
+const packageJson = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8"))
 
 function toPosix(filePath) {
 	return filePath.split(path.sep).join("/")
@@ -180,8 +181,27 @@ for (const artifact of scannedVsixArtifacts) {
 	if (!fs.existsSync(artifactPath)) {
 		continue
 	}
-	const packageJsonText = readZipEntry(listZipEntries(artifactPath), "extension/package.json").toString("utf8")
+	const zip = listZipEntries(artifactPath)
+	const packageJsonText = readZipEntry(zip, "extension/package.json").toString("utf8")
+	const artifactPackageJson = JSON.parse(packageJsonText)
 	collectFindingsFromText(packageJsonText, `${artifact}!/extension/package.json`)
+	if (artifactPackageJson.version !== packageJson.version) {
+		findings.push({
+			file: `${artifact}!/extension/package.json`,
+			line: 1,
+			label: "stale VSIX artifact version",
+			value: `${artifactPackageJson.version} != ${packageJson.version}`,
+		})
+	}
+	const manifestText = readZipEntry(zip, "extension.vsixmanifest").toString("utf8")
+	if (!manifestText.includes(`Version="${packageJson.version}"`)) {
+		findings.push({
+			file: `${artifact}!/extension.vsixmanifest`,
+			line: 1,
+			label: "stale VSIX manifest version",
+			value: `expected ${packageJson.version}`,
+		})
+	}
 }
 
 const iconCheck = spawnSync(process.execPath, [path.join("scripts", "render-codevibe-icon.mjs"), "--check"], {

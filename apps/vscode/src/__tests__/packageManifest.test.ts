@@ -81,6 +81,10 @@ describe("Package manifest", () => {
 	it("keeps visible contribution strings on CodeVibe branding", async () => {
 		const packageJSON = await readPackageManifest()
 		const serializedContributions = JSON.stringify(packageJSON.contributes)
+		const brandingAuditScript = await readFile(
+			path.join(vscodeRoot, "scripts", "check-codevibe-branding.mjs"),
+			"utf8",
+		)
 
 		assert.equal(/\bCline\b/.test(serializedContributions), false)
 		assert.equal(serializedContributions.includes("claude-dev.SidebarProvider"), false)
@@ -97,6 +101,8 @@ describe("Package manifest", () => {
 				assert.equal(String((item as { command?: string }).command).startsWith("cline."), false, menuId)
 			}
 		}
+		assert.equal(brandingAuditScript.includes("stale VSIX artifact version"), true)
+		assert.equal(brandingAuditScript.includes("extension.vsixmanifest"), true)
 	})
 
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
@@ -131,6 +137,13 @@ describe("Package manifest", () => {
 		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --verify-install --require-release-gate)"), false)
 		assert.equal(candidateWorkflow.includes("package_args=(--out-dir .)"), true)
 		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --require-release-gate)"), true)
+		for (const workflow of [candidateWorkflow, stableWorkflow]) {
+			assert.equal(workflow.includes("Prepare standalone release assets"), true)
+			assert.equal(workflow.includes("prepare-standalone-release-assets.mjs"), true)
+			assert.equal(workflow.includes("apps/vscode/dist-standalone/standalone.zip"), true)
+			assert.equal(workflow.includes("apps/vscode/dist-standalone/standalone.zip.sha256"), true)
+			assert.equal(workflow.includes("apps/vscode/dist-standalone/standalone-manifest.json"), true)
+		}
 		assert.equal(
 			candidateWorkflow.includes(
 				"continue-on-error: ${{ (github.event.inputs.release_stage || 'candidate') == 'candidate' }}",
@@ -150,6 +163,14 @@ describe("Package manifest", () => {
 		)
 		const standalonePackageScript = await readFile(path.join(vscodeRoot, "scripts", "package-standalone.mjs"), "utf8")
 		const standaloneVerifierScript = await readFile(path.join(vscodeRoot, "scripts", "verify-standalone-package.mjs"), "utf8")
+		const standaloneReleaseAssetsScript = await readFile(
+			path.join(vscodeRoot, "scripts", "prepare-standalone-release-assets.mjs"),
+			"utf8",
+		)
+		const cursorParityEvidenceScript = await readFile(
+			path.join(vscodeRoot, "scripts", "collect-cursor-parity-evidence.mjs"),
+			"utf8",
+		)
 
 		assert.equal(runtimePackage.name, "codevibe-core")
 		assert.equal(runtimePackage.main, "codevibe-core.js")
@@ -172,5 +193,16 @@ describe("Package manifest", () => {
 		assert.equal(standaloneVerifierScript.includes("standalone-manifest.json"), true)
 		assert.equal(standaloneVerifierScript.includes("requiresExternalHostBridge"), true)
 		assert.equal(standaloneVerifierScript.includes("manifest.uiContract?.webviewBuildPath"), true)
+		assert.equal(cursorParityEvidenceScript.includes("Standalone package artifact build and manifest verification"), true)
+		assert.equal(cursorParityEvidenceScript.includes('"compile-standalone"'), true)
+		assert.equal(cursorParityEvidenceScript.includes("verify-standalone-package.mjs"), true)
+		assert.equal(cursorParityEvidenceScript.includes("dist-standalone/standalone.zip"), true)
+		assert.equal(cursorParityEvidenceScript.includes("npm exec --package"), false)
+		assert.equal(cursorParityEvidenceScript.includes("const localTsxCli"), true)
+		assert.equal(cursorParityEvidenceScript.includes('"tsx", "dist", "cli.mjs"'), true)
+		assert.equal(standaloneReleaseAssetsScript.includes("createHash"), true)
+		assert.equal(standaloneReleaseAssetsScript.includes("standaloneChecksumPath"), true)
+		assert.equal(standaloneReleaseAssetsScript.includes(".sha256"), true)
+		assert.equal(standaloneReleaseAssetsScript.includes("verify-standalone-package.mjs"), true)
 	})
 })

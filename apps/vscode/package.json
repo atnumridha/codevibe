@@ -655,6 +655,7 @@
 		"release:cursor-parity:evidence:standalone": "node scripts/collect-cursor-parity-evidence.mjs --run-standalone-ui",
 		"release:cursor-parity:evidence:sandbox": "node scripts/collect-cursor-parity-evidence.mjs --run-sandbox-policy",
 		"release:cursor-parity:evidence:full": "node scripts/collect-cursor-parity-evidence.mjs --run-required",
+		"release:standalone:assets": "node scripts/prepare-standalone-release-assets.mjs",
 		"upstream:cline:plan": "node scripts/prepare-upstream-cline-patch.mjs",
 		"upstream:cline:fetch": "node scripts/prepare-upstream-cline-patch.mjs --fetch --write-report",
 		"upstream:cline:export-patch": "node scripts/prepare-upstream-cline-patch.mjs --export-patch --write-report",

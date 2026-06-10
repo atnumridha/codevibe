@@ -59,7 +59,7 @@ CODEVIBE_VSCODE_CLI="/path/to/code" npm --prefix apps/vscode run package:github-
 Install the packaged VSIX into a normal VS Code profile and record the exact command and output.
 
 ```sh
-code --install-extension apps/vscode/codevibe-<version>.vsix --force
+code --install-extension apps/vscode/dist/codevibe-<version>.vsix --force
 code --list-extensions --show-versions | rg '^atnumridha\.codevibe@'
 ```
 

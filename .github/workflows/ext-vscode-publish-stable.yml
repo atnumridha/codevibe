@@ -244,6 +244,11 @@ jobs:
               run: |
                   node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth --run-standalone-ui --run-sandbox-policy --out-file apps/vscode/cursor-parity-evidence.md
 
+            - name: Prepare standalone release assets
+              working-directory: ${{ github.workspace }}
+              run: |
+                  node apps/vscode/scripts/prepare-standalone-release-assets.mjs
+
             - name: Get Previous Tag
               id: prev_tag
               working-directory: ${{ github.workspace }}
@@ -268,6 +273,9 @@ jobs:
                   tag_name: ${{ steps.resolve_tag.outputs.tag }}
                   files: |
                       apps/vscode/*.vsix
+                      apps/vscode/dist-standalone/standalone.zip
+                      apps/vscode/dist-standalone/standalone.zip.sha256
+                      apps/vscode/dist-standalone/standalone-manifest.json
                       apps/vscode/cursor-parity-evidence.md
                   body: |
                       ${{ steps.changelog.outputs.content }}
@@ -275,6 +283,8 @@ jobs:
                       **Cursor-Parity Evidence**: ${{ github.event.inputs.parity_evidence_url }}
 
                       **Attached Evidence Log**: `cursor-parity-evidence.md`
+
+                      **Attached Standalone Runtime**: `standalone.zip`, `standalone.zip.sha256`, `standalone-manifest.json`
 
                       **Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.prev_tag.outputs.prev_tag }}...${{ steps.resolve_tag.outputs.tag }}
                   prerelease: ${{ github.event.inputs.release-type == 'pre-release' }}

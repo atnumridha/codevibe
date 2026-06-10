@@ -9,11 +9,11 @@ const rl = readline.createInterface({
 
 const ask = (question) => new Promise((resolve) => rl.question(`\n${question}`, resolve))
 
-const getClineVersion = () => {
+const getCodeVibeVersion = () => {
 	try {
 		const extensions = execSync("code --list-extensions --show-versions").toString()
-		const clineMatch = extensions.match(/claude-dev@(\d+\.\d+\.\d+)/)
-		return clineMatch ? clineMatch[1] : "Not installed"
+		const codeVibeMatch = extensions.match(/atnumridha\.codevibe@(\d+\.\d+\.\d+)/)
+		return codeVibeMatch ? codeVibeMatch[1] : "Not installed"
 	} catch (_err) {
 		return "Error getting version"
 	}
@@ -44,7 +44,7 @@ const collectSystemInfo = () => {
 		os: `${os.arch()}; ${os.version()}`,
 		nodeVersion: execSync("node -v").toString().trim(),
 		npmVersion: execSync("npm -v").toString().trim(),
-		clineVersion: getClineVersion(),
+		codeVibeVersion: getCodeVibeVersion(),
 	}
 }
 
@@ -62,17 +62,19 @@ const checkGitHubAuth = async () => {
 }
 
 const createIssueUrl = (systemInfo, issueTitle) => {
+	const body =
+		`## Environment\n\n` +
+		`- Operating system: ${systemInfo.os}\n` +
+		`- CodeVibe version: ${systemInfo.codeVibeVersion}\n` +
+		`- Node: ${systemInfo.nodeVersion}\n` +
+		`- npm: ${systemInfo.npmVersion}\n\n` +
+		`## System Info\n\n` +
+		`CPU Info:\n${systemInfo.cpuInfo}\n\n` +
+		`Free RAM:\n${systemInfo.memoryInfo}\n`
 	return (
-		`https://github.com/cline/cline/issues/new?template=bug_report.yml` +
-		`&title=${issueTitle}` +
-		`&operating-system=${systemInfo.os}` +
-		`&cline-version=${systemInfo.clineVersion}` +
-		`&system-info=${
-			`Node: ${systemInfo.nodeVersion}\n` +
-			`npm: ${systemInfo.npmVersion}\n` +
-			`CPU Info: ${systemInfo.cpuInfo}\n` +
-			`Free RAM: ${systemInfo.memoryInfo}`
-		}`
+		`https://github.com/atnumridha/codevibe/issues/new` +
+		`?title=${encodeURIComponent(issueTitle)}` +
+		`&body=${encodeURIComponent(body)}`
 	)
 }
 

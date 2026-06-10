@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename)
 const projectRoot = path.join(__dirname, "..")
 const repoRoot = path.join(projectRoot, "..", "..")
 const defaultOutFile = path.join(projectRoot, "dist", "cursor-parity-evidence.local.md")
+const localTsxCli = path.join("apps", "vscode", "node_modules", "tsx", "dist", "cli.mjs")
 
 const safeCommands = [
 	{
@@ -99,13 +100,9 @@ const retrievalIndexingCommands = [
 	},
 	{
 		label: "Hub retrieval workspace-boundary tests",
-		command: "npm",
+		command: process.execPath,
 		args: [
-			"exec",
-			"--package",
-			"tsx",
-			"--",
-			"tsx",
+			localTsxCli,
 			"--tsconfig",
 			"apps/cline-hub/tsconfig.json",
 			"--test",
@@ -135,13 +132,9 @@ const mcpOAuthCommands = [
 	},
 	{
 		label: "Hub MCP import/install/OAuth tests",
-		command: "npm",
+		command: process.execPath,
 		args: [
-			"exec",
-			"--package",
-			"tsx",
-			"--",
-			"tsx",
+			localTsxCli,
 			"--tsconfig",
 			"apps/cline-hub/tsconfig.json",
 			"--test",
@@ -155,14 +148,17 @@ const mcpOAuthCommands = [
 
 const standaloneUiCommands = [
 	{
-		label: "Standalone hub route/readiness tests",
+		label: "Standalone package artifact build and manifest verification",
 		command: "npm",
+		args: ["--prefix", "apps/vscode", "run", "compile-standalone"],
+		cwd: repoRoot,
+		category: "standalone-ui",
+	},
+	{
+		label: "Standalone hub route/readiness tests",
+		command: process.execPath,
 		args: [
-			"exec",
-			"--package",
-			"tsx",
-			"--",
-			"tsx",
+			localTsxCli,
 			"--tsconfig",
 			"apps/cline-hub/tsconfig.json",
 			"--test",
@@ -498,7 +494,9 @@ function renderStandaloneUiEvidence(results) {
 		"| --- | --- | --- |",
 		...rows,
 		"",
-		"Focused evidence covers the VS-Code-free hub UI route surface, dynamic standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
+		"Focused evidence covers the VS-Code-free standalone package artifact, `standalone.zip` manifest contract, hub UI route surface, dynamic standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
+		"",
+		"Standalone package: `npm --prefix apps/vscode run compile-standalone` builds `dist-standalone/standalone.zip` and runs `scripts/verify-standalone-package.mjs` against `standalone-manifest.json`, `codevibe-core.js`, the ProtoBus descriptor set, webview assets, external HostBridge requirements, and packaged native-module targets.",
 		"",
 		"Readiness endpoint: `GET /api/standalone-readiness` returns redacted capability metadata for CodeVibe standalone mode, Codex Home auth support, live hub/UI-client availability, Cursor-compatible routes, desktop commands, and settings surfaces.",
 	].join("\n")
@@ -645,6 +643,7 @@ ${results.map(renderCommandResult).join("\n")}
 - Desktop app launches without VS Code:
 - Existing Codex auth state is detected from the configured Codex home:
 - \`GET /api/standalone-readiness\` exposes VS-Code-free readiness metadata:
+- \`dist-standalone/standalone.zip\` contains a verified \`standalone-manifest.json\`, \`codevibe-core.js\`, webview assets, descriptor set, external HostBridge contract, and target native module paths:
 - Cursor URI preview and launch work from the standalone settings UI:
 - Browser controls, retrieval/indexing controls, background-agent sessions, MCP import/install, plugin add/replace, rule review, git helpers, and NDJSON ingest are visible and functional:
 - Secret-bearing URL query strings, tokens, headers, and config values are redacted from previews, logs, and UI metadata:

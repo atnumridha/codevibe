@@ -1,14 +1,14 @@
 #!/usr/bin/env npx tsx
 
 /**
- * Interactive Playwright launcher for the Cline VS Code extension.
+ * Interactive Playwright launcher for the CodeVibe VS Code extension.
  *
  * Overview:
- *  - Starts the mock Cline API server (from the e2e test fixtures).
+ *  - Starts the mock CodeVibe API server (from the e2e test fixtures).
  *  - Downloads a stable build of VS Code (via @vscode/test-electron).
  *  - Creates a temporary VS Code user profile directory.
- *  - Installs and links the Cline extension (from dist/e2e.vsix and the dev path).
- *  - Opens a test workspace and automatically reveals the Cline sidebar.
+ *  - Installs and links the CodeVibe extension (from dist/e2e.vsix and the dev path).
+ *  - Opens a test workspace and automatically reveals the CodeVibe sidebar.
  *  - Records **all gRPC calls** during the session for later inspection.
  *  - Keeps VS Code running for manual interactive testing until the window is closed or Ctrl+C is pressed.
  *  - Cleans up all resources (mock server, temp profile, Electron process) on exit.
@@ -20,7 +20,7 @@
  *   2. From the repo root, start the interactive session:
  *        npm run test:e2e:ui
  *
- *   3. VS Code will launch with the Cline extension loaded and gRPC recording enabled.
+ *   3. VS Code will launch with the CodeVibe extension loaded and gRPC recording enabled.
  *
  *   4. Interact with the extension manually.
  *
@@ -70,7 +70,7 @@ async function main() {
 
 	await E2ETestHelper.openClineSidebar(page)
 
-	console.log("VSCode with Cline extension is now running!")
+	console.log("VS Code with CodeVibe extension is now running!")
 	console.log(`Temporary data directory on: ${userDataDir}`)
 	console.log("You can manually interact with the extension.")
 	console.log("Press Ctrl+C to close when done.")
