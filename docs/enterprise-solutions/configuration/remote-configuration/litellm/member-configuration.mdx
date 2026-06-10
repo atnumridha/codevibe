@@ -10,14 +10,14 @@ As a team member, you can connect your local development environment to your org
 
 To successfully connect to your organization's LiteLLM proxy, you'll need a few things ready.
 
-**Cline extension installed and configured**  
-The Cline extension must be installed in VS Code and you need to be signed into your organization account. If you haven't installed Cline yet, follow our [installation guide](/getting-started/installing-codevibe).
+**CodeVibe extension installed and configured**
+The CodeVibe extension must be installed in VS Code and you need to be signed into your organization account. If you haven't installed CodeVibe yet, follow our [installation guide](/getting-started/installing-codevibe).
 
 <Info>
-**Quick Check**: Open the Cline panel in VS Code. If you see your organization name in the bottom left, you're signed in correctly.
+**Quick Check**: Open the CodeVibe panel in VS Code. If you see your organization name in the bottom left, you're signed in correctly.
 </Info>
 
-**Access credentials for your organization's LiteLLM proxy**  
+**Access credentials for your organization's LiteLLM proxy**
 You need credentials to access your organization's LiteLLM proxy. This might be an API key, or the proxy might be configured for open access within your network.
 
 <Note>
@@ -27,10 +27,10 @@ If you're unsure about the credentials needed, check with your administrator or 
 ## Configuration Steps
 
 <Steps>
-<Step title="Open Cline Settings">
-Open VS Code and access the Cline settings panel using either of these methods:
+<Step title="Open CodeVibe Settings">
+Open VS Code and access the CodeVibe settings panel using either of these methods:
 
-- Click the settings icon (⚙️) in the Cline panel
+- Click the settings icon (⚙️) in the CodeVibe panel
 - Click on the API Provider dropdown located directly below the chat area (it will display as `LiteLLM` or show a specific model name)
 
 </Step>
@@ -48,14 +48,14 @@ If your organization requires API key authentication:
 4. Click **Save** to store your credentials
 
 <Tip>
-API keys are stored locally in VS Code and are only used by the Cline extension.
+API keys are stored locally in VS Code and are only used by the CodeVibe extension.
 </Tip>
 </Accordion>
 
 <Accordion title="Open Access (No Authentication)">
 If your LiteLLM proxy is configured for open access within your network:
 
-1. Select or confirm the **LiteLLM** provider is selected  
+1. Select or confirm the **LiteLLM** provider is selected
 2. Leave the API key field empty
 3. The extension will connect directly to the configured proxy endpoint
 4. No additional authentication is required
@@ -83,7 +83,7 @@ Custom configurations might require specific network settings or additional auth
 Once connected, you'll see the models available through your organization's LiteLLM proxy:
 
 - View available models in the model dropdown
-- Models are determined by your administrator's proxy configuration  
+- Models are determined by your administrator's proxy configuration
 - You can switch between models for different types of tasks
 - Some models may be restricted based on your access level
 
@@ -98,7 +98,7 @@ Choose models based on your task requirements:
 </Step>
 
 <Step title="Test the Connection">
-Send a test message in Cline to verify your connection works correctly with the LiteLLM proxy.
+Send a test message in CodeVibe to verify your connection works correctly with the LiteLLM proxy.
 
 <Tip>
 **Testing Recommendation**
@@ -131,28 +131,28 @@ The models available through your LiteLLM proxy typically include:
 Choose models based on your development needs:
 
 - **Quick iterations**: Use faster, cost-effective models
-- **Complex problems**: Use more powerful models  
+- **Complex problems**: Use more powerful models
 - **Code-heavy tasks**: Use code-specialized models
 - **Visual content**: Use multimodal models when working with images
 
 ## Troubleshooting
 
-**LiteLLM not available as provider option**  
-Confirm you're signed into the correct Cline organization. Verify your administrator has saved the LiteLLM configuration and that you have the latest version of the Cline extension.
+**LiteLLM not available as provider option**
+Confirm you're signed into the correct CodeVibe organization. Verify your administrator has saved the LiteLLM configuration and that you have the latest version of the CodeVibe extension.
 
-**Connection errors or timeouts**  
+**Connection errors or timeouts**
 Verify your network can reach the LiteLLM proxy endpoint. Check with your IT team about firewall rules or VPN requirements. Ensure the proxy endpoint is accessible from your development environment.
 
-**Authentication failures**  
+**Authentication failures**
 If using API key authentication, verify the key is correctly entered and hasn't expired. Contact your administrator to confirm your key is active and has the proper permissions.
 
-**Models not loading or are limited**  
+**Models not loading or are limited**
 The available models depend on your organization's LiteLLM configuration. Contact your administrator if you need access to specific models or if expected models aren't available.
 
-**Slow response times**  
+**Slow response times**
 Response times depend on the models being used and proxy load. Try switching to faster models for routine tasks. Contact your administrator if performance is consistently poor.
 
-**Error messages from specific models**  
+**Error messages from specific models**
 Some models may be temporarily unavailable or have specific limitations. Try alternative models or contact your administrator if specific models are consistently failing.
 
 ## Security Best Practices
@@ -160,9 +160,9 @@ Some models may be temporarily unavailable or have specific limitations. Try alt
 When working with your organization's LiteLLM proxy:
 
 - Keep your API credentials secure and don't share them
-- Use appropriate models for the sensitivity of your data  
+- Use appropriate models for the sensitivity of your data
 - Follow your organization's usage guidelines
 - Report any suspicious activity or unauthorized access attempts
-- Regularly update the Cline extension for security patches
+- Regularly update the CodeVibe extension for security patches
 
 Your organization administrator controls which models are available and usage policies. The extension will automatically display available models based on your proxy configuration and access level.

@@ -10,14 +10,14 @@ As a team member, you can connect your local development environment to your org
 
 To successfully connect to your organization's AWS Bedrock setup, you'll need a few things ready.
 
-**Cline extension installed and configured**  
-The Cline extension must be installed in VS Code and you need to be signed into your organization account. If you haven't installed Cline yet, follow our [installation guide](/getting-started/installing-codevibe).
+**CodeVibe extension installed and configured**
+The CodeVibe extension must be installed in VS Code and you need to be signed into your organization account. If you haven't installed CodeVibe yet, follow our [installation guide](/getting-started/installing-codevibe).
 
 <Info>
-**Quick Check**: Open the Cline panel in VS Code. If you see your organization name in the bottom left, you're signed in correctly.
+**Quick Check**: Open the CodeVibe panel in VS Code. If you see your organization name in the bottom left, you're signed in correctly.
 </Info>
 
-**AWS credentials with Bedrock access**  
+**AWS credentials with Bedrock access**
 You need AWS credentials that have permission to access Bedrock in your organization's configured region.
 
 <Note>
@@ -34,10 +34,10 @@ If you don't have AWS credentials yet, reach out to your IT or cloud team to get
 ## Configuration Steps
 
 <Steps>
-<Step title="Open Cline Settings">
-Open VS Code and access the Cline settings panel using either of these methods:
+<Step title="Open CodeVibe Settings">
+Open VS Code and access the CodeVibe settings panel using either of these methods:
 
-- Click the settings icon (⚙️) in the Cline panel
+- Click the settings icon (⚙️) in the CodeVibe panel
 - Click on the API Provider dropdown located directly below the chat area (it will display as `bedrock.anthropic.claude-sonnet-4-20250514-v1:0` or similar)
 
 </Step>
@@ -63,14 +63,14 @@ Use an existing AWS CLI profile configured on your machine.
 
 1. Select the **AWS Profile** radio button
 2. Choose or enter the profile name from your `~/.aws/credentials` file
-3. Cline will use the credentials associated with that profile
+3. CodeVibe will use the credentials associated with that profile
 </Accordion>
 
 <Accordion title="AWS Credentials">
 Use your default AWS credential chain (environment variables, EC2 instance roles, etc.).
 
 1. Select the **AWS Credentials** radio button
-2. Cline will automatically detect credentials from your environment using the standard AWS credential provider chain
+2. CodeVibe will automatically detect credentials from your environment using the standard AWS credential provider chain
 </Accordion>
 </AccordionGroup>
 
@@ -90,7 +90,7 @@ Additional settings like cross-region inference and global inference profile wil
 </Step>
 
 <Step title="Test the Connection">
-Send a test message in Cline to verify your credentials work correctly with the configured Bedrock region.
+Send a test message in CodeVibe to verify your credentials work correctly with the configured Bedrock region.
 
 <Tip>
 **Testing Recommendation**
@@ -103,16 +103,16 @@ It is recommended to test the connection in plan mode to verify everything works
 
 ## Troubleshooting
 
-**Authentication errors ("Access Denied" or "Invalid Credentials")**  
+**Authentication errors ("Access Denied" or "Invalid Credentials")**
 Verify your chosen credential method has the necessary IAM permissions to call Bedrock in the configured region. Required permissions include `bedrock:InvokeModel` and `bedrock:InvokeModelWithResponseStream`. For more information, refer to [AWS Bedrock IAM Permissions](https://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html).
 
-**Region-related errors or "model not available"**  
+**Region-related errors or "model not available"**
 Ask your administrator to confirm which region is configured for your organization. Ensure your AWS credentials have access to Bedrock in that specific region. [View AWS Global Infrastructure](https://aws.amazon.com/about-aws/global-infrastructure/regions_az/)
 
-**Don't see AWS Bedrock as an option**  
-Confirm you're signed into the correct Cline organization. Verify your administrator has saved the Bedrock configuration. Try signing out and back into the extension.
+**Don't see AWS Bedrock as an option**
+Confirm you're signed into the correct CodeVibe organization. Verify your administrator has saved the Bedrock configuration. Try signing out and back into the extension.
 
-**AWS Credentials option not finding credentials**  
+**AWS Credentials option not finding credentials**
 Verify AWS CLI is installed and configured with `aws configure` ([AWS CLI Installation Guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)). Check that credentials are present in `~/.aws/credentials`. For EC2/ECS environments, ensure IAM roles are properly attached. If using environment variables, set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
 
 

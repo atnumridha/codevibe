@@ -1,6 +1,7 @@
 # Quickstart
 
-The simplest possible Cline SDK example. Creates one agent, sends a single prompt, and streams the response to stdout.
+The simplest possible CodeVibe SDK example. Creates one agent, sends a single prompt, and streams the response to stdout.
+It uses the current `@cline/sdk` package, `providerId: "cline"`, and `CLINE_API_KEY` compatibility contract while the public SDK package name is unchanged.
 
 ## Getting started
 
