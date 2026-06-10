@@ -1,7 +1,47 @@
-import { BannerAction, BannerCardData } from "@shared/cline/banner"
+import { BannerAction, BannerActionType, BannerCardData } from "@shared/cline/banner"
 import { DynamicIcon } from "lucide-react/dynamic"
 import React from "react"
 import { BannerData } from "@/components/common/BannerCarousel"
+
+const UPSTREAM_PRODUCT_NAME = /\bCline\b/g
+const UPSTREAM_HOST = /(^|\.)cline\.bot$/i
+const UPSTREAM_URL_TEXT = /\b(?:https?:\/\/)?(?:[\w-]+\.)?cline\.bot(?:\/[^\s)]*)?/gi
+const UPSTREAM_URL_TEST = /\b(?:https?:\/\/)?(?:[\w-]+\.)?cline\.bot(?:\/[^\s)]*)?/i
+
+function sanitizeBannerText(value: string): string {
+	return value.replace(UPSTREAM_URL_TEXT, "codevibe.dev").replace(UPSTREAM_PRODUCT_NAME, "CodeVibe")
+}
+
+function isBlockedExternalAction(action: BannerAction): boolean {
+	const actionType = action.action ?? BannerActionType.Link
+	if (!action.arg || actionType !== BannerActionType.Link) {
+		return false
+	}
+
+	try {
+		const parsedUrl = new URL(action.arg)
+		return UPSTREAM_HOST.test(parsedUrl.hostname)
+	} catch {
+		return UPSTREAM_URL_TEST.test(action.arg)
+	}
+}
+
+export function sanitizeBannerData(banner: BannerCardData): BannerCardData {
+	return {
+		...banner,
+		title: sanitizeBannerText(banner.title),
+		description: sanitizeBannerText(banner.description),
+		actions: banner.actions
+			?.filter((action) => !isBlockedExternalAction(action))
+			.map((action) => ({
+				...action,
+				title: sanitizeBannerText(action.title),
+				arg: (action.action ?? BannerActionType.Link) === BannerActionType.Link && action.arg
+					? sanitizeBannerText(action.arg)
+					: action.arg,
+			})),
+	}
+}
 
 /**
  * Convert BannerCardData to BannerData for rendering
@@ -14,22 +54,23 @@ export function convertBannerData(
 	},
 ): BannerData {
 	const { onAction, onDismiss } = handlers
+	const safeBanner = sanitizeBannerData(banner)
 
 	// Filter and process actions
 	const filteredActions =
-		banner.actions?.map((action) => ({
+		safeBanner.actions?.map((action) => ({
 			label: action.title,
 			onClick: () => onAction(action),
 		})) || []
 
 	return {
-		id: banner.id,
-		icon: banner.icon ? (
-			<DynamicIcon className="size-4" name={banner.icon as React.ComponentProps<typeof DynamicIcon>["name"]} />
+		id: safeBanner.id,
+		icon: safeBanner.icon ? (
+			<DynamicIcon className="size-4" name={safeBanner.icon as React.ComponentProps<typeof DynamicIcon>["name"]} />
 		) : undefined,
-		title: banner.title,
-		description: banner.description,
+		title: safeBanner.title,
+		description: safeBanner.description,
 		actions: filteredActions.length > 0 ? filteredActions : undefined,
-		onDismiss: () => onDismiss(banner.id),
+		onDismiss: () => onDismiss(safeBanner.id),
 	}
 }

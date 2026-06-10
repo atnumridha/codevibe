@@ -1,5 +1,14 @@
 import { EmptyRequest } from "@shared/proto/cline/common"
-import { ArrowRightIcon, GitBranchIcon, MessageSquareIcon, RouteIcon, ShieldCheckIcon } from "lucide-react"
+import {
+	ArrowRightIcon,
+	GitBranchIcon,
+	KeyRoundIcon,
+	MessageSquareIcon,
+	NetworkIcon,
+	RouteIcon,
+	ShieldCheckIcon,
+	WorkflowIcon,
+} from "lucide-react"
 import CodeVibeMark from "@/assets/CodeVibeMark"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { UiServiceClient } from "@/services/grpc-client"
@@ -81,6 +90,32 @@ const HomeHeader = ({ shouldShowStarterWorkflows = false }: HomeHeaderProps) => 
 				<div className="flex min-w-0 items-center justify-center gap-1.5 rounded-sm border border-[var(--vscode-panel-border)] px-2 py-1.5">
 					<GitBranchIcon className="size-3.5 shrink-0" />
 					<span className="truncate">Ship</span>
+				</div>
+			</div>
+			<div className="mt-2 grid grid-cols-2 gap-1.5 text-[10.5px] text-[var(--vscode-descriptionForeground)]">
+				<div className="flex min-w-0 items-center gap-2 rounded-sm border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-2 py-1.5">
+					<KeyRoundIcon className="size-3.5 shrink-0 text-codevibe" />
+					<span className="truncate">
+						<span className="font-medium text-[var(--vscode-foreground)]">Codex</span> auth
+					</span>
+				</div>
+				<div className="flex min-w-0 items-center gap-2 rounded-sm border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-2 py-1.5">
+					<WorkflowIcon className="size-3.5 shrink-0 text-codevibe" />
+					<span className="truncate">
+						<span className="font-medium text-[var(--vscode-foreground)]">Diagram</span> plans
+					</span>
+				</div>
+				<div className="flex min-w-0 items-center gap-2 rounded-sm border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-2 py-1.5">
+					<ShieldCheckIcon className="size-3.5 shrink-0 text-codevibe" />
+					<span className="truncate">
+						<span className="font-medium text-[var(--vscode-foreground)]">Sandbox</span> runs
+					</span>
+				</div>
+				<div className="flex min-w-0 items-center gap-2 rounded-sm border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-2 py-1.5">
+					<NetworkIcon className="size-3.5 shrink-0 text-codevibe" />
+					<span className="truncate">
+						<span className="font-medium text-[var(--vscode-foreground)]">Agents</span> parallel
+					</span>
 				</div>
 			</div>
 		</div>

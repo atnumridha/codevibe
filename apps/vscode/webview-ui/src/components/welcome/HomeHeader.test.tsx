@@ -35,6 +35,10 @@ describe("HomeHeader", () => {
 		expect(screen.getByText("Act")).toBeInTheDocument()
 		expect(screen.getByText("Review")).toBeInTheDocument()
 		expect(screen.getByText("Ship")).toBeInTheDocument()
+		expect(screen.getByText("Codex")).toBeInTheDocument()
+		expect(screen.getByText("Diagram")).toBeInTheDocument()
+		expect(screen.getByText("Sandbox")).toBeInTheDocument()
+		expect(screen.getByText("Agents")).toBeInTheDocument()
 		expect(screen.queryByText("Native agent first")).not.toBeInTheDocument()
 	})
 

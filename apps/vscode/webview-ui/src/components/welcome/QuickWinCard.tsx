@@ -1,5 +1,14 @@
 import React from "react"
-import { ArrowRightIcon, ListChecksIcon, SearchIcon, ShieldCheckIcon, SparklesIcon } from "lucide-react"
+import {
+	ArrowRightIcon,
+	GitBranchIcon,
+	ListChecksIcon,
+	NetworkIcon,
+	SearchIcon,
+	ShieldCheckIcon,
+	SparklesIcon,
+	WorkflowIcon,
+} from "lucide-react"
 import { QuickWinTask } from "./quickWinTasks"
 
 interface QuickWinCardProps {
@@ -19,6 +28,12 @@ const renderIcon = (iconName?: string) => {
 			return <ListChecksIcon className="size-4" />
 		case "VerifyIcon":
 			return <ShieldCheckIcon className="size-4" />
+		case "DiagramIcon":
+			return <WorkflowIcon className="size-4" />
+		case "AgentsIcon":
+			return <NetworkIcon className="size-4" />
+		case "ShipIcon":
+			return <GitBranchIcon className="size-4" />
 		default:
 			break
 	}
