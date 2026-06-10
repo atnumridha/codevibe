@@ -485,6 +485,78 @@ describe("Code sidecar runtime capabilities", () => {
 		).rejects.toThrow("inside the active workspace");
 	});
 
+	it("reads authoritative workspace changes, diffs, and files", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		await writeFile(join(workspace, "tracked-delete.txt"), "remove me\n");
+		runGit(workspace, ["add", "tracked-delete.txt"]);
+		runGit(workspace, ["commit", "-m", "add delete fixture"]);
+		await writeFile(join(workspace, "README.md"), "hello\nupdated\n");
+		await writeFile(join(workspace, "notes.md"), "new note\n");
+		await rm(join(workspace, "tracked-delete.txt"));
+		const ctx = createSidecarContext(workspace);
+
+		const changes = (await handleCommand(ctx, "list_workspace_changes")) as {
+			changes: Array<{ path: string; kind: string }>;
+			summary: { files: number };
+		};
+		expect(changes.summary.files).toBe(3);
+		expect(changes.changes.map((entry) => entry.path).sort()).toEqual([
+			"README.md",
+			"notes.md",
+			"tracked-delete.txt",
+		]);
+		expect(changes.changes.find((entry) => entry.path === "notes.md")?.kind).toBe("untracked");
+
+		const diff = (await handleCommand(ctx, "read_workspace_diff")) as {
+			files: Array<{
+				path: string;
+				additions: number;
+				deletions: number;
+				hunks: Array<{ old: string; new: string }>;
+			}>;
+			summary: { additions: number; deletions: number; files: number };
+		};
+		expect(diff.summary.files).toBe(3);
+		expect(diff.summary.additions).toBeGreaterThan(0);
+		expect(diff.summary.deletions).toBeGreaterThan(0);
+		expect(diff.files.find((file) => file.path === "README.md")?.hunks[0]?.new).toContain("updated");
+		expect(diff.files.find((file) => file.path === "notes.md")?.hunks[0]?.new).toContain("new note");
+
+		const file = (await handleCommand(ctx, "read_workspace_file", {
+			path: "README.md",
+			maxBytes: 1024,
+		})) as { content: string; binary: boolean; truncated: boolean };
+		expect(file).toMatchObject({
+			binary: false,
+			truncated: false,
+		});
+		expect(file.content).toContain("updated");
+	}, 15_000);
+
+	it("rejects workspace state paths outside the active workspace", async () => {
+		const { createSidecarContext } = await import("./context");
+		const { handleCommand } = await import("./commands");
+
+		const workspace = await createGitWorkspace(tempDirs);
+		const outside = await mkdtemp(join(tmpdir(), "codevibe-workspace-outside-"));
+		tempDirs.push(outside);
+		const ctx = createSidecarContext(workspace);
+
+		await expect(
+			handleCommand(ctx, "read_workspace_diff", {
+				workspaceRoot: outside,
+			}),
+		).rejects.toThrow("inside the active workspace");
+		await expect(
+			handleCommand(ctx, "read_workspace_file", {
+				path: "../secret.txt",
+			}),
+		).rejects.toThrow("unsafe workspace path");
+	});
+
 	it("updates active workspace context before searching the selected root", async () => {
 		const { createSidecarContext } = await import("./context");
 		const { handleCommand } = await import("./commands");

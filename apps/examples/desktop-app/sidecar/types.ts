@@ -106,6 +106,73 @@ export type SidecarContext = {
 	workspaceRoot: string;
 	unsubscribeSessionEvents: (() => void) | null;
 };
+
+export type WorkspaceChangeKind =
+	| "modified"
+	| "added"
+	| "deleted"
+	| "renamed"
+	| "copied"
+	| "untracked"
+	| "unknown";
+
+export type WorkspaceChange = {
+	path: string;
+	originalPath?: string;
+	kind: WorkspaceChangeKind;
+	indexStatus: string;
+	worktreeStatus: string;
+	staged: boolean;
+	unstaged: boolean;
+	untracked: boolean;
+};
+
+export type WorkspaceDiffHunk = {
+	oldStart: number;
+	newStart: number;
+	old: string;
+	new: string;
+};
+
+export type WorkspaceDiffFile = {
+	path: string;
+	originalPath?: string;
+	kind?: WorkspaceChangeKind;
+	additions: number;
+	deletions: number;
+	hunks: WorkspaceDiffHunk[];
+	binary?: boolean;
+	missing?: boolean;
+	truncated?: boolean;
+};
+
+export type WorkspaceDiffSummary = {
+	files: number;
+	additions: number;
+	deletions: number;
+};
+
+export type WorkspaceChangesResponse = {
+	workspaceRoot: string;
+	gitAvailable: boolean;
+	changes: WorkspaceChange[];
+	summary: WorkspaceDiffSummary;
+};
+
+export type WorkspaceDiffResponse = {
+	workspaceRoot: string;
+	files: WorkspaceDiffFile[];
+	summary: WorkspaceDiffSummary;
+};
+
+export type WorkspaceFileReadResponse = {
+	workspaceRoot: string;
+	path: string;
+	bytes: number;
+	truncated: boolean;
+	binary: boolean;
+	content: string;
+};
 export type BunRuntimeApi = {
 	serve: (options: unknown) => { port: number; stop?: () => void };
 };

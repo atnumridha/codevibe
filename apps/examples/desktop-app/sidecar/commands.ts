@@ -102,6 +102,7 @@ import { normalizeSessionTitle } from "./session-data/common";
 import { discoverChatSessions } from "./session-data/discovery";
 import { readSessionMessages } from "./session-data/messages";
 import { searchWorkspaceFiles } from "./session-data/search";
+import { listWorkspaceChanges, readWorkspaceDiff, readWorkspaceFile } from "./session-data/workspace-state";
 import type {
 	ChatSessionCommandRequest,
 	JsonRecord,
@@ -3158,6 +3159,15 @@ export async function handleCommand(
 	// ── Workspace file search ─────────────────────────────────────────
 	if (command === "search_workspace_files") {
 		return await searchWorkspaceFiles(ctx, args);
+	}
+	if (command === "list_workspace_changes") {
+		return listWorkspaceChanges(ctx, args);
+	}
+	if (command === "read_workspace_diff") {
+		return readWorkspaceDiff(ctx, args);
+	}
+	if (command === "read_workspace_file") {
+		return readWorkspaceFile(ctx, args);
 	}
 
 	// ── Cline account ──────────────────────────────────────────────────

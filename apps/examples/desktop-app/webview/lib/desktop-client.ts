@@ -323,6 +323,74 @@ export type WorkspaceContextResponse = {
 	previousWorkspaceRoot?: string;
 };
 
+export type WorkspaceDiffInput = {
+	workspaceRoot?: string;
+	path?: string;
+	maxBytes?: number;
+};
+
+export type WorkspaceChange = {
+	path: string;
+	originalPath?: string;
+	kind: string;
+	indexStatus: string;
+	worktreeStatus: string;
+	staged: boolean;
+	unstaged: boolean;
+	untracked: boolean;
+};
+
+export type WorkspaceDiffHunk = {
+	oldStart: number;
+	newStart: number;
+	old: string;
+	new: string;
+};
+
+export type WorkspaceDiffFile = {
+	path: string;
+	originalPath?: string;
+	kind?: string;
+	additions: number;
+	deletions: number;
+	hunks: WorkspaceDiffHunk[];
+	binary?: boolean;
+	missing?: boolean;
+	truncated?: boolean;
+};
+
+export type WorkspaceDiffResponse = {
+	workspaceRoot: string;
+	files: WorkspaceDiffFile[];
+	summary: {
+		files: number;
+		additions: number;
+		deletions: number;
+	};
+};
+
+export type WorkspaceChangesResponse = {
+	workspaceRoot: string;
+	gitAvailable: boolean;
+	changes: WorkspaceChange[];
+	summary: WorkspaceDiffResponse["summary"];
+};
+
+export type WorkspaceFileReadInput = {
+	workspaceRoot?: string;
+	path: string;
+	maxBytes?: number;
+};
+
+export type WorkspaceFileReadResponse = {
+	workspaceRoot: string;
+	path: string;
+	bytes: number;
+	truncated: boolean;
+	binary: boolean;
+	content: string;
+};
+
 const REQUEST_TIMEOUT_MS = 120_000;
 const RECONNECT_BASE_DELAY_MS = 400;
 const RECONNECT_MAX_DELAY_MS = 4_000;
@@ -528,6 +596,34 @@ class DesktopClient {
 	): Promise<WorkspaceContextResponse> {
 		return await this.invoke<WorkspaceContextResponse>("set_workspace_root", {
 			workspaceRoot,
+		});
+	}
+
+	async readWorkspaceDiff(
+		input: WorkspaceDiffInput = {},
+	): Promise<WorkspaceDiffResponse> {
+		return await this.invoke<WorkspaceDiffResponse>("read_workspace_diff", {
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.path ? { path: input.path } : {}),
+			...(input.maxBytes !== undefined ? { maxBytes: input.maxBytes } : {}),
+		});
+	}
+
+	async listWorkspaceChanges(
+		input: Pick<WorkspaceDiffInput, "workspaceRoot"> = {},
+	): Promise<WorkspaceChangesResponse> {
+		return await this.invoke<WorkspaceChangesResponse>("list_workspace_changes", {
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+		});
+	}
+
+	async readWorkspaceFile(
+		input: WorkspaceFileReadInput,
+	): Promise<WorkspaceFileReadResponse> {
+		return await this.invoke<WorkspaceFileReadResponse>("read_workspace_file", {
+			path: input.path,
+			...(input.workspaceRoot ? { workspaceRoot: input.workspaceRoot } : {}),
+			...(input.maxBytes !== undefined ? { maxBytes: input.maxBytes } : {}),
 		});
 	}
 

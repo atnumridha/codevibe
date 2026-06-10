@@ -27,6 +27,7 @@ import type { CursorUriIntent } from "@/components/views/settings/cursor-uri-vie
 import { WorkspaceProvider } from "@/contexts/workspace-context";
 import type { PromptInQueue } from "@/hooks/chat-session/types";
 import { useChatSession } from "@/hooks/use-chat-session";
+import { useWorkspaceState } from "@/hooks/use-workspace-state";
 import { toast } from "@/hooks/use-toast";
 import { desktopClient } from "@/lib/desktop-client";
 import {
@@ -1001,7 +1002,29 @@ function ChatThreadPane({
 			? undefined
 			: (visibleHistorySession?.prompt ?? firstUserMessage),
 	});
-	const hasDiffChanges = summary.additions + summary.deletions > 0;
+	const resolvedWorkspaceRoot = config.workspaceRoot || config.cwd || "";
+	const workspaceState = useWorkspaceState({
+		workspaceRoot: resolvedWorkspaceRoot,
+		connected: chatTransportState === "connected",
+		active: status === "running" || showDiffView,
+	});
+	const workspaceHasChanges =
+		workspaceState.summary.additions + workspaceState.summary.deletions > 0 ||
+		workspaceState.fileDiffs.length > 0;
+	const displayedFileDiffs = workspaceHasChanges
+		? workspaceState.fileDiffs
+		: fileDiffs;
+	const displayedSummary = workspaceHasChanges
+		? {
+				...summary,
+				additions: workspaceState.summary.additions,
+				deletions: workspaceState.summary.deletions,
+			}
+		: summary;
+	const displayedDiffSource = workspaceHasChanges ? "workspace" : "session";
+	const hasDiffChanges =
+		displayedSummary.additions + displayedSummary.deletions > 0 ||
+		displayedFileDiffs.length > 0;
 
 	const activeSessionForTitle = hideDeletedSessionUi
 		? null
@@ -1057,7 +1080,6 @@ function ChatThreadPane({
 		}
 	}, [hasDiffChanges]);
 
-	const resolvedWorkspaceRoot = config.workspaceRoot || config.cwd || "";
 	useEffect(() => {
 		onWorkspaceRouteContextChange?.({
 			workspaceRoot: resolvedWorkspaceRoot || undefined,
@@ -1117,8 +1139,8 @@ function ChatThreadPane({
 						canDeleteSession={Boolean(activeSessionToDelete)}
 						deletingSession={deletingSession}
 						diff={{
-							additions: summary.additions,
-							deletions: summary.deletions,
+							additions: displayedSummary.additions,
+							deletions: displayedSummary.deletions,
 						}}
 						onDeleteSession={requestDeleteSession}
 						onNewThread={onNewThread}
@@ -1136,8 +1158,9 @@ function ChatThreadPane({
 				<div className="h-full min-h-0 overflow-hidden">
 					{showDiffView ? (
 						<DiffView
-							fileDiffs={fileDiffs}
+							fileDiffs={displayedFileDiffs}
 							onClose={() => setShowDiffView(false)}
+							source={displayedDiffSource}
 						/>
 					) : (
 						<ChatMessages
@@ -1248,7 +1271,7 @@ function ChatThreadPane({
 						promptInput={promptInput}
 						provider={config.provider}
 						status={status}
-						summary={summary}
+						summary={displayedSummary}
 					/>
 				</div>
 			</div>

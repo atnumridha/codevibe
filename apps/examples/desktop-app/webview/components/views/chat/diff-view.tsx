@@ -9,9 +9,10 @@ import { cn } from "@/lib/utils";
 type DiffViewProps = {
 	fileDiffs: SessionFileDiff[];
 	onClose: () => void;
+	source?: "workspace" | "session";
 };
 
-export function DiffView({ fileDiffs, onClose }: DiffViewProps) {
+export function DiffView({ fileDiffs, onClose, source = "session" }: DiffViewProps) {
 	const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
 
 	const _totals = useMemo(
@@ -44,7 +45,7 @@ export function DiffView({ fileDiffs, onClose }: DiffViewProps) {
 			<div className="flex h-10 items-center justify-between border-b border-border bg-card px-4">
 				<div className="flex items-center gap-3">
 					<span className="text-xs font-medium text-foreground">
-						Uncommitted changes
+						{source === "workspace" ? "Workspace changes" : "Session changes"}
 					</span>
 					<span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
 						Files: {fileDiffs.length}
@@ -67,7 +68,7 @@ export function DiffView({ fileDiffs, onClose }: DiffViewProps) {
 			<ScrollArea className="flex-1">
 				{fileDiffs.length === 0 ? (
 					<div className="flex h-full items-center justify-center px-4 py-16 text-sm text-muted-foreground">
-						No file changes in this session yet.
+						{source === "workspace" ? "No uncommitted workspace changes." : "No file changes in this session yet."}
 					</div>
 				) : (
 					<div className="flex flex-col">
