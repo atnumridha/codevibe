@@ -87,6 +87,7 @@ describe("Package manifest", () => {
 		assert.equal(packageJSON.activationEvents.includes("onView:codevibe-agent-chat"), true)
 		assert.equal(packageJSON.activationEvents.includes(`onChatSession:${CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE}`), false)
 		assert.equal(nativeAgentView?.visibility, "hidden")
+		assert.equal(nativeAgentView?.name, "Compatibility Timeline")
 		assert.equal(
 			codeVibeAgentViews.some((view: { id?: string }) => view.id === "codevibe.SidebarProvider"),
 			false,
@@ -236,10 +237,15 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("VSIX install left stale CodeVibe extension folder"), true)
 		assert.equal(packageScript.includes("VSIX default install verified"), true)
 		assert.equal(packageScript.includes("workbench.view.extension.codevibe.agent"), true)
+		assert.equal(packageScript.includes("workbench.view.extension.codevibe-agent"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.state.hidden'"), true)
 		assert.equal(packageScript.includes("'workbench.view.extension.codevibe.agent.numberOfVisibleViews'"), true)
+		assert.equal(packageScript.includes("'workbench.view.extension.codevibe-agent.state'"), true)
+		assert.equal(packageScript.includes("'workbench.view.extension.codevibe-agent.state.hidden'"), true)
+		assert.equal(packageScript.includes("'workbench.view.extension.codevibe-agent.numberOfVisibleViews'"), true)
 		assert.equal(packageScript.includes('"codevibe.agentPanel"'), true)
+		assert.equal(packageScript.includes('"codevibe-agent-chat"'), true)
 		assert.equal(packageScript.includes('"memento/mainThreadWebviewPanel.origins"'), true)
 		assert.equal(/filterJsonArrayByIdSql\(\s*"workbench\.auxiliarybar\.placeholderPanels"/.test(packageScript), true)
 		assert.equal(/filterJsonArrayByIdSql\(\s*"workbench\.auxiliarybar\.pinnedPanels"/.test(packageScript), true)

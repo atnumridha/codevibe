@@ -3,6 +3,7 @@ import { getShellForProfile } from "@utils/shell"
 import pWaitFor from "p-wait-for"
 import * as vscode from "vscode"
 import {
+	CommandExecutionOptions as ICommandExecutionOptions,
 	TerminalInfo as ITerminalInfo,
 	ITerminalManager,
 	TerminalProcessResultPromise as ITerminalProcessResultPromise,
@@ -161,7 +162,11 @@ export class VscodeTerminalManager implements ITerminalManager {
 		return arePathsEqual(currentCwd, targetCwd)
 	}
 
-	runCommand(terminalInfo: ITerminalInfo, command: string): ITerminalProcessResultPromise {
+	runCommand(
+		terminalInfo: ITerminalInfo,
+		command: string,
+		_options?: ICommandExecutionOptions,
+	): ITerminalProcessResultPromise {
 		// Cast to VSCode-specific TerminalInfo for internal use
 		// Using unknown as intermediate cast due to structural differences between ITerminal and vscode.Terminal
 		const vscodeTerminalInfo = terminalInfo as unknown as TerminalInfo

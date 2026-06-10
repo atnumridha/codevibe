@@ -119,7 +119,7 @@ export class CommandExecutor {
 		// Get terminal and run command
 		const terminalInfo = await manager.getOrCreateTerminal(this.cwd)
 		terminalInfo.terminal.show()
-		const process = manager.runCommand(terminalInfo, command)
+		const process = manager.runCommand(terminalInfo, command, options)
 
 		// Reset cancellation flag and track the current process
 		this.wasCancelledExternally = false

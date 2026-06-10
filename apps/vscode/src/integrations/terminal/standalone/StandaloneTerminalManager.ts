@@ -15,7 +15,13 @@
 import { CodeVibeTempManager } from "@services/temp"
 import * as fs from "fs"
 import { BACKGROUND_COMMAND_TIMEOUT_MS, DEFAULT_TERMINAL_OUTPUT_LINE_LIMIT } from "../constants"
-import type { BackgroundCommand, ITerminalManager, TerminalInfo, TerminalProcessResultPromise } from "../types"
+import type {
+	BackgroundCommand,
+	CommandExecutionOptions,
+	ITerminalManager,
+	TerminalInfo,
+	TerminalProcessResultPromise,
+} from "../types"
 import { StandaloneTerminalProcess } from "./StandaloneTerminalProcess"
 import { StandaloneTerminalRegistry } from "./StandaloneTerminalRegistry"
 
@@ -99,7 +105,7 @@ export class StandaloneTerminalManager implements ITerminalManager {
 	 * @param command The command to execute
 	 * @returns A promise-like object that emits events and resolves on completion
 	 */
-	runCommand(terminalInfo: TerminalInfo, command: string): TerminalProcessResultPromise {
+	runCommand(terminalInfo: TerminalInfo, command: string, options?: CommandExecutionOptions): TerminalProcessResultPromise {
 		terminalInfo.busy = true
 		terminalInfo.lastCommand = command
 
@@ -121,7 +127,7 @@ export class StandaloneTerminalManager implements ITerminalManager {
 		})
 
 		// Run the command immediately (no shell integration wait needed)
-		process.run(terminalInfo.terminal, command)
+		process.run(terminalInfo.terminal, command, options)
 
 		// Return merged promise/process object
 		return mergePromise(process, promise)

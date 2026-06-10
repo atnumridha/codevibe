@@ -169,9 +169,10 @@ export interface ITerminalManager {
 	 * Run a command in the specified terminal.
 	 * @param terminalInfo The terminal to run the command in
 	 * @param command The command to execute
+	 * @param options Optional per-command trust boundary and execution behavior
 	 * @returns A promise-like object that emits events and resolves on completion
 	 */
-	runCommand(terminalInfo: TerminalInfo, command: string): TerminalProcessResultPromise
+	runCommand(terminalInfo: TerminalInfo, command: string, options?: CommandExecutionOptions): TerminalProcessResultPromise
 
 	/**
 	 * Get or create a terminal for the specified working directory.

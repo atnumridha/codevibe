@@ -21,7 +21,25 @@ import {
 	PROCESS_HOT_TIMEOUT_NORMAL,
 	TRUNCATE_KEEP_LINES,
 } from "../constants"
-import type { ITerminal, ITerminalProcess, TerminalCompletionDetails, TerminalProcessEvents } from "../types"
+import type {
+	CommandExecutionOptions,
+	ITerminal,
+	ITerminalProcess,
+	TerminalCompletionDetails,
+	TerminalProcessEvents,
+} from "../types"
+
+export function buildCodeVibeTerminalPolicyEnv(options?: CommandExecutionOptions): NodeJS.ProcessEnv {
+	const mode = options?.terminalRunMode ?? "default"
+	const background = Boolean(options?.useBackgroundExecution || mode === "sandboxed")
+
+	return {
+		CODEVIBE_TERMINAL_RUN_MODE: mode,
+		CODEVIBE_TERMINAL_SANDBOX: mode === "sandboxed" ? "1" : "0",
+		CODEVIBE_TERMINAL_ELEVATED: mode === "elevated" ? "1" : "0",
+		CODEVIBE_TERMINAL_BACKGROUND: background ? "1" : "0",
+	}
+}
 
 /**
  * Manages the execution of a command in a standalone terminal environment.
@@ -78,8 +96,9 @@ export class StandaloneTerminalProcess extends EventEmitter<TerminalProcessEvent
 	 * Run a command in the terminal.
 	 * @param terminal The terminal instance to run in
 	 * @param command The command to execute
+	 * @param options Optional trust boundary and execution behavior for this command
 	 */
-	async run(terminal: ITerminal, command: string): Promise<void> {
+	async run(terminal: ITerminal, command: string, options?: CommandExecutionOptions): Promise<void> {
 		// Get shell and working directory from terminal
 		const shell = (terminal as any)._shellPath || this.getDefaultShell()
 		const cwd = (terminal as any)._cwd || process.cwd()
@@ -105,6 +124,7 @@ export class StandaloneTerminalProcess extends EventEmitter<TerminalProcessEvent
 					GIT_PAGER: "cat", // Prevent git from using less
 					SYSTEMD_PAGER: "", // Disable systemd pager
 					MANPAGER: "cat", // Disable man pager
+					...buildCodeVibeTerminalPolicyEnv(options),
 				},
 			}
 

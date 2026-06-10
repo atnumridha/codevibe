@@ -908,6 +908,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 		"workbench.view.extension.claude-dev-ActivityBar",
 		"workbench.view.extension.codevibe-ActivityBar",
 		"workbench.view.extension.codevibe.agent",
+		"workbench.view.extension.codevibe-agent",
 		"workbench.view.extension.vibecodeAgentSidebar",
 		"workbench.view.extension.vibecodex-agent-extension-container",
 	]
@@ -915,6 +916,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 		"claude-dev.SidebarProvider",
 		"codevibe.SidebarProvider",
 		"codevibe.agentPanel",
+		"codevibe-agent-chat",
 		"vibecode.agent",
 		"vibecode.agentPanel",
 		"vibecodex-agent-extension-view",
@@ -952,6 +954,9 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 			'workbench.view.extension.codevibe.agent.state',
 			'workbench.view.extension.codevibe.agent.state.hidden',
 			'workbench.view.extension.codevibe.agent.numberOfVisibleViews',
+			'workbench.view.extension.codevibe-agent.state',
+			'workbench.view.extension.codevibe-agent.state.hidden',
+			'workbench.view.extension.codevibe-agent.numberOfVisibleViews',
 			'workbench.view.extension.vibecodeAgentSidebar.state',
 			'workbench.view.extension.vibecodeAgentSidebar.state.hidden',
 			'workbench.view.extension.vibecodeAgentSidebar.numberOfVisibleViews',
@@ -961,6 +966,7 @@ function cleanLegacyCodeVibeViewStateDatabase(databasePath) {
 			'memento/webviewView.claude-dev.SidebarProvider',
 			'memento/webviewView.codevibe.SidebarProvider',
 			'memento/webviewView.codevibe.agentPanel',
+			'memento/webviewView.codevibe-agent-chat',
 			'memento/webviewView.vibecode.agent',
 			'memento/webviewView.vibecode.agentPanel',
 			'memento/webviewView.vibecodex-agent-extension-view'
@@ -1183,6 +1189,9 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	const codeVibeAgentWebview = codeVibeAgentViews.find((view) => view?.id === "codevibe-agent-chat")
 	if (codeVibeAgentWebview?.visibility !== "hidden") {
 		throw new Error(`${label} codevibe-agent-chat webview must be hidden by default so native VS Code Chat is primary`)
+	}
+	if (codeVibeAgentWebview?.name === "Agent") {
+		throw new Error(`${label} hidden compatibility webview must not use the generic Agent label`)
 	}
 	const chatParticipants = Array.isArray(packageJson.contributes?.chatParticipants)
 		? packageJson.contributes.chatParticipants
