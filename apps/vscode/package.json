@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.71",
+	"version": "3.88.72",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -176,7 +176,6 @@
 		},
 		"chatSessions": [
 			{
-				"id": "codevibe-agent",
 				"type": "codevibe-agent",
 				"name": "CodeVibe Agent",
 				"displayName": "CodeVibe Agent",
@@ -199,15 +198,15 @@
 				},
 				"commands": [
 					{
-						"id": "plan",
+						"name": "plan",
 						"description": "Explore the codebase and prepare an implementation plan"
 					},
 					{
-						"id": "act",
+						"name": "act",
 						"description": "Start an implementation task in CodeVibe"
 					},
 					{
-						"id": "review",
+						"name": "review",
 						"description": "Review the current code or selected changes"
 					}
 				],

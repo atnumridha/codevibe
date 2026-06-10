@@ -10,7 +10,6 @@ const CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
-	"id",
 	"type",
 	"name",
 	"displayName",
@@ -42,7 +41,7 @@ const CHAT_SESSION_CAPABILITY_KEYS = new Set([
 	"supportsPromptAttachments",
 	"supportsHandOffs",
 ])
-const CHAT_SESSION_COMMAND_KEYS = new Set(["id", "description", "when"])
+const CHAT_SESSION_COMMAND_KEYS = new Set(["name", "description", "when"])
 
 async function readPackageManifest(): Promise<Record<string, any>> {
 	return JSON.parse(await readFile(packagePath, "utf8"))
@@ -108,7 +107,7 @@ describe("Package manifest", () => {
 		assertOnlyAllowedKeys(chatSession.capabilities, CHAT_SESSION_CAPABILITY_KEYS, "chatSessions[0].capabilities")
 		for (const [index, command] of (chatSession.commands ?? []).entries()) {
 			assertOnlyAllowedKeys(command, CHAT_SESSION_COMMAND_KEYS, `chatSessions[0].commands[${index}]`)
-			assert.match(command.id, /^[A-Za-z0-9_-]+$/)
+			assert.match(command.name, /^[A-Za-z0-9_-]+$/)
 		}
 		assert.deepEqual(packageJSON.contributes.chatAgents ?? [], [])
 		assert.match(agentFile, /^---\nid: codevibe\n/m)
@@ -117,12 +116,11 @@ describe("Package manifest", () => {
 		assert.match(agentFile, /elevated trust/)
 		assert.match(agentFile, /OpenAI skills/)
 		assert.match(agentFile, /subagents/)
-		assert.equal(chatSession?.id, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)
+		assert.equal(chatSession?.id, undefined)
 		assert.equal(chatSession?.customAgentTarget, undefined)
 		assert.equal(chatSession?.alternativeIds, undefined)
 		assert.equal(chatSession?.order, -1000)
-		assert.match(chatSession?.id, /^[A-Za-z0-9_-]+$/)
 		assert.match(chatSession?.type, /^[A-Za-z0-9_-]+$/)
 		assert.equal(chatSession?.type.startsWith("agent-host-"), false)
 		assert.deepEqual(sessionTypes, [CODEVIBE_CHAT_SESSION_TYPE])
