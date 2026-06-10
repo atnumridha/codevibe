@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, it } from "mocha"
 import "should"
 import { CommandPermissionController } from "./CommandPermissionController"
-import { COMMAND_PERMISSIONS_ENV_VAR } from "./types"
+import { COMMAND_PERMISSIONS_ENV_VAR, LEGACY_COMMAND_PERMISSIONS_ENV_VAR } from "./types"
 
 describe("CommandPermissionController", () => {
 	let originalEnvValue: string | undefined
+	let originalLegacyEnvValue: string | undefined
 
 	beforeEach(() => {
 		// Save original env value
 		originalEnvValue = process.env[COMMAND_PERMISSIONS_ENV_VAR]
+		originalLegacyEnvValue = process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
 	})
 
 	afterEach(() => {
@@ -18,11 +20,17 @@ describe("CommandPermissionController", () => {
 		} else {
 			process.env[COMMAND_PERMISSIONS_ENV_VAR] = originalEnvValue
 		}
+		if (originalLegacyEnvValue === undefined) {
+			delete process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
+		} else {
+			process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR] = originalLegacyEnvValue
+		}
 	})
 
 	describe("No Configuration", () => {
 		it("should allow all commands when env var is not set", () => {
 			delete process.env[COMMAND_PERMISSIONS_ENV_VAR]
+			delete process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
 			const controller = new CommandPermissionController()
 
 			const result = controller.validateCommand("npm install")
@@ -32,6 +40,7 @@ describe("CommandPermissionController", () => {
 
 		it("should apply supplemental command permissions without env var", () => {
 			delete process.env[COMMAND_PERMISSIONS_ENV_VAR]
+			delete process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
 			const controller = new CommandPermissionController({
 				allow: ["git status", "git status *"],
 				allowRedirects: false,
@@ -61,11 +70,40 @@ describe("CommandPermissionController", () => {
 
 		it("should allow all commands when env var is empty string", () => {
 			process.env[COMMAND_PERMISSIONS_ENV_VAR] = ""
+			delete process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
 			const controller = new CommandPermissionController()
 
 			const result = controller.validateCommand("curl http://example.com")
 			result.allowed.should.be.true()
 			result.reason.should.equal("no_config")
+		})
+
+		it("should fall back to legacy CLINE_COMMAND_PERMISSIONS", () => {
+			delete process.env[COMMAND_PERMISSIONS_ENV_VAR]
+			process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR] = JSON.stringify({
+				allow: ["git *"],
+			})
+			const controller = new CommandPermissionController()
+
+			controller.validateCommand("git status").allowed.should.be.true()
+			const denied = controller.validateCommand("npm test")
+			denied.allowed.should.be.false()
+			denied.reason.should.equal("no_match_deny_default")
+		})
+
+		it("should prefer CODEVIBE_COMMAND_PERMISSIONS over the legacy value", () => {
+			process.env[COMMAND_PERMISSIONS_ENV_VAR] = JSON.stringify({
+				allow: ["npm *"],
+			})
+			process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR] = JSON.stringify({
+				allow: ["git *"],
+			})
+			const controller = new CommandPermissionController()
+
+			controller.validateCommand("npm test").allowed.should.be.true()
+			const denied = controller.validateCommand("git status")
+			denied.allowed.should.be.false()
+			denied.reason.should.equal("no_match_deny_default")
 		})
 
 		it("should handle non-array allow/deny values gracefully", () => {

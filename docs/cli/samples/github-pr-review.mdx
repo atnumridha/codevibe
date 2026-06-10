@@ -69,7 +69,7 @@ jobs:
           cache: "npm"
 
       - name: Install CodeVibe CLI
-        run: npm install -g @cline/cli
+        run: npm install -g codevibe
 
       - name: Configure CodeVibe Authentication
         # Replace 'anthropic' with your provider of choice (openai, openrouter, etc.)
@@ -94,7 +94,7 @@ jobs:
           GITHUB_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
           # Restrict CodeVibe to only safe, read-only GitHub CLI commands
-          CLINE_COMMAND_PERMISSIONS: |
+          CODEVIBE_COMMAND_PERMISSIONS: |
             {
               "allow": [
                 "gh pr diff *",
@@ -182,7 +182,7 @@ codevibe --auto-approve true '...'
 The `--auto-approve true` flag tells CodeVibe to run autonomously, executing approved tools without waiting for interactive confirmation. Prompt runs start in Act mode by default, so CI/CD workflows can perform the requested work immediately.
 
 ### Command Permissions
-We explicitly restrict what commands CodeVibe can run using `CLINE_COMMAND_PERMISSIONS`. This legacy environment variable name is retained for compatibility and ensures CodeVibe can only use `gh` and `git` commands relevant to reviewing, preventing any accidental or malicious system modifications.
+We explicitly restrict what commands CodeVibe can run using `CODEVIBE_COMMAND_PERMISSIONS`, so the reviewer can only use the `gh` and `git` commands relevant to the pull request.
 
 ## Customizing the Reviewer
 

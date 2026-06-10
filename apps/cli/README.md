@@ -17,7 +17,10 @@ codevibe
 codevibe "Audit this package and propose fixes"
 cat file.txt | codevibe "Summarize this"
 codevibe --help
+codevibe dashboard
 ```
+
+`codevibe dashboard` starts the CodeVibe Hub browser dashboard for local standalone sessions, background agents, approvals, schedules, connectors, and live session monitoring.
 
 ## Auth
 
@@ -112,6 +115,7 @@ codevibe schedule import ./daily-review.yaml
 - `codevibe doctor`
 - `codevibe hook`
 - `codevibe hub`
+- `codevibe dashboard`
 - `codevibe kanban`
 
 ## Environment

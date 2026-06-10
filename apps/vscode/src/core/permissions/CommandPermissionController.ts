@@ -1,6 +1,12 @@
 import { ParseEntry, parse } from "shell-quote"
 import { Logger } from "@/shared/services/Logger"
-import { COMMAND_PERMISSIONS_ENV_VAR, CommandPermissionConfig, PermissionValidationResult, ShellOperatorMatch } from "./types"
+import {
+	COMMAND_PERMISSIONS_ENV_VAR,
+	LEGACY_COMMAND_PERMISSIONS_ENV_VAR,
+	CommandPermissionConfig,
+	PermissionValidationResult,
+	ShellOperatorMatch,
+} from "./types"
 
 const REDIRECT_OPERATORS = new Set([">", ">>", "<", ">&", "<&", "|&", "<(", ">("])
 const COMMAND_SEPARATOR_OPERATORS = new Set(["&&", "||", "|", ";"])
@@ -27,7 +33,7 @@ interface ParsedCommand {
  * Controls command execution permissions based on environment and task-level configuration.
  * Uses glob pattern matching to allow/deny specific commands.
  *
- * Configuration is read from the CLINE_COMMAND_PERMISSIONS environment variable.
+ * Configuration is read from CODEVIBE_COMMAND_PERMISSIONS, with CLINE_COMMAND_PERMISSIONS as a legacy fallback.
  * Supplemental task-level configs, such as a sandbox-derived read-only policy, are intersected with it.
  * Format: {"allow": ["pattern1", "pattern2"], "deny": ["pattern3"], "allowRedirects": true}
  *
@@ -48,11 +54,12 @@ export class CommandPermissionController {
 	}
 
 	/**
-	 * Parse the CLINE_COMMAND_PERMISSIONS environment variable
+	 * Parse the CodeVibe command permissions environment variable.
 	 * @returns Parsed configuration or null if not set or invalid
 	 */
 	private parseConfig(): CommandPermissionConfig | null {
-		const envValue = process.env[COMMAND_PERMISSIONS_ENV_VAR]
+		const envConfig = this.readConfigEnv()
+		const envValue = envConfig?.value
 		if (!envValue) {
 			return null
 		}
@@ -65,9 +72,23 @@ export class CommandPermissionController {
 				allowRedirects: typeof parsed.allowRedirects === "boolean" ? parsed.allowRedirects : undefined,
 			}
 		} catch (error) {
-			Logger.error(`Failed to parse ${COMMAND_PERMISSIONS_ENV_VAR}:`, error)
+			Logger.error(`Failed to parse ${envConfig?.name ?? COMMAND_PERMISSIONS_ENV_VAR}:`, error)
 			return null
 		}
+	}
+
+	private readConfigEnv(): { name: string; value: string } | null {
+		const codeVibeValue = process.env[COMMAND_PERMISSIONS_ENV_VAR]
+		if (codeVibeValue?.trim()) {
+			return { name: COMMAND_PERMISSIONS_ENV_VAR, value: codeVibeValue }
+		}
+
+		const legacyValue = process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
+		if (legacyValue?.trim()) {
+			return { name: LEGACY_COMMAND_PERMISSIONS_ENV_VAR, value: legacyValue }
+		}
+
+		return null
 	}
 
 	/**
