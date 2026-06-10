@@ -15,9 +15,9 @@ Use this skill for Model Context Protocol work.
 4. Confirm before installing packages, exposing network listeners, replacing an existing server, or running server commands.
 5. Redact secrets in previews, logs, and final summaries.
 
-## Cursor Compatibility
+## Editor Compatibility
 
-When importing `.cursor/mcp.json`, preserve server names, command/url transport details, environment values, and explicit user intent. If the import would replace an existing server, require confirmation.
+When importing editor-specific MCP configs such as `.cursor/mcp.json`, preserve server names, command/url transport details, environment values, and explicit user intent. If the import would replace an existing server, require confirmation.
 
 ## Validation
 

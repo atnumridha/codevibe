@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.42",
+	"version": "3.88.43",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -193,7 +193,7 @@
 				"inputPlaceholder": "Ask CodeVibe to build, fix, review, or plan",
 				"order": -1000,
 				"canDelegate": true,
-				"description": "Run CodeVibe before Copilot-style agents for local coding tasks",
+				"description": "Use CodeVibe Agent for local coding workflows",
 				"customAgentTarget": "codevibe",
 				"capabilities": {
 					"supportsFileAttachments": true,

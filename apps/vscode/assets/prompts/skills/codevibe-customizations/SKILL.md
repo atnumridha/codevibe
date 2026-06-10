@@ -9,7 +9,7 @@ Use this skill when the task involves customization files for the coding agent.
 
 ## Supported Files
 
-- `.github/copilot-instructions.md`
+- GitHub custom instruction files
 - `.github/instructions/*.instructions.md`
 - `.github/prompts/*.prompt.md`
 - `.github/agents/*.agent.md`

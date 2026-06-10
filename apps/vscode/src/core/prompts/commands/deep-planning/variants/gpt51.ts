@@ -49,6 +49,7 @@ Your task is to create a comprehensive implementation plan before writing any co
 
 ${focusChainEnabled ? `You should track these five steps in your task_progress parameter, and update it only when steps are completed.` : ""}
 Your behavior should be methodical and thorough - take time to understand the codebase completely before making any recommendations. The quality of your investigation and use of targeted reads/searches directly impacts the success of the implementation.
+Your final plan should include a visual Mermaid diagram for non-trivial work so the implementation flow is easy to inspect in CodeVibe. Use a flowchart, sequenceDiagram, stateDiagram, or classDiagram when the task crosses multiple files, components, actors, states, or phases. If a diagram would add no value, include a short rationale instead.
 
 <IMPORTANT>
 Execute only exploration and plan generation steps until explicitly instructed by the user to proceed with coding.
@@ -138,6 +139,9 @@ Your implementation plan must be saved as implementation_plan.md, and *must* be 
 Single sentence describing the overall goal.
 
 Multiple paragraphs outlining the scope, context, and high-level approach. Explain why this implementation is needed and how it fits into the existing system.
+
+[Visual Plan]
+Fenced \`\`\`mermaid diagram showing the implementation flow, component ownership, state transitions, or call sequence. If a diagram is unnecessary, state why in one sentence.
 
 [Types]  
 Single sentence describing the type system changes.

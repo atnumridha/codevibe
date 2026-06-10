@@ -35,6 +35,7 @@ function generateTemplate(): string {
 Your task is to create a comprehensive implementation plan before writing any code. This process has four distinct steps that must be completed in order.
 
 Your behavior should be methodical and thorough - take time to understand the codebase completely before making any recommendations. The quality of your investigation directly impacts the success of the implementation.
+Your final plan should include a visual Mermaid diagram for non-trivial work so the implementation flow is easy to inspect in CodeVibe. Use a flowchart, sequenceDiagram, stateDiagram, or classDiagram when the task crosses multiple files, components, actors, states, or phases. If a diagram would add no value, include a short rationale instead.
 
 ## STEP 1: Silent Investigation
 
@@ -115,6 +116,9 @@ Single sentence describing the overall goal.
 
 Multiple paragraphs outlining the scope, context, and high-level approach. Explain why this implementation is needed and how it fits into the existing system.
 
+[Visual Plan]
+Fenced \`\`\`mermaid diagram showing the implementation flow, component ownership, state transitions, or call sequence. If a diagram is unnecessary, state why in one sentence.
+
 [Types]  
 Single sentence describing the type system changes.
 
@@ -176,7 +180,10 @@ ${
 	isPowerShell
 		? `
 # Read Overview section
-$content = Get-Content implementation_plan.md; $start = ($content | Select-String -Pattern '\\[Overview\\]').LineNumber; $end = ($content | Select-String -Pattern '\\[Types\\]').LineNumber; $content[($start-1)..($end-2)]
+$content = Get-Content implementation_plan.md; $start = ($content | Select-String -Pattern '\\[Overview\\]').LineNumber; $end = ($content | Select-String -Pattern '\\[Visual Plan\\]').LineNumber; $content[($start-1)..($end-2)]
+
+# Read Visual Plan section
+$content = Get-Content implementation_plan.md; $start = ($content | Select-String -Pattern '\\[Visual Plan\\]').LineNumber; $end = ($content | Select-String -Pattern '\\[Types\\]').LineNumber; $content[($start-1)..($end-2)]
 
 # Read Types section
 $content = Get-Content implementation_plan.md; $start = ($content | Select-String -Pattern '\\[Types\\]').LineNumber; $end = ($content | Select-String -Pattern '\\[Files\\]').LineNumber; $content[($start-1)..($end-2)]
@@ -201,25 +208,28 @@ $content = Get-Content implementation_plan.md; $start = ($content | Select-Strin
 `
 		: `
 # Read Overview section
-sed -n '/\\[Overview\\]/,/\\[Types\\]/p' implementation_plan.md | head -n 1 | cat
+sed -n '/\\[Overview\\]/,/\\[Visual Plan\\]/p' implementation_plan.md | cat
+
+# Read Visual Plan section
+sed -n '/\\[Visual Plan\\]/,/\\[Types\\]/p' implementation_plan.md | cat
 
 # Read Types section  
-sed -n '/\\[Types\\]/,/\\[Files\\]/p' implementation_plan.md | head -n 1 | cat
+sed -n '/\\[Types\\]/,/\\[Files\\]/p' implementation_plan.md | cat
 
 # Read Files section
-sed -n '/\\[Files\\]/,/\\[Functions\\]/p' implementation_plan.md | head -n 1 | cat
+sed -n '/\\[Files\\]/,/\\[Functions\\]/p' implementation_plan.md | cat
 
 # Read Functions section
-sed -n '/\\[Functions\\]/,/\\[Classes\\]/p' implementation_plan.md | head -n 1 | cat
+sed -n '/\\[Functions\\]/,/\\[Classes\\]/p' implementation_plan.md | cat
 
 # Read Classes section
-sed -n '/\\[Classes\\]/,/\\[Dependencies\\]/p' implementation_plan.md | head -n 1 | cat
+sed -n '/\\[Classes\\]/,/\\[Dependencies\\]/p' implementation_plan.md | cat
 
 # Read Dependencies section
-sed -n '/\\[Dependencies\\]/,/\\[Testing\\]/p' implementation_plan.md | head -n 1 | cat
+sed -n '/\\[Dependencies\\]/,/\\[Testing\\]/p' implementation_plan.md | cat
 
 # Read Testing section
-sed -n '/\\[Testing\\]/,/\\[Implementation Order\\]/p' implementation_plan.md | head -n 1 | cat
+sed -n '/\\[Testing\\]/,/\\[Implementation Order\\]/p' implementation_plan.md | cat
 
 # Read Implementation Order section
 sed -n '/\\[Implementation Order\\]/,$p' implementation_plan.md | cat

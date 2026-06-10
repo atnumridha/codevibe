@@ -32,6 +32,7 @@ Perform comprehensive research to build complete understanding of the codebase. 
 - Identify technical constraints, existing patterns, and potential risks
 - Ask targeted clarifying questions only when they will directly influence your implementation approach
 - Ensure complete coverage - before presenting a plan, you should identify all related functions, classes, calls, and methods that are involved or affected by the proposed changes.
+- Prepare a visual plan for non-trivial work: a fenced ```mermaid flowchart, sequenceDiagram, stateDiagram, or classDiagram that maps the proposed flow, ownership boundaries, or implementation sequence. If a diagram would add no value, say so briefly in the plan.
 
 ### Phase 2: Plan Presentation
 
@@ -45,19 +46,22 @@ Once research is complete, use plan_mode_respond to present your detailed plan. 
 2. **Key Changes** (bulleted list)
    Main files/components to be modified or created, with one-line descriptions of changes.
 
-3. **Implementation Steps** (numbered list)
+3. **Visual Plan** (Mermaid diagram or one-sentence rationale)
+   Include a fenced ```mermaid diagram for multi-file, multi-component, stateful, or phased work. Use flowchart/sequence/state/class diagrams based on the problem shape.
+
+4. **Implementation Steps** (numbered list)
    Break down the work into 4-40 concrete, actionable steps that will be executed in Act Mode. Be specific about what each step accomplishes. Each step should be specific to a function, class, or file, depending on the total scope of the task you are planning.
 
-4. **Technical Considerations** (bulleted list)
+5. **Technical Considerations** (bulleted list)
    Important architectural decisions, trade-offs, edge cases, or risks to be aware of during implementation.
 
-5. **Success Criteria** (bulleted list)
+6. **Success Criteria** (bulleted list)
    Define what "done" looks like - how to verify the implementation works correctly.
 
 **Formatting Guidelines:**
 - Use clear markdown with headers, lists, and inline `code` formatting for technical terms
 - Keep descriptions detailed, but at a reasonable length for a technical conversation.
-- Include simple ASCII diagrams or mermaid diagrams only if they genuinely clarify complex relationships
+- Prefer Mermaid over ASCII for visual plans because the CodeVibe UI renders Mermaid diagrams inline
 - Balance detail with brevity for scannable content
 
 ### Phase 3: Collaborative Refinement

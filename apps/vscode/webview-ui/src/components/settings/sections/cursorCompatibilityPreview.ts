@@ -1,5 +1,5 @@
 export const CURSOR_COMPATIBLE_ROUTE_LABELS = [
-	{ path: "/createchat", label: "Chat" },
+	{ path: "/createchat", label: "Task" },
 	{ path: "/mcp/install", label: "MCP" },
 	{ path: "/background-agent", label: "Background" },
 	{ path: "/settings", label: "Settings" },
@@ -8,7 +8,7 @@ export const CURSOR_COMPATIBLE_ROUTE_LABELS = [
 	{ path: "/rule", label: "Rule" },
 	{ path: "/pr-review", label: "PR Review" },
 	{ path: "/plugin/add", label: "Plugin" },
-	{ path: "/glass", label: "Glass" },
+	{ path: "/glass", label: "Legacy UI" },
 	{ path: "/automation/ingest", label: "NDJSON" },
 	{ path: "/git/checkout", label: "Checkout" },
 	{ path: "/git/branch", label: "Branch" },
@@ -17,7 +17,7 @@ export const CURSOR_COMPATIBLE_ROUTE_LABELS = [
 
 export const CURSOR_COMPATIBILITY_SURFACES = [
 	"Codex auth",
-	"Composer",
+	"Task creation",
 	"MCP install",
 	"Browser",
 	"Retrieval",
@@ -26,7 +26,7 @@ export const CURSOR_COMPATIBILITY_SURFACES = [
 	"Sandbox",
 	"Git helpers",
 	"NDJSON ingest",
-	"Plugins",
+	"Plugin routes",
 ] as const
 
 const ROUTE_PATHS = new Set(CURSOR_COMPATIBLE_ROUTE_LABELS.map((route) => route.path))

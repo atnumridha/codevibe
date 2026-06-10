@@ -33,7 +33,7 @@ export function getDeepPlanningPrompt(
 
 	// For variants with extensive focus chain prompting, generate template with focus chain flag
 	let template: string
-	if (variant.id === "gpt-51") {
+	if (variant.id === "gpt-5") {
 		template = generateGPT51Template(focusChainSettings?.enabled ?? false, enableNativeToolCalls ?? false)
 	} else if (variant.id === "gemini-3") {
 		template = generateGemini3Template(focusChainSettings?.enabled ?? false, enableNativeToolCalls ?? false)
