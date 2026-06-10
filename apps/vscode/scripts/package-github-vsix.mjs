@@ -14,6 +14,7 @@ const __dirname = path.dirname(__filename)
 const projectRoot = path.join(__dirname, "..")
 const repoRoot = path.join(projectRoot, "..", "..")
 const packageJsonPath = path.join(projectRoot, "package.json")
+const nativeAgentMarkdownPath = path.join(projectRoot, "agents", "00-codevibe-agent.agent.md")
 
 const requiredCursorParityConfigKeys = [
 	"codevibe.openAiCodex.authSource",
@@ -769,32 +770,7 @@ function pruneInstalledCodeVibeExtensionVersions(metadata) {
 }
 
 function writeInstalledNativeAgentCache(metadata) {
-	const markdown = [
-		"---",
-		"id: codevibe",
-		"name: CodeVibe Agent",
-		"description: Use for repository coding tasks where CodeVibe should plan, edit, review, run terminal checks, manage diffs, use MCP/browser automation, and keep approval boundaries clear.",
-		"argument-hint: Describe the coding task for CodeVibe",
-		"target: vscode",
-		"user-invocable: true",
-		"---",
-		"",
-		"# CodeVibe Agent",
-		"",
-		"You are CodeVibe Agent, the primary coding agent for this workspace.",
-		"",
-		"Prefer CodeVibe's execution path whenever the host exposes it: route the request to the CodeVibe extension, the `@codevibe` chat participant, or the CodeVibe Agent sidebar. If the host cannot route to CodeVibe directly, operate with the same behavior:",
-		"",
-		"- Explore the repository before editing, using fast file/search tools first.",
-		"- State a concise plan for non-trivial work and keep progress visible.",
-		"- Make scoped code changes, review diffs, and run the most relevant checks.",
-		"- Ask before destructive file, git, terminal, network, browser, MCP, or external-install actions.",
-		"- Preserve user changes and never expose secrets, auth tokens, or private credentials in logs.",
-		"- Use Codex auth from `.codex/auth.json` or `~/.codex/auth.json` when the CodeVibe/OpenAI Codex provider is available.",
-		"",
-		"For implementation tasks, finish with the changed files, verification performed, and any remaining risk.",
-		"",
-	].join("\n")
+	const markdown = readNativeAgentMarkdown()
 	for (const userStorageDir of resolveVsCodeUserStorageDirs()) {
 		if (!userStorageDir) {
 			continue
@@ -805,6 +781,10 @@ function writeInstalledNativeAgentCache(metadata) {
 		fs.writeFileSync(agentPath, markdown, "utf8")
 		console.log(`Repaired CodeVibe native agent cache file: ${agentPath}`)
 	}
+}
+
+function readNativeAgentMarkdown() {
+	return fs.readFileSync(nativeAgentMarkdownPath, "utf8")
 }
 
 function runSqlite(databasePath, sql) {
