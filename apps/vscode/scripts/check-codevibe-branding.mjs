@@ -59,6 +59,7 @@ const disallowedFragments = [
 	{ pattern: /Current Cline extension version/g, label: "legacy hook metadata docs" },
 	{ pattern: /Cline user ID/g, label: "legacy hook user metadata docs" },
 	{ pattern: /Input:[\s\S]{0,160}clineVersion/g, label: "legacy hook template metadata" },
+	{ pattern: /cline_version\s*[:=]/g, label: "legacy Cline version payload key" },
 ]
 
 const scannedVsixArtifacts = ["dist/e2e.vsix"]

@@ -208,6 +208,7 @@ describe("Package manifest", () => {
 		assert.equal(brandingAuditScript.includes("stale VSIX artifact version"), true)
 		assert.equal(brandingAuditScript.includes("extension.vsixmanifest"), true)
 		assert.equal(brandingAuditScript.includes("ClineModelPicker"), true)
+		assert.equal(brandingAuditScript.includes("legacy Cline version payload key"), true)
 	})
 
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {

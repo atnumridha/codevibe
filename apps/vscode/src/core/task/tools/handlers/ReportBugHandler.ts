@@ -95,7 +95,6 @@ export class ReportBugHandler implements IToolHandler, IPartialBlockHandler {
 			operating_system: operatingSystem,
 			system_info: systemInfo,
 			codevibe_version: codeVibeVersion,
-			cline_version: codeVibeVersion,
 		})
 
 		const { text, images, files: reportBugFiles } = await config.callbacks.ask(this.name, bugReportData, false)
