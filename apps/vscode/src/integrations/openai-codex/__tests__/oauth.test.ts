@@ -204,6 +204,36 @@ describe("OpenAI Codex OAuth local profile support", () => {
 		})
 	})
 
+	it("skips an invalid workspace .codex profile and loads the next workspace profile", async () => {
+		const invalidWorkspaceRoot = await mkdtemp(join(tmpdir(), "codevibe-invalid-workspace-"))
+		const invalidCodexHome = join(invalidWorkspaceRoot, ".codex")
+		await mkdir(invalidCodexHome, { recursive: true })
+		await writeFile(join(invalidCodexHome, "auth.json"), "{not json")
+
+		const accessToken = jwt({
+			exp: 2_000,
+			email: "next-workspace@example.com",
+			"https://api.openai.com/auth": {
+				chatgpt_account_id: "acct_from_next_workspace",
+			},
+		})
+		const { workspaceRoot } = await createWorkspaceCodexHome(accessToken, "next-workspace-refresh-secret")
+		const warnStub = sinon.stub(Logger, "warn")
+
+		const credentials = await loadCodexHomeCredentials({ workspaceRoots: [invalidWorkspaceRoot, workspaceRoot] })
+
+		expect(credentials).to.deep.include({
+			type: "openai-codex",
+			access_token: accessToken,
+			refresh_token: "next-workspace-refresh-secret",
+			accountId: "acct_from_next_workspace",
+			tokenSource: "codex-home",
+		})
+		expect(warnStub.calledOnce).to.equal(true)
+		expect(String(warnStub.firstCall.args[0])).to.contain("Skipping invalid Codex home credentials candidate")
+		expect(String(warnStub.firstCall.args[0])).not.to.contain(invalidWorkspaceRoot)
+	})
+
 	it("discovers workspace .codex credentials from the host workspace service", async () => {
 		const accessToken = jwt({ exp: 2_000 })
 		const { workspaceRoot } = await createWorkspaceCodexHome(accessToken, "host-workspace-refresh-secret")

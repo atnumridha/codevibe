@@ -463,9 +463,17 @@ export async function loadCodexHomeCredentials(
 	options?: LoadCodexHomeCredentialsOptions,
 ): Promise<OpenAiCodexCredentials | null> {
 	for (const codexHome of await getCodexHomePaths(options)) {
-		const credentials = await loadCodexHomeCredentialsFromPath(codexHome, options?.now)
-		if (credentials) {
-			return credentials
+		try {
+			const credentials = await loadCodexHomeCredentialsFromPath(codexHome, options?.now)
+			if (credentials) {
+				return credentials
+			}
+		} catch (error) {
+			Logger.warn(
+				`[openai-codex-oauth] Skipping invalid Codex home credentials candidate: ${safeOpenAiCodexErrorSummary(
+					error,
+				)}`,
+			)
 		}
 	}
 	return null
