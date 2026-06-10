@@ -701,6 +701,18 @@ function verifyInstalledExtension(listOutput, expectedExtension) {
 	}
 }
 
+function getInstalledCodeVibeExtensionDirs(metadata, extensionsDir = resolveVsCodeExtensionsDir()) {
+	if (!fs.existsSync(extensionsDir)) {
+		return []
+	}
+	const extensionPrefix = `${metadata.extensionId.toLowerCase()}-`
+	return fs
+		.readdirSync(extensionsDir, { withFileTypes: true })
+		.filter((entry) => entry.isDirectory() && entry.name.toLowerCase().startsWith(extensionPrefix))
+		.map((entry) => path.join(extensionsDir, entry.name))
+		.sort()
+}
+
 function resolveVsCodeUserStorageDir() {
 	if (process.env.VSCODE_PORTABLE) {
 		return path.join(process.env.VSCODE_PORTABLE, "user-data", "User")
@@ -750,18 +762,12 @@ function pruneInstalledCodeVibeExtensionVersions(metadata) {
 	if (!fs.existsSync(extensionsDir)) {
 		return
 	}
-	const extensionPrefix = `${metadata.extensionId.toLowerCase()}-`
 	const currentExtensionDir = `${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`
 	let removed = 0
-	for (const entry of fs.readdirSync(extensionsDir, { withFileTypes: true })) {
-		if (!entry.isDirectory()) {
+	for (const extensionPath of getInstalledCodeVibeExtensionDirs(metadata, extensionsDir)) {
+		if (path.basename(extensionPath).toLowerCase() === currentExtensionDir) {
 			continue
 		}
-		const entryName = entry.name.toLowerCase()
-		if (!entryName.startsWith(extensionPrefix) || entryName === currentExtensionDir) {
-			continue
-		}
-		const extensionPath = path.join(extensionsDir, entry.name)
 		fs.rmSync(extensionPath, { recursive: true, force: true })
 		removed++
 	}
@@ -1049,6 +1055,15 @@ function assertFileExists(filePath, label, options = {}) {
 	if (options.nonEmpty && fs.statSync(filePath).size === 0) {
 		throw new Error(`Empty ${label}: ${path.relative(projectRoot, filePath)}`)
 	}
+}
+
+function assertInstalledCodeVibeManifest(manifestPath, label) {
+	assertFileExists(manifestPath, label, { nonEmpty: true })
+	const installedPackageJson = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+	assertCursorParityManifest(installedPackageJson, label)
+	assertNativeCodeVibeContributionIds(installedPackageJson, label)
+	assertPackagedManifestNoDevMetadata(installedPackageJson, label)
+	return installedPackageJson
 }
 
 function assertDirectoryHasFiles(dirPath, label) {
@@ -1940,15 +1955,45 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 			`${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`,
 			"package.json",
 		)
-		assertFileExists(installedManifestPath, "installed VSIX package.json", { nonEmpty: true })
-		const installedPackageJson = JSON.parse(fs.readFileSync(installedManifestPath, "utf8"))
-		assertCursorParityManifest(installedPackageJson, "installed VSIX package.json")
-		assertNativeCodeVibeContributionIds(installedPackageJson, "installed VSIX package.json")
-		assertPackagedManifestNoDevMetadata(installedPackageJson, "installed VSIX package.json")
+		assertInstalledCodeVibeManifest(installedManifestPath, "installed VSIX package.json")
 		console.log(`VSIX smoke install verified ${expectedExtension} using isolated VS Code directories`)
 	} finally {
 		fs.rmSync(tempRoot, { recursive: true, force: true })
 	}
+}
+
+function assertNoStaleInstalledCodeVibeExtensionVersions(metadata) {
+	const extensionsDir = resolveVsCodeExtensionsDir()
+	const currentExtensionDir = `${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`
+	const staleExtensionDirs = getInstalledCodeVibeExtensionDirs(metadata, extensionsDir).filter(
+		(extensionPath) => path.basename(extensionPath).toLowerCase() !== currentExtensionDir,
+	)
+	if (staleExtensionDirs.length > 0) {
+		throw new Error(
+			`VSIX install left stale CodeVibe extension folder(s): ${staleExtensionDirs
+				.map((extensionPath) => path.relative(extensionsDir, extensionPath))
+				.join(", ")}`,
+		)
+	}
+}
+
+async function verifyDefaultInstallWithCode(metadata, codePath) {
+	const codeInvocation = await resolveCodeInvocation(codePath)
+	const codeCommand = [codeInvocation.command]
+	const expectedExtension = `${metadata.extensionId}@${metadata.version}`
+	const listResult = runCommand(codeCommand, [...codeInvocation.baseArgs, "--list-extensions", "--show-versions"], {
+		capture: true,
+		timeoutMs: vsCodeSmokeInstallTimeoutMs,
+	})
+	verifyInstalledExtension(listResult.stdout ?? "", expectedExtension)
+	const installedManifestPath = path.join(
+		resolveVsCodeExtensionsDir(),
+		`${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`,
+		"package.json",
+	)
+	assertInstalledCodeVibeManifest(installedManifestPath, "default installed VSIX package.json")
+	assertNoStaleInstalledCodeVibeExtensionVersions(metadata)
+	console.log(`VSIX default install verified ${expectedExtension}`)
 }
 
 async function main() {
@@ -2041,6 +2086,7 @@ async function main() {
 					}`,
 				)
 			}
+			await verifyDefaultInstallWithCode(metadata, options.code)
 			console.log(`VSIX installed into VS Code from ${outPath}`)
 		}
 		if (options.verifyInstall) {
