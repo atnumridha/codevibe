@@ -266,7 +266,7 @@ function formatDuration(ms) {
 
 function usage() {
 	console.error(
-		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--write-native-agent-launcher] [--enable-native-agent-argv] [--code <path>] [--print-metadata] [--preflight] [--require-release-gate]",
+		"Usage: package-github-vsix.mjs [--out-dir <dir>] [--out-file <path>] [--pre-release] [--install] [--verify-install] [--write-native-agent-launcher] [--enable-native-agent-argv] [--code <path>] [--print-metadata] [--preflight] [--require-release-gate] [--clean-legacy-view-state-only]",
 	)
 }
 
@@ -283,6 +283,7 @@ function parseArgs(argv) {
 		printMetadata: false,
 		preflight: false,
 		requireReleaseGate: false,
+		cleanLegacyViewStateOnly: false,
 	}
 
 	for (let index = 0; index < argv.length; index++) {
@@ -321,6 +322,8 @@ function parseArgs(argv) {
 			options.preflight = true
 		} else if (arg === "--require-release-gate") {
 			options.requireReleaseGate = true
+		} else if (arg === "--clean-legacy-view-state-only") {
+			options.cleanLegacyViewStateOnly = true
 		} else if (arg === "-h" || arg === "--help") {
 			usage()
 			process.exit(0)
@@ -1956,6 +1959,10 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 
 async function main() {
 	const options = parseArgs(process.argv.slice(2))
+	if (options.cleanLegacyViewStateOnly) {
+		cleanLegacyCodeVibeViewState()
+		return
+	}
 	if (options.preflight) {
 		const githubVsixPackageJson = createGithubVsixPackageJson(readPackageJson())
 		assertManifestInputs(githubVsixPackageJson)

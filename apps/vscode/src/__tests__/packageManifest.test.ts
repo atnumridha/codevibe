@@ -196,6 +196,7 @@ describe("Package manifest", () => {
 	})
 
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
+		const packageJSON = await readPackageManifest()
 		const packageScript = await readFile(path.join(vscodeRoot, "scripts", "package-github-vsix.mjs"), "utf8")
 		const extensionSource = await readFile(path.join(vscodeRoot, "src", "extension.ts"), "utf8")
 		const webviewProviderSource = await readFile(path.join(vscodeRoot, "src", "hosts", "vscode", "VscodeWebviewProvider.ts"), "utf8")
@@ -208,6 +209,12 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("resolveVsCodeUserStorageDirs"), true)
 		assert.equal(/path\.join\([\s\S]*"VibeCode IDE"[\s\S]*"User"[\s\S]*\)/.test(packageScript), true)
 		assert.equal(packageScript.includes("CODEVIBE_VSCODE_USER_STORAGE_DIRS"), true)
+		assert.equal(packageScript.includes("--clean-legacy-view-state-only"), true)
+		assert.equal(packageScript.includes("options.cleanLegacyViewStateOnly"), true)
+		assert.equal(
+			packageJSON.scripts?.["repair:vscode-state"],
+			"node scripts/package-github-vsix.mjs --clean-legacy-view-state-only",
+		)
 		assert.equal(packageScript.includes("resolveLegacyVSCodeArgvJsonPaths"), true)
 		assert.equal(packageScript.includes("writeInstalledNativeAgentCache(metadata)"), true)
 		assert.equal(packageScript.includes("Repaired CodeVibe native agent cache file"), true)
