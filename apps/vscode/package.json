@@ -87,7 +87,7 @@
 		"onCommand:codevibe.reviewComment.reply",
 		"onCommand:codevibe.reviewComment.addToChat",
 		"onChatParticipant:codevibe",
-		"onChatSession:agent-host-codevibe",
+		"onChatSession:codevibe-agent",
 		"onView:codevibe-agent-chat"
 	],
 	"main": "./dist/extension.js",
@@ -178,13 +178,16 @@
 				"id": "codevibe",
 				"name": "codevibe",
 				"description": "Use CodeVibe Agent for planning, coding, reviews, diffs, terminal approvals, MCP, browser automation, and Codex auth.",
-				"path": "agents/00-codevibe-agent.agent.md"
+				"path": "agents/00-codevibe-agent.agent.md",
+				"sessionTypes": [
+					"codevibe-agent"
+				]
 			}
 		],
 		"chatSessions": [
 			{
-				"id": "agent-host-codevibe",
-				"type": "agent-host-codevibe",
+				"id": "codevibe-agent",
+				"type": "codevibe-agent",
 				"name": "CodeVibe Agent",
 				"displayName": "CodeVibe Agent",
 				"icon": "$(codevibe-icon)",
@@ -195,6 +198,9 @@
 				"canDelegate": true,
 				"description": "Use CodeVibe Agent for local coding workflows",
 				"customAgentTarget": "codevibe",
+				"alternativeIds": [
+					"agent-host-codevibe"
+				],
 				"capabilities": {
 					"supportsFileAttachments": true,
 					"supportsProblemAttachments": true,
@@ -257,19 +263,19 @@
 			{
 				"path": "./assets/prompts/codevibe-plan.prompt.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			},
 			{
 				"path": "./assets/prompts/codevibe-review.prompt.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			},
 			{
 				"path": "./assets/prompts/codevibe-standalone-readiness.prompt.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			}
 		],
@@ -277,37 +283,37 @@
 			{
 				"path": "./assets/prompts/skills/codevibe-customizations/SKILL.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			},
 			{
 				"path": "./assets/prompts/skills/codevibe-cursor-compatibility/SKILL.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			},
 			{
 				"path": "./assets/prompts/skills/codevibe-mcp/SKILL.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			},
 			{
 				"path": "./assets/prompts/skills/codevibe-background-sessions/SKILL.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			},
 			{
 				"path": "./assets/prompts/skills/codevibe-release-validation/SKILL.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			},
 			{
 				"path": "./assets/prompts/skills/codevibe-performance-troubleshooting/SKILL.md",
 				"sessionTypes": [
-					"agent-host-codevibe"
+					"codevibe-agent"
 				]
 			}
 		],

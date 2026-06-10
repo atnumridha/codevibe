@@ -15,6 +15,8 @@ const projectRoot = path.join(__dirname, "..")
 const repoRoot = path.join(projectRoot, "..", "..")
 const packageJsonPath = path.join(projectRoot, "package.json")
 const nativeAgentMarkdownPath = path.join(projectRoot, "agents", "00-codevibe-agent.agent.md")
+const codeVibeNativeChatSessionType = "codevibe-agent"
+const legacyAgentHostChatSessionType = "agent-host-codevibe"
 
 const requiredCursorParityConfigKeys = [
 	"codevibe.openAiCodex.authSource",
@@ -1184,7 +1186,10 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (
 		codeVibeAgent.id !== "codevibe" ||
 		codeVibeAgent.name !== "codevibe" ||
-		!String(codeVibeAgent.description ?? "").includes("CodeVibe Agent")
+		!String(codeVibeAgent.description ?? "").includes("CodeVibe Agent") ||
+		!Array.isArray(codeVibeAgent.sessionTypes) ||
+		codeVibeAgent.sessionTypes.length !== 1 ||
+		codeVibeAgent.sessionTypes[0] !== codeVibeNativeChatSessionType
 	) {
 		throw new Error(`${label} CodeVibe chat agent contribution must be named and described as CodeVibe Agent`)
 	}
@@ -1212,6 +1217,9 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		if (sessionId !== sessionType) {
 			throw new Error(`${label} chatSessions[${index}] id must match type for native VS Code registration`)
 		}
+		if (sessionType.startsWith("agent-host-")) {
+			throw new Error(`${label} chatSessions[${index}] must not use VS Code's reserved agent-host-* session type`)
+		}
 		if (session.capabilities !== undefined) {
 			assertOnlyAllowedObjectKeys(
 				session.capabilities,
@@ -1227,25 +1235,32 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 			)
 		}
 	}
-	const codeVibeSession = chatSessions.find((session) => session?.type === "agent-host-codevibe")
+	const codeVibeSession = chatSessions.find((session) => session?.type === codeVibeNativeChatSessionType)
 	if (!codeVibeSession) {
-		throw new Error(`${label} must contribute the native agent-host-codevibe chat session`)
+		throw new Error(`${label} must contribute the native ${codeVibeNativeChatSessionType} chat session`)
 	}
 	if (codeVibeSession !== chatSessions[0]) {
-		throw new Error(`${label} must list agent-host-codevibe before Copilot-style providers`)
+		throw new Error(`${label} must list ${codeVibeNativeChatSessionType} before Copilot-style providers`)
 	}
 	if (codeVibeSession.name !== "CodeVibe Agent" || codeVibeSession.displayName !== "CodeVibe Agent") {
-		throw new Error(`${label} agent-host-codevibe chat session must display as CodeVibe Agent`)
+		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must display as CodeVibe Agent`)
 	}
 	if (typeof codeVibeSession.order !== "number" || codeVibeSession.order >= 0) {
-		throw new Error(`${label} agent-host-codevibe chat session must be ordered before Copilot-style providers`)
+		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must be ordered before Copilot-style providers`)
 	}
 	if (codeVibeSession.customAgentTarget !== "codevibe") {
-		throw new Error(`${label} agent-host-codevibe chat session must target CodeVibe custom agents`)
+		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must target CodeVibe custom agents`)
 	}
-	const codeVibeLegacySession = chatSessions.find((session) => session?.type === "codevibe-agent")
+	if (
+		!Array.isArray(codeVibeSession.alternativeIds) ||
+		codeVibeSession.alternativeIds.length !== 1 ||
+		codeVibeSession.alternativeIds[0] !== legacyAgentHostChatSessionType
+	) {
+		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must preserve the legacy agent-host alias`)
+	}
+	const codeVibeLegacySession = chatSessions.find((session) => session?.type === legacyAgentHostChatSessionType)
 	if (codeVibeLegacySession) {
-		throw new Error(`${label} must not contribute duplicate codevibe-agent chat session alias`)
+		throw new Error(`${label} must not contribute duplicate ${legacyAgentHostChatSessionType} chat session alias`)
 	}
 	const newSessionMenu = Array.isArray(packageJson.contributes?.menus?.["chatSessions/newSession"])
 		? packageJson.contributes.menus["chatSessions/newSession"]
@@ -1349,8 +1364,12 @@ function assertCodeVibeChatResourceContributions(entries, expectedPaths, kind, l
 		if (kind === "skill" && !normalized.endsWith("/SKILL.md")) {
 			throw new Error(`${label} chatSkills[${index}] must reference a SKILL.md file`)
 		}
-		if (!Array.isArray(entry.sessionTypes) || entry.sessionTypes.length !== 1 || entry.sessionTypes[0] !== "agent-host-codevibe") {
-			throw new Error(`${label} chat ${kind}s[${index}] must target only agent-host-codevibe`)
+		if (
+			!Array.isArray(entry.sessionTypes) ||
+			entry.sessionTypes.length !== 1 ||
+			entry.sessionTypes[0] !== codeVibeNativeChatSessionType
+		) {
+			throw new Error(`${label} chat ${kind}s[${index}] must target only ${codeVibeNativeChatSessionType}`)
 		}
 		const visiblePath = resourcePath.toLowerCase()
 		if (visiblePath.includes("copilot") || visiblePath.includes("cline")) {
@@ -1424,8 +1443,8 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	assertArrayIncludes(packageJson.enabledApiProposals, "chatSessionsProvider", `${label} enabledApiProposals`)
 	assertArrayIncludes(packageJson.activationEvents, "onUri", `${label} activationEvents`)
 	assertArrayIncludes(packageJson.activationEvents, "onChatParticipant:codevibe", `${label} activationEvents`)
-	assertArrayIncludes(packageJson.activationEvents, "onChatSession:agent-host-codevibe", `${label} activationEvents`)
-	assertArrayExcludes(packageJson.activationEvents, "onChatSession:codevibe-agent", `${label} activationEvents`)
+	assertArrayIncludes(packageJson.activationEvents, `onChatSession:${codeVibeNativeChatSessionType}`, `${label} activationEvents`)
+	assertArrayExcludes(packageJson.activationEvents, `onChatSession:${legacyAgentHostChatSessionType}`, `${label} activationEvents`)
 	for (const command of requiredCursorParityCommands) {
 		assertArrayIncludes(packageJson.activationEvents, `onCommand:${command}`, `${label} activationEvents`)
 	}
