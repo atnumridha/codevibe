@@ -43,6 +43,17 @@ const CHAT_SESSION_CAPABILITY_KEYS = new Set([
 	"supportsHandOffs",
 ])
 const CHAT_SESSION_COMMAND_KEYS = new Set(["name", "description", "when"])
+const FAST_CURSOR_PARITY_EVIDENCE_FLAGS = [
+	"--run-retrieval-indexing",
+	"--run-mcp-oauth",
+	"--run-standalone-ui",
+	"--run-sandbox-policy",
+	"--run-deeplinks",
+	"--run-ndjson",
+	"--run-background-agents",
+	"--run-browser-tools",
+	"--run-mermaid-planning",
+]
 
 async function readPackageManifest(): Promise<Record<string, any>> {
 	return JSON.parse(await readFile(packagePath, "utf8"))
@@ -268,6 +279,7 @@ describe("Package manifest", () => {
 	})
 
 	it("keeps GitHub release packaging non-interactive", async () => {
+		const packageJSON = await readPackageManifest()
 		const packageScript = await readFile(path.join(vscodeRoot, "scripts", "package-github-vsix.mjs"), "utf8")
 		const candidateWorkflow = await readFile(
 			path.join(vscodeRoot, "..", "..", ".github", "workflows", "ext-vscode-github-release.yml"),
@@ -284,12 +296,20 @@ describe("Package manifest", () => {
 		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --verify-install --require-release-gate)"), false)
 		assert.equal(candidateWorkflow.includes("package_args=(--out-dir .)"), true)
 		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --require-release-gate)"), true)
+		const fastEvidenceScript = packageJSON.scripts?.["release:cursor-parity:evidence:fast"] ?? ""
 		for (const workflow of [candidateWorkflow, stableWorkflow]) {
 			assert.equal(workflow.includes("Prepare standalone release assets"), true)
 			assert.equal(workflow.includes("prepare-standalone-release-assets.mjs"), true)
 			assert.equal(workflow.includes("apps/vscode/dist-standalone/standalone.zip"), true)
 			assert.equal(workflow.includes("apps/vscode/dist-standalone/standalone.zip.sha256"), true)
 			assert.equal(workflow.includes("apps/vscode/dist-standalone/standalone-manifest.json"), true)
+			assert.equal(workflow.includes("collect-cursor-parity-evidence.mjs"), true)
+			for (const flag of FAST_CURSOR_PARITY_EVIDENCE_FLAGS) {
+				assert.equal(workflow.includes(flag), true, flag)
+			}
+		}
+		for (const flag of FAST_CURSOR_PARITY_EVIDENCE_FLAGS) {
+			assert.equal(fastEvidenceScript.includes(flag), true, flag)
 		}
 		assert.equal(
 			candidateWorkflow.includes(
@@ -382,6 +402,8 @@ describe("Package manifest", () => {
 		assert.equal(packageJSON.scripts?.["smoke:standalone-package"], "node node_modules/tsx/dist/cli.mjs scripts/smoke-standalone-package.ts")
 		assert.equal(cursorParityEvidenceScript.includes("Standalone package artifact build and manifest verification"), true)
 		assert.equal(cursorParityEvidenceScript.includes("Standalone extracted package consumer smoke"), true)
+		assert.equal(cursorParityEvidenceScript.includes("BrowserToolHandler.evaluate.test.ts"), true)
+		assert.equal(cursorParityEvidenceScript.includes("BrowserToolHandler evaluate safety"), true)
 		assert.equal(cursorParityEvidenceScript.includes('"compile-standalone"'), true)
 		assert.equal(cursorParityEvidenceScript.includes("smoke-standalone-package.ts"), true)
 		assert.equal(cursorParityEvidenceScript.includes("verify-standalone-package.mjs"), true)

@@ -1,9 +1,9 @@
-import type { ChildProcess } from "node:child_process"
+import { execFileSync, type ChildProcess } from "node:child_process"
 import { mkdirSync, mkdtempSync, type PathLike, type RmOptions, readdirSync, rmSync, writeFileSync } from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 import { type ElectronApplication, expect, type Frame, type Locator, type Page, test } from "@playwright/test"
-import { downloadAndUnzipVSCode, SilentReporter } from "@vscode/test-electron"
+import { downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath, SilentReporter } from "@vscode/test-electron"
 import { _electron } from "playwright"
 import { CodeVibeApiServerMock } from "../fixtures/server"
 
@@ -17,12 +17,14 @@ interface E2ETestDirectories {
 export interface E2ETestConfigs {
 	workspaceType: "single" | "multi"
 	channel: "stable" | "insiders"
+	extensionInstallMode: "development" | "installed"
 }
 
 export class E2ETestHelper {
 	// Constants
 	public static readonly CODEBASE_ROOT_DIR = path.resolve(__dirname, "..", "..", "..", "..")
 	public static readonly E2E_TESTS_DIR = path.join(E2ETestHelper.CODEBASE_ROOT_DIR, "src", "test", "e2e")
+	public static readonly E2E_VSIX_PATH = path.join(E2ETestHelper.CODEBASE_ROOT_DIR, "dist", "e2e.vsix")
 	private static readonly TEARDOWN_TIMEOUT_MS = 10_000
 	private static readonly WINDOW_DIAGNOSTIC_TIMEOUT_MS = 1_000
 	private static readonly PROCESS_EXIT_TIMEOUT_MS = 2_000
@@ -588,7 +590,31 @@ export class E2ETestHelper {
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {
+		await E2ETestHelper.openCommandPalette(page, `>${command}`)
+		await page.keyboard.press("Enter")
+	}
+
+	public static async expectCommandPaletteItem(page: Page, query: string, itemText: string): Promise<void> {
+		const quickInput = await E2ETestHelper.openCommandPalette(page, query)
+		try {
+			await expect(quickInput.getByText(itemText).first()).toBeVisible()
+		} finally {
+			await page.keyboard.press("Escape")
+		}
+	}
+
+	public static async expectCommandPaletteNoItem(page: Page, query: string, itemText: string): Promise<void> {
+		const quickInput = await E2ETestHelper.openCommandPalette(page, query)
+		try {
+			await expect(quickInput.getByText(itemText)).toHaveCount(0)
+		} finally {
+			await page.keyboard.press("Escape")
+		}
+	}
+
+	private static async openCommandPalette(page: Page, query: string): Promise<Locator> {
 		await page.bringToFront()
+		const quickInput = page.locator(".quick-input-widget").first()
 		const editorSearchBar = page.locator(".quick-input-widget input").first()
 
 		const waitForQuickInput = async (timeout = 2_000) => {
@@ -619,8 +645,29 @@ export class E2ETestHelper {
 		}
 
 		await editorSearchBar.waitFor({ state: "visible", timeout: 10_000 })
-		await editorSearchBar.fill(`>${command}`)
-		await page.keyboard.press("Enter")
+		await editorSearchBar.fill(query)
+		return quickInput
+	}
+
+	public static installVsixForE2E(executablePath: string, userDataDir: string, extensionsDir: string): void {
+		const [codeCommand, ...baseArgs] = resolveCliArgsFromVSCodeExecutablePath(executablePath, {
+			reuseMachineInstall: true,
+		})
+		execFileSync(
+			codeCommand,
+			[
+				...baseArgs,
+				`--user-data-dir=${userDataDir}`,
+				`--extensions-dir=${extensionsDir}`,
+				"--install-extension",
+				E2ETestHelper.E2E_VSIX_PATH,
+				"--force",
+			],
+			{
+				stdio: "inherit",
+				shell: process.platform === "win32",
+			},
+		)
 	}
 
 	// Clear cached frame when needed
@@ -672,7 +719,7 @@ export class E2ETestHelper {
  *
  * @remarks
  * - Automatically handles VS Code download and setup
- * - Installs the CodeVibe extension in development mode
+ * - Installs the packaged CodeVibe VSIX and can optionally load the development extension path
  * - Records test videos for debugging
  * - Performs cleanup of temporary directories after each test
  * - Configures VS Code with disabled updates, workspace trust, and welcome screens
@@ -705,9 +752,10 @@ export const e2e = test
 	.extend<E2ETestConfigs>({
 		workspaceType: "single",
 		channel: "stable",
+		extensionInstallMode: "development",
 	})
 	.extend<{ openVSCode: (workspacePath: string) => Promise<ElectronApplication> }>({
-		openVSCode: async ({ userDataDir, extensionsDir, channel }, use, testInfo) => {
+		openVSCode: async ({ userDataDir, extensionsDir, channel, extensionInstallMode }, use, testInfo) => {
 			const executablePath = await downloadAndUnzipVSCode(channel, undefined, new SilentReporter())
 
 			await use(async (workspacePath: string) => {
@@ -729,6 +777,23 @@ export const e2e = test
 						2,
 					),
 				)
+				E2ETestHelper.installVsixForE2E(executablePath, userDataDir, extensionsDir)
+
+				const args = [
+					"--no-sandbox",
+					"--disable-updates",
+					"--disable-workspace-trust",
+					"--skip-welcome",
+					"--skip-release-notes",
+					`--user-data-dir=${userDataDir}`,
+					`--extensions-dir=${extensionsDir}`,
+				]
+				if (extensionInstallMode === "development") {
+					args.push(`--extensionDevelopmentPath=${E2ETestHelper.CODEBASE_ROOT_DIR}`)
+				} else {
+					args.push("--enable-proposed-api", "atnumridha.codevibe")
+				}
+				args.push(workspacePath)
 
 				const app = await _electron.launch({
 					executablePath,
@@ -748,18 +813,7 @@ export const e2e = test
 					recordVideo: {
 						dir: E2ETestHelper.getResultsDir(testInfo.title, "recordings"),
 					},
-					args: [
-						"--no-sandbox",
-						"--disable-updates",
-						"--disable-workspace-trust",
-						"--skip-welcome",
-						"--skip-release-notes",
-						`--user-data-dir=${userDataDir}`,
-						`--extensions-dir=${extensionsDir}`,
-						`--install-extension=${path.join(E2ETestHelper.CODEBASE_ROOT_DIR, "dist", "e2e.vsix")}`,
-						`--extensionDevelopmentPath=${E2ETestHelper.CODEBASE_ROOT_DIR}`,
-						workspacePath,
-					],
+					args,
 				})
 				await E2ETestHelper.waitUntil(() => app.windows().length > 0)
 				return app
