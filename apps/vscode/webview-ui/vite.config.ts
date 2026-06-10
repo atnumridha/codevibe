@@ -31,6 +31,7 @@ const isDevBuild = process.argv.includes("--dev-build")
 // Valid platforms, these should the keys in platform-configs.json
 const VALID_PLATFORMS = ["vscode", "standalone"]
 const platform = process.env.PLATFORM || "vscode" // Default to vscode
+const codeVibeEnvironment = process.env.CODEVIBE_ENVIRONMENT ?? process.env.CLINE_ENVIRONMENT ?? "production"
 
 if (!VALID_PLATFORMS.includes(platform)) {
 	throw new Error(`Invalid PLATFORM "${platform}". Must be one of: ${VALID_PLATFORMS.join(", ")}`)
@@ -119,7 +120,8 @@ export default defineConfig({
 			platform: JSON.stringify(process?.platform),
 			env: {
 				NODE_ENV: JSON.stringify(process?.env?.IS_DEV ? "development" : "production"),
-				CLINE_ENVIRONMENT: JSON.stringify(process?.env?.CLINE_ENVIRONMENT ?? "production"),
+				CODEVIBE_ENVIRONMENT: JSON.stringify(codeVibeEnvironment),
+				CLINE_ENVIRONMENT: JSON.stringify(process?.env?.CLINE_ENVIRONMENT ?? codeVibeEnvironment),
 				IS_DEV: JSON.stringify(process?.env?.IS_DEV),
 				IS_TEST: JSON.stringify(process?.env?.IS_TEST),
 				CI: JSON.stringify(process?.env?.CI),

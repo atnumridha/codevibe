@@ -12,6 +12,7 @@ import { restore as restoreMarketplaceReadme, swapIn as swapInMarketplaceReadme 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.join(__dirname, "..")
+const repoRoot = path.join(projectRoot, "..", "..")
 const packageJsonPath = path.join(projectRoot, "package.json")
 
 const requiredCursorParityConfigKeys = [
@@ -1728,6 +1729,84 @@ function assertManifestInputs(packageJson) {
 	assertNativeChatRegistrationSource()
 }
 
+function readRepoText(relativePath) {
+	return fs.readFileSync(path.join(repoRoot, relativePath), "utf8")
+}
+
+function assertReleaseTextIncludes(text, expected, label) {
+	if (!text.includes(expected)) {
+		throw new Error(`${label} must include ${expected}`)
+	}
+}
+
+function assertReleaseTextExcludes(text, forbidden, label) {
+	if (text.includes(forbidden)) {
+		throw new Error(`${label} must not include ${forbidden}`)
+	}
+}
+
+function assertCodeVibeReleasePublishPaths() {
+	const cliPublishWorkflow = readRepoText(".github/workflows/cli-publish.yml")
+	const nightlyPublishWorkflow = readRepoText(".github/workflows/ext-vscode-publish-nightly.yml")
+	const stablePublishWorkflow = readRepoText(".github/workflows/ext-vscode-publish-stable.yml")
+	const githubReleaseWorkflow = readRepoText(".github/workflows/ext-vscode-github-release.yml")
+	const vscodeIgnore = fs.readFileSync(path.join(projectRoot, ".vscodeignore"), "utf8")
+	const esbuildScript = fs.readFileSync(path.join(projectRoot, "esbuild.mjs"), "utf8")
+	const webviewViteConfig = fs.readFileSync(path.join(projectRoot, "webview-ui", "vite.config.ts"), "utf8")
+	const nightlyPublisher = fs.readFileSync(path.join(projectRoot, "scripts", "publish-nightly.mjs"), "utf8")
+
+	for (const [label, text] of [
+		["CLI publish workflow", cliPublishWorkflow],
+		["VS Code nightly publish workflow", nightlyPublishWorkflow],
+		["VS Code stable publish workflow", stablePublishWorkflow],
+		["VS Code GitHub release workflow", githubReleaseWorkflow],
+	]) {
+		assertReleaseTextIncludes(text, "github.repository == 'atnumridha/codevibe'", label)
+		assertReleaseTextExcludes(text, "github.repository == 'cline/cline'", label)
+		assertReleaseTextExcludes(text, "CLINE_ENVIRONMENT: production", label)
+	}
+
+	for (const forbidden of [
+		"@cline/cli-",
+		"${package_name#@cline/}",
+		"npmjs.com/package/cline",
+		"Publish cline",
+	]) {
+		assertReleaseTextExcludes(cliPublishWorkflow, forbidden, "CLI publish workflow")
+	}
+	for (const expected of [
+		"@codevibe/cli-darwin-arm64",
+		"@codevibe/cli-darwin-x64",
+		"@codevibe/cli-linux-arm64",
+		"@codevibe/cli-linux-x64",
+		"@codevibe/cli-windows-arm64",
+		"@codevibe/cli-windows-x64",
+		"${package_name#@codevibe/}",
+		"npmjs.com/package/codevibe",
+	]) {
+		assertReleaseTextIncludes(cliPublishWorkflow, expected, "CLI publish workflow")
+	}
+
+	for (const forbidden of [
+		"CODEVIBE_ALLOW_LEGACY_CLINE_NIGHTLY",
+		"cline-nightly",
+		"Cline (Nightly)",
+		"claude-dev",
+	]) {
+		assertReleaseTextExcludes(nightlyPublisher, forbidden, "VS Code nightly publish script")
+	}
+	assertReleaseTextIncludes(nightlyPublisher, 'nightlyName: "codevibe-nightly"', "VS Code nightly publish script")
+	assertReleaseTextIncludes(nightlyPublisher, 'originalName: "codevibe"', "VS Code nightly publish script")
+	assertReleaseTextIncludes(nightlyPublisher, 'nightlyDisplayName: "CodeVibe (Nightly)"', "VS Code nightly publish script")
+	assertReleaseTextIncludes(nightlyPublisher, '"codevibe-nightly.vsix"', "VS Code nightly publish script")
+	assertReleaseTextIncludes(nightlyPublisher, '"--no-dependencies"', "VS Code nightly publish script")
+	assertReleaseTextIncludes(nightlyPublisher, '${config.nightlyName}-agent', "VS Code nightly publish script")
+	assertReleaseTextIncludes(nightlyPublisher, '${config.nightlyName}-agent-chat', "VS Code nightly publish script")
+	assertReleaseTextIncludes(vscodeIgnore, "package.json.backup", "VSIX ignore list")
+	assertReleaseTextIncludes(esbuildScript, "process.env.CODEVIBE_ENVIRONMENT", "extension bundler")
+	assertReleaseTextIncludes(webviewViteConfig, "CODEVIBE_ENVIRONMENT", "webview bundler")
+}
+
 function assertBuildOutputs() {
 	assertFileExists(path.join(projectRoot, "dist", "extension.js"), "extension bundle dist/extension.js", {
 		nonEmpty: true,
@@ -1827,6 +1906,7 @@ async function main() {
 	if (options.preflight) {
 		const githubVsixPackageJson = createGithubVsixPackageJson(readPackageJson())
 		assertManifestInputs(githubVsixPackageJson)
+		assertCodeVibeReleasePublishPaths()
 		runCommand([process.execPath], ["scripts/check-codevibe-branding.mjs"])
 		runCommand(
 			[process.execPath],

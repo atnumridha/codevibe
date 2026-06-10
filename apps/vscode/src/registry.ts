@@ -2,6 +2,7 @@ import { name, publisher, version } from "../package.json"
 import { HostProvider } from "./hosts/host-provider"
 
 const prefix = name === "claude-dev" ? "cline" : name
+const viewPrefix = name === "codevibe" ? "codevibe" : name.replace(/[^A-Za-z0-9_-]/g, "-")
 
 /**
  * List of commands with the name of the extension they are registered under.
@@ -48,8 +49,8 @@ const CodeVibeCommands = {
  * These should match the name + view IDs defined in package.json.
  */
 const CodeVibeViewIds = {
-	AgentContainer: name === "codevibe" ? "codevibe-agent" : prefix + ".agent",
-	Sidebar: name === "codevibe" ? "codevibe-agent-chat" : prefix + ".agent.chat",
+	AgentContainer: viewPrefix + "-agent",
+	Sidebar: viewPrefix + "-agent-chat",
 	LegacySidebar: name + ".SidebarProvider",
 }
 

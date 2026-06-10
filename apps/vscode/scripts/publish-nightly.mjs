@@ -1,14 +1,5 @@
 #!/usr/bin/env node
 
-const legacyNightlyHelpRequested = process.argv.includes("--help") || process.argv.includes("-h")
-
-if (process.env.CODEVIBE_ALLOW_LEGACY_CLINE_NIGHTLY !== "true") {
-	console.error(
-		"publish-nightly: the legacy Cline nightly publisher is disabled for CodeVibe. Use publish-marketplace.mjs after CODEVIBE_ALL_PARITY_VALIDATED=true once the Cursor-parity release gate has passed.",
-	)
-	process.exit(legacyNightlyHelpRequested ? 0 : 1)
-}
-
 /**
  * Nightly publish script for VS Code extension
  * Converts package.json to testing version, packages, publishes, and restores
@@ -17,8 +8,8 @@ if (process.env.CODEVIBE_ALLOW_LEGACY_CLINE_NIGHTLY !== "true") {
  * 1. Backs up the original package.json
  * 2. Updates package.json with:
  *    - New version (major.minor.timestamp format)
- *    - Changes name to "cline-nightly"
- *    - Changes displayName to "Cline (Nightly)"
+ *    - Changes name to "codevibe-nightly"
+ *    - Changes displayName to "CodeVibe (Nightly)"
  * 3. Packages the extension as a .vsix file
  * 4. Publishes to VS Code Marketplace (if VSCE_PAT is set)
  * 5. Publishes to OpenVSX Registry (if OVSX_PAT is set)
@@ -26,9 +17,9 @@ if (process.env.CODEVIBE_ALLOW_LEGACY_CLINE_NIGHTLY !== "true") {
  *
  * Channels:
  *   By default, the extension is published to the RELEASE channel of
- *   `cline-nightly` (this is what the scheduled daily nightly workflow
+ *   `codevibe-nightly` (this is what the scheduled daily nightly workflow
  *   uses). Pass --pre-release to instead publish to the pre-release
- *   channel of `cline-nightly` (used for manual publishes from feature
+ *   channel of `codevibe-nightly` (used for manual publishes from feature
  *   branches that need tester opt-in via "Switch to Pre-Release Version").
  *
  *   Note on version ordering: because VS Code serves pre-release users
@@ -85,9 +76,9 @@ const log = {
 // Configuration
 const config = {
 	// The name and display name for the nightly version
-	nightlyName: "cline-nightly",
-	originalName: "claude-dev",
-	nightlyDisplayName: "Cline (Nightly)",
+	nightlyName: "codevibe-nightly",
+	originalName: "codevibe",
+	nightlyDisplayName: "CodeVibe (Nightly)",
 	projectRoot: path.join(__dirname, ".."),
 	get packageJsonPath() {
 		return path.join(this.projectRoot, "package.json")
@@ -99,7 +90,7 @@ const config = {
 		return path.join(this.projectRoot, "dist")
 	},
 	get vsixPath() {
-		return path.join(this.distDir, "cline-nightly.vsix")
+		return path.join(this.distDir, "codevibe-nightly.vsix")
 	},
 	get nodeModulesPath() {
 		return path.join(this.projectRoot, "node_modules")
@@ -216,9 +207,9 @@ class NightlyPublisher {
 	 *
 	 * The repo root is a workspace package ("."). When npm installs dependencies,
 	 * it creates a self-link at node_modules/<package-name>. Nightly packaging
-	 * changes package.json name from "claude-dev" to "cline-nightly". If we don't
+	 * changes package.json name from "codevibe" to "codevibe-nightly". If we don't
 	 * align this link, vsce's dependency detection (`npm list --production`) fails
-	 * with ELSPROBLEMS (missing cline-nightly + extraneous claude-dev).
+	 * with ELSPROBLEMS (missing codevibe-nightly + extraneous codevibe).
 	 */
 	reconcileWorkspaceSelfLinkForNightly() {
 		const originalPath = config.originalWorkspaceLinkPath
@@ -350,15 +341,74 @@ class NightlyPublisher {
 		return `${major}.${minor}.${timestamp}`
 	}
 
+	rewriteCodeVibeCommandId(commandId) {
+		if (typeof commandId !== "string" || !commandId.startsWith(`${config.originalName}.`)) {
+			return commandId
+		}
+		return `${config.nightlyName}.${commandId.slice(config.originalName.length + 1)}`
+	}
+
+	rewriteCodeVibeActivationEvent(event) {
+		if (typeof event !== "string") {
+			return event
+		}
+		if (event.startsWith(`onCommand:${config.originalName}.`)) {
+			return `onCommand:${this.rewriteCodeVibeCommandId(event.slice("onCommand:".length))}`
+		}
+		if (event === "onView:codevibe-agent-chat") {
+			return `onView:${config.nightlyName}-agent-chat`
+		}
+		return event
+	}
+
+	updateCodeVibeContributionIds(pkg) {
+		if (Array.isArray(pkg.activationEvents)) {
+			pkg.activationEvents = pkg.activationEvents.map((event) => this.rewriteCodeVibeActivationEvent(event))
+		}
+
+		const contributes = pkg.contributes ?? {}
+		for (const command of Array.isArray(contributes.commands) ? contributes.commands : []) {
+			command.command = this.rewriteCodeVibeCommandId(command.command)
+		}
+		for (const keybinding of Array.isArray(contributes.keybindings) ? contributes.keybindings : []) {
+			keybinding.command = this.rewriteCodeVibeCommandId(keybinding.command)
+		}
+		for (const menuItems of Object.values(contributes.menus ?? {})) {
+			if (!Array.isArray(menuItems)) {
+				continue
+			}
+			for (const item of menuItems) {
+				item.command = this.rewriteCodeVibeCommandId(item.command)
+				item.alt = this.rewriteCodeVibeCommandId(item.alt)
+			}
+		}
+
+		const activitybarContainers = contributes.viewsContainers?.activitybar
+		if (Array.isArray(activitybarContainers)) {
+			for (const container of activitybarContainers) {
+				if (container?.id === "codevibe-agent") {
+					container.id = `${config.nightlyName}-agent`
+					container.title = config.nightlyDisplayName
+				}
+			}
+		}
+
+		const codeVibeAgentViews = contributes.views?.["codevibe-agent"]
+		if (Array.isArray(codeVibeAgentViews)) {
+			delete contributes.views["codevibe-agent"]
+			contributes.views[`${config.nightlyName}-agent`] = codeVibeAgentViews.map((view) => ({
+				...view,
+				id: view?.id === "codevibe-agent-chat" ? `${config.nightlyName}-agent-chat` : view?.id,
+			}))
+		}
+	}
+
 	/**
 	 * Update package.json with nightly configuration
 	 */
 	updatePackageJson() {
-		// Replace any occurrences cline. or claude-dev with nightly name
 		const rawContent = fs.readFileSync(config.packageJsonPath, "utf-8")
-		const content = rawContent.replaceAll("claude-dev", config.nightlyName).replaceAll('"cline.', `"${config.nightlyName}.`)
-
-		const pkg = JSON.parse(content)
+		const pkg = JSON.parse(rawContent)
 		const currentVersion = pkg.version
 
 		if (!currentVersion) {
@@ -374,7 +424,7 @@ class NightlyPublisher {
 		pkg.version = newVersion
 		pkg.name = config.nightlyName
 		pkg.displayName = config.nightlyDisplayName
-		pkg.contributes.viewsContainers.activitybar.title = config.nightlyDisplayName
+		this.updateCodeVibeContributionIds(pkg)
 
 		// Save updated package.json
 		log.info("Updating package.json for nightly build")
@@ -397,6 +447,10 @@ class NightlyPublisher {
 		const args = [
 			"package",
 			...(isPreRelease ? ["--pre-release"] : []),
+			// The extension and webview are bundled before vsce runs. Skipping the
+			// dependency walk keeps npm from rejecting the temporary nightly
+			// workspace package name as extraneous.
+			"--no-dependencies",
 			"--no-update-package-json",
 			"--no-git-tag-version",
 			"--allow-package-secrets",
@@ -591,7 +645,7 @@ Usage:
   npm run publish:marketplace:nightly [options]
 
 Options:
-  --pre-release    Publish to the pre-release channel of cline-nightly.
+  --pre-release    Publish to the pre-release channel of codevibe-nightly.
                    Default is the release channel (used by the scheduled
                    nightly workflow).
   --dry-run, -n    Run without actually publishing (package only)

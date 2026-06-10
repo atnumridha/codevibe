@@ -49,6 +49,7 @@ sdk/**
 # only exists if a publish aborts mid-swap; neither should ship in the .vsix.
 README.marketplace.md
 .README.github.bak
+package.json.backup
 
 # Custom
 **/demo.gif

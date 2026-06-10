@@ -38,9 +38,11 @@ permissions:
 
 jobs:
     test:
+        if: github.repository == 'atnumridha/codevibe'
         uses: ./.github/workflows/ext-vscode-test.yml
 
     e2e:
+        if: github.repository == 'atnumridha/codevibe'
         permissions:
             contents: read
             pull-requests: read
@@ -50,6 +52,7 @@ jobs:
     publish:
         needs: [test, e2e]
         name: Publish Extension
+        if: github.repository == 'atnumridha/codevibe'
         runs-on: ubuntu-latest
         environment: publish
         defaults:
@@ -192,7 +195,7 @@ jobs:
               env:
                   VSCE_PAT: ${{ secrets.VSCE_PAT }}
                   OVSX_PAT: ${{ secrets.OVSX_PAT }}
-                  CLINE_ENVIRONMENT: production
+                  CODEVIBE_ENVIRONMENT: production
                   TELEMETRY_SERVICE_API_KEY: ${{ secrets.TELEMETRY_SERVICE_API_KEY }}
                   ERROR_SERVICE_API_KEY: ${{ secrets.ERROR_SERVICE_API_KEY }}
                   # OpenTelemetry production defaults (can be overridden at runtime)

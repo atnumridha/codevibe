@@ -134,8 +134,16 @@ if (production) {
 }
 // Set the environment and telemetry env vars. The API key env vars need to be populated in the GitHub
 // workflows from the secrets.
-if (process.env.CLINE_ENVIRONMENT) {
-	buildEnvVars["process.env.CLINE_ENVIRONMENT"] = JSON.stringify(process.env.CLINE_ENVIRONMENT)
+const codeVibeEnvironment = process.env.CODEVIBE_ENVIRONMENT || process.env.CLINE_ENVIRONMENT
+if (codeVibeEnvironment) {
+	buildEnvVars["process.env.CODEVIBE_ENVIRONMENT"] = JSON.stringify(codeVibeEnvironment)
+	buildEnvVars["process.env.CLINE_ENVIRONMENT"] = JSON.stringify(process.env.CLINE_ENVIRONMENT || codeVibeEnvironment)
+}
+if (process.env.CODEVIBE_ENVIRONMENT_OVERRIDE) {
+	buildEnvVars["process.env.CODEVIBE_ENVIRONMENT_OVERRIDE"] = JSON.stringify(process.env.CODEVIBE_ENVIRONMENT_OVERRIDE)
+}
+if (process.env.CLINE_ENVIRONMENT_OVERRIDE) {
+	buildEnvVars["process.env.CLINE_ENVIRONMENT_OVERRIDE"] = JSON.stringify(process.env.CLINE_ENVIRONMENT_OVERRIDE)
 }
 if (process.env.TELEMETRY_SERVICE_API_KEY) {
 	buildEnvVars["process.env.TELEMETRY_SERVICE_API_KEY"] = JSON.stringify(process.env.TELEMETRY_SERVICE_API_KEY)

@@ -61,11 +61,11 @@ permissions:
 
 jobs:
     test:
-        if: ${{ (github.event.inputs.run_tests || 'true') == 'true' }}
+        if: ${{ github.repository == 'atnumridha/codevibe' && (github.event.inputs.run_tests || 'true') == 'true' }}
         uses: ./.github/workflows/ext-vscode-test.yml
 
     e2e:
-        if: ${{ (github.event.inputs.run_e2e || 'true') == 'true' }}
+        if: ${{ github.repository == 'atnumridha/codevibe' && (github.event.inputs.run_e2e || 'true') == 'true' }}
         permissions:
             contents: read
             pull-requests: read
@@ -76,7 +76,7 @@ jobs:
         name: Package VSIX and Publish GitHub Release
         runs-on: ubuntu-latest
         needs: [test, e2e]
-        if: ${{ always() && ((github.event.inputs.run_tests || 'true') != 'true' || needs.test.result == 'success') && ((github.event.inputs.run_e2e || 'true') != 'true' || needs.e2e.result == 'success') }}
+        if: ${{ github.repository == 'atnumridha/codevibe' && always() && ((github.event.inputs.run_tests || 'true') != 'true' || needs.test.result == 'success') && ((github.event.inputs.run_e2e || 'true') != 'true' || needs.e2e.result == 'success') }}
         defaults:
             run:
                 working-directory: apps/vscode
@@ -212,7 +212,7 @@ jobs:
 
             - name: Package VSIX
               env:
-                  CLINE_ENVIRONMENT: production
+                  CODEVIBE_ENVIRONMENT: production
                   TELEMETRY_SERVICE_API_KEY: ${{ secrets.TELEMETRY_SERVICE_API_KEY }}
                   ERROR_SERVICE_API_KEY: ${{ secrets.ERROR_SERVICE_API_KEY }}
                   CODEVIBE_ALL_PARITY_VALIDATED: ${{ github.event.inputs.all_parity_validated || 'false' }}

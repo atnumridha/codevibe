@@ -37,12 +37,12 @@ defaults:
 
 jobs:
   publish-main:
-    name: Publish cline
+    name: Publish CodeVibe CLI
     permissions:
       contents: write
       id-token: write
     if: |
-      github.repository == 'cline/cline' &&
+      github.repository == 'atnumridha/codevibe' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'workflow_dispatch' &&
       github.event.inputs.publish_target == 'main' &&
@@ -163,16 +163,16 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           EXPECTED=(
-            "@cline/cli-darwin-arm64"
-            "@cline/cli-darwin-x64"
-            "@cline/cli-linux-arm64"
-            "@cline/cli-linux-x64"
-            "@cline/cli-windows-arm64"
-            "@cline/cli-windows-x64"
+            "@codevibe/cli-darwin-arm64"
+            "@codevibe/cli-darwin-x64"
+            "@codevibe/cli-linux-arm64"
+            "@codevibe/cli-linux-x64"
+            "@codevibe/cli-windows-arm64"
+            "@codevibe/cli-windows-x64"
           )
 
           for package_name in "${EXPECTED[@]}"; do
-            dir="apps/cli/dist/${package_name#@cline/}"
+            dir="apps/cli/dist/${package_name#@codevibe/}"
             if [ ! -f "$dir/package.json" ]; then
               echo "Missing package manifest: $dir/package.json"
               exit 1
@@ -252,15 +252,15 @@ jobs:
               - type: "context"
                 elements:
                   - type: "mrkdwn"
-                    text: "<https://www.npmjs.com/package/cline/v/${{ steps.version.outputs.version }}|View on npm>${{ steps.prev_tag.outputs.prev_tag != '' && format(' | Full Changelog: https://github.com/{0}/compare/{1}...{2}', github.repository, steps.prev_tag.outputs.prev_tag, steps.version.outputs.tag) || '' }}"
+                    text: "<https://www.npmjs.com/package/codevibe/v/${{ steps.version.outputs.version }}|View on npm>${{ steps.prev_tag.outputs.prev_tag != '' && format(' | Full Changelog: https://github.com/{0}/compare/{1}...{2}', github.repository, steps.prev_tag.outputs.prev_tag, steps.version.outputs.tag) || '' }}"
 
   publish-nightly:
-    name: Publish cline nightly
+    name: Publish CodeVibe CLI nightly
     permissions:
       contents: read
       id-token: write
     if: |
-      github.repository == 'cline/cline' &&
+      github.repository == 'atnumridha/codevibe' &&
       github.ref == 'refs/heads/main' &&
       (
         github.event_name == 'schedule' ||
@@ -392,16 +392,16 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           EXPECTED=(
-            "@cline/cli-darwin-arm64"
-            "@cline/cli-darwin-x64"
-            "@cline/cli-linux-arm64"
-            "@cline/cli-linux-x64"
-            "@cline/cli-windows-arm64"
-            "@cline/cli-windows-x64"
+            "@codevibe/cli-darwin-arm64"
+            "@codevibe/cli-darwin-x64"
+            "@codevibe/cli-linux-arm64"
+            "@codevibe/cli-linux-x64"
+            "@codevibe/cli-windows-arm64"
+            "@codevibe/cli-windows-x64"
           )
 
           for package_name in "${EXPECTED[@]}"; do
-            dir="apps/cli/dist/${package_name#@cline/}"
+            dir="apps/cli/dist/${package_name#@codevibe/}"
             if [ ! -f "$dir/package.json" ]; then
               echo "Missing package manifest: $dir/package.json"
               exit 1
