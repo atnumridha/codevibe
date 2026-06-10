@@ -7,7 +7,6 @@ const packagePath = path.join(vscodeRoot, "package.json")
 const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "codevibe-agent"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
-const CHAT_AGENT_CONTRIBUTION_KEYS = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
 	"id",
@@ -25,7 +24,6 @@ const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
 	"capabilities",
 	"commands",
 	"canDelegate",
-	"customAgentTarget",
 	"requiresCustomModels",
 	"autoAttachReferences",
 	"useRequestToPopulateBuiltInPickers",
@@ -99,24 +97,18 @@ describe("Package manifest", () => {
 
 	it("places CodeVibe before Copilot-style native agents", async () => {
 		const packageJSON = await readPackageManifest()
-		const [chatAgent] = packageJSON.contributes.chatAgents ?? []
 		const [chatSession] = packageJSON.contributes.chatSessions ?? []
 		const [newSessionMenu] = packageJSON.contributes.menus?.["chatSessions/newSession"] ?? []
 		const sessionTypes = (packageJSON.contributes.chatSessions ?? []).map((session: { type?: string }) => session.type)
 		const agentFile = await readFile(path.join(vscodeRoot, "agents", CODEVIBE_NATIVE_AGENT_FILE_NAME), "utf8")
 
-		assertOnlyAllowedKeys(chatAgent, CHAT_AGENT_CONTRIBUTION_KEYS, "chatAgents[0]")
 		assertOnlyAllowedKeys(chatSession, CHAT_SESSION_CONTRIBUTION_KEYS, "chatSessions[0]")
 		assertOnlyAllowedKeys(chatSession.capabilities, CHAT_SESSION_CAPABILITY_KEYS, "chatSessions[0].capabilities")
 		for (const [index, command] of (chatSession.commands ?? []).entries()) {
 			assertOnlyAllowedKeys(command, CHAT_SESSION_COMMAND_KEYS, `chatSessions[0].commands[${index}]`)
 			assert.match(command.id, /^[A-Za-z0-9_-]+$/)
 		}
-		assert.equal(chatAgent?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
-		assert.match(chatAgent?.id, /^[A-Za-z0-9_-]+$/)
-		assert.equal(chatAgent?.name, CODEVIBE_CHAT_PARTICIPANT_ID)
-		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
-		assert.deepEqual(chatAgent?.sessionTypes, [CODEVIBE_CHAT_SESSION_TYPE])
+		assert.deepEqual(packageJSON.contributes.chatAgents ?? [], [])
 		assert.match(agentFile, /^---\nid: codevibe\n/m)
 		assert.match(agentFile, /fenced `mermaid`/)
 		assert.match(agentFile, /sandboxed execution/)
@@ -125,7 +117,7 @@ describe("Package manifest", () => {
 		assert.match(agentFile, /subagents/)
 		assert.equal(chatSession?.id, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)
-		assert.equal(chatSession?.customAgentTarget, CODEVIBE_CHAT_PARTICIPANT_ID)
+		assert.equal(chatSession?.customAgentTarget, undefined)
 		assert.equal(chatSession?.alternativeIds, undefined)
 		assert.equal(chatSession?.order, -1000)
 		assert.match(chatSession?.id, /^[A-Za-z0-9_-]+$/)
@@ -224,10 +216,12 @@ describe("Package manifest", () => {
 			"node scripts/package-github-vsix.mjs --clean-legacy-view-state-only",
 		)
 		assert.equal(packageScript.includes("resolveLegacyVSCodeArgvJsonPaths"), true)
-		assert.equal(packageScript.includes("writeInstalledNativeAgentCache(metadata)"), true)
-		assert.equal(packageScript.includes("nativeAgentMarkdownPath"), true)
-		assert.equal(packageScript.includes("readNativeAgentMarkdown()"), true)
-		assert.equal(packageScript.includes("Repaired CodeVibe native agent cache file"), true)
+		assert.equal(packageScript.includes("writeInstalledNativeAgentCache(metadata)"), false)
+		assert.equal(packageScript.includes("nativeAgentMarkdownPath"), false)
+		assert.equal(packageScript.includes("readNativeAgentMarkdown()"), false)
+		assert.equal(packageScript.includes("Repaired CodeVibe native agent cache file"), false)
+		assert.equal(packageScript.includes("removeInstalledNativeAgentCache(metadata)"), true)
+		assert.equal(packageScript.includes("Removed stale CodeVibe native agent cache"), true)
 		assert.equal(packageScript.includes("resolveVsCodeExtensionsDir"), true)
 		assert.equal(packageScript.includes("fs.rmSync(extensionPath, { recursive: true, force: true })"), true)
 		assert.equal(packageScript.includes("installed VSIX package.json"), true)

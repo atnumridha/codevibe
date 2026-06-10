@@ -126,7 +126,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	)
 	const nativeAgentRegistration = createCodeVibeNativeAgentRegistrationState()
 	const codeVibeChatParticipant = registerCodeVibeChatParticipant(context, nativeAgentRegistration)
-	registerCodeVibeNativeAgentProvider(context, nativeAgentRegistration)
 	registerCodeVibeNativeChatSessionProvider(context, nativeAgentRegistration, codeVibeChatParticipant)
 	await closeLegacyCodeVibePanels()
 	scheduleLegacyCodeVibePanelCleanup(context)

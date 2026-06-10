@@ -14,7 +14,6 @@ const __dirname = path.dirname(__filename)
 const projectRoot = path.join(__dirname, "..")
 const repoRoot = path.join(projectRoot, "..", "..")
 const packageJsonPath = path.join(projectRoot, "package.json")
-const nativeAgentMarkdownPath = path.join(projectRoot, "agents", "00-codevibe-agent.agent.md")
 const codeVibeNativeChatSessionType = "codevibe-agent"
 const reservedAgentHostChatSessionType = "agent-host-codevibe"
 
@@ -58,7 +57,6 @@ const requiredCursorParityLegacyActivationCommands = [
 ]
 
 const expectedManifestAssetPaths = [
-	"agents/00-codevibe-agent.agent.md",
 	"assets/prompts/codevibe-plan.prompt.md",
 	"assets/prompts/codevibe-review.prompt.md",
 	"assets/prompts/codevibe-standalone-readiness.prompt.md",
@@ -164,7 +162,6 @@ const disallowedPackagedVisibleTextFragments = [
 
 const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
 
-const vscodeChatAgentContributionKeys = new Set(["id", "path", "name", "description", "when", "sessionTypes"])
 const vscodeChatPromptContributionKeys = new Set(["path", "name", "description", "when", "sessionTypes"])
 const vscodeChatSessionContributionKeys = new Set([
 	"id",
@@ -182,7 +179,6 @@ const vscodeChatSessionContributionKeys = new Set([
 	"capabilities",
 	"commands",
 	"canDelegate",
-	"customAgentTarget",
 	"requiresCustomModels",
 	"autoAttachReferences",
 	"useRequestToPopulateBuiltInPickers",
@@ -776,22 +772,18 @@ function pruneInstalledCodeVibeExtensionVersions(metadata) {
 	}
 }
 
-function writeInstalledNativeAgentCache(metadata) {
-	const markdown = readNativeAgentMarkdown()
+function removeInstalledNativeAgentCache(metadata) {
 	for (const userStorageDir of resolveVsCodeUserStorageDirs()) {
 		if (!userStorageDir) {
 			continue
 		}
 		const agentDir = path.join(userStorageDir, "globalStorage", metadata.extensionId, "native-agents")
-		const agentPath = path.join(agentDir, "00-codevibe-agent.agent.md")
-		fs.mkdirSync(agentDir, { recursive: true })
-		fs.writeFileSync(agentPath, markdown, "utf8")
-		console.log(`Repaired CodeVibe native agent cache file: ${agentPath}`)
+		if (!fs.existsSync(agentDir)) {
+			continue
+		}
+		fs.rmSync(agentDir, { recursive: true, force: true })
+		console.log(`Removed stale CodeVibe native agent cache: ${agentDir}`)
 	}
-}
-
-function readNativeAgentMarkdown() {
-	return fs.readFileSync(nativeAgentMarkdownPath, "utf8")
 }
 
 function runSqlite(databasePath, sql) {
@@ -1181,31 +1173,8 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		throw new Error(`${label} codevibe chat participant must register for native agent mode`)
 	}
 	const chatAgents = Array.isArray(packageJson.contributes?.chatAgents) ? packageJson.contributes.chatAgents : []
-	for (const [index, agent] of chatAgents.entries()) {
-		assertOnlyAllowedObjectKeys(agent, vscodeChatAgentContributionKeys, `${label} chatAgents[${index}]`)
-		if (typeof agent?.path !== "string" || agent.path.trim() === "") {
-			throw new Error(`${label} chatAgents[${index}] must declare a non-empty path`)
-		}
-		if (typeof agent?.id !== "string" || !/^[A-Za-z0-9_-]+$/.test(agent.id)) {
-			throw new Error(`${label} chatAgents[${index}] must declare a package-safe id`)
-		}
-	}
-	const codeVibeAgent = chatAgents.find((agent) => agent?.path === "agents/00-codevibe-agent.agent.md")
-	if (!codeVibeAgent) {
-		throw new Error(`${label} must contribute the native CodeVibe chat agent markdown`)
-	}
-	if (codeVibeAgent !== chatAgents[0]) {
-		throw new Error(`${label} must list CodeVibe chat agent before other chat agents`)
-	}
-	if (
-		codeVibeAgent.id !== "codevibe" ||
-		codeVibeAgent.name !== "codevibe" ||
-		!String(codeVibeAgent.description ?? "").includes("CodeVibe Agent") ||
-		!Array.isArray(codeVibeAgent.sessionTypes) ||
-		codeVibeAgent.sessionTypes.length !== 1 ||
-		codeVibeAgent.sessionTypes[0] !== codeVibeNativeChatSessionType
-	) {
-		throw new Error(`${label} CodeVibe chat agent contribution must be named and described as CodeVibe Agent`)
+	if (chatAgents.length > 0) {
+		throw new Error(`${label} must not contribute chatAgents until CodeVibe owns the external agent-host runtime`)
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
@@ -1262,8 +1231,8 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (typeof codeVibeSession.order !== "number" || codeVibeSession.order >= 0) {
 		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must be ordered before Copilot-style providers`)
 	}
-	if (codeVibeSession.customAgentTarget !== "codevibe") {
-		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must target CodeVibe custom agents`)
+	if (codeVibeSession.customAgentTarget !== undefined) {
+		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must use CodeVibe's content provider directly`)
 	}
 	if (codeVibeSession.alternativeIds !== undefined) {
 		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must not preserve an agent-host alias`)
@@ -1753,6 +1722,9 @@ function assertNativeChatRegistrationSource() {
 	if (!/registerChatSessionContentProvider!\(\s*chatSessionType,\s*contentProvider,\s*defaultChatParticipant/.test(source)) {
 		throw new Error("Native Chat session providers must register with the declared CodeVibe chat participant")
 	}
+	if (source.includes("registerCodeVibeNativeAgentProvider(context")) {
+		throw new Error("Native Chat activation must not register the external CodeVibe agent-host provider")
+	}
 }
 
 function assertNativeViewRegistrySource(packageJson) {
@@ -2076,7 +2048,7 @@ async function main() {
 			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
 			enableNativeAgentInVSCodeArgv(metadata)
 			pruneInstalledCodeVibeExtensionVersions(metadata)
-			writeInstalledNativeAgentCache(metadata)
+			removeInstalledNativeAgentCache(metadata)
 			try {
 				cleanLegacyCodeVibeViewState()
 			} catch (error) {
