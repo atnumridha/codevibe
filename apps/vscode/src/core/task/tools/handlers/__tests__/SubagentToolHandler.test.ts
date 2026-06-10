@@ -6,6 +6,7 @@ import { afterEach, describe, it } from "mocha"
 import sinon from "sinon"
 import { TaskState } from "../../../TaskState"
 import { AgentConfigLoader } from "../../subagent/AgentConfigLoader"
+import { MAX_SUBAGENT_PROMPTS } from "../../subagent/constants"
 import { SubagentRunner } from "../../subagent/SubagentRunner"
 import type { TaskConfig } from "../../types/TaskConfig"
 import { createUIHelpers } from "../../types/UIHelpers"
@@ -325,6 +326,66 @@ describe("SubagentToolHandler", () => {
 		assert.equal(usagePayload.cacheWrites, 0)
 		assert.equal(usagePayload.cacheReads, 0)
 		assert.equal(usagePayload.cost, 0.75)
+	})
+
+	it("accepts eight prompts in one parallel batch", async () => {
+		const { config, callbacks } = createConfig({ autoApproveSafe: true, autoApproveAll: true })
+		const prompts = Object.fromEntries(
+			Array.from({ length: MAX_SUBAGENT_PROMPTS }, (_, index) => [`prompt_${index + 1}`, `task ${index + 1}`]),
+		)
+		const runStub = sinon.stub(SubagentRunner.prototype, "run").resolves({
+			status: "completed",
+			result: "done",
+			stats: {
+				toolCalls: 1,
+				inputTokens: 2,
+				outputTokens: 3,
+				cacheWriteTokens: 0,
+				cacheReadTokens: 0,
+				totalCost: 0.25,
+				contextTokens: 5,
+				contextWindow: 200000,
+				contextUsagePercentage: 0.0025,
+			},
+		})
+
+		const handler = new UseSubagentsToolHandler()
+		const result = await handler.execute(config, {
+			type: "tool_use",
+			name: ClineDefaultTool.USE_SUBAGENTS,
+			params: prompts,
+			partial: false,
+		})
+
+		assert.equal(runStub.callCount, MAX_SUBAGENT_PROMPTS)
+		assert.match(String(result), new RegExp(`Total: ${MAX_SUBAGENT_PROMPTS}`))
+
+		const usageCalls = callbacks.say.getCalls().filter((call) => call.args[0] === "subagent_usage")
+		assert.equal(usageCalls.length, 1)
+		const usagePayload = JSON.parse(usageCalls[0].args[1]) as ClineSubagentUsageInfo
+		assert.equal(usagePayload.tokensIn, MAX_SUBAGENT_PROMPTS * 2)
+		assert.equal(usagePayload.tokensOut, MAX_SUBAGENT_PROMPTS * 3)
+		assert.equal(usagePayload.cost, MAX_SUBAGENT_PROMPTS * 0.25)
+	})
+
+	it("rejects malformed calls that include a ninth prompt", async () => {
+		const { config, taskState } = createConfig({ autoApproveSafe: true, autoApproveAll: true })
+		const prompts = Object.fromEntries(
+			Array.from({ length: MAX_SUBAGENT_PROMPTS + 1 }, (_, index) => [`prompt_${index + 1}`, `task ${index + 1}`]),
+		)
+		const runStub = sinon.stub(SubagentRunner.prototype, "run")
+
+		const handler = new UseSubagentsToolHandler()
+		const result = await handler.execute(config, {
+			type: "tool_use",
+			name: ClineDefaultTool.USE_SUBAGENTS,
+			params: prompts,
+			partial: false,
+		})
+
+		assert.match(String(result), new RegExp(`Maximum is ${MAX_SUBAGENT_PROMPTS}`))
+		assert.equal(taskState.consecutiveMistakeCount, 1)
+		sinon.assert.notCalled(runStub)
 	})
 
 	it("continues after per-subagent failures and reports both outcomes", async () => {

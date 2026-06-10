@@ -11,14 +11,12 @@ import { ClineDefaultTool } from "@/shared/tools"
 import type { ToolResponse } from "../../index"
 import { showNotificationForApproval } from "../../utils"
 import { AgentConfigLoader } from "../subagent/AgentConfigLoader"
+import { MAX_SUBAGENT_PROMPTS, SUBAGENT_PROMPT_KEYS } from "../subagent/constants"
 import { SubagentRunner } from "../subagent/SubagentRunner"
 import type { IFullyManagedTool } from "../ToolExecutorCoordinator"
 import type { TaskConfig } from "../types/TaskConfig"
 import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
-
-const MAX_SUBAGENT_PROMPTS = 5
-const PROMPT_KEYS = ["prompt_1", "prompt_2", "prompt_3", "prompt_4", "prompt_5"] as const
 
 function resolveConfiguredSubagentName(toolName: string): string | undefined {
 	return AgentConfigLoader.getInstance().resolveSubagentNameForTool(toolName)
@@ -30,7 +28,14 @@ function collectPrompts(block: ToolUse, configuredSubagentName?: string): string
 		return dynamicPrompt ? [dynamicPrompt] : []
 	}
 
-	return PROMPT_KEYS.map((key) => block.params[key]?.trim()).filter((prompt): prompt is string => !!prompt)
+	return SUBAGENT_PROMPT_KEYS.map((key) => block.params[key]?.trim()).filter((prompt): prompt is string => !!prompt)
+}
+
+function hasPromptBeyondLimit(block: ToolUse): boolean {
+	return Object.keys(block.params).some((key) => {
+		const match = /^prompt_(\d+)$/.exec(key)
+		return match ? Number(match[1]) > MAX_SUBAGENT_PROMPTS : false
+	})
 }
 
 function excerpt(text: string | undefined, maxChars = 1200): string {
@@ -62,7 +67,7 @@ export class UseSubagentsToolHandler implements IFullyManagedTool {
 						.removeClosingTag(block, "prompt", block.params.prompt?.trim() || block.params.prompt_1?.trim())
 						?.trim(),
 				].filter((prompt): prompt is string => !!prompt)
-			: PROMPT_KEYS.map((key) => uiHelpers.removeClosingTag(block, key, block.params[key]?.trim()))
+			: SUBAGENT_PROMPT_KEYS.map((key) => uiHelpers.removeClosingTag(block, key, block.params[key]?.trim()))
 					.map((prompt) => prompt?.trim())
 					.filter((prompt): prompt is string => !!prompt)
 
@@ -90,6 +95,11 @@ export class UseSubagentsToolHandler implements IFullyManagedTool {
 		}
 
 		const configuredSubagentName = resolveConfiguredSubagentName(block.name)
+		if (!configuredSubagentName && hasPromptBeyondLimit(block)) {
+			config.taskState.consecutiveMistakeCount++
+			return formatResponse.toolError(`Too many subagent prompts provided. Maximum is ${MAX_SUBAGENT_PROMPTS}.`)
+		}
+
 		const prompts = collectPrompts(block, configuredSubagentName)
 
 		if (prompts.length === 0) {

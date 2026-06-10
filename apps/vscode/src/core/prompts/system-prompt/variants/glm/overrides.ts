@@ -1,6 +1,10 @@
+import { MAX_SUBAGENT_PROMPTS, SUBAGENT_PROMPT_KEYS } from "@core/task/tools/subagent/constants"
 import { hasEnabledMcpServers } from "../../components/mcp"
 import { SystemPromptSection } from "../../templates/placeholders"
 import type { SystemPromptContext } from "../../types"
+
+const formatSubagentPromptParams = () =>
+	SUBAGENT_PROMPT_KEYS.map((key, index) => `${key}${index === 0 ? " (required)" : ""}`).join(", ")
 
 const GLM_TOOL_USE_TEMPLATE = (context: SystemPromptContext) => {
 	const hasMcpServers = hasEnabledMcpServers(context)
@@ -141,8 +145,8 @@ Include options/trade-offs when helpful, ask if plan matches, then add the exact
 		context.subagentsEnabled === true && !context.isSubagentRun
 			? `
 
-**use_subagents** — Run up to 5 focused in-process subagents in parallel for broad exploration. Each subagent gets its own prompt and returns a comprehensive research result. Use this when reading many files would consume the main agent's context window. Using a single subagent is also valid for light discovery work.
-Params: prompt_1 (required), prompt_2, prompt_3, prompt_4, prompt_5 (all optional).
+**use_subagents** — Run up to ${MAX_SUBAGENT_PROMPTS} focused in-process subagents in parallel for broad exploration. Each subagent gets its own prompt and returns a comprehensive research result. Use this when reading many files would consume the main agent's context window. Using a single subagent is also valid for light discovery work.
+Params: ${formatSubagentPromptParams()}.
 *Example:*
 <use_subagents>
 <prompt_1>First subagent task description here.</prompt_1>

@@ -63,4 +63,22 @@ describe("parseAssistantMessageV2", () => {
 		expect(blocks[1]).to.have.nested.property("params.tab_id", "active")
 		expect(blocks[1]).to.have.nested.property("params.full_page", "true")
 	})
+
+	it("parses the eighth subagent prompt", () => {
+		const blocks = parseAssistantMessageV2(`<use_subagents>
+<prompt_1>map auth flow</prompt_1>
+<prompt_8>audit standalone workspace diffs</prompt_8>
+<prompt_9>should not parse</prompt_9>
+</use_subagents>`)
+
+		expect(blocks).to.have.length(1)
+		expect(blocks[0]).to.include({
+			type: "tool_use",
+			name: ClineDefaultTool.USE_SUBAGENTS,
+			partial: false,
+		})
+		expect(blocks[0]).to.have.nested.property("params.prompt_1", "map auth flow")
+		expect(blocks[0]).to.have.nested.property("params.prompt_8", "audit standalone workspace diffs")
+		expect(blocks[0]).to.not.have.nested.property("params.prompt_9")
+	})
 })

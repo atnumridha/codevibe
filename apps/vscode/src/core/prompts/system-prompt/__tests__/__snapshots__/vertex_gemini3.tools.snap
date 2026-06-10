@@ -438,13 +438,13 @@
   },
   {
     "name": "use_subagents",
-    "description": "Run up to five focused in-process subagents in parallel. Each subagent gets its own prompt and returns a comprehensive research result with tool and token stats. Use this for broad exploration when reading many files would consume the main agent's context window. You do not need to launch multiple subagents every time; using one subagent is valid when it avoids unnecessary context usage for light discovery work.",
+    "description": "Run up to 8 focused in-process subagents in parallel. Each subagent gets its own prompt and returns a comprehensive research result with tool and token stats. Use this for broad exploration when reading many files would consume the main agent's context window. You do not need to launch multiple subagents every time; using one subagent is valid when it avoids unnecessary context usage for light discovery work.",
     "parameters": {
       "type": "OBJECT",
       "properties": {
         "prompt_1": {
           "type": "STRING",
-          "description": "First subagent prompt."
+          "description": "first subagent prompt."
         },
         "prompt_2": {
           "type": "STRING",
@@ -461,6 +461,18 @@
         "prompt_5": {
           "type": "STRING",
           "description": "Optional fifth subagent prompt."
+        },
+        "prompt_6": {
+          "type": "STRING",
+          "description": "Optional sixth subagent prompt."
+        },
+        "prompt_7": {
+          "type": "STRING",
+          "description": "Optional seventh subagent prompt."
+        },
+        "prompt_8": {
+          "type": "STRING",
+          "description": "Optional eighth subagent prompt."
         }
       },
       "required": [

@@ -1,3 +1,4 @@
+import { MAX_SUBAGENT_PROMPTS, SUBAGENT_PROMPT_KEYS, SUBAGENT_PROMPT_ORDINALS } from "@core/task/tools/subagent/constants"
 import { ModelFamily } from "@/shared/prompts"
 import { ClineDefaultTool } from "@/shared/tools"
 import type { ClineToolSpec } from "../spec"
@@ -9,35 +10,13 @@ const generic: ClineToolSpec = {
 	id,
 	name: "use_subagents",
 	description:
-		"Run up to five focused in-process subagents in parallel. Each subagent gets its own prompt and returns a comprehensive research result with tool and token stats. Use this for broad exploration when reading many files would consume the main agent's context window. You do not need to launch multiple subagents every time; using one subagent is valid when it avoids unnecessary context usage for light discovery work.",
+		`Run up to ${MAX_SUBAGENT_PROMPTS} focused in-process subagents in parallel. Each subagent gets its own prompt and returns a comprehensive research result with tool and token stats. Use this for broad exploration when reading many files would consume the main agent's context window. You do not need to launch multiple subagents every time; using one subagent is valid when it avoids unnecessary context usage for light discovery work.`,
 	contextRequirements: (context) => context.subagentsEnabled === true && !context.isSubagentRun,
-	parameters: [
-		{
-			name: "prompt_1",
-			required: true,
-			instruction: "First subagent prompt.",
-		},
-		{
-			name: "prompt_2",
-			required: false,
-			instruction: "Optional second subagent prompt.",
-		},
-		{
-			name: "prompt_3",
-			required: false,
-			instruction: "Optional third subagent prompt.",
-		},
-		{
-			name: "prompt_4",
-			required: false,
-			instruction: "Optional fourth subagent prompt.",
-		},
-		{
-			name: "prompt_5",
-			required: false,
-			instruction: "Optional fifth subagent prompt.",
-		},
-	],
+	parameters: SUBAGENT_PROMPT_KEYS.map((name, index) => ({
+		name,
+		required: index === 0,
+		instruction: `${index === 0 ? "" : "Optional "}${SUBAGENT_PROMPT_ORDINALS[index]} subagent prompt.`,
+	})),
 }
 
 export const subagent_variants = [generic]
