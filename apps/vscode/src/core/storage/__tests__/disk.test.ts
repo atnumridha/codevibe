@@ -9,7 +9,9 @@ import sinon from "sinon"
 import { HostProvider } from "@/hosts/host-provider"
 import { setVscodeHostProviderMock } from "@/test/host-provider-test-utils"
 import {
+	ensureCodexSkillsDirectoryExists,
 	ensureStateDirectoryExists,
+	getSkillsDirectoriesForScan,
 	getAllHooksDirs,
 	getTaskHistoryStateFilePath,
 	getWorkspaceHookDirCandidates,
@@ -274,6 +276,60 @@ describe("disk - hooks functionality", () => {
 			const result = await getAllHooksDirs()
 			result.should.not.containEql(runtimeHooksDir)
 		})
+	})
+})
+
+describe("disk - skills directories", () => {
+	let tempDir: string
+	let originalCodexHome: string | undefined
+
+	beforeEach(async () => {
+		tempDir = path.join(os.tmpdir(), `disk-skills-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+		originalCodexHome = process.env.CODEX_HOME
+		await fs.mkdir(tempDir, { recursive: true })
+	})
+
+	afterEach(async () => {
+		if (originalCodexHome === undefined) {
+			delete process.env.CODEX_HOME
+		} else {
+			process.env.CODEX_HOME = originalCodexHome
+		}
+
+		try {
+			await fs.rm(tempDir, { recursive: true, force: true })
+		} catch {
+			// Ignore cleanup errors
+		}
+	})
+
+	it("scans Codex project and global skill directories after legacy locations", () => {
+		process.env.CODEX_HOME = path.join(tempDir, "codex-home")
+		const workspaceRoot = path.join(tempDir, "workspace")
+		const dirs = getSkillsDirectoriesForScan(workspaceRoot)
+		const paths = dirs.map((dir) => dir.path)
+
+		paths.should.containEql(path.join(workspaceRoot, ".codex", "skills"))
+		paths.should.containEql(path.join(tempDir, "codex-home", "skills"))
+		paths.indexOf(path.join(workspaceRoot, ".codex", "skills")).should.be.greaterThan(
+			paths.indexOf(path.join(workspaceRoot, ".agents", "skills")),
+		)
+		paths.indexOf(path.join(tempDir, "codex-home", "skills")).should.be.greaterThan(
+			paths.indexOf(path.join(os.homedir(), ".agents", "skills")),
+		)
+	})
+
+	it("creates new Codex skill directories for global and workspace scopes", async () => {
+		process.env.CODEX_HOME = path.join(tempDir, "codex-home")
+		const workspaceRoot = path.join(tempDir, "workspace")
+
+		const globalDir = await ensureCodexSkillsDirectoryExists({ isGlobal: true })
+		const workspaceDir = await ensureCodexSkillsDirectoryExists({ isGlobal: false, workspacePath: workspaceRoot })
+
+		globalDir.should.equal(path.join(tempDir, "codex-home", "skills"))
+		workspaceDir.should.equal(path.join(workspaceRoot, ".codex", "skills"))
+		;(await fs.stat(globalDir)).isDirectory().should.equal(true)
+		;(await fs.stat(workspaceDir)).isDirectory().should.equal(true)
 	})
 })
 

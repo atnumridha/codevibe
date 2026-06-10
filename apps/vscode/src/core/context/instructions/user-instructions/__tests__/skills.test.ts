@@ -25,6 +25,7 @@ describe("Skills Utility Functions", () => {
 	// Use path.join for OS-independent paths
 	const TEST_CWD = path.join("/test", "project")
 	const GLOBAL_SKILLS_DIR = path.join("/home", "user", ".cline", "skills")
+	const GLOBAL_CODEX_SKILLS_DIR = path.join("/home", "user", ".codex", "skills")
 
 	beforeEach(() => {
 		sandbox = sinon.createSandbox()
@@ -43,8 +44,10 @@ describe("Skills Utility Functions", () => {
 			{ path: path.join(TEST_CWD, ".cline", "skills"), source: "project" },
 			{ path: path.join(TEST_CWD, ".claude", "skills"), source: "project" },
 			{ path: path.join(TEST_CWD, ".agents", "skills"), source: "project" },
+			{ path: path.join(TEST_CWD, ".codex", "skills"), source: "project" },
 			{ path: GLOBAL_SKILLS_DIR, source: "global" },
 			{ path: path.join("/home", "user", ".agents", "skills"), source: "global" },
+			{ path: GLOBAL_CODEX_SKILLS_DIR, source: "global" },
 		])
 
 		// Default: no directories exist
@@ -170,6 +173,53 @@ Always write tests.`)
 			expect(skills).to.have.lengthOf(1)
 			expect(skills[0].name).to.equal("testing")
 			expect(skills[0].source).to.equal("project")
+		})
+
+		it("should discover OpenAI skills from project .codex/skills directory", async () => {
+			const codexSkillsDir = path.join(TEST_CWD, ".codex", "skills")
+			const skillDir = path.join(codexSkillsDir, "openai-docs")
+			const skillMdPath = path.join(skillDir, "SKILL.md")
+
+			fileExistsStub.withArgs(codexSkillsDir).resolves(true)
+			fileExistsStub.withArgs(skillMdPath).resolves(true)
+			isDirectoryStub.withArgs(codexSkillsDir).resolves(true)
+			readdirStub.withArgs(codexSkillsDir).resolves(["openai-docs"])
+			statStub.withArgs(skillDir).resolves({ isDirectory: () => true })
+			readFileStub.withArgs(skillMdPath, "utf-8").resolves(`---
+name: openai-docs
+description: Use official OpenAI docs before answering API questions
+---
+Prefer official OpenAI documentation and Codex skill instructions.`)
+
+			const skills = await discoverSkills(TEST_CWD)
+
+			expect(skills).to.have.lengthOf(1)
+			expect(skills[0].name).to.equal("openai-docs")
+			expect(skills[0].source).to.equal("project")
+			expect(skills[0].path).to.equal(skillMdPath)
+		})
+
+		it("should discover OpenAI skills from global .codex/skills directory", async () => {
+			const skillDir = path.join(GLOBAL_CODEX_SKILLS_DIR, "codex-review")
+			const skillMdPath = path.join(skillDir, "SKILL.md")
+
+			fileExistsStub.withArgs(GLOBAL_CODEX_SKILLS_DIR).resolves(true)
+			fileExistsStub.withArgs(skillMdPath).resolves(true)
+			isDirectoryStub.withArgs(GLOBAL_CODEX_SKILLS_DIR).resolves(true)
+			readdirStub.withArgs(GLOBAL_CODEX_SKILLS_DIR).resolves(["codex-review"])
+			statStub.withArgs(skillDir).resolves({ isDirectory: () => true })
+			readFileStub.withArgs(skillMdPath, "utf-8").resolves(`---
+name: codex-review
+description: Review code with Codex defaults
+---
+Use Codex-style review priorities.`)
+
+			const skills = await discoverSkills(TEST_CWD)
+
+			expect(skills).to.have.lengthOf(1)
+			expect(skills[0].name).to.equal("codex-review")
+			expect(skills[0].source).to.equal("global")
+			expect(skills[0].path).to.equal(skillMdPath)
 		})
 
 		it("should handle empty skills directories gracefully", async () => {

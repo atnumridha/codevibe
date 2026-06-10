@@ -62,6 +62,7 @@ export const GlobalFileNames = {
 	legacyHooksDir: ".clinerules/hooks",
 	clineruleSkillsDir: ".clinerules/skills",
 	codevibeSkillsDir: ".codevibe/skills",
+	codexSkillsDir: ".codex/skills",
 	clineSkillsDir: ".cline/skills",
 	claudeSkillsDir: ".claude/skills",
 	agentsSkillsDir: ".agents/skills",
@@ -199,6 +200,14 @@ function getAgentSkillsDirectoryPath(): string {
 	return path.join(os.homedir(), ".agents", "skills")
 }
 
+export function getCodexHomePath(): string {
+	return process.env.CODEX_HOME?.trim() || path.join(os.homedir(), ".codex")
+}
+
+function getCodexSkillsDirectoryPath(): string {
+	return path.join(getCodexHomePath(), "skills")
+}
+
 /**
  * Returns the global agent skills directory path (~/.agents/skills).
  * Creates the directory if it doesn't exist.
@@ -217,6 +226,22 @@ export async function ensureAgentSkillsDirectoryExists(options: { isGlobal: bool
 	return agentSkillsDir
 }
 
+/**
+ * Returns the Codex/OpenAI skills directory path.
+ * Creates the directory if it doesn't exist.
+ */
+export async function ensureCodexSkillsDirectoryExists(options: { isGlobal: boolean; workspacePath?: string }): Promise<string> {
+	const codexSkillsDir = options.isGlobal
+		? getCodexSkillsDirectoryPath()
+		: path.join(options.workspacePath ?? "", GlobalFileNames.codexSkillsDir)
+	try {
+		await fs.mkdir(codexSkillsDir, { recursive: true })
+	} catch (_error) {
+		return codexSkillsDir
+	}
+	return codexSkillsDir
+}
+
 export type SkillsScanDirectory = {
 	path: string
 	source: "project" | "global"
@@ -233,9 +258,11 @@ export function getSkillsDirectoriesForScan(cwd: string): SkillsScanDirectory[] 
 		{ path: path.join(cwd, GlobalFileNames.clineSkillsDir), source: "project" },
 		{ path: path.join(cwd, GlobalFileNames.claudeSkillsDir), source: "project" },
 		{ path: path.join(cwd, GlobalFileNames.agentsSkillsDir), source: "project" },
+		{ path: path.join(cwd, GlobalFileNames.codexSkillsDir), source: "project" },
 		{ path: getClineSkillsDirectoryPath(), source: "global" },
 		{ path: getLegacyClineSkillsDirectoryPath(), source: "global" },
 		{ path: getAgentSkillsDirectoryPath(), source: "global" },
+		{ path: getCodexSkillsDirectoryPath(), source: "global" },
 	]
 }
 

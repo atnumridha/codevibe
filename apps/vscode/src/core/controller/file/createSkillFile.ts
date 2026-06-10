@@ -1,4 +1,4 @@
-import { ensureAgentSkillsDirectoryExists } from "@core/storage/disk"
+import { ensureCodexSkillsDirectoryExists } from "@core/storage/disk"
 import { CreateSkillRequest, SkillsToggles } from "@shared/proto/cline/file"
 import fs from "fs/promises"
 import path from "path"
@@ -55,8 +55,8 @@ export async function createSkillFile(controller: Controller, request: CreateSki
 	let skillDir: string
 
 	if (isGlobal) {
-		// Create in ~/.agents/skills using the unified helper
-		const globalSkillsDir = await ensureAgentSkillsDirectoryExists({ isGlobal: true })
+		// Create new user skills where Codex/OpenAI skills are already expected.
+		const globalSkillsDir = await ensureCodexSkillsDirectoryExists({ isGlobal: true })
 		skillDir = path.join(globalSkillsDir, sanitizedName)
 	} else {
 		const workspacePaths = await HostProvider.workspace.getWorkspacePaths({})
@@ -64,8 +64,7 @@ export async function createSkillFile(controller: Controller, request: CreateSki
 		if (!primaryWorkspace) {
 			throw new Error("No workspace folder open")
 		}
-		// Create in .agents/skills using the unified helper
-		const localSkillsDir = await ensureAgentSkillsDirectoryExists({
+		const localSkillsDir = await ensureCodexSkillsDirectoryExists({
 			isGlobal: false,
 			workspacePath: primaryWorkspace,
 		})
