@@ -121,14 +121,30 @@ function collectFindingsFromText(text, file) {
 		}
 	}
 
-	if (!file.endsWith("ClineProvider.tsx") && !file.endsWith("ClineAccountInfoCard.tsx")) {
+	if (
+		!file.endsWith("ClineProvider.tsx") &&
+		!file.endsWith("ClineAccountInfoCard.tsx") &&
+		!file.endsWith("ClineRulesToggleModal.tsx")
+	) {
 		const legacySettingsProviderImportPattern =
-			/from\s+["'][^"']*(?:providers\/ClineProvider|ClineAccountInfoCard)["']/g
+			/from\s+["'][^"']*(?:providers\/ClineProvider|ClineAccountInfoCard|ClineRulesToggleModal)["']/g
 		for (const match of text.matchAll(legacySettingsProviderImportPattern)) {
 			findings.push({
 				file,
 				line: lineNumberForIndex(text, match.index ?? 0),
-				label: "legacy settings provider import",
+				label: "legacy CodeVibe shim import",
+				value: match[0],
+			})
+		}
+	}
+
+	if (!file.endsWith("ClineRulesToggleModal.tsx")) {
+		const legacyRulesModalImportPattern = /from\s+["'][^"']*cline-rules\/CodeVibeRulesToggleModal["']/g
+		for (const match of text.matchAll(legacyRulesModalImportPattern)) {
+			findings.push({
+				file,
+				line: lineNumberForIndex(text, match.index ?? 0),
+				label: "legacy rules modal import path",
 				value: match[0],
 			})
 		}
