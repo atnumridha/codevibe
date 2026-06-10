@@ -1706,10 +1706,13 @@ function assertNativeViewRegistrySource(packageJson) {
 	if (!codeVibeAgentViews.some((view) => view?.id === "codevibe-agent-chat")) {
 		throw new Error("package.json must register codevibe-agent-chat under the codevibe-agent container")
 	}
-	if (!registrySource.includes('AgentContainer: name === "codevibe" ? "codevibe-agent" : prefix + ".agent"')) {
+	if (!registrySource.includes('const viewPrefix = name === "codevibe" ? "codevibe" : name.replace(/[^A-Za-z0-9_-]/g, "-")')) {
+		throw new Error("ExtensionRegistryInfo.views must derive package-name-safe view IDs")
+	}
+	if (!registrySource.includes('AgentContainer: viewPrefix + "-agent"')) {
 		throw new Error("ExtensionRegistryInfo.views.AgentContainer must match the contributed codevibe-agent container")
 	}
-	if (!registrySource.includes('Sidebar: name === "codevibe" ? "codevibe-agent-chat" : prefix + ".agent.chat"')) {
+	if (!registrySource.includes('Sidebar: viewPrefix + "-agent-chat"')) {
 		throw new Error("ExtensionRegistryInfo.views.Sidebar must match the contributed codevibe-agent-chat view")
 	}
 }
