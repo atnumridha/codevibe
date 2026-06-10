@@ -1,14 +1,12 @@
 import { strict as assert } from "node:assert"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
-import {
-	CODEVIBE_CHAT_PARTICIPANT_ID,
-	CODEVIBE_CHAT_SESSION_TYPE,
-	CODEVIBE_NATIVE_AGENT_FILE_NAME,
-} from "@/hosts/vscode/native-chat-registration"
 
-const packagePath = path.join(__dirname, "..", "..", "package.json")
-const vscodeRoot = path.join(__dirname, "..", "..")
+const vscodeRoot = process.cwd()
+const packagePath = path.join(vscodeRoot, "package.json")
+const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
+const CODEVIBE_CHAT_SESSION_TYPE = "agent-host-codevibe"
+const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 
 async function readPackageManifest(): Promise<Record<string, any>> {
 	return JSON.parse(await readFile(packagePath, "utf8"))
@@ -62,9 +60,11 @@ describe("Package manifest", () => {
 		const [chatSession] = packageJSON.contributes.chatSessions ?? []
 		const [newSessionMenu] = packageJSON.contributes.menus?.["chatSessions/newSession"] ?? []
 		const sessionTypes = (packageJSON.contributes.chatSessions ?? []).map((session: { type?: string }) => session.type)
+		const agentFile = await readFile(path.join(vscodeRoot, "agents", CODEVIBE_NATIVE_AGENT_FILE_NAME), "utf8")
 
 		assert.equal(chatAgent?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
+		assert.match(agentFile, /^---\nid: codevibe\n/m)
 		assert.equal(chatSession?.id, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.type, CODEVIBE_CHAT_SESSION_TYPE)
 		assert.equal(chatSession?.customAgentTarget, CODEVIBE_CHAT_PARTICIPANT_ID)
@@ -106,7 +106,7 @@ describe("Package manifest", () => {
 	})
 
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
-		const packageScript = await readFile(path.join(__dirname, "..", "..", "scripts", "package-github-vsix.mjs"), "utf8")
+		const packageScript = await readFile(path.join(vscodeRoot, "scripts", "package-github-vsix.mjs"), "utf8")
 
 		assert.equal(packageScript.includes("pruneInstalledCodeVibeExtensionVersions"), true)
 		assert.equal(packageScript.includes("createNativeAgentDiscoveryTombstones"), false)
@@ -122,7 +122,7 @@ describe("Package manifest", () => {
 	})
 
 	it("keeps GitHub release packaging non-interactive", async () => {
-		const packageScript = await readFile(path.join(__dirname, "..", "..", "scripts", "package-github-vsix.mjs"), "utf8")
+		const packageScript = await readFile(path.join(vscodeRoot, "scripts", "package-github-vsix.mjs"), "utf8")
 		const candidateWorkflow = await readFile(
 			path.join(vscodeRoot, "..", "..", ".github", "workflows", "ext-vscode-github-release.yml"),
 			"utf8",
@@ -155,6 +155,7 @@ describe("Package manifest", () => {
 	})
 
 	it("brands the standalone runtime entrypoint as CodeVibe core", async () => {
+		const packageJSON = await readPackageManifest()
 		const runtimePackage = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package.json"))
 		const runtimePackageLock = await readJsonFile(path.join(vscodeRoot, "standalone", "runtime-files", "package-lock.json"))
 		const esbuildScript = await readFile(path.join(vscodeRoot, "esbuild.mjs"), "utf8")
@@ -164,6 +165,7 @@ describe("Package manifest", () => {
 		)
 		const standalonePackageScript = await readFile(path.join(vscodeRoot, "scripts", "package-standalone.mjs"), "utf8")
 		const standaloneVerifierScript = await readFile(path.join(vscodeRoot, "scripts", "verify-standalone-package.mjs"), "utf8")
+		const standaloneSmokeScript = await readFile(path.join(vscodeRoot, "scripts", "smoke-standalone-package.ts"), "utf8")
 		const standaloneReleaseAssetsScript = await readFile(
 			path.join(vscodeRoot, "scripts", "prepare-standalone-release-assets.mjs"),
 			"utf8",
@@ -194,8 +196,19 @@ describe("Package manifest", () => {
 		assert.equal(standaloneVerifierScript.includes("standalone-manifest.json"), true)
 		assert.equal(standaloneVerifierScript.includes("requiresExternalHostBridge"), true)
 		assert.equal(standaloneVerifierScript.includes("manifest.uiContract?.webviewBuildPath"), true)
+		assert.equal(standaloneSmokeScript.includes("standalone-manifest.json"), true)
+		assert.equal(standaloneSmokeScript.includes("resolveNodePath"), true)
+		assert.equal(standaloneSmokeScript.includes("resolveRuntimeNode"), true)
+		assert.equal(standaloneSmokeScript.includes("CODEVIBE_STANDALONE_NODE"), true)
+		assert.equal(standaloneSmokeScript.includes("nodeTargetVersion"), true)
+		assert.equal(standaloneSmokeScript.includes("waitForGrpcHealth"), true)
+		assert.equal(standaloneSmokeScript.includes("CodeVibeApiServerMock"), true)
+		assert.equal(standaloneSmokeScript.includes("npx"), false)
+		assert.equal(packageJSON.scripts?.["smoke:standalone-package"], "node node_modules/tsx/dist/cli.mjs scripts/smoke-standalone-package.ts")
 		assert.equal(cursorParityEvidenceScript.includes("Standalone package artifact build and manifest verification"), true)
+		assert.equal(cursorParityEvidenceScript.includes("Standalone extracted package consumer smoke"), true)
 		assert.equal(cursorParityEvidenceScript.includes('"compile-standalone"'), true)
+		assert.equal(cursorParityEvidenceScript.includes("smoke-standalone-package.ts"), true)
 		assert.equal(cursorParityEvidenceScript.includes("verify-standalone-package.mjs"), true)
 		assert.equal(cursorParityEvidenceScript.includes("dist-standalone/standalone.zip"), true)
 		assert.equal(cursorParityEvidenceScript.includes("npm exec --package"), false)

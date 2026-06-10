@@ -155,6 +155,13 @@ const standaloneUiCommands = [
 		category: "standalone-ui",
 	},
 	{
+		label: "Standalone extracted package consumer smoke",
+		command: process.execPath,
+		args: [localTsxCli, "apps/vscode/scripts/smoke-standalone-package.ts"],
+		cwd: repoRoot,
+		category: "standalone-ui",
+	},
+	{
 		label: "Standalone hub route/readiness tests",
 		command: process.execPath,
 		args: [
@@ -494,9 +501,11 @@ function renderStandaloneUiEvidence(results) {
 		"| --- | --- | --- |",
 		...rows,
 		"",
-		"Focused evidence covers the VS-Code-free standalone package artifact, `standalone.zip` manifest contract, hub UI route surface, dynamic standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
+		"Focused evidence covers the VS-Code-free standalone package artifact, `standalone.zip` manifest contract, extracted-package launchability, hub UI route surface, dynamic standalone readiness metadata, Cursor URI launch/background-agent flow, hub typechecking, and production webview build.",
 		"",
 		"Standalone package: `npm --prefix apps/vscode run compile-standalone` builds `dist-standalone/standalone.zip` and runs `scripts/verify-standalone-package.mjs` against `standalone-manifest.json`, `codevibe-core.js`, the ProtoBus descriptor set, webview assets, external HostBridge requirements, and packaged native-module targets.",
+		"",
+		"Extracted package smoke: `npm --prefix apps/vscode run smoke:standalone-package` extracts `standalone.zip`, resolves `standalone-manifest.json` target/native-module `NODE_PATH`, starts the mock HostBridge and API server, launches `codevibe-core.js` from the extracted root, and waits for ProtoBus gRPC health.",
 		"",
 		"Readiness endpoint: `GET /api/standalone-readiness` returns redacted capability metadata for CodeVibe standalone mode, Codex Home auth support, live hub/UI-client availability, Cursor-compatible routes, desktop commands, and settings surfaces.",
 	].join("\n")

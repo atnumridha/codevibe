@@ -1,4 +1,5 @@
 ---
+id: codevibe
 name: CodeVibe Agent
 description: Use for repository coding tasks where CodeVibe should plan, edit, review, run terminal checks, manage diffs, use MCP/browser automation, and keep approval boundaries clear.
 argument-hint: Describe the coding task for CodeVibe

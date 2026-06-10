@@ -2,7 +2,7 @@
 	"name": "codevibe",
 	"displayName": "CodeVibe",
 	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.38",
+	"version": "3.88.39",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -641,6 +641,7 @@
 		"test:unit": "cross-env TS_NODE_PROJECT=./tsconfig.unit-test.json mocha",
 		"test:coverage": "vscode-test --coverage",
 		"test:sca-server": "npx tsx watch scripts/test-standalone-core-api-server.ts",
+		"smoke:standalone-package": "node node_modules/tsx/dist/cli.mjs scripts/smoke-standalone-package.ts",
 		"test:tp-orchestrator": "npx tsx scripts/testing-platform-orchestrator.ts",
 		"e2e": "playwright test -c playwright.config.ts",
 		"branding:audit": "node scripts/check-codevibe-branding.mjs",

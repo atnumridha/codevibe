@@ -7,9 +7,10 @@ CodeVibe releases are blocked until the Cursor-parity gate passes end to end:
 - CI e2e tests
 - VSIX packaging
 - VSIX install smoke test
+- standalone runtime assets and extracted-runtime smoke test
 - manual installed-VS-Code validation of Codex auth, Plan/Act, diffs, terminal approvals, MCP, browser automation, background agents, and Cursor-compatible deeplinks
 
-Set `CODEVIBE_ALL_PARITY_VALIDATED=true` only after those checks pass, and provide `CODEVIBE_PARITY_EVIDENCE_URL` as an `https://` URL to the release checklist or validation log. Use `docs/cursor-parity-validation-checklist.md` as the checklist template. The evidence should include the VS Code version, VSIX version, install smoke output, and manual installed-VS-Code parity results.
+Set `CODEVIBE_ALL_PARITY_VALIDATED=true` only after those checks pass, and provide `CODEVIBE_PARITY_EVIDENCE_URL` as an `https://` URL to the release checklist or validation log. Use `docs/cursor-parity-validation-checklist.md` as the checklist template. The evidence should include the VS Code version, VSIX version, VSIX install smoke output, standalone runtime assets (`standalone.zip`, `standalone.zip.sha256`, and `standalone-manifest.json`), extracted runtime smoke command/output proving `standalone.zip` launches from the extracted package using `standalone-manifest.json`, and manual installed-VS-Code parity results.
 
 ## Version And Tag
 
@@ -36,8 +37,9 @@ Required inputs:
 - `all_parity_validated`: `true` only for `release_stage=final`
 - `parity_evidence_url`: `https://...` only for `release_stage=final`
 
-The workflow packages `apps/vscode/*.vsix`, smoke-installs it with VS Code, and uploads it to the GitHub Release. If `prerelease` is true, the VSIX is packaged with `--pre-release`.
+The workflow packages `apps/vscode/*.vsix`, smoke-installs it with VS Code, prepares the standalone runtime assets, and uploads them to the GitHub Release. If `prerelease` is true, the VSIX is packaged with `--pre-release`.
 Each GitHub Release also attaches `cursor-parity-evidence.md`, a generated snapshot of the release prerequisite checks and local validation checklist state from the workflow runner.
+The release evidence must show `standalone.zip`, `standalone.zip.sha256`, and `standalone-manifest.json` were produced, and must include the extracted runtime smoke command and output showing the runtime was launched from the extracted `standalone.zip` contents using `standalone-manifest.json`.
 
 If `gh` is unavailable locally, either use the token-based local uploader or dispatch the workflow from GitHub.
 
@@ -74,7 +76,7 @@ Use `.github/workflows/ext-vscode-publish-stable.yml` only when both marketplace
 - `OVSX_PAT`
 
 The workflow fails early with a pointer to the GitHub-only workflow if either secret is missing. It also creates the GitHub Release after marketplace publish succeeds.
-The GitHub Release includes both the VSIX and `cursor-parity-evidence.md`.
+The GitHub Release includes the VSIX, `standalone.zip`, `standalone.zip.sha256`, `standalone-manifest.json`, and `cursor-parity-evidence.md`.
 
 Required release-gate inputs:
 
@@ -99,7 +101,10 @@ npm --prefix apps/vscode/webview-ui ci --include=optional
 cd apps/vscode
 npm run release:cursor-parity:evidence:full
 npm run package:github-vsix -- --verify-install
+npm run release:standalone:assets
 ```
+
+Record the extracted runtime smoke command and output from the standalone evidence tooling. The evidence must show `standalone.zip` was extracted, `standalone-manifest.json` was read from the extracted package, and the manifest launch command, args, module path, and environment were used to start the runtime from that extracted directory.
 
 If the VS Code CLI is not named `code`, either set `CODEVIBE_VSCODE_CLI` or pass `--code`:
 
