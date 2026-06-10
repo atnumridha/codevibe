@@ -38,7 +38,7 @@ const MERMAID_THEME = {
 
 mermaid.initialize({
 	startOnLoad: false,
-	securityLevel: "loose",
+	securityLevel: "strict",
 	theme: "dark",
 	themeVariables: {
 		...MERMAID_THEME,
@@ -81,14 +81,21 @@ interface MermaidBlockProps {
 	code: string;
 }
 
+let nextMermaidInstanceId = 0;
+
 export default function MermaidBlock({ code }: MermaidBlockProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const copyTimerRef = useRef<number | undefined>(undefined);
+	const instanceIdRef = useRef<number | undefined>(undefined);
 	const [isLoading, setIsLoading] = useState(false);
 	const [renderError, setRenderError] = useState<string | undefined>(undefined);
 	const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">(
 		"idle",
 	);
+
+	if (instanceIdRef.current === undefined) {
+		instanceIdRef.current = nextMermaidInstanceId++;
+	}
 
 	// 1) Whenever `code` changes, mark that we need to re-render a new chart
 	useEffect(() => {
@@ -117,7 +124,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 					if (!isValid) {
 						throw new Error("Invalid or incomplete Mermaid code");
 					}
-					const id = `mermaid-${Math.random().toString(36).substring(2)}`;
+					const id = getMermaidRenderId(code, instanceIdRef.current ?? 0);
 					return mermaid.render(id, code);
 				})
 				.then(({ svg }) => {
@@ -131,9 +138,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 					if (containerRef.current) {
 						containerRef.current.innerHTML = `<pre class="mermaid-source-fallback">${escapeHtml(code)}</pre>`;
 					}
-					setRenderError(
-						"Diagram could not be rendered. Showing Mermaid source.",
-					);
+					setRenderError("Unable to render diagram. Showing source.");
 				})
 				.finally(() => {
 					setIsLoading(false);
@@ -185,46 +190,65 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 	};
 
 	return (
-		<MermaidBlockContainer>
+		<MermaidBlockContainer data-testid="codevibe-mermaid-block">
+			<DiagramHeader>
+				<DiagramTitle>
+					<span className="codicon codicon-type-hierarchy-sub" />
+					<span>Plan diagram</span>
+				</DiagramTitle>
+				<ButtonContainer aria-label="Diagram actions">
+					<StyledVSCodeButton
+						aria-label={
+							copyStatus === "copied"
+								? "Mermaid source copied"
+								: "Copy Mermaid source"
+						}
+						onClick={handleCopyCode}
+						title={
+							copyStatus === "copied"
+								? "Copied"
+								: copyStatus === "failed"
+									? "Copy failed"
+									: "Copy Mermaid source"
+						}
+					>
+						<span className="codicon codicon-copy"></span>
+					</StyledVSCodeButton>
+					<StyledVSCodeButton
+						aria-label="Open Mermaid diagram as image"
+						onClick={handleOpenImage}
+						title="Open Mermaid diagram as image"
+					>
+						<span className="codicon codicon-open-preview"></span>
+					</StyledVSCodeButton>
+				</ButtonContainer>
+			</DiagramHeader>
 			{isLoading && (
-				<LoadingMessage>Rendering Mermaid diagram...</LoadingMessage>
+				<LoadingMessage aria-live="polite">Rendering diagram...</LoadingMessage>
 			)}
 			{renderError && <ErrorMessage role="status">{renderError}</ErrorMessage>}
-			<ButtonContainer aria-label="Mermaid diagram actions">
-				<StyledVSCodeButton
-					aria-label={
-						copyStatus === "copied"
-							? "Mermaid source copied"
-							: "Copy Mermaid source"
-					}
-					onClick={handleCopyCode}
-					title={
-						copyStatus === "copied"
-							? "Copied"
-							: copyStatus === "failed"
-								? "Copy failed"
-								: "Copy Mermaid source"
-					}
-				>
-					<span className="codicon codicon-copy"></span>
-				</StyledVSCodeButton>
-				<StyledVSCodeButton
-					aria-label="Open Mermaid diagram as image"
-					onClick={handleOpenImage}
-					title="Open Mermaid diagram as image"
-				>
-					<span className="codicon codicon-open-preview"></span>
-				</StyledVSCodeButton>
-			</ButtonContainer>
 			<SvgContainer
 				$isLoading={isLoading}
-				aria-label="Rendered Mermaid diagram"
+				aria-label="Rendered CodeVibe plan diagram"
 				onClick={handleOpenImage}
 				ref={containerRef}
 				role="img"
 			/>
 		</MermaidBlockContainer>
 	);
+}
+
+function getMermaidRenderId(code: string, instanceId: number): string {
+	return `codevibe-mermaid-${instanceId}-${hashMermaidCode(code)}`;
+}
+
+function hashMermaidCode(value: string): string {
+	let hash = 2166136261;
+	for (let index = 0; index < value.length; index++) {
+		hash ^= value.charCodeAt(index);
+		hash = Math.imul(hash, 16777619);
+	}
+	return (hash >>> 0).toString(36);
 }
 
 function escapeHtml(value: string): string {
@@ -237,7 +261,6 @@ function escapeHtml(value: string): string {
 }
 
 async function svgToPng(svgEl: SVGElement): Promise<string> {
-	console.log("svgToPng function called");
 	// Clone the SVG to avoid modifying the original
 	const svgClone = svgEl.cloneNode(true) as SVGElement;
 
@@ -298,35 +321,72 @@ async function svgToPng(svgEl: SVGElement): Promise<string> {
 
 const MermaidBlockContainer = styled.div`
 	position: relative;
-	margin: 8px 0;
+	box-sizing: border-box;
+	margin: 10px 0;
+	border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+	border-radius: 8px;
+	background: color-mix(
+		in srgb,
+		var(--vscode-editor-background) 88%,
+		var(--vscode-sideBar-background)
+	);
+	overflow: hidden;
 `;
 
-const ButtonContainer = styled.div`
-	position: absolute;
-	top: 8px;
-	right: 8px;
-	z-index: 1;
+const DiagramHeader = styled.div`
 	display: flex;
-	gap: 4px;
-	opacity: 0.6;
-	transition: opacity 0.2s ease;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 7px 8px 7px 10px;
+	border-bottom: 1px solid
+		color-mix(in srgb, var(--vscode-panel-border) 72%, transparent);
+	background: color-mix(
+		in srgb,
+		var(--vscode-editorWidget-background) 72%,
+		var(--vscode-editor-background)
+	);
+`;
 
-	&:hover {
-		opacity: 1;
+const DiagramTitle = styled.div`
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+	color: var(--vscode-foreground);
+	font-size: 12px;
+	font-weight: 600;
+
+	.codicon {
+		color: var(--vscode-charts-blue);
+		font-size: 14px;
 	}
 `;
 
+const ButtonContainer = styled.div`
+	display: flex;
+	flex: 0 0 auto;
+	gap: 4px;
+`;
+
 const LoadingMessage = styled.div`
-	padding: 8px 0;
+	padding: 9px 12px 0;
 	color: var(--vscode-descriptionForeground);
-	font-style: italic;
-	font-size: 0.9em;
+	font-size: 12px;
 `;
 
 const ErrorMessage = styled.div`
-	padding: 8px 0;
-	color: var(--vscode-errorForeground);
-	font-size: 0.9em;
+	margin: 8px 10px 0;
+	padding: 7px 9px;
+	border: 1px solid var(--vscode-inputValidation-warningBorder);
+	border-radius: 6px;
+	background: color-mix(
+		in srgb,
+		var(--vscode-inputValidation-warningBackground) 34%,
+		transparent
+	);
+	color: var(--vscode-inputValidation-warningForeground);
+	font-size: 12px;
 `;
 
 interface SvgContainerProps {
@@ -334,14 +394,20 @@ interface SvgContainerProps {
 }
 
 const SvgContainer = styled.div<SvgContainerProps>`
-	opacity: ${(props) => (props.$isLoading ? 0.3 : 1)};
-	min-height: 20px;
+	opacity: ${(props) => (props.$isLoading ? 0.35 : 1)};
+	min-height: 96px;
 	max-width: 100%;
+	padding: 14px 12px 16px;
 	overflow: auto;
 	transition: opacity 0.2s ease;
-	cursor: pointer;
+	cursor: zoom-in;
 	display: flex;
 	justify-content: center;
+
+	svg {
+		max-width: 100%;
+		height: auto;
+	}
 
 	.mermaid-source-fallback {
 		box-sizing: border-box;
@@ -349,8 +415,8 @@ const SvgContainer = styled.div<SvgContainerProps>`
 		margin: 0;
 		padding: 10px 12px;
 		overflow: auto;
-		border: 1px solid var(--vscode-inputValidation-errorBorder);
-		border-radius: 4px;
+		border: 1px solid var(--vscode-inputValidation-warningBorder);
+		border-radius: 6px;
 		background: var(--vscode-textCodeBlock-background);
 		color: var(--vscode-editor-foreground);
 		white-space: pre-wrap;
@@ -358,7 +424,8 @@ const SvgContainer = styled.div<SvgContainerProps>`
 `;
 
 const StyledVSCodeButton = styled(VSCodeButton)`
-	padding: 4px;
+	box-sizing: border-box;
+	padding: 0;
 	height: 24px;
 	width: 24px;
 	min-width: unset;
