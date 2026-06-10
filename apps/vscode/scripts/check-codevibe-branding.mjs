@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawnSync } from "node:child_process"
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -20,18 +21,7 @@ const scannedRoots = [
 	"webview-ui/src",
 ]
 
-const scannedExtensions = new Set([
-	".css",
-	".html",
-	".js",
-	".jsx",
-	".json",
-	".md",
-	".mjs",
-	".svg",
-	".ts",
-	".tsx",
-])
+const scannedExtensions = new Set([".css", ".html", ".js", ".jsx", ".json", ".md", ".mjs", ".svg", ".ts", ".tsx"])
 
 const skippedPathFragments = [
 	"/__snapshots__/",
@@ -56,6 +46,12 @@ const disallowedFragments = [
 	{ pattern: /What can I do for you\?/g, label: "legacy welcome headline" },
 	{ pattern: /Starter workflows/g, label: "legacy starter workflow copy" },
 	{ pattern: /Workspace console/g, label: "legacy workspace console copy" },
+	{ pattern: /works best with Claude models/g, label: "Claude-first provider warning copy" },
+	{ pattern: /recommended to use Claude 4\.5 Sonnet/g, label: "Claude-first recovery prompt copy" },
+	{ pattern: /models like Claude Sonnet/g, label: "Claude-first welcome copy" },
+	{ pattern: /cursor:\/\/createchat/g, label: "Cursor-first deeplink placeholder" },
+	{ pattern: /Cursor workspace/g, label: "Cursor-first MCP provenance label" },
+	{ pattern: /Cursor global/g, label: "Cursor-first MCP provenance label" },
 ]
 
 const scannedVsixArtifacts = ["dist/e2e.vsix"]
@@ -188,8 +184,23 @@ for (const artifact of scannedVsixArtifacts) {
 	collectFindingsFromText(packageJsonText, `${artifact}!/extension/package.json`)
 }
 
+const iconCheck = spawnSync(process.execPath, [path.join("scripts", "render-codevibe-icon.mjs"), "--check"], {
+	cwd: projectRoot,
+	encoding: "utf8",
+})
+if (iconCheck.status !== 0) {
+	findings.push({
+		file: "assets/icons/icon.png",
+		line: 1,
+		label: "stale CodeVibe icon PNG",
+		value: (iconCheck.stderr || iconCheck.stdout || "icon check failed").trim(),
+	})
+}
+
 if (findings.length > 0) {
-	console.error("CodeVibe branding audit failed. Replace visible legacy branding or move compatibility-only text into tests/generated allow-listed paths.")
+	console.error(
+		"CodeVibe branding audit failed. Replace visible legacy branding or move compatibility-only text into tests/generated allow-listed paths.",
+	)
 	for (const finding of findings) {
 		console.error(`${finding.file}:${finding.line}: ${finding.label}: ${JSON.stringify(finding.value)}`)
 	}

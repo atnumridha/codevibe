@@ -316,7 +316,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 	const triggerCursorCompatibleDeeplink = async () => {
 		const uri = await vscode.window.showInputBox({
-			placeHolder: "cursor://createchat?prompt=Review%20this",
+			placeHolder: "codevibe://createchat?prompt=Review%20this",
 			prompt: "Enter a compatible deeplink to route through CodeVibe.",
 			ignoreFocusOut: true,
 		})
@@ -1551,7 +1551,9 @@ async function closeLegacyCodeVibePanels(): Promise<void> {
 			await vscode.window.tabGroups.close(tabs)
 		}
 	} catch (error) {
-		Logger.warn(`Failed to close restored CodeVibe compatibility panels: ${error instanceof Error ? error.message : String(error)}`)
+		Logger.warn(
+			`Failed to close restored CodeVibe compatibility panels: ${error instanceof Error ? error.message : String(error)}`,
+		)
 	}
 
 	try {

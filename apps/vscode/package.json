@@ -673,6 +673,7 @@
 		"publish:marketplace": "node scripts/publish-marketplace.mjs",
 		"publish:marketplace:prerelease": "node scripts/publish-marketplace.mjs --pre-release",
 		"publish:marketplace:nightly": "node ./scripts/publish-nightly.mjs",
+		"branding:render-icon": "node scripts/render-codevibe-icon.mjs",
 		"prepare": "npx husky",
 		"docs": "cd docs && npm run dev",
 		"docs:check-links": "cd docs && npm run check",

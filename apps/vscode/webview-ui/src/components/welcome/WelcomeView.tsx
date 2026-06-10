@@ -1,5 +1,5 @@
 import { BooleanRequest, EmptyRequest } from "@shared/proto/cline/common"
-import { VSCodeButton, VSCodeLink } from "@vscode/webview-ui-toolkit/react"
+import { VSCodeButton } from "@vscode/webview-ui-toolkit/react"
 import { memo, useEffect, useState } from "react"
 import CodeVibeMark from "@/assets/CodeVibeMark"
 import ApiOptions from "@/components/settings/ApiOptions"
@@ -45,11 +45,8 @@ const WelcomeView = memo(() => {
 				</div>
 				<p>
 					CodeVibe can plan code changes, edit files, run terminal checks, use browser automation, and connect MCP tools
-					with your approval. It is tuned for a Codex-first workflow while still supporting models like{" "}
-					<VSCodeLink className="inline" href="https://www.anthropic.com/claude/sonnet">
-						Claude Sonnet
-					</VSCodeLink>
-					.
+					with your approval. It is tuned for a Codex-first workflow while still supporting frontier coding models from
+					OpenAI, Anthropic, Google, xAI, and local providers.
 				</p>
 
 				<p className="text-(--vscode-descriptionForeground)">

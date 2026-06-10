@@ -1,7 +1,7 @@
 # Always Use the Best Models
 
-**Connect your keys for Anthropic (Claude), Google (Gemini), OpenAI (GPT), and other leading LLMs.**
+**Connect your keys for OpenAI Codex, OpenAI GPT, Google Gemini, Anthropic Claude, and other leading LLMs.**
 
-CodeVibe puts you at the forefront of AI. Bring your own API keys for leading models like Anthropic (Claude), Google (Gemini), and OpenAI (GPT). Always leverage the most powerful State-of-the-Art (SOTA) capabilities, ensuring you control both cost and cutting-edge performance.
+CodeVibe puts you at the forefront of AI. Bring your own API keys for leading coding models across OpenAI, Google, Anthropic, xAI, local runtimes, and compatible gateways. Stay in control of cost, privacy, and cutting-edge performance.
 
 ![CodeVibe models demo](../assets/icons/icon.png)

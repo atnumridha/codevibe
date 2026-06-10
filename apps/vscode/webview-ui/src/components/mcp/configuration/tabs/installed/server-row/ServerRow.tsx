@@ -44,10 +44,10 @@ const TimeoutOptions = [
 
 function getSettingsSourceLabel(source: McpServer["settingsSource"]): string | undefined {
 	if (source === "cursor-workspace") {
-		return "Cursor workspace"
+		return "Imported workspace config"
 	}
 	if (source === "cursor-global") {
-		return "Cursor global"
+		return "Imported global config"
 	}
 	return undefined
 }
@@ -417,7 +417,11 @@ const ServerRow = ({
 							disabled={server.status === "connecting" || isRestarting || server.disabled}
 							onClick={handleRestart}
 							variant="secondary">
-							{server.status === "connecting" || isRestarting ? "Restarting..." : server.disabled ? "Server Disabled" : "Restart Server"}
+							{server.status === "connecting" || isRestarting
+								? "Restarting..."
+								: server.disabled
+									? "Server Disabled"
+									: "Restart Server"}
 						</Button>
 
 						{!isRemoteManagedServer && (

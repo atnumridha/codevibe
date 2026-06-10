@@ -5,30 +5,29 @@ import { getEnvironmentColor } from "../utils/environmentColors"
 const CodeVibeMark = (props: SVGProps<SVGSVGElement> & { environment?: Environment }) => {
 	const { environment, ...svgProps } = props
 	const accentColor =
-		environment === "local" || environment === "staging" ? getEnvironmentColor(environment) : "var(--color-codevibe, #2f8cff)"
+		environment === "local" || environment === "staging" ? getEnvironmentColor(environment) : "var(--color-codevibe, #5ef5d7)"
 	const lineColor = "var(--vscode-icon-foreground)"
+	const secondaryColor = "var(--vscode-descriptionForeground)"
 
 	return (
 		<svg fill="none" height="64" viewBox="0 0 64 64" width="64" xmlns="http://www.w3.org/2000/svg" {...svgProps}>
 			<title>CodeVibe</title>
 			<path
-				d="M32 5.5 55 18.75v26.5L32 58.5 9 45.25v-26.5L32 5.5Z"
-				stroke={lineColor}
+				d="M39 15.5C33.5 10.5 23.5 10.5 17 16.5 8.5 24.5 8.5 39.5 17 47.5c6.5 6 17.5 6 23.5.5"
+				stroke={secondaryColor}
 				strokeLinecap="round"
 				strokeLinejoin="round"
-				strokeWidth="4"
+				strokeWidth="6.75"
 			/>
 			<path
-				d="M19 23.5 32 43.5 45 23.5"
+				d="M25.5 22.5 33.5 43 50 19"
 				stroke={accentColor}
 				strokeLinecap="round"
 				strokeLinejoin="round"
-				strokeWidth="6"
+				strokeWidth="6.75"
 			/>
-			<path d="M22 18.5h20" stroke={lineColor} strokeLinecap="round" strokeWidth="4" />
-			<circle cx="19" cy="23.5" fill={lineColor} r="4" />
-			<circle cx="45" cy="23.5" fill={lineColor} r="4" />
-			<circle cx="32" cy="43.5" fill={accentColor} r="4.5" />
+			<circle cx="50" cy="19" fill={lineColor} r="3.25" />
+			<circle cx="33.5" cy="43" fill={accentColor} r="3.25" />
 		</svg>
 	)
 }

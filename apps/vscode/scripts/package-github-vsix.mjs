@@ -112,12 +112,12 @@ const disallowedPackagedVisibleTextFragments = [
 	"cline-vscode-extension",
 	"~/.cline/data/tasks",
 	"~/.cline/data/checkpoints",
-	"HTTP-Referer\": \"https://cline.bot",
-	"HTTP-Referer\":\"https://cline.bot",
-	"X-Title\": \"Cline",
-	"X-Title\":\"Cline",
-	"User-Agent\": \"Cline/",
-	"User-Agent\":\"Cline/",
+	'HTTP-Referer": "https://cline.bot',
+	'HTTP-Referer":"https://cline.bot',
+	'X-Title": "Cline',
+	'X-Title":"Cline',
+	'User-Agent": "Cline/',
+	'User-Agent":"Cline/',
 	"https://avatars.githubusercontent.com/u/184127137",
 	"Please sign in to access Cline services.",
 	"Open in Cline",
@@ -127,6 +127,12 @@ const disallowedPackagedVisibleTextFragments = [
 	"What can I do for you?",
 	"Workspace console",
 	"Starter workflows",
+	"works best with Claude models",
+	"recommended to use Claude 4.5 Sonnet",
+	"models like Claude Sonnet",
+	"cursor://createchat",
+	"Cursor workspace",
+	"Cursor global",
 ]
 
 const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
@@ -1035,9 +1041,7 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 			throw new Error(`${label} chatSessions[${index}] must declare a non-empty id`)
 		}
 		if (!/^[A-Za-z0-9_-]+$/.test(sessionId)) {
-			throw new Error(
-				`${label} chatSessions[${index}] id '${sessionId}' must use only alphanumeric characters, '_' or '-'`,
-			)
+			throw new Error(`${label} chatSessions[${index}] id '${sessionId}' must use only alphanumeric characters, '_' or '-'`)
 		}
 		const sessionType = session?.type
 		if (typeof sessionType !== "string" || sessionType.trim() === "") {
@@ -1450,9 +1454,7 @@ function assertNativeChatRegistrationSource() {
 	const source = fs.readFileSync(path.join(projectRoot, "src", "extension.ts"), "utf8")
 	for (const fragment of ["createChatParticipant!(chatSessionType", "createChatParticipant(chatSessionType"]) {
 		if (source.includes(fragment)) {
-			throw new Error(
-				`Native Chat session providers must reuse the declared codevibe participant instead of ${fragment}`,
-			)
+			throw new Error(`Native Chat session providers must reuse the declared codevibe participant instead of ${fragment}`)
 		}
 	}
 	if (!/registerChatSessionContentProvider!\(\s*chatSessionType,\s*contentProvider,\s*defaultChatParticipant/.test(source)) {
@@ -1474,9 +1476,7 @@ function assertNativeViewRegistrySource(packageJson) {
 		throw new Error("package.json must register codevibe-agent-chat under the codevibe-agent container")
 	}
 	if (!registrySource.includes('AgentContainer: name === "codevibe" ? "codevibe-agent" : prefix + ".agent"')) {
-		throw new Error(
-			"ExtensionRegistryInfo.views.AgentContainer must match the contributed codevibe-agent container",
-		)
+		throw new Error("ExtensionRegistryInfo.views.AgentContainer must match the contributed codevibe-agent container")
 	}
 	if (!registrySource.includes('Sidebar: name === "codevibe" ? "codevibe-agent-chat" : prefix + ".agent.chat"')) {
 		throw new Error("ExtensionRegistryInfo.views.Sidebar must match the contributed codevibe-agent-chat view")
