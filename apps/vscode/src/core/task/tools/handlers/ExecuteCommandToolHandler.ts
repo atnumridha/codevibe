@@ -15,6 +15,7 @@ import type { IFullyManagedTool } from "../ToolExecutorCoordinator"
 import type { ToolValidator } from "../ToolValidator"
 import type { TaskConfig } from "../types/TaskConfig"
 import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
+import { validateCursorSandboxTerminalPreflight } from "../utils/CursorSandboxCommandPolicy"
 import { applyModelContentFixes } from "../utils/ModelContentProcessor"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
 
@@ -277,6 +278,11 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			return commandPermissionError
 		}
 
+		const sandboxPreflightError = await validateCursorSandboxTerminalRun(config, actualCommand, executionDir, terminalRunMode)
+		if (sandboxPreflightError) {
+			return sandboxPreflightError
+		}
+
 		// Run PreToolUse hook after approval but before execution
 		try {
 			const { ToolHookUtils } = await import("../utils/ToolHookUtils")
@@ -413,4 +419,26 @@ async function validateCommandPermissionForRunMode(
 		await config.callbacks.say("command_permission_denied", errorMessage)
 	}
 	return formatResponse.toolError(formatResponse.permissionDeniedError(errorMessage))
+}
+
+async function validateCursorSandboxTerminalRun(
+	config: TaskConfig,
+	actualCommand: string,
+	executionDir: string,
+	terminalRunMode: CodeVibeTerminalRunMode,
+): Promise<ToolResponse | undefined> {
+	const sandboxResult = validateCursorSandboxTerminalPreflight({
+		command: actualCommand,
+		executionDir,
+		policy: config.cursorSandboxPolicy,
+		terminalRunMode,
+	})
+	if (sandboxResult.ok) {
+		return undefined
+	}
+
+	if (!config.isSubagentExecution) {
+		await config.callbacks.say("command_permission_denied", sandboxResult.error)
+	}
+	return formatResponse.toolError(formatResponse.permissionDeniedError(sandboxResult.error))
 }
