@@ -1,10 +1,10 @@
 ---
-title: ".codevibeignore and .clineignore"
+title: ".codevibeignore"
 sidebarTitle: "Ignore files"
 description: "Control which files and directories CodeVibe can access in your project."
 ---
 
-The `.codevibeignore` file tells CodeVibe which files and directories to skip when analyzing your codebase. It works like `.gitignore`: create a file named `.codevibeignore` in your project root, add patterns for files you want excluded, and CodeVibe will ignore them. Legacy `.clineignore` files are still supported for existing projects.
+The `.codevibeignore` file tells CodeVibe which files and directories to skip when analyzing your codebase. It works like `.gitignore`: create a file named `.codevibeignore` in your project root, add patterns for files you want excluded, and CodeVibe will ignore them.
 
 ## Why It Matters
 
@@ -46,7 +46,7 @@ node_modules/
 
 ## Pattern Syntax
 
-`.codevibeignore` and legacy `.clineignore` use the same pattern syntax as `.gitignore`:
+`.codevibeignore` uses the same pattern syntax as `.gitignore`:
 
 | Pattern | Matches |
 |---------|---------|
@@ -83,7 +83,7 @@ Start with these categories and adjust for your project:
 
 ## How It Works
 
-When CodeVibe scans your project to build context, it checks each file path against your `.codevibeignore` and `.clineignore` patterns. Matching files are excluded from:
+When CodeVibe scans your project to build context, it checks each file path against your `.codevibeignore` patterns. Matching files are excluded from:
 
 - The file listing CodeVibe sees when starting a task
 - Automatic context gathering during conversations
@@ -95,6 +95,10 @@ You can still reference ignored files explicitly using [@ mentions](/core-workfl
 `.codevibeignore` is separate from `.gitignore`. Files tracked by Git but irrelevant to CodeVibe (like large test fixtures or data files) should go in `.codevibeignore` even if they're not in `.gitignore`.
 </Note>
 
+<Note>
+Existing projects with `.clineignore` continue to work during migration, but new CodeVibe projects should use `.codevibeignore`.
+</Note>
+
 ## Tips
 
 - Add `.codevibeignore` early in your project. It's easier to start with broad exclusions and narrow them than to debug why context is bloated later.
@@ -104,6 +108,6 @@ You can still reference ignored files explicitly using [@ mentions](/core-workfl
 
 ## Related
 
-- [CodeVibe Rules](/customization/cline-rules) - Define persistent instructions for CodeVibe
+- [CodeVibe Rules](/customization/rules) - Define persistent instructions for CodeVibe
 - [Task Management](/core-workflows/task-management#context-window) - Understand how context windows work
 - [Auto-Compact](/features/auto-compact) - Automatic context compression during long tasks

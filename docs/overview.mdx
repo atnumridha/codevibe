@@ -9,15 +9,16 @@ Welcome to the CodeVibe documentation. Whether you're just getting started or lo
 ## What is CodeVibe?
 
 CodeVibe is an editor-native AI coding agent that lives in your editor, terminal, and standalone workflows. It can read and write files, run terminal commands, use a browser, and help you build features through natural conversation. Every action stays behind explicit approval and review gates unless you opt into autonomous execution.
+
 ### Agent Core (SDK)
 
-The SDK is the upstream-derived agent core used by CodeVibe. Use it to build your own applications, automations, and integrations while CodeVibe keeps compatibility with selected `@cline/*` packages for clean upstream patching.
+The SDK is the agent core used by CodeVibe. Use it to build your own applications, automations, and integrations while CodeVibe keeps selected upstream package boundaries internally for clean patching.
 
 <CardGroup cols={1}>
   <Card title="SDK" icon="cube" href="/sdk/overview">
     Build AI agents and integrations powered by the same core engine behind the CLI, Kanban, VS Code extension, and JetBrains plugin.
 
-    `npm install @cline/sdk`
+    SDK package publishing is tracked with the runtime release channel.
   </Card>
 </CardGroup>
 
@@ -39,7 +40,7 @@ These are end-user applications built on top of CodeVibe's agent runtime:
   <Card title="VS Code Extension" icon="code" href="https://github.com/atnumridha/codevibe/releases/latest">
     AI coding assistant in your editor. Create files, run commands, browse the web, and use tools with human-in-the-loop approval.
   </Card>
-  <Card title="JetBrains Compatibility" icon="brain" href="/getting-started/installing-cline">
+  <Card title="JetBrains Compatibility" icon="brain" href="/getting-started/installing-codevibe">
     JetBrains support remains an upstream-compatible track while CodeVibe focuses first on VS Code, CLI, and standalone UI.
   </Card>
 </CardGroup>

@@ -16,7 +16,7 @@ CodeVibe is a Codex-first coding agent for VS Code and standalone workflows. It 
 | Area | Purpose |
 | --- | --- |
 | `apps/vscode` | VS Code extension, webview UI, packaging, e2e tests, and VSIX release tooling. |
-| `apps/cline-hub` | Standalone CodeVibe Hub web UI and server bridge. |
+| Standalone Hub | CodeVibe Hub web UI and server bridge. |
 | `sdk/packages` | Shared agent runtime, LLM providers, tools, auth, MCP, browser, and automation support. |
 | `apps/cli` | CLI runtime built on the same shared agent core. |
 | `walkthrough` | VS Code walkthrough content shown to new extension users. |

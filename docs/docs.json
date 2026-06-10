@@ -62,13 +62,13 @@
 					{
 						"group": "Getting Started",
 						"pages": [
-							"cline-overview",
-							"getting-started/installing-cline",
+							"overview",
+							"getting-started/installing-codevibe",
 							{
 								"group": "Models & Providers",
 								"pages": [
-									"getting-started/authorizing-with-cline",
-									"getting-started/cline-provider",
+									"getting-started/authorization",
+									"getting-started/codevibe-provider",
 									"running-models-locally/overview",
 									{
 										"group": "Cloud Providers",
@@ -134,15 +134,15 @@
 					{
 						"group": "Configurations",
 						"pages": [
-							"tools-reference/all-cline-tools",
-							"customization/cline-rules",
+							"tools-reference/tools",
+							"customization/rules",
 							"customization/skills",
 							"customization/plugins",
 							"mcp/mcp-overview",
 							"customization/hooks",
 							"cli/scheduling",
 							"cli/connectors",
-							"customization/clineignore"
+							"customization/ignore-files"
 						]
 					},
 					{
@@ -254,7 +254,7 @@
 		{
 			"name": "Overview",
 			"icon": "house",
-			"url": "cline-overview"
+			"url": "overview"
 		}
 	],
 	"redirects": [
@@ -264,15 +264,15 @@
 		},
 		{
 			"source": "/getting-started/installing-cline-jetbrains",
-			"destination": "/getting-started/installing-cline"
+			"destination": "/getting-started/installing-codevibe"
 		},
 		{
 			"source": "/getting-started/for-new-coders",
-			"destination": "/getting-started/installing-cline"
+			"destination": "/getting-started/installing-codevibe"
 		},
 		{
 			"source": "/getting-started/overview",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/getting-started/your-first-project",
@@ -280,19 +280,19 @@
 		},
 		{
 			"source": "/introduction",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/introduction/welcome",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/introduction/overview",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/getting-started/model-selection-guide",
-			"destination": "/getting-started/cline-provider"
+			"destination": "/getting-started/codevibe-provider"
 		},
 		{
 			"source": "/provider-config/ollama",
@@ -312,27 +312,27 @@
 		},
 		{
 			"source": "/getting-started/understanding-context-management",
-			"destination": "/getting-started/cline-provider"
+			"destination": "/getting-started/codevibe-provider"
 		},
 		{
 			"source": "/best-practices/understanding-context-management",
-			"destination": "/getting-started/cline-provider"
+			"destination": "/getting-started/codevibe-provider"
 		},
 		{
 			"source": "/prompting/understanding-context-management",
-			"destination": "/getting-started/cline-provider"
+			"destination": "/getting-started/codevibe-provider"
 		},
 		{
 			"source": "/model-config/context-windows",
-			"destination": "/getting-started/cline-provider"
+			"destination": "/getting-started/codevibe-provider"
 		},
 		{
 			"source": "/core-features/model-selection-guide",
-			"destination": "/getting-started/cline-provider"
+			"destination": "/getting-started/codevibe-provider"
 		},
 		{
 			"source": "/prompting/prompt-engineering-guide",
-			"destination": "/customization/cline-rules"
+			"destination": "/customization/rules"
 		},
 		{
 			"source": "/prompting/cline-memory-bank",
@@ -436,15 +436,15 @@
 		},
 		{
 			"source": "/features/cline-rules",
-			"destination": "/customization/cline-rules"
+			"destination": "/customization/rules"
 		},
 		{
 			"source": "/features/cline-rules/overview",
-			"destination": "/customization/cline-rules"
+			"destination": "/customization/rules"
 		},
 		{
 			"source": "/features/cline-rules/conditional-rules",
-			"destination": "/customization/cline-rules"
+			"destination": "/customization/rules"
 		},
 		{
 			"source": "/features/commands-and-shortcuts/overview",
@@ -472,15 +472,15 @@
 		},
 		{
 			"source": "/exploring-clines-tools/cline-tools-guide",
-			"destination": "/tools-reference/all-cline-tools"
+			"destination": "/tools-reference/tools"
 		},
 		{
 			"source": "/exploring-clines-tools/new-task-tool",
-			"destination": "/tools-reference/all-cline-tools"
+			"destination": "/tools-reference/tools"
 		},
 		{
 			"source": "/exploring-clines-tools/remote-browser-support",
-			"destination": "/tools-reference/all-cline-tools"
+			"destination": "/tools-reference/tools"
 		},
 		{
 			"source": "/mcp/adding-mcp-servers-from-github",
@@ -520,19 +520,19 @@
 		},
 		{
 			"source": "/features/customization/opening-cline-in-sidebar",
-			"destination": "/getting-started/installing-cline"
+			"destination": "/getting-started/installing-codevibe"
 		},
 		{
 			"source": "/prompting/prompt-engineering-guide/clineignore-file-guide",
-			"destination": "/customization/clineignore"
+			"destination": "/customization/ignore-files"
 		},
 		{
 			"source": "/getting-started/selecting-your-model",
-			"destination": "/getting-started/authorizing-with-cline"
+			"destination": "/getting-started/authorization"
 		},
 		{
 			"source": "/model-config/model-comparison",
-			"destination": "/getting-started/cline-provider"
+			"destination": "/getting-started/codevibe-provider"
 		},
 		{
 			"source": "/troubleshooting/terminal-integration-guide",
@@ -600,7 +600,7 @@
 		},
 		{
 			"source": "/cli/installation",
-			"destination": "/getting-started/installing-cline"
+			"destination": "/getting-started/installing-codevibe"
 		},
 		{
 			"source": "/cli/three-core-flows",
@@ -612,7 +612,7 @@
 		},
 		{
 			"source": "/cline-cli/installation",
-			"destination": "/getting-started/installing-cline"
+			"destination": "/getting-started/installing-codevibe"
 		},
 		{
 			"source": "/cline-cli/three-core-flows",
@@ -868,31 +868,31 @@
 		},
 		{
 			"source": "/contributing/doc-templates",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/contributing/documentation-guide",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/customization/workflows",
-			"destination": "/customization/cline-rules"
+			"destination": "/customization/rules"
 		},
 		{
 			"source": "/features/web-tools",
-			"destination": "/tools-reference/all-cline-tools"
+			"destination": "/tools-reference/tools"
 		},
 		{
 			"source": "/getting-started/quick-start",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/getting-started/what-is-cline",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/home",
-			"destination": "/cline-overview"
+			"destination": "/overview"
 		},
 		{
 			"source": "/provider-config/aihubmix",
@@ -1000,7 +1000,7 @@
 		},
 		{
 			"source": "/tools-reference/browser-automation",
-			"destination": "/tools-reference/all-cline-tools"
+			"destination": "/tools-reference/tools"
 		},
 		{
 			"source": "/troubleshooting/task-history-recovery",
