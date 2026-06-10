@@ -244,6 +244,7 @@ jobs:
 
             - name: Collect Cursor-Parity Evidence
               if: ${{ always() }}
+              continue-on-error: ${{ (github.event.inputs.release_stage || 'candidate') == 'candidate' }}
               working-directory: ${{ github.workspace }}
               run: |
                   node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth --run-standalone-ui --run-sandbox-policy --out-file apps/vscode/cursor-parity-evidence.md

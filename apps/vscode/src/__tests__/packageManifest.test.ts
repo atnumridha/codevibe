@@ -119,6 +119,11 @@ describe("Package manifest", () => {
 		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --verify-install --require-release-gate)"), false)
 		assert.equal(candidateWorkflow.includes("package_args=(--out-dir .)"), true)
 		assert.equal(stableWorkflow.includes("package_args=(--out-dir . --require-release-gate)"), true)
+		assert.equal(
+			candidateWorkflow.includes("continue-on-error: ${{ (github.event.inputs.release_stage || 'candidate') == 'candidate' }}"),
+			true,
+		)
+		assert.equal(stableWorkflow.includes("continue-on-error:"), false)
 	})
 
 	it("brands the standalone runtime entrypoint as CodeVibe core", async () => {

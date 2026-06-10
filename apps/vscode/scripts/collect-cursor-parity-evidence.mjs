@@ -429,6 +429,14 @@ function fenced(value) {
 	return trimmed ? `\n\`\`\`text\n${trimmed}\n\`\`\`\n` : "\n_Not emitted._\n"
 }
 
+function outputTail(value, limit = 2000) {
+	const text = String(value ?? "").trim()
+	if (text.length <= limit) {
+		return text
+	}
+	return `...${text.slice(-limit)}`
+}
+
 function renderCommandResult(result) {
 	return `### ${result.label}
 
@@ -741,9 +749,28 @@ function main() {
 	fs.mkdirSync(path.dirname(options.outFile), { recursive: true })
 	fs.writeFileSync(options.outFile, evidence, "utf8")
 	console.log(`Cursor-parity evidence written to ${options.outFile}`)
-	const failed = results.filter((result) => result.status === "failed").length
+	const failedResults = results.filter((result) => result.status === "failed")
+	const failed = failedResults.length
 	const skipped = results.filter((result) => result.status === "not run").length
 	console.log(`${failed} failed command(s), ${skipped} not run command(s).`)
+	if (failedResults.length > 0) {
+		console.error("Failed evidence command summary:")
+		for (const result of failedResults) {
+			console.error(`\n[${result.label}] exit ${result.exitCode === null ? "n/a" : result.exitCode}`)
+			console.error(`Command: ${result.command}`)
+			const stderr = outputTail(result.stderr)
+			const stdout = outputTail(result.stdout)
+			if (stderr) {
+				console.error(`Stderr tail:\n${stderr}`)
+			}
+			if (stdout) {
+				console.error(`Stdout tail:\n${stdout}`)
+			}
+			if (result.error) {
+				console.error(`Error: ${result.error}`)
+			}
+		}
+	}
 	process.exit(
 		failed === 0 &&
 			(skipped === 0 ||
