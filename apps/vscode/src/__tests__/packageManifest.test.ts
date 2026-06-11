@@ -202,6 +202,11 @@ describe("Package manifest", () => {
 			path.join(vscodeRoot, "webview-ui", "src", "components", "chat", "ErrorRow.stories.tsx"),
 			"utf8",
 		)
+		const storybookButtonStory = await readFile(
+			path.join(vscodeRoot, "webview-ui", "src", "components", "ui", "button.stories.tsx"),
+			"utf8",
+		)
+		const storybookVisibleCopy = `${storybookErrorStory}\n${storybookButtonStory}`
 
 		assert.equal(/\bCline\b/.test(serializedContributions), false)
 		assert.equal(serializedContributions.includes("claude-dev.SidebarProvider"), false)
@@ -222,10 +227,10 @@ describe("Package manifest", () => {
 		assert.equal(brandingAuditScript.includes("extension.vsixmanifest"), true)
 		assert.equal(brandingAuditScript.includes("ClineModelPicker"), true)
 		assert.equal(brandingAuditScript.includes("legacy Cline version payload key"), true)
-		assert.equal(/\bCline[A-Za-z0-9_]*Error\b/.test(storybookErrorStory), false)
-		assert.equal(/sign in to cline/i.test(storybookErrorStory), false)
-		assert.equal(storybookErrorStory.includes("Cline-specific errors"), false)
-		assert.equal(storybookErrorStory.includes("clineignore errors"), false)
+		assert.equal(/\bCline[A-Za-z0-9_]*Error\b/.test(storybookVisibleCopy), false)
+		assert.equal(/sign in to cline/i.test(storybookVisibleCopy), false)
+		assert.equal(storybookVisibleCopy.includes("Cline-specific errors"), false)
+		assert.equal(storybookVisibleCopy.includes("clineignore errors"), false)
 		assert.equal(/options:\s*\[[^\]]*clineignore_error/.test(storybookErrorStory), false)
 		assert.equal(storybookErrorStory.includes("workspace_ignore_error"), true)
 	})

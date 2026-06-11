@@ -513,7 +513,7 @@ describe("ListFilesToolHandler.execute – error recovery", () => {
 		assert.equal(taskState.consecutiveMistakeCount, 3)
 	})
 
-	it("increments consecutiveMistakeCount on clineignore denial", async () => {
+	it("increments consecutiveMistakeCount on workspace ignore denial", async () => {
 		const { config, taskState } = createConfig()
 		// Create a validator whose clineIgnoreController blocks all paths
 		const blockingValidator = new ToolValidator({ validateAccess: () => false } as any)
@@ -526,7 +526,18 @@ describe("ListFilesToolHandler.execute – error recovery", () => {
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
-	it("accumulates clineignore denials across repeated calls", async () => {
+	it("reports workspace ignore denials with the CodeVibe-native message type", async () => {
+		const { config, callbacks } = createConfig()
+		config.isSubagentExecution = false
+		const blockingValidator = new ToolValidator({ validateAccess: () => false } as any)
+		const handler = new ListFilesToolHandler(blockingValidator)
+
+		await handler.execute(config, makeBlock("blocked-dir"))
+
+		sinon.assert.calledWith(callbacks.say, "workspace_ignore_error", "blocked-dir")
+	})
+
+	it("accumulates workspace ignore denials across repeated calls", async () => {
 		const { config, taskState } = createConfig()
 		const blockingValidator = new ToolValidator({ validateAccess: () => false } as any)
 		const handler = new ListFilesToolHandler(blockingValidator)

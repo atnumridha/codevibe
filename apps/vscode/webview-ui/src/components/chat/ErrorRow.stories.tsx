@@ -72,9 +72,6 @@ export const Default: Story = {
 		errorType: {
 			control: { type: "select" },
 			options: ["error", "mistake_limit_reached", "diff_error", "workspace_ignore_error"],
-			mapping: {
-				workspace_ignore_error: "clineignore_error",
-			},
 			description: "Type of error to display",
 		},
 		message: {

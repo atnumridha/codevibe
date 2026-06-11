@@ -10,7 +10,7 @@ const _errorColor = "var(--vscode-errorForeground)"
 
 interface ErrorRowProps {
 	message: ClineMessage
-	errorType: "error" | "mistake_limit_reached" | "diff_error" | "clineignore_error"
+	errorType: "error" | "mistake_limit_reached" | "diff_error" | "workspace_ignore_error" | "clineignore_error"
 	apiRequestFailedMessage?: string
 	apiReqStreamingFailedMessage?: string
 }
@@ -144,6 +144,7 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 					</div>
 				)
 
+			case "workspace_ignore_error":
 			case "clineignore_error":
 				return (
 					<div className="flex flex-col p-2 rounded text-xs opacity-80 bg-quote text-foreground">
@@ -159,8 +160,8 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 		}
 	}
 
-	// For diff_error and clineignore_error, we don't show the header separately
-	if (errorType === "diff_error" || errorType === "clineignore_error") {
+	// Diff and workspace-ignore errors render as standalone status rows.
+	if (errorType === "diff_error" || errorType === "workspace_ignore_error" || errorType === "clineignore_error") {
 		return renderErrorContent()
 	}
 

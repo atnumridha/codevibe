@@ -8,8 +8,7 @@ const meta: Meta<typeof Button> = {
 	parameters: {
 		docs: {
 			description: {
-				component:
-					"Displays different types of error messages in the chat interface, including API errors, credit limit errors, diff errors, and clineignore errors. Handles special error parsing for CodeVibe provider errors and provides appropriate user actions.",
+				component: "Showcases CodeVibe button variants, sizes, and icon composition for webview controls.",
 			},
 		},
 	},

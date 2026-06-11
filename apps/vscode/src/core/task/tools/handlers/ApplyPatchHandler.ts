@@ -529,7 +529,7 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 
 			const accessValidation = this.validator.checkClineIgnorePath(resolvedPath)
 			if (!accessValidation.ok) {
-				await config.callbacks.say("clineignore_error", resolvedPath)
+				await config.callbacks.say("workspace_ignore_error", resolvedPath)
 				throw new DiffError(`Access denied: ${resolvedPath}`)
 			}
 			const sandboxValidation = this.validator.checkCursorSandboxPath({
@@ -554,7 +554,7 @@ export class ApplyPatchHandler implements IFullyManagedTool {
 
 			const accessValidation = this.validator.checkClineIgnorePath(resolvedPath)
 			if (!accessValidation.ok) {
-				await config.callbacks.say("clineignore_error", resolvedPath)
+				await config.callbacks.say("workspace_ignore_error", resolvedPath)
 				throw new DiffError(`Access denied: ${resolvedPath}`)
 			}
 			const sandboxValidation = this.validator.checkCursorSandboxPath({

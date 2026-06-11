@@ -207,6 +207,7 @@ export type ClineSay =
 	| "use_mcp_server"
 	| "diff_error"
 	| "deleted_api_reqs"
+	| "workspace_ignore_error"
 	| "clineignore_error"
 	| "command_permission_denied"
 	| "checkpoint_created"

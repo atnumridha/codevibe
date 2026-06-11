@@ -64,9 +64,17 @@ describe("ErrorRow", () => {
 		).toBeInTheDocument()
 	})
 
-	it("renders clineignore error", () => {
-		const clineignoreMessage = { ...mockMessage, text: "/path/to/file.txt" }
-		render(<ErrorRow errorType="clineignore_error" message={clineignoreMessage} />)
+	it("renders workspace ignore error", () => {
+		const workspaceIgnoreMessage = { ...mockMessage, text: "/path/to/file.txt" }
+		render(<ErrorRow errorType="workspace_ignore_error" message={workspaceIgnoreMessage} />)
+
+		expect(screen.getByText(/CodeVibe tried to access/)).toBeInTheDocument()
+		expect(screen.getByText("/path/to/file.txt")).toBeInTheDocument()
+	})
+
+	it("renders legacy workspace ignore error messages", () => {
+		const legacyIgnoreMessage = { ...mockMessage, text: "/path/to/file.txt" }
+		render(<ErrorRow errorType="clineignore_error" message={legacyIgnoreMessage} />)
 
 		expect(screen.getByText(/CodeVibe tried to access/)).toBeInTheDocument()
 		expect(screen.getByText("/path/to/file.txt")).toBeInTheDocument()

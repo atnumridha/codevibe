@@ -450,11 +450,11 @@ export class WriteToFileToolHandler implements IFullyManagedTool {
 			resolutionMethod: (typeof pathResult !== "string" ? "hint" : "primary_fallback") as "hint" | "primary_fallback",
 		}
 
-		// Check clineignore access first
+		// Check workspace ignore access first.
 		const accessValidation = this.validator.checkClineIgnorePath(resolvedPath)
 		if (!accessValidation.ok) {
 			// Show error and return early (full original behavior)
-			await config.callbacks.say("clineignore_error", resolvedPath)
+			await config.callbacks.say("workspace_ignore_error", resolvedPath)
 
 			// Push tool result and save checkpoint using existing utilities
 			const errorResponse = formatResponse.toolError(formatResponse.clineIgnoreError(resolvedPath))

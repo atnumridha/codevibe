@@ -191,11 +191,11 @@ export class ReadFileToolHandler implements IFullyManagedTool {
 			return await config.callbacks.sayAndCreateMissingParamError(this.name, "path")
 		}
 
-		// Check clineignore access
+		// Check workspace ignore access.
 		const accessValidation = this.validator.checkClineIgnorePath(relPath!)
 		if (!accessValidation.ok) {
 			if (!config.isSubagentExecution) {
-				await config.callbacks.say("clineignore_error", relPath)
+				await config.callbacks.say("workspace_ignore_error", relPath)
 			}
 			return formatResponse.toolError(formatResponse.clineIgnoreError(relPath!))
 		}

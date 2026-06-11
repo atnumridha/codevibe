@@ -940,8 +940,9 @@ export const ChatRowContent = memo(
 						return <ErrorRow errorType="error" message={message} />
 					case "diff_error":
 						return <ErrorRow errorType="diff_error" message={message} />
+					case "workspace_ignore_error":
 					case "clineignore_error":
-						return <ErrorRow errorType="clineignore_error" message={message} />
+						return <ErrorRow errorType="workspace_ignore_error" message={message} />
 					case "checkpoint_created":
 						return <CheckmarkControl isCheckpointCheckedOut={message.isCheckpointCheckedOut} messageTs={message.ts} />
 					case "load_mcp_documentation":
