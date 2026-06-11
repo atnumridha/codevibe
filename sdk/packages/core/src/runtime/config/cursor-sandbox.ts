@@ -582,14 +582,18 @@ function formatZodIssues(error: z.ZodError): string[] {
 function addAliasConflictIssue(
 	value: Record<string, unknown>,
 	ctx: z.RefinementCtx,
-	first: string,
-	second: string,
+	preferredKey: string,
+	aliasKey: string,
 ): void {
-	if (value[first] !== undefined && value[second] !== undefined) {
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			path: [second],
-			message: `Cannot specify both ${first} and ${second}`,
-		});
+	if (value[preferredKey] === undefined || value[aliasKey] === undefined) {
+		return;
 	}
+	if (JSON.stringify(value[preferredKey]) === JSON.stringify(value[aliasKey])) {
+		return;
+	}
+	ctx.addIssue({
+		code: z.ZodIssueCode.custom,
+		path: [aliasKey],
+		message: `${aliasKey} conflicts with ${preferredKey}`,
+	});
 }

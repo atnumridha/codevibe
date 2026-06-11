@@ -59,6 +59,35 @@ describe("Cursor sandbox config", () => {
 		});
 	});
 
+	it("accepts duplicate camelCase and snake_case aliases when values match", () => {
+		const config = parseCursorSandboxConfig({
+			additionalReadwritePaths: ["../cache"],
+			additional_readwrite_paths: ["../cache"],
+			additionalReadonlyPaths: ["/var/log/project"],
+			additional_readonly_paths: ["/var/log/project"],
+			disableTmpWrite: true,
+			disable_tmp_write: true,
+			enableSharedBuildCache: false,
+			enable_shared_build_cache: false,
+			blockGitWrites: true,
+			block_git_writes: true,
+			networkPolicy: { default: "deny", allow: ["api.example.com"] },
+			network_policy: { default: "deny", allow: ["api.example.com"] },
+			networkAccess: false,
+			network_access: false,
+		});
+
+		expect(config).toEqual({
+			type: "workspace_readwrite",
+			additionalReadwritePaths: ["../cache"],
+			additionalReadonlyPaths: ["/var/log/project"],
+			disableTmpWrite: true,
+			enableSharedBuildCache: false,
+			blockGitWrites: true,
+			networkPolicy: { default: "deny", allow: ["api.example.com"] },
+		});
+	});
+
 	it("rejects invalid known fields and conflicting aliases", () => {
 		expect(() => parseCursorSandboxConfig({ disableTmpWrite: "yes" })).toThrow(
 			CursorSandboxConfigError,
