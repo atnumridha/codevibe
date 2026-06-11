@@ -8,6 +8,8 @@ const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "codevibe-agent"
 const CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
+const CODEVIBE_ACTIVITY_ICON = "assets/icons/activitybar.svg"
+const CODEVIBE_MARKETPLACE_ICON = "assets/icons/icon.png"
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
 	"id",
@@ -75,13 +77,19 @@ describe("Package manifest", () => {
 		const participant = packageJSON.contributes.chatParticipants?.[0]
 		const activitybarContainers = packageJSON.contributes.viewsContainers?.activitybar ?? []
 		const activitybarContainerIds = activitybarContainers.map((container: { id: string }) => container.id)
+		const codeVibeActivitybarContainer = activitybarContainers.find(
+			(container: { id?: string }) => container.id === "codevibe-agent",
+		)
 		const views = packageJSON.contributes.views ?? {}
 		const codeVibeAgentViews = views["codevibe-agent"] ?? []
 		const nativeAgentView = codeVibeAgentViews.find((view: { id?: string }) => view.id === "codevibe-agent-chat")
 
+		assert.equal(packageJSON.icon, CODEVIBE_MARKETPLACE_ICON)
 		assert.equal(participant.id, CODEVIBE_CHAT_PARTICIPANT_ID)
 		assert.match(participant.id, /^[A-Za-z0-9_-]+$/)
 		assert.deepEqual(activitybarContainerIds, ["codevibe-agent"])
+		assert.equal(codeVibeActivitybarContainer?.icon, CODEVIBE_ACTIVITY_ICON)
+		assert.notEqual(codeVibeActivitybarContainer?.icon, CODEVIBE_MARKETPLACE_ICON)
 		for (const containerId of activitybarContainerIds) {
 			assert.match(containerId, /^[A-Za-z0-9_-]+$/)
 		}
@@ -99,6 +107,7 @@ describe("Package manifest", () => {
 		assert.equal(packageJSON.activationEvents.includes(`onChatSession:${CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE}`), false)
 		assert.equal(nativeAgentView?.visibility, "hidden")
 		assert.equal(nativeAgentView?.name, "Compatibility Timeline")
+		assert.equal(nativeAgentView?.icon, CODEVIBE_ACTIVITY_ICON)
 		assert.equal(
 			codeVibeAgentViews.some((view: { id?: string }) => view.id === "codevibe.SidebarProvider"),
 			false,

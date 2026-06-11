@@ -93,6 +93,7 @@ old_docs/**
 
 # Include only runtime CodeVibe icons
 assets/icons/**
+!assets/icons/activitybar.svg
 !assets/icons/icon.png
 !assets/icons/icon.svg
 !assets/icons/codevibe-glyph.woff

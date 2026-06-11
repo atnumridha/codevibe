@@ -158,7 +158,7 @@
 				{
 					"id": "codevibe-agent",
 					"title": "CodeVibe Agent",
-					"icon": "assets/icons/icon.png"
+					"icon": "assets/icons/activitybar.svg"
 				}
 			]
 		},
@@ -168,7 +168,7 @@
 					"id": "codevibe-agent-chat",
 					"name": "Compatibility Timeline",
 					"type": "webview",
-					"icon": "assets/icons/icon.png",
+					"icon": "assets/icons/activitybar.svg",
 					"visibility": "hidden"
 				}
 			]

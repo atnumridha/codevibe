@@ -66,6 +66,7 @@ const expectedManifestAssetPaths = [
 	"assets/prompts/skills/codevibe-mcp/SKILL.md",
 	"assets/prompts/skills/codevibe-performance-troubleshooting/SKILL.md",
 	"assets/prompts/skills/codevibe-release-validation/SKILL.md",
+	"assets/icons/activitybar.svg",
 	"assets/icons/icon.png",
 	"assets/icons/codevibe-glyph.woff",
 	"walkthrough/step1.md",
@@ -1173,6 +1174,10 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (activityBarIds.includes("claude-dev-ActivityBar")) {
 		throw new Error(`${label} must not contribute the legacy claude-dev activity bar container`)
 	}
+	const codeVibeContainer = activityBarContainers.find((container) => container?.id === "codevibe-agent")
+	if (codeVibeContainer?.icon !== "assets/icons/activitybar.svg") {
+		throw new Error(`${label} codevibe-agent activity bar container must use the monochrome activitybar.svg icon`)
+	}
 
 	const views = packageJson.contributes?.views ?? {}
 	const registeredViewContainerIds = new Set(activityBarIds)
@@ -1192,6 +1197,9 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	}
 	if (codeVibeAgentWebview?.name === "Agent") {
 		throw new Error(`${label} hidden compatibility webview must not use the generic Agent label`)
+	}
+	if (codeVibeAgentWebview?.icon !== "assets/icons/activitybar.svg") {
+		throw new Error(`${label} hidden compatibility webview must use the monochrome activitybar.svg icon`)
 	}
 	const chatParticipants = Array.isArray(packageJson.contributes?.chatParticipants)
 		? packageJson.contributes.chatParticipants
