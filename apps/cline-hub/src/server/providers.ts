@@ -58,30 +58,51 @@ function sortProviders<T extends { id: string }>(providers: T[]): T[] {
 	});
 }
 
+function getConfiguredEnvProvider(): string | undefined {
+	return process.env.CODEVIBE_PROVIDER?.trim() || process.env.CLINE_PROVIDER?.trim() || undefined;
+}
+
+function getConfiguredEnvModel(): string | undefined {
+	return process.env.CODEVIBE_MODEL?.trim() || process.env.CLINE_MODEL?.trim() || undefined;
+}
+
+export function getMatchingLastUsedModel(providerId: string): string | undefined {
+	const lastUsed = providerSettingsManager.getLastUsedProviderSettings();
+	if (lastUsed?.provider?.trim() !== providerId) {
+		return undefined;
+	}
+	return lastUsed.model?.trim() || undefined;
+}
+
 export function resolveBrowserDefaults(ctx: HubContext): {
 	provider?: string;
 	model?: string;
 	workspaceRoot: string;
 	cwd: string;
 } {
-	const lastUsed = providerSettingsManager.getLastUsedProviderSettings();
-	const envProvider =
-		process.env.CODEVIBE_PROVIDER?.trim() || process.env.CLINE_PROVIDER?.trim();
-	const envModel =
-		process.env.CODEVIBE_MODEL?.trim() || process.env.CLINE_MODEL?.trim();
-	const inheritedProvider =
-		lastUsed?.provider ?? ctx.lastSessionContext?.providerId ?? envProvider;
+	const envProvider = getConfiguredEnvProvider();
+	const envModel = getConfiguredEnvModel();
+	const inheritedProvider = ctx.lastSessionContext?.providerId ?? envProvider;
 	const provider = getDefaultableProviderId(inheritedProvider);
 	const providerWasDemoted =
 		Boolean(inheritedProvider?.trim()) &&
 		provider !== inheritedProvider?.trim();
+	const lastSessionModel =
+		ctx.lastSessionContext?.providerId === provider
+			? ctx.lastSessionContext.modelId
+			: undefined;
+	const envModelForProvider =
+		envProvider && getDefaultableProviderId(envProvider) === provider
+			? envModel
+			: undefined;
 	return {
 		provider,
 		model: providerWasDemoted
 			? DEFAULT_HUB_MODEL_ID
-			: (lastUsed?.model ??
-				ctx.lastSessionContext?.modelId ??
-				(envModel || DEFAULT_HUB_MODEL_ID)),
+			: (lastSessionModel ??
+				envModelForProvider ??
+				getMatchingLastUsedModel(provider) ??
+				DEFAULT_HUB_MODEL_ID),
 		workspaceRoot: ctx.lastSessionContext?.workspaceRoot ?? workspaceRoot,
 		cwd:
 			ctx.lastSessionContext?.cwd ??

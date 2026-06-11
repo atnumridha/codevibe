@@ -170,6 +170,7 @@ const standaloneUiCommands = [
 			"apps/cline-hub/tsconfig.json",
 			"--test",
 			"apps/cline-hub/src/server/http.test.ts",
+			"apps/cline-hub/src/server/providers.test.ts",
 			"apps/cline-hub/src/server/standalone-readiness.test.ts",
 			"apps/cline-hub/src/server/state-payloads.test.ts",
 			"apps/cline-hub/src/server/cursor-launch.test.ts",

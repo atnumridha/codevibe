@@ -11,9 +11,10 @@ import {
 	type WebviewReasonLevel,
 } from "../webview-protocol";
 import { rejectPendingApprovalsForSession } from "./approvals";
-import { providerSettingsManager, workspaceRoot } from "./deps";
+import { workspaceRoot } from "./deps";
 import {
 	getDefaultableProviderId,
+	getMatchingLastUsedModel,
 	loadProviders,
 	resolveBrowserDefaults,
 	sendProviderCatalog,
@@ -50,28 +51,38 @@ export function resolveLaunchContext(
 	override?: Partial<SessionContext> & WebviewConfig,
 ): SessionContext {
 	const envProvider =
-		process.env.CODEVIBE_PROVIDER?.trim() || process.env.CLINE_PROVIDER?.trim();
+		process.env.CODEVIBE_PROVIDER?.trim() ||
+		process.env.CLINE_PROVIDER?.trim() ||
+		undefined;
 	const envModel =
-		process.env.CODEVIBE_MODEL?.trim() || process.env.CLINE_MODEL?.trim();
+		process.env.CODEVIBE_MODEL?.trim() ||
+		process.env.CLINE_MODEL?.trim() ||
+		undefined;
 	const explicitProvider = override?.provider ?? override?.providerId;
-	const inheritedProvider =
-		ctx.lastSessionContext?.providerId ??
-		providerSettingsManager.getLastUsedProviderSettings()?.provider ??
-		envProvider;
+	const inheritedProvider = ctx.lastSessionContext?.providerId ?? envProvider;
 	const providerId =
 		explicitProvider ?? getDefaultableProviderId(inheritedProvider);
 	const providerWasDemoted =
 		!explicitProvider &&
 		Boolean(inheritedProvider?.trim()) &&
 		providerId !== inheritedProvider?.trim();
+	const lastSessionModel =
+		ctx.lastSessionContext?.providerId === providerId
+			? ctx.lastSessionContext.modelId
+			: undefined;
+	const envModelForProvider =
+		envProvider && getDefaultableProviderId(envProvider) === providerId
+			? envModel
+			: undefined;
 	const modelId =
 		override?.model ??
 		override?.modelId ??
 		(providerWasDemoted
 			? DEFAULT_HUB_MODEL_ID
-			: (ctx.lastSessionContext?.modelId ??
-				providerSettingsManager.getLastUsedProviderSettings()?.model ??
-				(envModel || DEFAULT_HUB_MODEL_ID)));
+			: (lastSessionModel ??
+				envModelForProvider ??
+				getMatchingLastUsedModel(providerId) ??
+				DEFAULT_HUB_MODEL_ID));
 	const root =
 		override?.workspaceRoot ??
 		ctx.lastSessionContext?.workspaceRoot ??
