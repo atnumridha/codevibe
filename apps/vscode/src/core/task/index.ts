@@ -634,6 +634,10 @@ export class Task {
 		)
 	}
 
+	getCursorSandboxPolicy(): CursorSandboxRuntimePolicy | undefined {
+		return this.cursorSandboxPolicy
+	}
+
 	private async scheduleAssistantPresentation(
 		trigger: TaskLatencyTrigger,
 		priority: PresentationPriority = "normal",

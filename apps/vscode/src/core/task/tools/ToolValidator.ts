@@ -65,26 +65,7 @@ export class ToolValidator {
 	}
 
 	checkCursorSandboxUrl(url: string | URL, policy?: CursorSandboxRuntimePolicy): ValidationResult {
-		if (!policy || policy.networkPolicy.default !== "deny") {
-			return { ok: true }
-		}
-
-		let parsedUrl: URL
-		try {
-			parsedUrl = typeof url === "string" ? new URL(url) : url
-		} catch {
-			return { ok: true }
-		}
-
-		const allowed = policy.networkPolicy.allow.some((entry) => this.doesNetworkAllowEntryMatch(entry, parsedUrl))
-		if (!allowed) {
-			return {
-				ok: false,
-				error: `Network access to ${parsedUrl.hostname} is blocked by .cursor/sandbox.json networkPolicy.`,
-			}
-		}
-
-		return { ok: true }
+		return validateCursorSandboxUrl(url, policy)
 	}
 
 	checkCursorSandboxWebSearchDomains(
@@ -113,9 +94,7 @@ export class ToolValidator {
 					error: `Web search domain ${domain} is blocked by .cursor/sandbox.json networkPolicy.`,
 				}
 			}
-			const allowed = policy.networkPolicy.allow.some((entry) =>
-				this.doesNetworkAllowEntryMatch(entry, normalizedDomain),
-			)
+			const allowed = policy.networkPolicy.allow.some((entry) => doesNetworkAllowEntryMatch(entry, normalizedDomain))
 			if (!allowed) {
 				return {
 					ok: false,
@@ -126,38 +105,64 @@ export class ToolValidator {
 
 		return { ok: true }
 	}
+}
 
-	private doesNetworkAllowEntryMatch(entry: string, url: URL): boolean {
-		const trimmed = entry.trim().toLowerCase()
-		if (!trimmed) {
-			return false
-		}
-		if (trimmed === "*") {
-			return true
-		}
-
-		let hostPattern = trimmed
-		let protocolPattern: string | undefined
-		try {
-			const parsedEntry = new URL(trimmed)
-			hostPattern = parsedEntry.hostname.toLowerCase()
-			protocolPattern = parsedEntry.protocol.toLowerCase()
-		} catch {
-			const protocolMatch = /^([a-z][a-z0-9+.-]*:)?\/\/(.+)$/i.exec(trimmed)
-			if (protocolMatch) {
-				protocolPattern = protocolMatch[1]?.toLowerCase()
-				hostPattern = protocolMatch[2] ?? trimmed
-			}
-		}
-
-		if (protocolPattern && protocolPattern !== url.protocol.toLowerCase()) {
-			return false
-		}
-		if (hostPattern.startsWith("*.")) {
-			return url.hostname.toLowerCase().endsWith(hostPattern.slice(1))
-		}
-		return url.hostname.toLowerCase() === hostPattern
+export function validateCursorSandboxUrl(
+	url: string | URL,
+	policy?: CursorSandboxRuntimePolicy,
+): ValidationResult {
+	if (!policy || policy.networkPolicy.default !== "deny") {
+		return { ok: true }
 	}
+
+	let parsedUrl: URL
+	try {
+		parsedUrl = typeof url === "string" ? new URL(url) : url
+	} catch {
+		return { ok: true }
+	}
+
+	const allowed = policy.networkPolicy.allow.some((entry) => doesNetworkAllowEntryMatch(entry, parsedUrl))
+	if (!allowed) {
+		return {
+			ok: false,
+			error: `Network access to ${parsedUrl.hostname} is blocked by .cursor/sandbox.json networkPolicy.`,
+		}
+	}
+
+	return { ok: true }
+}
+
+function doesNetworkAllowEntryMatch(entry: string, url: URL): boolean {
+	const trimmed = entry.trim().toLowerCase()
+	if (!trimmed) {
+		return false
+	}
+	if (trimmed === "*") {
+		return true
+	}
+
+	let hostPattern = trimmed
+	let protocolPattern: string | undefined
+	try {
+		const parsedEntry = new URL(trimmed)
+		hostPattern = parsedEntry.hostname.toLowerCase()
+		protocolPattern = parsedEntry.protocol.toLowerCase()
+	} catch {
+		const protocolMatch = /^([a-z][a-z0-9+.-]*:)?\/\/(.+)$/i.exec(trimmed)
+		if (protocolMatch) {
+			protocolPattern = protocolMatch[1]?.toLowerCase()
+			hostPattern = protocolMatch[2] ?? trimmed
+		}
+	}
+
+	if (protocolPattern && protocolPattern !== url.protocol.toLowerCase()) {
+		return false
+	}
+	if (hostPattern.startsWith("*.")) {
+		return url.hostname.toLowerCase().endsWith(hostPattern.slice(1))
+	}
+	return url.hostname.toLowerCase() === hostPattern
 }
 
 function normalizeNetworkHostInput(value: string): URL | undefined {

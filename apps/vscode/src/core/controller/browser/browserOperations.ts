@@ -18,6 +18,7 @@ import { EmptyRequest } from "@shared/proto/cline/common"
 import { BrowserSession } from "@/services/browser/BrowserSession"
 import { Logger } from "@/shared/services/Logger"
 import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
+import { validateCursorSandboxUrl } from "../../task/tools/ToolValidator"
 import {
 	sanitizeBrowserActionResult,
 	validateBrowserClickCoordinate,
@@ -51,6 +52,13 @@ function getEffectiveControllerBrowserSettings(controller: Controller) {
 function optionalString(value: string | undefined): string | undefined {
 	const normalized = value?.trim()
 	return normalized || undefined
+}
+
+function assertCursorSandboxBrowserUrlAllowed(controller: Controller, url: string): void {
+	const validation = validateCursorSandboxUrl(url, controller.task?.getCursorSandboxPolicy?.())
+	if (!validation.ok) {
+		throw new Error(validation.error)
+	}
 }
 
 function toProtoNode(node: BrowserSnapshotNodeValue): BrowserSnapshotNode {
@@ -154,6 +162,7 @@ export async function browserAction(
 			if (!url) {
 				throw new Error("url is required for browser launch.")
 			}
+			assertCursorSandboxBrowserUrlAllowed(controller, url)
 			await browserSession.launchBrowser()
 			return toBrowserPageResult(await browserSession.navigateToUrl(url))
 		}
@@ -162,6 +171,7 @@ export async function browserAction(
 			if (!url) {
 				throw new Error("url is required for browser navigate.")
 			}
+			assertCursorSandboxBrowserUrlAllowed(controller, url)
 			return toBrowserPageResult(await browserSession.navigateToUrl(url))
 		}
 		case "click": {
