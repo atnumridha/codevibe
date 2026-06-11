@@ -51,7 +51,7 @@ const meta: Meta<typeof ErrorRow> = {
 		docs: {
 			description: {
 				component:
-					"Displays different types of error messages in the chat interface, including API errors, credit limit errors, diff errors, and clineignore errors. Handles special error parsing for CodeVibe provider errors and provides appropriate user actions.",
+					"Displays different types of error messages in the chat interface, including API errors, credit limit errors, diff errors, and direct-access ignore errors. Handles special error parsing for CodeVibe provider errors and provides appropriate user actions.",
 			},
 		},
 	},
@@ -71,7 +71,10 @@ export const Default: Story = {
 	argTypes: {
 		errorType: {
 			control: { type: "select" },
-			options: ["error", "mistake_limit_reached", "diff_error", "clineignore_error"],
+			options: ["error", "mistake_limit_reached", "diff_error", "workspace_ignore_error"],
+			mapping: {
+				workspace_ignore_error: "clineignore_error",
+			},
 			description: "Type of error to display",
 		},
 		message: {
@@ -120,8 +123,8 @@ export const ApiStreamingFailed: Story = {
 	},
 }
 
-// Cline-specific errors
-export const ClineBalanceError: Story = {
+// CodeVibe-hosted provider errors
+export const CodeVibeBalanceError: Story = {
 	args: {
 		message: createMockMessage(),
 		errorType: "error",
@@ -141,7 +144,7 @@ export const ClineBalanceError: Story = {
 	},
 }
 
-export const ClineRateLimitError: Story = {
+export const CodeVibeRateLimitError: Story = {
 	args: {
 		message: createMockMessage(),
 		errorType: "error",
@@ -153,7 +156,7 @@ export const ClineRateLimitError: Story = {
 	},
 }
 
-export const ClineSpendLimitDaily: Story = {
+export const CodeVibeSpendLimitDaily: Story = {
 	args: {
 		message: createMockMessage(),
 		errorType: "error",
@@ -175,7 +178,7 @@ export const ClineSpendLimitDaily: Story = {
 	},
 }
 
-export const ClineSpendLimitMonthly: Story = {
+export const CodeVibeSpendLimitMonthly: Story = {
 	args: {
 		message: createMockMessage(),
 		errorType: "error",
@@ -197,7 +200,7 @@ export const ClineSpendLimitMonthly: Story = {
 	},
 }
 
-export const ClineSpendLimitMinimal: Story = {
+export const CodeVibeSpendLimitMinimal: Story = {
 	args: {
 		message: createMockMessage(),
 		errorType: "error",
@@ -277,7 +280,7 @@ export const InteractiveSignIn: Story = {
 		const canvas = within(canvasElement)
 
 		// Find the sign in button
-		const signInButton = canvas.getByRole("button", { name: /sign in to cline/i })
+		const signInButton = canvas.getByRole("button", { name: /sign in to codevibe/i })
 		await expect(signInButton).toBeInTheDocument()
 
 		// Test button is clickable
