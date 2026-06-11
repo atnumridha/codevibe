@@ -76,6 +76,57 @@ describe("createFileReadExecutor", () => {
 		}
 	});
 
+	it("does not block direct reads for files ignored only by .cursorindexingignore", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
+		await fs.mkdir(path.join(dir, "generated"), { recursive: true });
+		const filePath = path.join(dir, "generated", "types.ts");
+		await fs.writeFile(path.join(dir, ".cursorindexingignore"), "generated/\n", "utf-8");
+		await fs.writeFile(filePath, "export const visible = true", "utf-8");
+
+		try {
+			const readFile = createFileReadExecutor();
+			const result = await readFile(
+				{ path: "generated/types.ts" },
+				{
+					agentId: "agent-1",
+					conversationId: "conv-1",
+					iteration: 1,
+					metadata: { cwd: dir },
+				},
+			);
+
+			expect(result).toBe("1 | export const visible = true");
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("honors .codevibeignore include directives for direct SDK reads", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
+		await fs.mkdir(path.join(dir, "secrets"), { recursive: true });
+		const filePath = path.join(dir, "secrets", "token.txt");
+		await fs.writeFile(path.join(dir, ".gitignore"), "secrets/\n", "utf-8");
+		await fs.writeFile(path.join(dir, ".codevibeignore"), "!include .gitignore\n", "utf-8");
+		await fs.writeFile(filePath, "do not read", "utf-8");
+
+		try {
+			const readFile = createFileReadExecutor();
+			await expect(
+				readFile(
+					{ path: "secrets/token.txt" },
+					{
+						agentId: "agent-1",
+						conversationId: "conv-1",
+						iteration: 1,
+						metadata: { cwd: dir },
+					},
+				),
+			).rejects.toThrow("blocked by direct-access ignore settings");
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("honors .clineignore include directives for direct SDK reads", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-file-read-"));
 		await fs.mkdir(path.join(dir, "secrets"), { recursive: true });

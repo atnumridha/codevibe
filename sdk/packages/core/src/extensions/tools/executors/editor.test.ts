@@ -61,6 +61,34 @@ describe("createEditorExecutor", () => {
 		}
 	});
 
+	it("does not block writes to files ignored only by .cursorindexingignore", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-editor-"));
+		const filePath = path.join(dir, "generated", "types.ts");
+		await fs.mkdir(path.dirname(filePath), { recursive: true });
+		await fs.writeFile(path.join(dir, ".cursorindexingignore"), "generated/\n", "utf-8");
+
+		try {
+			const editor = createEditorExecutor();
+			const result = await editor(
+				{
+					path: "generated/types.ts",
+					new_text: "export const visible = true",
+				},
+				dir,
+				{
+					agentId: "agent-1",
+					conversationId: "conv-1",
+					iteration: 1,
+				},
+			);
+
+			expect(result).toBe(`File created successfully at: ${filePath}`);
+			await expect(fs.readFile(filePath, "utf-8")).resolves.toBe("export const visible = true");
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("blocks writes outside Cursor sandbox writable paths", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-editor-"));
 		const filePath = path.join(dir, "private", "token.txt");

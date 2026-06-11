@@ -83,6 +83,30 @@ describe("createApplyPatchExecutor", () => {
 		await expect(fs.readFile(filePath, "utf-8")).resolves.toBe("old");
 	});
 
+	it("does not block patches touching files ignored only by .cursorindexingignore", async () => {
+		const filePath = path.join(tempDir, "generated", "types.ts");
+		await fs.mkdir(path.dirname(filePath), { recursive: true });
+		await fs.writeFile(path.join(tempDir, ".cursorindexingignore"), "generated/\n", "utf-8");
+		await fs.writeFile(filePath, "old", "utf-8");
+
+		const execute = createApplyPatchExecutor();
+		const result = await execute(
+			{
+				input: [
+					"*** Update File: generated/types.ts",
+					"@@",
+					"-old",
+					"+new",
+				].join("\n"),
+			},
+			tempDir,
+			{} as never,
+		);
+
+		expect(result).toContain("Successfully applied patch");
+		await expect(fs.readFile(filePath, "utf-8")).resolves.toBe("new");
+	});
+
 	it("blocks patches outside Cursor sandbox writable paths", async () => {
 		const filePath = path.join(tempDir, "private", "token.txt");
 		await fs.mkdir(path.dirname(filePath), { recursive: true });

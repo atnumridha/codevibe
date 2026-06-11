@@ -201,7 +201,7 @@ export function createBashExecutor(
 		const ignoredPath = await findIgnoredPathInCommand(command, cwd);
 		if (ignoredPath) {
 			throw new Error(
-				`Access to ${ignoredPath} is blocked by direct-access ignore settings (.codevibeignore, legacy .clineignore, .cursorignore, or .cursorindexingignore).`,
+				`Access to ${ignoredPath} is blocked by direct-access ignore settings (.codevibeignore, legacy .clineignore, or .cursorignore).`,
 			);
 		}
 		const sandboxPath = findCursorSandboxViolationInCommand(

@@ -5,9 +5,9 @@ import { CURSOR_SANDBOX_READ_ONLY_COMMAND_ALLOW_PATTERNS } from "../../../runtim
 import type { StructuredCommandInput } from "../schemas";
 
 const DIRECT_ACCESS_IGNORE_FILES = [
+	".codevibeignore",
 	".clineignore",
 	".cursorignore",
-	".cursorindexingignore",
 ] as const;
 
 type IgnoreRule = {
@@ -225,7 +225,7 @@ async function readDirectAccessIgnoreRules(cwd: string): Promise<IgnoreRule[]> {
 			try {
 				const content = await fs.readFile(path.join(cwd, fileName), "utf8");
 				const expandedContent =
-					fileName === ".clineignore"
+					fileName === ".codevibeignore" || fileName === ".clineignore"
 						? await expandClineIgnoreIncludes(cwd, content)
 						: content;
 				return [
@@ -695,7 +695,7 @@ export async function assertPathAllowedByDirectAccessIgnores(
 ): Promise<void> {
 	if (!(await isPathAllowedByDirectAccessIgnores(cwd, targetPath, options))) {
 		throw new Error(
-			`Access to ${targetPath} is blocked by direct-access ignore settings (.codevibeignore, legacy .clineignore, .cursorignore, or .cursorindexingignore).`,
+			`Access to ${targetPath} is blocked by direct-access ignore settings (.codevibeignore, legacy .clineignore, or .cursorignore).`,
 		);
 	}
 }

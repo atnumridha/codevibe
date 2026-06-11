@@ -82,6 +82,21 @@ describe("createBashExecutor", () => {
 		}
 	});
 
+	it("does not block known file-reading commands for files ignored only by .cursorindexingignore", async () => {
+		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-bash-"));
+		await fs.mkdir(path.join(dir, "generated"), { recursive: true });
+		await fs.writeFile(path.join(dir, ".cursorindexingignore"), "generated/\n", "utf-8");
+		await fs.writeFile(path.join(dir, "generated", "types.ts"), "export const visible = true", "utf-8");
+
+		try {
+			const bash = createBashExecutor();
+			const result = await bash("cat generated/types.ts", dir, ctx);
+			expect(result).toContain("export const visible = true");
+		} finally {
+			await fs.rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("blocks known file-reading commands outside Cursor sandbox readable paths", async () => {
 		const dir = await fs.mkdtemp(path.join(os.tmpdir(), "agents-bash-"));
 		await fs.mkdir(path.join(dir, "private"), { recursive: true });
