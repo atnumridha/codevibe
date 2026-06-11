@@ -126,6 +126,41 @@ describe("file indexer", () => {
 		}
 	});
 
+	it("treats terminal globstar Cursor indexing rules as matching direct children", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "secrets", "nested"), { recursive: true });
+			await mkdir(path.join(cwd, "src"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"secrets/**\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "secrets", "token.ts"),
+				"export const token = 1\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "secrets", "nested", "token.ts"),
+				"export const nestedToken = 1\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "src", "app.ts"),
+				"export const app = 1\n",
+				"utf8",
+			);
+
+			const index = await getFileIndex(cwd, { ttlMs: 0 });
+			expect(index.has("src/app.ts")).toBe(true);
+			expect(index.has("secrets/token.ts")).toBe(false);
+			expect(index.has("secrets/nested/token.ts")).toBe(false);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it("can include Cursor-indexing ignored files when the privacy gate is disabled", async () => {
 		const cwd = await createTempWorkspace();
 		try {

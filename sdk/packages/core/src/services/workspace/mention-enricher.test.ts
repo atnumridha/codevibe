@@ -90,6 +90,34 @@ describe("enrichPromptWithMentions", () => {
 		}
 	});
 
+	it("ignores mentioned files matched by terminal Cursor indexing globstar rules", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "secrets"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"secrets/**\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "secrets", "token.ts"),
+				"export const token = 1\n",
+				"utf8",
+			);
+
+			const result = await enrichPromptWithMentions(
+				"Use @secrets/token.ts",
+				cwd,
+			);
+
+			expect(result.mentions).toEqual(["secrets/token.ts"]);
+			expect(result.matchedFiles).toEqual([]);
+			expect(result.ignoredMentions).toEqual(["secrets/token.ts"]);
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it("can match Cursor-indexing ignored mentions when the privacy gate is disabled", async () => {
 		const cwd = await createTempWorkspace();
 		try {

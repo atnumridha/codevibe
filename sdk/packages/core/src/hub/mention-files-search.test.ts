@@ -115,6 +115,49 @@ describe("hub mention_files.search command", () => {
 		}
 	});
 
+	it("keeps terminal Cursor indexing globstar matches out of hub mention search", async () => {
+		const root = mkdtempSync(join(tmpdir(), "cline-hub-mention-globstar-"));
+		mkdirSync(join(root, "secrets"), { recursive: true });
+		writeFileSync(join(root, ".cursorindexingignore"), "secrets/**\n", "utf8");
+		writeFileSync(
+			join(root, "secrets", "token.ts"),
+			"export const token = 1\n",
+			"utf8",
+		);
+
+		const transport = new HubServerTransport({
+			runtimeHandlers: createLocalHubScheduleRuntimeHandlers(),
+			scheduleOptions: { dbPath: join(root, "schedule.db") },
+		});
+
+		try {
+			const reply = await transport.handleCommand({
+				version: "v1",
+				command: "mention_files.search",
+				requestId: "req-mention-globstar",
+				clientId: "client-one",
+				payload: {
+					workspaceRoot: root,
+					query: "token",
+					limit: 10,
+					ttlMs: 0,
+				},
+			});
+
+			expect(reply).toMatchObject({
+				ok: true,
+				payload: {
+					query: "token",
+					results: [],
+				},
+			});
+			expect(JSON.stringify(reply)).not.toContain("secrets/token.ts");
+		} finally {
+			await transport.stop();
+			rmSync(root, { recursive: true, force: true });
+		}
+	});
+
 	it("can include Cursor-ignored paths when a client disables the privacy gate", async () => {
 		const root = mkdtempSync(join(tmpdir(), "cline-hub-mention-legacy-"));
 		mkdirSync(join(root, "private"), { recursive: true });

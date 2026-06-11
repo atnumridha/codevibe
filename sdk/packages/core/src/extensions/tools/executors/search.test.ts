@@ -56,6 +56,35 @@ describe("createSearchExecutor", () => {
 		}
 	});
 
+	it("does not return matches from files matched by terminal Cursor indexing globstar rules", async () => {
+		const cwd = await createTempWorkspace();
+		try {
+			await mkdir(path.join(cwd, "secrets"), { recursive: true });
+			await writeFile(
+				path.join(cwd, ".cursorindexingignore"),
+				"secrets/**\n",
+				"utf8",
+			);
+			await writeFile(
+				path.join(cwd, "secrets", "token.ts"),
+				"export const ignored = 'CURSOR_SECRET'\n",
+				"utf8",
+			);
+
+			const search = createSearchExecutor();
+			const result = await search(
+				"CURSOR_SECRET",
+				cwd,
+				{} as AgentToolContext,
+			);
+
+			expect(result).toContain("No results found");
+			expect(result).not.toContain("secrets/token.ts");
+		} finally {
+			await rm(cwd, { recursive: true, force: true });
+		}
+	});
+
 	it("can search Cursor-indexing ignored files when the privacy gate is disabled", async () => {
 		const cwd = await createTempWorkspace();
 		try {
