@@ -820,6 +820,8 @@ export {
 	createStandaloneBrowserCdpAutomation,
 	createStandaloneBrowserUnavailableResult,
 	createToolPoliciesWithPreset,
+	createWebSearchExecutor,
+	createWebSearchTool,
 	type DefaultExecutorsOptions,
 	type DefaultToolName,
 	DefaultToolNames,
@@ -845,6 +847,9 @@ export {
 	type ToolPolicyPresetName,
 	type ToolPresetName,
 	ToolPresets,
+	type WebSearchExecutor,
+	type WebSearchInput,
+	WebSearchInputSchema,
 } from "./extensions/tools";
 export {
 	type ClineRecommendedModel as CodieRecommendedModel,

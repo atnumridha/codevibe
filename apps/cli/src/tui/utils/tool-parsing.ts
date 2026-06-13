@@ -167,6 +167,16 @@ export function parseWebFetchInput(input: unknown): WebFetchInfo | undefined {
 	};
 }
 
+export interface WebSearchInfo {
+	query: string;
+}
+
+export function parseWebSearchInput(input: unknown): WebSearchInfo | undefined {
+	if (!isRecord(input)) return undefined;
+	if (typeof input.query !== "string") return undefined;
+	return { query: input.query };
+}
+
 export interface SpawnAgentInfo {
 	task: string;
 }

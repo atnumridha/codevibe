@@ -11,6 +11,7 @@ describe("builtin tool catalog", () => {
 		const catalog = getCoreBuiltinToolCatalog({ mode: "act" });
 		expect(catalog.some((entry) => entry.id === "spawn_agent")).toBe(true);
 		expect(catalog.some((entry) => entry.id === "teams")).toBe(true);
+		expect(catalog.some((entry) => entry.id === "web_search")).toBe(true);
 	});
 
 	it("marks teams enabled by default in act mode", () => {
@@ -94,6 +95,10 @@ describe("builtin tool catalog", () => {
 		});
 		expect(selected.has("teams")).toBe(true);
 		expect(selected.has("spawn_agent")).toBe(true);
+		expect(selected.has("web_search")).toBe(true);
+		expect(getCoreHeadlessToolNames(selected, { mode: "act" })).toContain(
+			"web_search",
+		);
 		expect(getCoreDefaultEnabledToolIds({ mode: "act" })).toContain("teams");
 	});
 });

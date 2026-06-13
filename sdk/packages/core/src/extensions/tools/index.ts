@@ -23,6 +23,7 @@ export {
 	createSkillsTool,
 	createSubmitAndExitTool,
 	createWebFetchTool,
+	createWebSearchTool,
 	createWindowsShellTool,
 } from "./definitions";
 export {
@@ -40,11 +41,13 @@ export {
 	createFileReadExecutor,
 	createSearchExecutor,
 	createWebFetchExecutor,
+	createWebSearchExecutor,
 	type DefaultExecutorsOptions,
 	type EditorExecutorOptions,
 	type FileReadExecutorOptions,
 	type SearchExecutorOptions,
 	type WebFetchExecutorOptions,
+	type WebSearchExecutorOptions,
 } from "./executors/index";
 export {
 	DEFAULT_MODEL_TOOL_ROUTING_RULES,
@@ -113,6 +116,8 @@ export {
 	SubmitInputSchema,
 	type WebFetchRequest,
 	WebFetchRequestSchema,
+	type WebSearchInput,
+	WebSearchInputSchema,
 } from "./schemas";
 export { TEAM_TOOL_NAMES } from "./team/team-tools";
 // Types
@@ -139,6 +144,7 @@ export type {
 	ToolOperationResult,
 	VerifySubmitExecutor,
 	WebFetchExecutor,
+	WebSearchExecutor,
 } from "./types";
 
 // =============================================================================

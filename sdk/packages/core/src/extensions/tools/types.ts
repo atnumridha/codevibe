@@ -124,6 +124,20 @@ export type WebFetchExecutor = (
 ) => Promise<string>;
 
 /**
+ * Executor for searching the web
+ *
+ * @param query - Search query
+ * @param limit - Maximum number of results
+ * @param context - Tool execution context
+ * @returns Search results as formatted text
+ */
+export type WebSearchExecutor = (
+	query: string,
+	limit: number,
+	context: AgentToolContext,
+) => Promise<string>;
+
+/**
  * Executor for capturing a read-only browser snapshot.
  *
  * The executor owns browser/tab state. It must not click, type, navigate,
@@ -262,6 +276,8 @@ export interface ToolExecutors {
 	bash?: BashExecutor;
 	/** Web content fetching implementation */
 	webFetch?: WebFetchExecutor;
+	/** Web search implementation */
+	webSearch?: WebSearchExecutor;
 	/** Read-only browser snapshot implementation */
 	browserSnapshot?: BrowserSnapshotExecutor;
 	/** Cursor-compatible browser action implementation */
@@ -292,6 +308,7 @@ export type DefaultToolName =
 	| "search_codebase"
 	| "run_commands"
 	| "fetch_web_content"
+	| "web_search"
 	| "browser_snapshot"
 	| "browser_action"
 	| "browser_screenshot"
@@ -328,6 +345,12 @@ export interface DefaultToolsConfig {
 	 * @default true
 	 */
 	enableWebFetch?: boolean;
+
+	/**
+	 * Enable the web_search tool
+	 * @default true
+	 */
+	enableWebSearch?: boolean;
 
 	/**
 	 * Enable browser automation tools
@@ -399,6 +422,12 @@ export interface DefaultToolsConfig {
 	 * @default 30000
 	 */
 	webFetchTimeoutMs?: number;
+
+	/**
+	 * Timeout for web search operations in milliseconds
+	 * @default 15000
+	 */
+	webSearchTimeoutMs?: number;
 
 	/**
 	 * Timeout for browser snapshot operations in milliseconds

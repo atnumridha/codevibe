@@ -168,6 +168,7 @@ const aliasAssertions: AliasAssertions = [
 	true,
 	true,
 	true,
+	true,
 ];
 
 describe("SDK Codie compatibility exports", () => {

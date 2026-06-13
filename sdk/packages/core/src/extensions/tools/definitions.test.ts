@@ -596,6 +596,72 @@ describe("default browser tools", () => {
 	});
 });
 
+describe("default web_search tool", () => {
+	it("is included only when enabled with a webSearch executor", () => {
+		const toolsWithoutExecutor = createDefaultTools({
+			executors: {},
+			enableWebSearch: true,
+		});
+		expect(toolsWithoutExecutor.map((tool) => tool.name)).not.toContain(
+			"web_search",
+		);
+
+		const toolsWithExecutor = createDefaultTools({
+			executors: {
+				webSearch: async () => "results",
+			},
+			enableWebSearch: true,
+		});
+		expect(toolsWithExecutor.map((tool) => tool.name)).toContain("web_search");
+	});
+
+	it("validates and executes web_search input", async () => {
+		const execute = vi.fn(async () => "Search query: codie\nResults:");
+		const tools = createDefaultTools({
+			executors: {
+				webSearch: execute,
+			},
+			enableReadFiles: false,
+			enableSearch: false,
+			enableBash: false,
+			enableWebFetch: false,
+			enableWebSearch: true,
+			enableEditor: false,
+			enableSkills: false,
+			enableAskQuestion: false,
+		});
+		const webSearchTool = tools.find((tool) => tool.name === "web_search");
+		expect(webSearchTool).toBeDefined();
+		if (!webSearchTool) {
+			throw new Error("Expected web_search tool to be defined.");
+		}
+
+		const result = await webSearchTool.execute(
+			{ query: "codie docs", limit: 3 },
+			{
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			},
+		);
+
+		expect(result).toEqual({
+			query: "codie docs",
+			result: "Search query: codie\nResults:",
+			success: true,
+		});
+		expect(execute).toHaveBeenCalledWith(
+			"codie docs",
+			3,
+			expect.objectContaining({
+				agentId: "agent-1",
+				conversationId: "conv-1",
+				iteration: 1,
+			}),
+		);
+	});
+});
+
 describe("default apply_patch tool", () => {
 	it("is included only when enabled with an applyPatch executor", () => {
 		const toolsWithoutExecutor = createDefaultTools({

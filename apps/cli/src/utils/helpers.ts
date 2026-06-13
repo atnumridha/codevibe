@@ -169,6 +169,11 @@ export function formatToolInput(toolName: string, input: unknown): string {
 				);
 			}
 			break;
+		case "web_search":
+			if (typeof obj.query === "string") {
+				return truncate(obj.query, 120);
+			}
+			break;
 		case "spawn_agent":
 			return truncate(String(obj.task ?? ""), 50);
 		case "skills":

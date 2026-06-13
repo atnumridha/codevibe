@@ -184,6 +184,20 @@ export const FetchWebContentInputSchema = z.object({
 });
 
 /**
+ * Schema for web_search tool input
+ */
+export const WebSearchInputSchema = z.object({
+	query: z.string().min(2).describe("Search query to run on the web"),
+	limit: z
+		.number()
+		.int()
+		.min(1)
+		.max(10)
+		.optional()
+		.describe("Maximum number of search results to return"),
+});
+
+/**
  * Schema for browser_snapshot tool input
  */
 export const BrowserSnapshotInputSchema = z
@@ -443,6 +457,11 @@ export type WebFetchRequest = z.infer<typeof WebFetchRequestSchema>;
  * Input for the fetch_web_content tool
  */
 export type FetchWebContentInput = z.infer<typeof FetchWebContentInputSchema>;
+
+/**
+ * Input for the web_search tool
+ */
+export type WebSearchInput = z.infer<typeof WebSearchInputSchema>;
 
 /**
  * Input for the browser_snapshot tool

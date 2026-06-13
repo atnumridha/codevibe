@@ -4,6 +4,7 @@ import {
 	addLocalProvider,
 	type ClineAccountActionRequest,
 	ClineAccountService,
+	createWebSearchExecutor,
 	ensureCustomProvidersLoaded,
 	executeClineAccountAction,
 	getLocalProviderModels,
@@ -99,6 +100,7 @@ export const STANDALONE_DESKTOP_COMMANDS = [
 	"browser_snapshot",
 	"browser_action",
 	"browser_screenshot",
+	"web_search",
 	"cursor_uri_preview",
 	"cursor_automation_ingest",
 	"cursor_uri_launch",
@@ -188,6 +190,24 @@ function readWorkspaceFileSearchRequest(
 			? { cursorRetrievalIndexingPrivacyGate }
 			: {}),
 	};
+}
+
+async function runWebSearchCommand(args: Record<string, unknown> | undefined) {
+	const query = asTrimmedString(args?.query);
+	if (!query) {
+		throw new Error("web_search requires a non-empty query");
+	}
+	const limit = toPositiveInt(args?.limit) ?? 5;
+	const executor = createWebSearchExecutor();
+	return await executor(query, Math.min(limit, 10), {
+		agentId: "hub",
+		conversationId: "desktop-command",
+		iteration: 1,
+		metadata: {
+			source: "codie-hub",
+			workspaceRoot,
+		},
+	});
 }
 
 function backgroundAgentRecordsPath(): string {
@@ -408,6 +428,9 @@ export async function handleDesktopCommand(
 	}
 	if (command === "browser_screenshot") {
 		return await runHubBrowserScreenshotCommand(args);
+	}
+	if (command === "web_search") {
+		return await runWebSearchCommand(args);
 	}
 	if (command === "cursor_uri_preview") {
 		if (!ctx.uiClient) {

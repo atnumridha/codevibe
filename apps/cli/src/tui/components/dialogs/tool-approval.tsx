@@ -11,6 +11,7 @@ import {
 	parseSearchInput,
 	parseSpawnAgentInput,
 	parseWebFetchInput,
+	parseWebSearchInput,
 	shortenPath,
 } from "../../utils/tool-parsing";
 
@@ -87,6 +88,16 @@ export function formatApprovalParams(
 					{url}
 				</text>
 			));
+		}
+		case "web_search": {
+			const info = parseWebSearchInput(rawInput);
+			if (!info) break;
+			return (
+				<text fg="gray" selectable>
+					{"  "}
+					{info.query}
+				</text>
+			);
 		}
 		case "spawn_agent": {
 			const info = parseSpawnAgentInput(rawInput);

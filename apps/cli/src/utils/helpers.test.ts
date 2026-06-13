@@ -40,16 +40,27 @@ function captureEnv(): EnvSnapshot {
 	};
 }
 
+function restoreEnvVar(name: keyof NodeJS.ProcessEnv, value: string | undefined): void {
+	if (value === undefined) {
+		delete process.env[name];
+		return;
+	}
+	process.env[name] = value;
+}
+
 function restoreEnv(snapshot: EnvSnapshot): void {
-	process.env.CODEVIBE_DATA_DIR = snapshot.CODEVIBE_DATA_DIR;
-	process.env.CODEVIBE_DB_DATA_DIR = snapshot.CODEVIBE_DB_DATA_DIR;
-	process.env.CODEVIBE_HOOKS_LOG_PATH = snapshot.CODEVIBE_HOOKS_LOG_PATH;
-	process.env.CODEVIBE_SESSION_DATA_DIR = snapshot.CODEVIBE_SESSION_DATA_DIR;
-	process.env.CLINE_DATA_DIR = snapshot.CLINE_DATA_DIR;
-	process.env.CLINE_DB_DATA_DIR = snapshot.CLINE_DB_DATA_DIR;
-	process.env.CLINE_HOOKS_LOG_PATH = snapshot.CLINE_HOOKS_LOG_PATH;
-	process.env.CLINE_SESSION_ID = snapshot.CLINE_SESSION_ID;
-	process.env.CLINE_SESSION_DATA_DIR = snapshot.CLINE_SESSION_DATA_DIR;
+	restoreEnvVar("CODEVIBE_DATA_DIR", snapshot.CODEVIBE_DATA_DIR);
+	restoreEnvVar("CODEVIBE_DB_DATA_DIR", snapshot.CODEVIBE_DB_DATA_DIR);
+	restoreEnvVar("CODEVIBE_HOOKS_LOG_PATH", snapshot.CODEVIBE_HOOKS_LOG_PATH);
+	restoreEnvVar(
+		"CODEVIBE_SESSION_DATA_DIR",
+		snapshot.CODEVIBE_SESSION_DATA_DIR,
+	);
+	restoreEnvVar("CLINE_DATA_DIR", snapshot.CLINE_DATA_DIR);
+	restoreEnvVar("CLINE_DB_DATA_DIR", snapshot.CLINE_DB_DATA_DIR);
+	restoreEnvVar("CLINE_HOOKS_LOG_PATH", snapshot.CLINE_HOOKS_LOG_PATH);
+	restoreEnvVar("CLINE_SESSION_ID", snapshot.CLINE_SESSION_ID);
+	restoreEnvVar("CLINE_SESSION_DATA_DIR", snapshot.CLINE_SESSION_DATA_DIR);
 }
 
 describe("parseArgs", () => {
@@ -316,6 +327,11 @@ describe("format helpers", () => {
 
 	it("formats known tool input payloads with truncation", () => {
 		expect(
+			formatToolInput("web_search", {
+				query: "latest Codie standalone web search support",
+			}),
+		).toBe("latest Codie standalone web search support");
+		expect(
 			formatToolInput("team_run_task", {
 				runMode: "sync",
 				agentId: "coder",
@@ -556,26 +572,40 @@ describe("sandbox environment", () => {
 				path.join(root, "sandbox-state", "logs", "hooks.jsonl"),
 			);
 		} finally {
-			process.env.CODEVIBE_SANDBOX = previous.CODEVIBE_SANDBOX;
-			process.env.CODEVIBE_SANDBOX_DATA_DIR =
-				previous.CODEVIBE_SANDBOX_DATA_DIR;
-			process.env.CODEVIBE_DATA_DIR = previous.CODEVIBE_DATA_DIR;
-			process.env.CODEVIBE_DB_DATA_DIR = previous.CODEVIBE_DB_DATA_DIR;
-			process.env.CODEVIBE_SESSION_DATA_DIR =
-				previous.CODEVIBE_SESSION_DATA_DIR;
-			process.env.CODEVIBE_TEAM_DATA_DIR = previous.CODEVIBE_TEAM_DATA_DIR;
-			process.env.CODEVIBE_PROVIDER_SETTINGS_PATH =
-				previous.CODEVIBE_PROVIDER_SETTINGS_PATH;
-			process.env.CODEVIBE_HOOKS_LOG_PATH = previous.CODEVIBE_HOOKS_LOG_PATH;
-			process.env.CLINE_SANDBOX = previous.CLINE_SANDBOX;
-			process.env.CLINE_SANDBOX_DATA_DIR = previous.CLINE_SANDBOX_DATA_DIR;
-			process.env.CLINE_DATA_DIR = previous.CLINE_DATA_DIR;
-			process.env.CLINE_DB_DATA_DIR = previous.CLINE_DB_DATA_DIR;
-			process.env.CLINE_SESSION_DATA_DIR = previous.CLINE_SESSION_DATA_DIR;
-			process.env.CLINE_TEAM_DATA_DIR = previous.CLINE_TEAM_DATA_DIR;
-			process.env.CLINE_PROVIDER_SETTINGS_PATH =
-				previous.CLINE_PROVIDER_SETTINGS_PATH;
-			process.env.CLINE_HOOKS_LOG_PATH = previous.CLINE_HOOKS_LOG_PATH;
+			restoreEnvVar("CODEVIBE_SANDBOX", previous.CODEVIBE_SANDBOX);
+			restoreEnvVar(
+				"CODEVIBE_SANDBOX_DATA_DIR",
+				previous.CODEVIBE_SANDBOX_DATA_DIR,
+			);
+			restoreEnvVar("CODEVIBE_DATA_DIR", previous.CODEVIBE_DATA_DIR);
+			restoreEnvVar("CODEVIBE_DB_DATA_DIR", previous.CODEVIBE_DB_DATA_DIR);
+			restoreEnvVar(
+				"CODEVIBE_SESSION_DATA_DIR",
+				previous.CODEVIBE_SESSION_DATA_DIR,
+			);
+			restoreEnvVar("CODEVIBE_TEAM_DATA_DIR", previous.CODEVIBE_TEAM_DATA_DIR);
+			restoreEnvVar(
+				"CODEVIBE_PROVIDER_SETTINGS_PATH",
+				previous.CODEVIBE_PROVIDER_SETTINGS_PATH,
+			);
+			restoreEnvVar("CODEVIBE_HOOKS_LOG_PATH", previous.CODEVIBE_HOOKS_LOG_PATH);
+			restoreEnvVar("CLINE_SANDBOX", previous.CLINE_SANDBOX);
+			restoreEnvVar(
+				"CLINE_SANDBOX_DATA_DIR",
+				previous.CLINE_SANDBOX_DATA_DIR,
+			);
+			restoreEnvVar("CLINE_DATA_DIR", previous.CLINE_DATA_DIR);
+			restoreEnvVar("CLINE_DB_DATA_DIR", previous.CLINE_DB_DATA_DIR);
+			restoreEnvVar(
+				"CLINE_SESSION_DATA_DIR",
+				previous.CLINE_SESSION_DATA_DIR,
+			);
+			restoreEnvVar("CLINE_TEAM_DATA_DIR", previous.CLINE_TEAM_DATA_DIR);
+			restoreEnvVar(
+				"CLINE_PROVIDER_SETTINGS_PATH",
+				previous.CLINE_PROVIDER_SETTINGS_PATH,
+			);
+			restoreEnvVar("CLINE_HOOKS_LOG_PATH", previous.CLINE_HOOKS_LOG_PATH);
 			rmSync(root, { recursive: true, force: true });
 		}
 	});
@@ -594,9 +624,14 @@ describe("sandbox environment", () => {
 				path.join(root, "codevibe-state"),
 			);
 		} finally {
-			process.env.CODEVIBE_SANDBOX_DATA_DIR =
-				previous.CODEVIBE_SANDBOX_DATA_DIR;
-			process.env.CLINE_SANDBOX_DATA_DIR = previous.CLINE_SANDBOX_DATA_DIR;
+			restoreEnvVar(
+				"CODEVIBE_SANDBOX_DATA_DIR",
+				previous.CODEVIBE_SANDBOX_DATA_DIR,
+			);
+			restoreEnvVar(
+				"CLINE_SANDBOX_DATA_DIR",
+				previous.CLINE_SANDBOX_DATA_DIR,
+			);
 			rmSync(root, { recursive: true, force: true });
 		}
 	});

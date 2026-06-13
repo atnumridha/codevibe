@@ -21,6 +21,7 @@ import {
 	parseSearchInput,
 	parseSpawnAgentInput,
 	parseWebFetchInput,
+	parseWebSearchInput,
 	shortenPath,
 } from "../utils/tool-parsing";
 import { ToolOutput } from "./tool-output";
@@ -154,6 +155,11 @@ function formatToolParams(
 			const info = parseWebFetchInput(rawInput);
 			if (!info?.urls.length) return fallback;
 			return info.urls.join(", ");
+		}
+		case "web_search": {
+			const info = parseWebSearchInput(rawInput);
+			if (!info) return fallback;
+			return info.query;
 		}
 		case "spawn_agent": {
 			const info = parseSpawnAgentInput(rawInput);

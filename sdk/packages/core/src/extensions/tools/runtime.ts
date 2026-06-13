@@ -58,6 +58,12 @@ const BASE_TOOL_CATALOG: readonly RuntimeToolCatalogEntry[] = [
 		headlessToolNames: ["fetch_web_content"],
 	},
 	{
+		id: "web_search",
+		description:
+			"Search the web for current pages, documentation, references, and news before fetching specific results.",
+		headlessToolNames: ["web_search"],
+	},
+	{
 		id: "browser",
 		description:
 			"Inspect and interact with browser state through host-provided snapshot, action, and screenshot tools.",
@@ -102,6 +108,7 @@ const TOOL_NAME_TO_FLAG: Partial<
 			| "enableSearch"
 			| "enableBash"
 			| "enableWebFetch"
+			| "enableWebSearch"
 			| "enableBrowserAutomation"
 			| "enableApplyPatch"
 			| "enableEditor"
@@ -115,6 +122,7 @@ const TOOL_NAME_TO_FLAG: Partial<
 	search_codebase: "enableSearch",
 	run_commands: "enableBash",
 	fetch_web_content: "enableWebFetch",
+	web_search: "enableWebSearch",
 	browser: "enableBrowserAutomation",
 	apply_patch: "enableApplyPatch",
 	editor: "enableEditor",
@@ -134,6 +142,7 @@ type ResolvedToolFlags = Pick<
 	| "enableSearch"
 	| "enableBash"
 	| "enableWebFetch"
+	| "enableWebSearch"
 	| "enableBrowserAutomation"
 	| "enableApplyPatch"
 	| "enableEditor"

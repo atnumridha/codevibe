@@ -22,6 +22,10 @@ import {
 	createWebFetchExecutor,
 	type WebFetchExecutorOptions,
 } from "./web-fetch";
+import {
+	createWebSearchExecutor,
+	type WebSearchExecutorOptions,
+} from "./web-search";
 
 // Re-export individual executors and their options types
 export {
@@ -42,6 +46,10 @@ export {
 	createWebFetchExecutor,
 	type WebFetchExecutorOptions,
 } from "./web-fetch";
+export {
+	createWebSearchExecutor,
+	type WebSearchExecutorOptions,
+} from "./web-search";
 
 /**
  * Options for creating default executors
@@ -51,6 +59,7 @@ export interface DefaultExecutorsOptions {
 	search?: SearchExecutorOptions;
 	bash?: BashExecutorOptions;
 	webFetch?: WebFetchExecutorOptions;
+	webSearch?: WebSearchExecutorOptions;
 	applyPatch?: ApplyPatchExecutorOptions;
 	editor?: EditorExecutorOptions;
 }
@@ -81,6 +90,7 @@ export function createDefaultExecutors(
 		search: createSearchExecutor(options.search),
 		bash: createBashExecutor(options.bash),
 		webFetch: createWebFetchExecutor(options.webFetch),
+		webSearch: createWebSearchExecutor(options.webSearch),
 		applyPatch: createApplyPatchExecutor(options.applyPatch),
 		editor: createEditorExecutor(options.editor),
 	};

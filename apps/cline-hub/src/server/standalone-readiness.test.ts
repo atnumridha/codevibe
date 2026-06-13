@@ -48,6 +48,7 @@ test("standalone readiness exposes VS-Code-free Cursor/Codex surfaces", () => {
 		"browser_action",
 		"browser_snapshot",
 		"browser_screenshot",
+		"web_search",
 		"search_workspace_files",
 		"list_background_agent_sessions",
 		"cursor_mcp_install",
@@ -71,6 +72,10 @@ test("standalone readiness exposes VS-Code-free Cursor/Codex surfaces", () => {
 	);
 	assert.equal(
 		payload.cursorCompatibility.commandAvailability.browser_snapshot.available,
+		true,
+	);
+	assert.equal(
+		payload.cursorCompatibility.commandAvailability.web_search.available,
 		true,
 	);
 	for (const surface of [

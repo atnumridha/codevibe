@@ -59,6 +59,8 @@ import {
 	StructuredCommandsInputSchema,
 	type SubmitInput,
 	SubmitInputSchema,
+	type WebSearchInput,
+	WebSearchInputSchema,
 } from "./schemas";
 import type {
 	ApplyPatchExecutor,
@@ -76,6 +78,7 @@ import type {
 	ToolOperationResult,
 	VerifySubmitExecutor,
 	WebFetchExecutor,
+	WebSearchExecutor,
 } from "./types";
 
 // =============================================================================
@@ -474,6 +477,53 @@ export function createWebFetchTool(
 					},
 				),
 			);
+		},
+	});
+}
+
+/**
+ * Create the web_search tool
+ *
+ * Searches the web and returns ranked result titles, URLs, and snippets.
+ */
+export function createWebSearchTool(
+	executor: WebSearchExecutor,
+	config: Pick<DefaultToolsConfig, "webSearchTimeoutMs"> = {},
+): AgentTool<WebSearchInput, ToolOperationResult> {
+	const timeoutMs = config.webSearchTimeoutMs ?? 15000;
+
+	return createTool<WebSearchInput, ToolOperationResult>({
+		name: "web_search",
+		description:
+			"Search the web for current information. " +
+			"Use this before fetch_web_content when you need to discover relevant pages, documentation, references, or news.",
+		inputSchema: zodToJsonSchema(WebSearchInputSchema),
+		timeoutMs: timeoutMs * 2,
+		retryable: true,
+		maxRetries: 1,
+		execute: async (input, context) => {
+			const validatedInput = validateWithZod(WebSearchInputSchema, input);
+			const limit = validatedInput.limit ?? 5;
+			try {
+				const results = await withTimeout(
+					executor(validatedInput.query, limit, context),
+					timeoutMs,
+					`Web search timed out after ${timeoutMs}ms`,
+				);
+				return {
+					query: validatedInput.query,
+					result: results,
+					success: true,
+				};
+			} catch (error) {
+				const msg = formatError(error);
+				return {
+					query: validatedInput.query,
+					result: "",
+					error: `Error searching web: ${msg}`,
+					success: false,
+				};
+			}
 		},
 	});
 }
@@ -967,6 +1017,7 @@ export function createDefaultTools(
 		enableSearch = true,
 		enableBash = true,
 		enableWebFetch = true,
+		enableWebSearch = true,
 		enableBrowserAutomation = false,
 		enableApplyPatch = false,
 		enableEditor = true,
@@ -1000,6 +1051,10 @@ export function createDefaultTools(
 	// Add fetch_web_content tool if enabled and executor provided
 	if (enableWebFetch && executors.webFetch) {
 		tools.push(createWebFetchTool(executors.webFetch, config));
+	}
+
+	if (enableWebSearch && executors.webSearch) {
+		tools.push(createWebSearchTool(executors.webSearch, config));
 	}
 
 	// Add browser automation tools if explicitly enabled and executors are provided
