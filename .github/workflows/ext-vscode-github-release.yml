@@ -191,8 +191,11 @@ jobs:
                   fi
 
                   RESOLVED_SHA=$(git rev-parse HEAD)
-                  if [[ "$RESOLVED_SHA" != "$GITHUB_SHA" ]]; then
-                    echo "Error: tag '$TAG' resolves to $RESOLVED_SHA, but tests ran against $GITHUB_SHA"
+                  TESTED_SHA=$(git rev-parse "$GITHUB_SHA^{commit}" 2>/dev/null || git rev-parse "$GITHUB_SHA")
+                  echo "Tag '$TAG' resolves to commit $RESOLVED_SHA"
+                  echo "Workflow SHA '$GITHUB_SHA' resolves to commit $TESTED_SHA"
+                  if [[ "$RESOLVED_SHA" != "$TESTED_SHA" ]]; then
+                    echo "Error: tag '$TAG' resolves to $RESOLVED_SHA, but tests ran against $TESTED_SHA"
                     exit 1
                   fi
 
