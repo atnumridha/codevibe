@@ -271,7 +271,13 @@ jobs:
               if: ${{ always() }}
               continue-on-error: ${{ (github.event.inputs.release_stage || 'candidate') == 'candidate' }}
               working-directory: ${{ github.workspace }}
+              env:
+                  RELEASE_STAGE: ${{ github.event.inputs.release_stage || 'candidate' }}
               run: |
+                  if [[ "$RELEASE_STAGE" == "candidate" ]]; then
+                    export CODEVIBE_EVIDENCE_COMMAND_TIMEOUT_MS="${CODEVIBE_EVIDENCE_COMMAND_TIMEOUT_MS:-300000}"
+                    export CODEVIBE_EVIDENCE_MAX_RUNTIME_MS="${CODEVIBE_EVIDENCE_MAX_RUNTIME_MS:-900000}"
+                  fi
                   node apps/vscode/scripts/collect-cursor-parity-evidence.mjs --run-retrieval-indexing --run-mcp-oauth --run-standalone-ui --run-sandbox-policy --run-deeplinks --run-ndjson --run-background-agents --run-browser-tools --run-mermaid-planning --out-file apps/vscode/cursor-parity-evidence.md
 
             - name: Prepare standalone release assets

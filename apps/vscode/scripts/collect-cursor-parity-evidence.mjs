@@ -12,6 +12,7 @@ const projectRoot = path.join(__dirname, "..")
 const repoRoot = path.join(projectRoot, "..", "..")
 const defaultOutFile = path.join(projectRoot, "dist", "cursor-parity-evidence.local.md")
 const localTsxCli = path.join("apps", "vscode", "node_modules", "tsx", "dist", "cli.mjs")
+const defaultCommandTimeoutMs = 6 * 60 * 1000
 
 const safeCommands = [
 	{
@@ -43,42 +44,49 @@ const requiredDependencyCommands = [
 		command: "npm",
 		args: ["--prefix", "apps/vscode", "ci", "--include=optional"],
 		cwd: repoRoot,
+		timeoutMs: 10 * 60 * 1000,
 	},
 	{
 		label: "Install webview dependencies",
 		command: "npm",
 		args: ["--prefix", "apps/vscode/webview-ui", "ci", "--include=optional"],
 		cwd: repoRoot,
+		timeoutMs: 10 * 60 * 1000,
 	},
 	{
 		label: "Type check",
 		command: "npm",
 		args: ["--prefix", "apps/vscode", "run", "check-types"],
 		cwd: repoRoot,
+		timeoutMs: 10 * 60 * 1000,
 	},
 	{
 		label: "Lint",
 		command: "npm",
 		args: ["--prefix", "apps/vscode", "run", "lint"],
 		cwd: repoRoot,
+		timeoutMs: 10 * 60 * 1000,
 	},
 	{
 		label: "Unit tests",
 		command: "npm",
 		args: ["--prefix", "apps/vscode", "run", "test:unit"],
 		cwd: repoRoot,
+		timeoutMs: 15 * 60 * 1000,
 	},
 	{
 		label: "E2E tests",
 		command: "npm",
 		args: ["--prefix", "apps/vscode", "run", "test:e2e:optimal"],
 		cwd: repoRoot,
+		timeoutMs: 30 * 60 * 1000,
 	},
 	{
 		label: "Package and verify VSIX install",
 		command: "npm",
 		args: ["--prefix", "apps/vscode", "run", "package:github-vsix", "--", "--verify-install"],
 		cwd: repoRoot,
+		timeoutMs: 15 * 60 * 1000,
 	},
 ]
 
@@ -153,6 +161,7 @@ const standaloneUiCommands = [
 		args: ["--prefix", "apps/vscode", "run", "compile-standalone"],
 		cwd: repoRoot,
 		category: "standalone-ui",
+		timeoutMs: 15 * 60 * 1000,
 	},
 	{
 		label: "Standalone extracted package consumer smoke",
@@ -160,6 +169,7 @@ const standaloneUiCommands = [
 		args: [localTsxCli, "apps/vscode/scripts/smoke-standalone-package.ts"],
 		cwd: repoRoot,
 		category: "standalone-ui",
+		timeoutMs: 4 * 60 * 1000,
 	},
 	{
 		label: "Standalone hub route/readiness tests",
@@ -489,16 +499,84 @@ function commandLine(command, args) {
 	return [command, ...args].map((part) => (/\s/.test(part) ? JSON.stringify(part) : part)).join(" ")
 }
 
-function runCommand({ label, command, args, cwd }) {
+function readPositiveIntegerEnv(name) {
+	const rawValue = process.env[name]?.trim()
+	if (!rawValue) {
+		return undefined
+	}
+	const value = Number(rawValue)
+	if (!Number.isFinite(value) || value <= 0) {
+		throw new Error(`${name} must be a positive number of milliseconds`)
+	}
+	return Math.floor(value)
+}
+
+function formatDuration(ms) {
+	if (ms % 60000 === 0) {
+		return `${ms / 60000}m`
+	}
+	if (ms % 1000 === 0) {
+		return `${ms / 1000}s`
+	}
+	return `${ms}ms`
+}
+
+function createRuntimeBudget() {
+	const maxRuntimeMs = readPositiveIntegerEnv("CODEVIBE_EVIDENCE_MAX_RUNTIME_MS")
+	return {
+		maxRuntimeMs,
+		deadlineMs: maxRuntimeMs ? Date.now() + maxRuntimeMs : undefined,
+	}
+}
+
+function remainingRuntimeMs(runtimeBudget) {
+	if (!runtimeBudget?.deadlineMs) {
+		return undefined
+	}
+	return runtimeBudget.deadlineMs - Date.now()
+}
+
+function runtimeBudgetExceeded(runtimeBudget) {
+	const remainingMs = remainingRuntimeMs(runtimeBudget)
+	return remainingMs !== undefined && remainingMs <= 0
+}
+
+function resolveCommandTimeoutMs(commandSpec, runtimeBudget) {
+	const configuredTimeoutMs =
+		commandSpec.timeoutMs ??
+		readPositiveIntegerEnv("CODEVIBE_EVIDENCE_COMMAND_TIMEOUT_MS") ??
+		defaultCommandTimeoutMs
+	const remainingMs = remainingRuntimeMs(runtimeBudget)
+	if (remainingMs === undefined) {
+		return configuredTimeoutMs
+	}
+	return Math.max(1, Math.min(configuredTimeoutMs, remainingMs))
+}
+
+function runCommand(commandSpec, runtimeBudget) {
+	const { label, command, args, cwd } = commandSpec
+	if (runtimeBudgetExceeded(runtimeBudget)) {
+		return {
+			...skippedCommand(
+				commandSpec,
+				`Skipped because evidence collection exceeded CODEVIBE_EVIDENCE_MAX_RUNTIME_MS (${formatDuration(runtimeBudget.maxRuntimeMs)}).`,
+			),
+			timeoutMs: null,
+		}
+	}
+	const timeoutMs = resolveCommandTimeoutMs(commandSpec, runtimeBudget)
 	const startedAt = new Date().toISOString()
 	const result = spawnSync(command, args, {
 		cwd,
 		encoding: "utf8",
 		stdio: "pipe",
 		shell: false,
+		timeout: timeoutMs,
+		killSignal: "SIGTERM",
 	})
 	const finishedAt = new Date().toISOString()
 	if (result.error) {
+		const timedOut = result.error.code === "ETIMEDOUT"
 		return {
 			label,
 			command: commandLine(command, args),
@@ -506,9 +584,14 @@ function runCommand({ label, command, args, cwd }) {
 			exitCode: null,
 			startedAt,
 			finishedAt,
+			timeoutMs,
 			stdout: result.stdout ?? "",
 			stderr: result.stderr ?? result.error.message,
-			error: result.error.code === "ENOENT" ? "not found on PATH" : result.error.message,
+			error: timedOut
+				? `timed out after ${formatDuration(timeoutMs)}`
+				: result.error.code === "ENOENT"
+					? "not found on PATH"
+					: result.error.message,
 		}
 	}
 	return {
@@ -518,6 +601,7 @@ function runCommand({ label, command, args, cwd }) {
 		exitCode: result.status ?? 1,
 		startedAt,
 		finishedAt,
+		timeoutMs,
 		stdout: result.stdout ?? "",
 		stderr: result.stderr ?? "",
 	}
@@ -638,6 +722,7 @@ function renderCommandResult(result) {
 - Exit code: ${result.exitCode === null ? "n/a" : result.exitCode}
 - Started: ${result.startedAt}
 - Finished: ${result.finishedAt}
+- Timeout: ${result.timeoutMs ? formatDuration(result.timeoutMs) : "n/a"}
 ${result.reason ? `- Reason: ${result.reason}\n` : ""}${result.error ? `- Error: ${result.error}\n` : ""}
 Stdout:${fenced(result.stdout)}
 Stderr:${fenced(result.stderr)}
@@ -837,10 +922,11 @@ function main() {
 		os: `${os.type()} ${os.release()} ${os.arch()}`,
 	}
 
-	const results = safeCommands.map(runCommand)
+	const runtimeBudget = createRuntimeBudget()
+	const results = safeCommands.map((command) => runCommand(command, runtimeBudget))
 	if (options.runRequired) {
 		for (const command of requiredDependencyCommands) {
-			results.push(runCommand(command))
+			results.push(runCommand(command, runtimeBudget))
 		}
 	} else {
 		const reason = "Skipped by default; rerun with --run-required in a dependency-equipped checkout."
@@ -852,7 +938,7 @@ function main() {
 		if (options[group.option]) {
 			for (const command of group.commands) {
 				results.push({
-					...runCommand(command),
+					...runCommand(command, runtimeBudget),
 					category: command.category,
 				})
 			}
