@@ -9,7 +9,10 @@ import { browser_screenshot_variants } from "../tools/browser_screenshot"
 import { browser_snapshot_variants } from "../tools/browser_snapshot"
 import { execute_command_variants } from "../tools/execute_command"
 import { plan_mode_respond_variants } from "../tools/plan_mode_respond"
-import type { SystemPromptContext } from "../types"
+import { web_fetch_variants } from "../tools/web_fetch"
+import { web_search_variants } from "../tools/web_search"
+import { getCapabilitiesSection } from "../components/capabilities"
+import type { PromptVariant, SystemPromptContext } from "../types"
 
 const mockContext: SystemPromptContext = {
 	cwd: "/test/project",
@@ -190,6 +193,49 @@ describe("execute_command terminal policy schema", () => {
 			expect(anthropicProperties.sandbox_permissions.enum).to.include.members(sandboxPermissionEnum)
 			expect(geminiProperties.sandbox_permissions.enum).to.include.members(sandboxPermissionEnum)
 		}
+	})
+})
+
+describe("Codie web tools provider gates", () => {
+	const contextForProvider = (
+		providerId: string,
+		clineWebToolsEnabled = true,
+	): SystemPromptContext => ({
+		...mockContext,
+		clineWebToolsEnabled,
+		providerInfo: {
+			...mockContext.providerInfo,
+			providerId,
+		},
+	})
+
+	it("enables web_search and web_fetch specs for OpenAI Codex sessions", () => {
+		const codexContext = contextForProvider("openai-codex")
+		for (const spec of [...web_search_variants, ...web_fetch_variants]) {
+			expect(spec.contextRequirements?.(codexContext), spec.name).to.equal(true)
+		}
+	})
+
+	it("keeps web tools gated by user setting and supported provider", () => {
+		const disabledContext = contextForProvider("openai-codex", false)
+		const unsupportedContext = contextForProvider("openai-native")
+		for (const spec of [...web_search_variants, ...web_fetch_variants]) {
+			expect(spec.contextRequirements?.(disabledContext), `${spec.name} disabled`).to.equal(false)
+			expect(spec.contextRequirements?.(unsupportedContext), `${spec.name} provider`).to.equal(false)
+		}
+	})
+
+	it("adds web tool capability guidance for OpenAI Codex sessions", async () => {
+		const capabilities = await getCapabilitiesSection(
+			{
+				family: ModelFamily.GENERIC,
+				labels: {},
+			} as PromptVariant,
+			contextForProvider("openai-codex"),
+		)
+
+		expect(capabilities).to.include("web_search")
+		expect(capabilities).to.include("web_fetch")
 	})
 })
 

@@ -1,6 +1,7 @@
 import { SystemPromptSection } from "../templates/placeholders"
 import { TemplateEngine } from "../templates/TemplateEngine"
 import type { PromptVariant, SystemPromptContext } from "../types"
+import { supportsCodieWebToolsProvider } from "@/shared/web-tools"
 
 const getCapabilitiesTemplateText = (context: SystemPromptContext) => `CAPABILITIES
 
@@ -21,7 +22,7 @@ export async function getCapabilitiesSection(variant: PromptVariant, context: Sy
 		: ""
 
 	const webToolsCapabilities =
-		context.providerInfo.providerId === "cline" && context.clineWebToolsEnabled === true
+		supportsCodieWebToolsProvider(context.providerInfo.providerId) && context.clineWebToolsEnabled === true
 			? `\n- When the task requires or could benefit from getting up to date information on a topic (e.g. latest best practices, latest documentation, latest news, etc.), use the web_search tool to find current results, then use the web_fetch tool to retrieve and analyze the content from relevant URLs.`
 			: ""
 

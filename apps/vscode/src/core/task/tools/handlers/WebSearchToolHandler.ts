@@ -9,6 +9,7 @@ import { telemetryService } from "@/services/telemetry"
 import { parsePartialArrayString } from "@/shared/array"
 import { CLINE_ACCOUNT_AUTH_ERROR_MESSAGE } from "@/shared/ClineAccount"
 import { getAxiosSettings } from "@/shared/net"
+import { supportsCodieWebToolsProvider } from "@/shared/web-tools"
 import { ToolUse } from "../../../assistant-message"
 import { formatResponse } from "../../../prompts/responses"
 import { ToolResponse } from "../.."
@@ -59,7 +60,7 @@ export class WebSearchToolHandler implements IFullyManagedTool {
 			// Check if Codie web tools are enabled (both user setting and feature flag)
 			const clineWebToolsEnabled = config.services.stateManager.getGlobalSettingsKey("clineWebToolsEnabled")
 			const featureFlagEnabled = featureFlagsService.getWebtoolsEnabled()
-			if (provider !== "cline" || !clineWebToolsEnabled || !featureFlagEnabled) {
+			if (!supportsCodieWebToolsProvider(provider) || !clineWebToolsEnabled || !featureFlagEnabled) {
 				return formatResponse.toolError("Codie web tools are currently disabled.")
 			}
 
