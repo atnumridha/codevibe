@@ -803,7 +803,7 @@
 		"package:github-vsix": "node scripts/package-github-vsix.mjs",
 		"package:github-vsix:release": "node scripts/package-github-vsix.mjs --require-release-gate",
 		"repair:vscode-state": "node scripts/package-github-vsix.mjs --clean-legacy-view-state-only",
-		"test:e2e:build": "node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix",
+		"test:e2e:build": "npm run ci:build && node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix",
 		"smoke:vsix:install": "node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix --install",
 		"smoke:github-vsix:install": "node scripts/package-github-vsix.mjs --install --verify-install",
 		"test:e2e": "playwright install && npm run test:e2e:build && node src/test/e2e/utils/build.mjs && playwright test",

@@ -220,6 +220,7 @@ jobs:
                   RELEASE_STAGE: ${{ github.event.inputs.release_stage || 'candidate' }}
                   PRERELEASE: ${{ github.event.inputs.prerelease || 'true' }}
               run: |
+                  npm run ci:build
                   # Installed-extension validation is covered by the required
                   # cross-platform e2e workflow. Avoid running the GUI-backed
                   # VS Code CLI smoke install in the release packager, where it
