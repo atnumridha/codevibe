@@ -292,7 +292,7 @@ export class E2ETestHelper {
 			(await this.isLocatorVisible(frame.getByPlaceholder(/Start a Codie task|Message Codie/i))) ||
 			(await this.isLocatorVisible(frame.getByText("AGENT CONSOLE"))) ||
 			(await this.isLocatorVisible(frame.getByRole("button", { name: "Sign in to Codie" }))) ||
-			(await this.isLocatorVisible(frame.getByText("Bring my own API key")))
+			(await this.isLocatorVisible(frame.getByText(/How will you use Codie\?|Use another model source|Connect Codie/i)))
 		)
 	}
 

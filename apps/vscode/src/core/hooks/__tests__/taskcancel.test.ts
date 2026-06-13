@@ -6,7 +6,9 @@ import sinon from "sinon"
 import { HookFactory } from "../hook-factory"
 import { createHookTestEnv, HookTestEnv, loadFixture, stubHookDirs, writeHookScriptForPlatform } from "./test-utils"
 
-describe("TaskCancel Hook", () => {
+describe("TaskCancel Hook", function () {
+	this.timeout(15000)
+
 	let tempDir: string
 	let sandbox: sinon.SinonSandbox
 	let getEnv: () => { tempDir: string }

@@ -9,6 +9,10 @@
 CLAUDE.local.md
 out/
 coverage/
+coverage-*/
+**/coverage/
+**/coverage-*/
+**/.nyc_output/
 dist-standalone/
 node_modules/
 src/**

@@ -9,7 +9,7 @@ e2e("Views - can seed auth and navigate to Chat", async ({ helper, page, sidebar
 
 	if (startsInOnboarding) {
 		await expect(codieButton).toBeVisible()
-		await expect(sidebar.getByText("Bring my own API key")).toBeVisible()
+		await expect(sidebar.getByText(/How will you use Codie\?|Use another model source|Connect Codie/i).first()).toBeVisible()
 		sidebar = await helper.signin(sidebar, page)
 	}
 

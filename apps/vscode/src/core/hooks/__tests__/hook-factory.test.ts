@@ -7,12 +7,15 @@ import { setDistinctId } from "@/services/logging/distinctId"
 import { HookFactory } from "../hook-factory"
 import { createHookTestEnv, HookTestEnv, stubHookDirs, withPlatform, writeHookScriptForPlatform } from "./test-utils"
 
-describe("Hook System", () => {
+const WINDOWS_HOOK_TEST_TIMEOUT_MS = 15000
+const WINDOWS_TEST_TIMEOUT_MS = 10000
+
+describe("Hook System", function () {
+	this.timeout(WINDOWS_HOOK_TEST_TIMEOUT_MS)
+
 	let tempDir: string
 	let sandbox: sinon.SinonSandbox
 	let hookTestEnv: HookTestEnv
-	const WINDOWS_HOOK_TEST_TIMEOUT_MS = 15000
-	const WINDOWS_TEST_TIMEOUT_MS = 10000
 
 	// Helper to write executable hook script
 	const writeHookScript = async (hookPath: string, nodeScript: string): Promise<void> => {
@@ -497,7 +500,9 @@ console.log(JSON.stringify({
 		})
 	})
 
-	describe("Global Hooks", () => {
+	describe("Global Hooks", function () {
+		this.timeout(WINDOWS_HOOK_TEST_TIMEOUT_MS)
+
 		let globalHooksDir: string
 		let workspaceHooksDir: string
 

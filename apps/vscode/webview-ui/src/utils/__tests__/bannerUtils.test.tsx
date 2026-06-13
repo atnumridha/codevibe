@@ -37,9 +37,9 @@ describe("bannerUtils", () => {
 		})
 
 		expect(safeBanner.title).toBe("Try Codie Enterprise")
-		expect(safeBanner.description).toBe("Open chatgpt.com to manage your Codie team.")
+		expect(safeBanner.description).toBe("Open Codie to manage your Codie team.")
 		expect(converted.title).toBe("Try Codie Enterprise")
-		expect(converted.description).toBe("Open chatgpt.com to manage your Codie team.")
+		expect(converted.description).toBe("Open Codie to manage your Codie team.")
 		expect(converted.actions).toHaveLength(1)
 		expect(converted.actions?.[0].label).toBe("Open Codie")
 	})

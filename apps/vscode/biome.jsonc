@@ -125,6 +125,7 @@
 			"!!**/.vscode-test",
 			"!!**/test-results",
 			"!!**/coverage",
+			"!!**/coverage-*",
 			"!!**/node_modules",
 			"!!**/webview-ui/build",
 			"!!**/generated",

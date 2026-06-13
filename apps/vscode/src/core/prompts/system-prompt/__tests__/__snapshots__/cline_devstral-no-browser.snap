@@ -31,11 +31,17 @@ Always adhere to this format for the tool use to ensure proper parsing and execu
 Description: Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Commands will be executed in the current working directory: /test/project
 Parameters:
 - command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
-- requires_approval: (required) A boolean indicating whether this command requires explicit user approval before execution in case the user has auto-approve mode enabled. Set to 'true' for potentially impactful operations like installing/uninstalling packages, deleting/overwriting files, system configuration changes, network operations, or any commands that could have unintended side effects. Set to 'false' for safe operations like reading files/directories, running development servers, building projects, and other non-destructive operations.
+- requires_approval: (required) A boolean indicating whether this command requires explicit user approval before execution in case the user has auto-approve mode enabled. Set to 'true' for potentially impactful operations like installing/uninstalling packages, deleting/overwriting files, system configuration changes, network operations, long-running services, builds/tests that write artifacts, or any command that uses sandbox_permissions=require_escalated or require_escalated=true. Set to 'false' only for safe read-only commands and clearly non-mutating status checks.
+- sandbox_permissions: (optional) Optional Codie terminal run-mode request. Use 'use_default' or omit to let Codie choose; use 'sandboxed' to prefer Codie sandbox execution; use 'unelevated' for normal terminal mode while configured command permissions and sandbox preflight still apply; use 'require_escalated' only when the command must bypass Codie sandbox preflight or sandbox-derived command restrictions. 'require_escalated' always requires explicit user approval and does not request OS administrator privileges.
+- require_escalated: (optional) Optional boolean alias for sandbox_permissions=require_escalated. Set true only when the command must bypass Codie sandbox preflight or sandbox-derived command restrictions. This forces explicit user approval and does not request OS administrator privileges.
+- prefix_rule: (optional) Optional approval context for elevated commands. Provide a JSON array of leading command tokens that exactly match the command prefix, such as ["npm","run","dev"]. Codie shows this with the one-off approval but does not persist a new auto-approval rule.
 Usage:
 <execute_command>
 <command>Your command here</command>
 <requires_approval>true or false</requires_approval>
+<sandbox_permissions>use_default</sandbox_permissions>
+<require_escalated>false</require_escalated>
+<prefix_rule>["npm","run","dev"]</prefix_rule>
 </execute_command>
 
 ## read_file
