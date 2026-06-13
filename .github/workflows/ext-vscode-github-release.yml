@@ -128,11 +128,19 @@ jobs:
               id: resolve_tag
               working-directory: ${{ github.workspace }}
               env:
-                  TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag }}
+                  TAG: ${{ github.event.inputs.tag || github.ref_name }}
                   CREATE_TAG: ${{ github.event.inputs.create_tag_from_ref || 'false' }}
                   PACKAGE_VERSION: ${{ steps.get_version.outputs.version }}
                   RELEASE_STAGE: ${{ github.event.inputs.release_stage || 'candidate' }}
               run: |
+                  if [[ -z "${TAG:-}" ]]; then
+                    if [[ "${GITHUB_REF_TYPE:-}" == "tag" && -n "${GITHUB_REF_NAME:-}" ]]; then
+                      TAG="$GITHUB_REF_NAME"
+                    elif [[ "${GITHUB_REF:-}" == refs/tags/* ]]; then
+                      TAG="${GITHUB_REF#refs/tags/}"
+                    fi
+                  fi
+
                   if [[ -z "$TAG" ]]; then
                     echo "Error: tag input is required"
                     exit 1
@@ -166,17 +174,23 @@ jobs:
                     fi
                   fi
 
-                  git fetch origin --tags
                   TAG_REF="refs/tags/$TAG"
 
+                  git fetch origin --tags
+                  if ! git show-ref --verify --quiet "$TAG_REF"; then
+                    git fetch --force origin "$TAG_REF:$TAG_REF" || true
+                  fi
+
                   if git show-ref --verify --quiet "$TAG_REF"; then
-                    git checkout --detach "$TAG_REF^{commit}"
+                    RESOLVED_SHA=$(git rev-list -n 1 "$TAG_REF")
+                    git checkout --detach "$RESOLVED_SHA"
                   elif [[ "$CREATE_TAG" == "true" ]]; then
                     git config user.name "github-actions[bot]"
                     git config user.email "github-actions[bot]@users.noreply.github.com"
                     git tag "$TAG" "$GITHUB_SHA"
                     git push origin "$TAG_REF"
-                    git checkout --detach "$TAG_REF^{commit}"
+                    RESOLVED_SHA=$(git rev-list -n 1 "$TAG_REF")
+                    git checkout --detach "$RESOLVED_SHA"
                   else
                     echo "Error: tag '$TAG' does not exist and create_tag_from_ref is false"
                     exit 1
@@ -190,8 +204,11 @@ jobs:
                     fi
                   fi
 
-                  RESOLVED_SHA=$(git rev-parse HEAD)
-                  TESTED_SHA=$(git rev-parse "$GITHUB_SHA^{commit}" 2>/dev/null || git rev-parse "$GITHUB_SHA")
+                  if [[ "${GITHUB_REF:-}" == "$TAG_REF" || "${GITHUB_REF_NAME:-}" == "$TAG" ]]; then
+                    TESTED_SHA="$RESOLVED_SHA"
+                  else
+                    TESTED_SHA=$(git rev-parse "$GITHUB_SHA^{commit}" 2>/dev/null || git rev-parse "$GITHUB_SHA")
+                  fi
                   echo "Tag '$TAG' resolves to commit $RESOLVED_SHA"
                   echo "Workflow SHA '$GITHUB_SHA' resolves to commit $TESTED_SHA"
                   if [[ "$RESOLVED_SHA" != "$TESTED_SHA" ]]; then
