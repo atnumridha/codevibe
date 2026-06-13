@@ -12,7 +12,7 @@ vi.mock("@cline/core", () => ({
 	Llms: {
 		BUILT_IN_PROVIDER: { OPENAI_CODEX: "openai-codex" },
 		MODEL_COLLECTIONS_BY_PROVIDER_ID: {
-			"openai-codex": { provider: { defaultModelId: "gpt-5.5" } },
+			"openai-codex": { provider: { defaultModelId: "gpt-5.5-pro" } },
 		},
 		normalizeProviderId: vi.fn((providerId: string) => providerId),
 	},

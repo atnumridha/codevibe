@@ -40,7 +40,7 @@ test.describe("cline version subcommand", () => {
 		env: clineEnv("claude-sonnet-4.6"),
 	});
 
-	test("prints 'CodeVibe CLI version:' message", async ({ terminal }) => {
+	test("prints the Codie CLI version", async ({ terminal }) => {
 		await expectVisible(terminal, /\d+\.\d+\.\d+/g);
 	});
 });

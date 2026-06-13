@@ -1,26 +1,26 @@
-import * as crypto from "crypto"
-import { readFile } from "fs/promises"
-import * as http from "http"
-import * as os from "os"
-import * as path from "path"
-import { URL } from "url"
-import { z } from "zod"
-import { StateManager } from "@/core/storage/StateManager"
-import { HostProvider } from "@/hosts/host-provider"
-import { buildExternalBasicHeaders } from "@/services/EnvUtils"
-import { fetch } from "@/shared/net"
-import { Logger } from "@/shared/services/Logger"
-import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
+import * as crypto from "crypto";
+import { readFile } from "fs/promises";
+import * as http from "http";
+import * as os from "os";
+import * as path from "path";
+import { URL } from "url";
+import { z } from "zod";
+import { StateManager } from "@/core/storage/StateManager";
+import { HostProvider } from "@/hosts/host-provider";
+import { buildExternalBasicHeaders } from "@/services/EnvUtils";
+import { fetch } from "@/shared/net";
+import { Logger } from "@/shared/services/Logger";
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config";
 
 /**
- * OpenAI Codex OAuth Configuration
+ * ChatGPT for Codie OAuth configuration
  *
- * Based on the OpenAI Codex OAuth implementation:
+ * Based on the upstream ChatGPT Codex OAuth implementation:
  * - ISSUER: https://auth.openai.com
  * - Authorization endpoint: https://auth.openai.com/oauth/authorize
  * - Token endpoint: https://auth.openai.com/oauth/token
  * - Fixed callback port: 1455
- * - Codex-specific params: codex_cli_simplified_flow=true, originator=cline
+ * - Codie ChatGPT params: codex_cli_simplified_flow=true, originator=codie
  * - Organization claims: id_token_add_organizations=true
  */
 export const OPENAI_CODEX_OAUTH_CONFIG = {
@@ -30,21 +30,25 @@ export const OPENAI_CODEX_OAUTH_CONFIG = {
 	redirectUri: "http://localhost:1455/auth/callback",
 	scopes: "openid profile email offline_access",
 	callbackPort: 1455,
-} as const
+} as const;
 
 export const OPENAI_CODEX_BACKEND_CONFIG = {
 	baseUrl: "https://chatgpt.com/backend-api/codex",
 	defaultClientVersion: "0.136.0",
-} as const
+} as const;
 
 // Token storage key - must match the key in SECRETS_KEYS (state-keys.ts)
-const OPENAI_CODEX_CREDENTIALS_KEY = "openai-codex-oauth-credentials"
+const OPENAI_CODEX_CREDENTIALS_KEY = "openai-codex-oauth-credentials";
 
-const OPENAI_CODEX_AUTH_SOURCES = ["codexHome", "vscodeSecret", "auto"] as const
-export type OpenAiCodexAuthSource = (typeof OPENAI_CODEX_AUTH_SOURCES)[number]
-const DEFAULT_OPENAI_CODEX_AUTH_SOURCE: OpenAiCodexAuthSource = "codexHome"
+const OPENAI_CODEX_AUTH_SOURCES = [
+	"codexHome",
+	"vscodeSecret",
+	"auto",
+] as const;
+export type OpenAiCodexAuthSource = (typeof OPENAI_CODEX_AUTH_SOURCES)[number];
+const DEFAULT_OPENAI_CODEX_AUTH_SOURCE: OpenAiCodexAuthSource = "auto";
 
-type OpenAiCodexCredentialSource = "codex-home" | "vscode-secret"
+type OpenAiCodexCredentialSource = "codex-home" | "vscode-secret";
 
 // Credentials schema
 const openAiCodexCredentialsSchema = z.object({
@@ -61,43 +65,47 @@ const openAiCodexCredentialsSchema = z.object({
 	installationId: z.string().min(1).optional(),
 	clientVersion: z.string().min(1).optional(),
 	authMode: z.string().min(1).optional(),
-})
+});
 
-export type OpenAiCodexCredentials = z.infer<typeof openAiCodexCredentialsSchema>
+export type OpenAiCodexCredentials = z.infer<
+	typeof openAiCodexCredentialsSchema
+>;
 
 export interface OpenAiCodexBackendModel {
-	id: string
-	name?: string
-	supportedInApi?: boolean
-	contextWindow?: number
-	maxTokens?: number
-	supportsImages?: boolean
-	supportsPromptCache?: boolean
-	supportsReasoning?: boolean
-	apiFormat?: string
-	description?: string
+	id: string;
+	name?: string;
+	supportedInApi?: boolean;
+	contextWindow?: number;
+	maxTokens?: number;
+	supportsImages?: boolean;
+	supportsPromptCache?: boolean;
+	supportsReasoning?: boolean;
+	apiFormat?: string;
+	description?: string;
 }
 
 export interface OpenAiCodexBackendHeaderOptions {
-	accessToken?: string | null
-	accountId?: string | null
-	installationId?: string | null
-	sessionId?: string | null
+	accessToken?: string | null;
+	accountId?: string | null;
+	installationId?: string | null;
+	sessionId?: string | null;
 }
 
-export function buildOpenAiCodexBackendHeaders(options: OpenAiCodexBackendHeaderOptions = {}): Record<string, string> {
-	const accountId = options.accountId?.trim()
-	const installationId = options.installationId?.trim()
-	const sessionId = options.sessionId?.trim()
-	const accessToken = options.accessToken?.trim()
+export function buildOpenAiCodexBackendHeaders(
+	options: OpenAiCodexBackendHeaderOptions = {},
+): Record<string, string> {
+	const accountId = options.accountId?.trim();
+	const installationId = options.installationId?.trim();
+	const sessionId = options.sessionId?.trim();
+	const accessToken = options.accessToken?.trim();
 	return {
-		originator: "cline",
+		originator: "codie",
 		...(sessionId ? { session_id: sessionId } : {}),
 		...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
 		...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
 		...(installationId ? { "x-codex-installation-id": installationId } : {}),
 		...buildExternalBasicHeaders(),
-	}
+	};
 }
 
 // Token response schema from OpenAI
@@ -108,19 +116,19 @@ const tokenResponseSchema = z.object({
 	expires_in: z.number(),
 	email: z.string().optional(),
 	token_type: z.string().optional(),
-})
+});
 
 /**
  * JWT claims structure for extracting ChatGPT account ID
  */
 interface IdTokenClaims {
-	chatgpt_account_id?: string
-	organizations?: Array<{ id: string }>
-	email?: string
-	exp?: number
+	chatgpt_account_id?: string;
+	organizations?: Array<{ id: string }>;
+	email?: string;
+	exp?: number;
 	"https://api.openai.com/auth"?: {
-		chatgpt_account_id?: string
-	}
+		chatgpt_account_id?: string;
+	};
 }
 
 const codexAuthJsonSchema = z
@@ -135,13 +143,13 @@ const codexAuthJsonSchema = z
 			})
 			.passthrough(),
 	})
-	.passthrough()
+	.passthrough();
 
 const codexModelsCacheSchema = z
 	.object({
 		client_version: z.string().min(1).optional(),
 	})
-	.passthrough()
+	.passthrough();
 
 const codexBackendModelsSchema = z
 	.object({
@@ -170,21 +178,21 @@ const codexBackendModelsSchema = z
 				.passthrough(),
 		),
 	})
-	.passthrough()
+	.passthrough();
 
 /**
  * Parse JWT claims from a token
  * Returns undefined if the token is invalid or cannot be parsed
  */
 export function parseJwtClaims(token: string): IdTokenClaims | undefined {
-	const parts = token.split(".")
-	if (parts.length !== 3) return undefined
+	const parts = token.split(".");
+	if (parts.length !== 3) return undefined;
 	try {
 		// Use base64url decoding (Node.js Buffer handles this)
-		const payload = Buffer.from(parts[1], "base64url").toString("utf-8")
-		return JSON.parse(payload) as IdTokenClaims
+		const payload = Buffer.from(parts[1], "base64url").toString("utf-8");
+		return JSON.parse(payload) as IdTokenClaims;
 	} catch {
-		return undefined
+		return undefined;
 	}
 }
 
@@ -199,17 +207,18 @@ function extractAccountIdFromClaims(
 	claims: IdTokenClaims | undefined,
 	options: { includeOrganizations: boolean },
 ): string | undefined {
-	if (!claims) return undefined
+	if (!claims) return undefined;
 
-	const nestedAccountId = claims["https://api.openai.com/auth"]?.chatgpt_account_id
-	if (nestedAccountId) return nestedAccountId
+	const nestedAccountId =
+		claims["https://api.openai.com/auth"]?.chatgpt_account_id;
+	if (nestedAccountId) return nestedAccountId;
 
 	if (options.includeOrganizations) {
-		const organizationId = claims.organizations?.[0]?.id
-		if (organizationId) return organizationId
+		const organizationId = claims.organizations?.[0]?.id;
+		if (organizationId) return organizationId;
 	}
 
-	return claims.chatgpt_account_id
+	return claims.chatgpt_account_id;
 }
 
 /**
@@ -217,205 +226,273 @@ function extractAccountIdFromClaims(
  * Prefer the access-token ChatGPT account claim before id-token organization fallbacks.
  */
 function extractAccessTokenAccountId(accessToken: string): string | undefined {
-	const accessClaims = accessToken ? parseJwtClaims(accessToken) : undefined
-	return extractAccountIdFromClaims(accessClaims, { includeOrganizations: false })
+	const accessClaims = accessToken ? parseJwtClaims(accessToken) : undefined;
+	return extractAccountIdFromClaims(accessClaims, {
+		includeOrganizations: false,
+	});
 }
 
-function extractJwtFallbackAccountId(tokens: { id_token?: string; access_token: string }): string | undefined {
-	const accessClaims = tokens.access_token ? parseJwtClaims(tokens.access_token) : undefined
+function extractJwtFallbackAccountId(tokens: {
+	id_token?: string;
+	access_token: string;
+}): string | undefined {
+	const accessClaims = tokens.access_token
+		? parseJwtClaims(tokens.access_token)
+		: undefined;
 
 	if (tokens.id_token) {
-		const claims = parseJwtClaims(tokens.id_token)
-		const accountId = extractAccountIdFromClaims(claims, { includeOrganizations: true })
-		if (accountId) return accountId
+		const claims = parseJwtClaims(tokens.id_token);
+		const accountId = extractAccountIdFromClaims(claims, {
+			includeOrganizations: true,
+		});
+		if (accountId) return accountId;
 	}
 
-	return extractAccountIdFromClaims(accessClaims, { includeOrganizations: true })
+	return extractAccountIdFromClaims(accessClaims, {
+		includeOrganizations: true,
+	});
 }
 
-function extractAccountId(tokens: { id_token?: string; access_token: string }): string | undefined {
-	return extractAccessTokenAccountId(tokens.access_token) ?? extractJwtFallbackAccountId(tokens)
+function extractAccountId(tokens: {
+	id_token?: string;
+	access_token: string;
+}): string | undefined {
+	return (
+		extractAccessTokenAccountId(tokens.access_token) ??
+		extractJwtFallbackAccountId(tokens)
+	);
 }
 
-function extractEmail(tokens: { id_token?: string; access_token: string }): string | undefined {
-	const idClaims = tokens.id_token ? parseJwtClaims(tokens.id_token) : undefined
-	if (idClaims?.email) return idClaims.email
-	const accessClaims = parseJwtClaims(tokens.access_token)
-	return accessClaims?.email
+function extractEmail(tokens: {
+	id_token?: string;
+	access_token: string;
+}): string | undefined {
+	const idClaims = tokens.id_token
+		? parseJwtClaims(tokens.id_token)
+		: undefined;
+	if (idClaims?.email) return idClaims.email;
+	const accessClaims = parseJwtClaims(tokens.access_token);
+	return accessClaims?.email;
 }
 
-function extractExpiryMs(accessToken: string, now: () => number = Date.now): number {
-	const claims = parseJwtClaims(accessToken)
-	if (typeof claims?.exp === "number" && Number.isFinite(claims.exp) && claims.exp > 0) {
-		return claims.exp * 1000
+function extractExpiryMs(
+	accessToken: string,
+	now: () => number = Date.now,
+): number {
+	const claims = parseJwtClaims(accessToken);
+	if (
+		typeof claims?.exp === "number" &&
+		Number.isFinite(claims.exp) &&
+		claims.exp > 0
+	) {
+		return claims.exp * 1000;
 	}
-	return now() + 55 * 60 * 1000
+	return now() + 55 * 60 * 1000;
 }
 
 interface LoadCodexHomeCredentialsOptions {
-	codexHome?: string
-	now?: () => number
-	workspaceRoots?: readonly string[]
+	codexHome?: string;
+	now?: () => number;
+	workspaceRoots?: readonly string[];
 }
 
 function normalizePathCandidates(paths: readonly string[]): string[] {
-	const seen = new Set<string>()
-	const normalized: string[] = []
+	const seen = new Set<string>();
+	const normalized: string[] = [];
 	for (const candidate of paths) {
-		const trimmed = candidate.trim()
+		const trimmed = candidate.trim();
 		if (!trimmed) {
-			continue
+			continue;
 		}
-		const resolved = path.resolve(trimmed)
+		const resolved = path.resolve(trimmed);
 		if (!seen.has(resolved)) {
-			seen.add(resolved)
-			normalized.push(resolved)
+			seen.add(resolved);
+			normalized.push(resolved);
 		}
 	}
-	return normalized
+	return normalized;
 }
 
 function getExplicitCodexHomePath(codexHome?: string): string | undefined {
-	const explicitPath = codexHome?.trim() || process.env.CODEX_HOME?.trim()
-	return explicitPath ? path.resolve(explicitPath) : undefined
+	const explicitPath = codexHome?.trim() || process.env.CODEX_HOME?.trim();
+	return explicitPath ? path.resolve(explicitPath) : undefined;
 }
 
-async function getWorkspaceCodexHomePaths(workspaceRoots?: readonly string[]): Promise<string[]> {
+async function getWorkspaceCodexHomePaths(
+	workspaceRoots?: readonly string[],
+): Promise<string[]> {
 	try {
 		const roots =
 			workspaceRoots ??
-			(HostProvider.isInitialized() ? (await HostProvider.workspace.getWorkspacePaths({})).paths ?? [] : [])
-		return normalizePathCandidates(roots.map((root) => path.join(root, ".codex")))
+			(HostProvider.isInitialized()
+				? ((await HostProvider.workspace.getWorkspacePaths({})).paths ?? [])
+				: []);
+		return normalizePathCandidates(
+			roots.map((root) => path.join(root, ".codex")),
+		);
 	} catch (error) {
 		Logger.warn(
-			`[openai-codex-oauth] Failed to inspect workspace Codex auth paths; using home profile fallback: ${safeOpenAiCodexErrorSummary(
+			`[openai-codex-oauth] Failed to inspect workspace local auth paths; using home profile fallback: ${safeOpenAiCodexErrorSummary(
 				error,
 			)}`,
-		)
-		return []
+		);
+		return [];
 	}
 }
 
-async function getCodexHomePaths(options?: Pick<LoadCodexHomeCredentialsOptions, "codexHome" | "workspaceRoots">) {
-	const explicitPath = getExplicitCodexHomePath(options?.codexHome)
+async function getCodexHomePaths(
+	options?: Pick<
+		LoadCodexHomeCredentialsOptions,
+		"codexHome" | "workspaceRoots"
+	>,
+) {
+	const explicitPath = getExplicitCodexHomePath(options?.codexHome);
 	if (explicitPath) {
-		return [explicitPath]
+		return [explicitPath];
 	}
 
 	return normalizePathCandidates([
 		...(await getWorkspaceCodexHomePaths(options?.workspaceRoots)),
 		path.join(os.homedir(), ".codex"),
-	])
+	]);
 }
 
-function isOpenAiCodexAuthSource(value: unknown): value is OpenAiCodexAuthSource {
-	return typeof value === "string" && OPENAI_CODEX_AUTH_SOURCES.includes(value as OpenAiCodexAuthSource)
+function isOpenAiCodexAuthSource(
+	value: unknown,
+): value is OpenAiCodexAuthSource {
+	return (
+		typeof value === "string" &&
+		OPENAI_CODEX_AUTH_SOURCES.includes(value as OpenAiCodexAuthSource)
+	);
 }
 
 export function safeOpenAiCodexErrorSummary(error: unknown): string {
 	if (error instanceof z.ZodError) {
 		return (
 			error.issues
-				.map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "credentials"}: ${issue.message}`)
+				.map(
+					(issue) =>
+						`${issue.path.length > 0 ? issue.path.join(".") : "credentials"}: ${issue.message}`,
+				)
 				.join("; ") || "credentials failed validation"
-		)
+		);
 	}
 	if (error instanceof SyntaxError) {
-		return error.message
+		return error.message;
 	}
 	if (error instanceof Error) {
 		const code =
 			typeof (error as NodeJS.ErrnoException).code === "string"
 				? ` code=${(error as NodeJS.ErrnoException).code}`
-				: ""
+				: "";
 		const status =
 			typeof (error as unknown as { status?: unknown }).status === "number"
 				? ` status=${(error as unknown as { status: number }).status}`
-				: ""
+				: "";
 		const errorCode =
-			typeof (error as unknown as { errorCode?: unknown }).errorCode === "string"
+			typeof (error as unknown as { errorCode?: unknown }).errorCode ===
+			"string"
 				? ` code=${(error as unknown as { errorCode: string }).errorCode}`
-				: ""
-		return `${error.name}${code}${status}${errorCode}`
+				: "";
+		return `${error.name}${code}${status}${errorCode}`;
 	}
-	return "Unknown error"
+	return "Unknown error";
 }
 
 export function isOpenAiCodexAuthFailure(error: unknown): boolean {
-	return error instanceof OpenAiCodexOAuthTokenError && error.isLikelyAuthFailure()
+	return (
+		error instanceof OpenAiCodexOAuthTokenError && error.isLikelyAuthFailure()
+	);
 }
 
 function getOpenAiCodexAuthSource(): OpenAiCodexAuthSource {
 	try {
-		const configuredSource = getCodeVibeConfigurationValue<OpenAiCodexAuthSource>(
-			"openAiCodex.authSource",
-			DEFAULT_OPENAI_CODEX_AUTH_SOURCE,
-		)
+		const configuredSource =
+			getCodeVibeConfigurationValue<OpenAiCodexAuthSource>(
+				"openAiCodex.authSource",
+				DEFAULT_OPENAI_CODEX_AUTH_SOURCE,
+			);
 
 		if (isOpenAiCodexAuthSource(configuredSource)) {
-			return configuredSource
+			return configuredSource;
 		}
 
 		Logger.warn(
 			`[openai-codex-oauth] Invalid openAiCodex.authSource setting "${String(
 				configuredSource,
 			)}"; using ${DEFAULT_OPENAI_CODEX_AUTH_SOURCE}`,
-		)
+		);
 	} catch (error) {
 		Logger.warn(
 			`[openai-codex-oauth] Failed to read openAiCodex.authSource setting; using ${DEFAULT_OPENAI_CODEX_AUTH_SOURCE}: ${safeOpenAiCodexErrorSummary(
 				error,
 			)}`,
-		)
+		);
 	}
-	return DEFAULT_OPENAI_CODEX_AUTH_SOURCE
+	return DEFAULT_OPENAI_CODEX_AUTH_SOURCE;
 }
 
-function getCredentialSourceOrder(authSource: OpenAiCodexAuthSource): OpenAiCodexCredentialSource[] {
+function getCredentialSourceOrder(
+	authSource: OpenAiCodexAuthSource,
+): OpenAiCodexCredentialSource[] {
 	switch (authSource) {
 		case "codexHome":
-			return ["codex-home", "vscode-secret"]
+			return ["codex-home", "vscode-secret"];
 		case "vscodeSecret":
 		case "auto":
-			return ["vscode-secret", "codex-home"]
+			return ["vscode-secret", "codex-home"];
 	}
 }
 
 async function loadVscodeSecretCredentials(): Promise<OpenAiCodexCredentials | null> {
-	const stateManager = StateManager.get()
-	const credentialsJson = stateManager.getSecretKey(OPENAI_CODEX_CREDENTIALS_KEY)
+	const stateManager = StateManager.get();
+	const credentialsJson = stateManager.getSecretKey(
+		OPENAI_CODEX_CREDENTIALS_KEY,
+	);
 	if (!credentialsJson) {
-		return null
+		return null;
 	}
 
-	const parsed = JSON.parse(credentialsJson)
-	return openAiCodexCredentialsSchema.parse(parsed)
+	const parsed = JSON.parse(credentialsJson);
+	return openAiCodexCredentialsSchema.parse(parsed);
 }
 
-function logCredentialSourceLoadFailure(source: OpenAiCodexCredentialSource, error: unknown): void {
-	const label = source === "codex-home" ? "Codex home" : "VS Code secret"
-	Logger.error(`[openai-codex-oauth] Failed to load ${label} credentials: ${safeOpenAiCodexErrorSummary(error)}`)
+function logCredentialSourceLoadFailure(
+	source: OpenAiCodexCredentialSource,
+	error: unknown,
+): void {
+	const label = source === "codex-home" ? "Codex home" : "VS Code secret";
+	Logger.error(
+		`[openai-codex-oauth] Failed to load ${label} credentials: ${safeOpenAiCodexErrorSummary(error)}`,
+	);
 }
 
 async function readOptionalText(filePath: string): Promise<string | undefined> {
 	try {
-		return await readFile(filePath, "utf8")
+		return await readFile(filePath, "utf8");
 	} catch (error) {
-		if (typeof error === "object" && error && "code" in error && (error as NodeJS.ErrnoException).code === "ENOENT") {
-			return undefined
+		if (
+			typeof error === "object" &&
+			error &&
+			"code" in error &&
+			(error as NodeJS.ErrnoException).code === "ENOENT"
+		) {
+			return undefined;
 		}
-		throw error
+		throw error;
 	}
 }
 
-function parseOptionalCodexModelsCache(text: string | undefined): { client_version?: string } | undefined {
+function parseOptionalCodexModelsCache(
+	text: string | undefined,
+): { client_version?: string } | undefined {
 	if (!text) {
-		return undefined
+		return undefined;
 	}
 	try {
-		return codexModelsCacheSchema.parse(JSON.parse(text))
+		return codexModelsCacheSchema.parse(JSON.parse(text));
 	} catch {
-		return undefined
+		return undefined;
 	}
 }
 
@@ -423,26 +500,33 @@ async function loadCodexHomeCredentialsFromPath(
 	codexHome: string,
 	now?: () => number,
 ): Promise<OpenAiCodexCredentials | null> {
-	const authJsonText = await readOptionalText(path.join(codexHome, "auth.json"))
+	const authJsonText = await readOptionalText(
+		path.join(codexHome, "auth.json"),
+	);
 	if (!authJsonText) {
-		return null
+		return null;
 	}
 
-	const authJson = codexAuthJsonSchema.parse(JSON.parse(authJsonText))
-	const accessToken = authJson.tokens.access_token
-	const refreshToken = authJson.tokens.refresh_token
+	const authJson = codexAuthJsonSchema.parse(JSON.parse(authJsonText));
+	const accessToken = authJson.tokens.access_token;
+	const refreshToken = authJson.tokens.refresh_token;
 	if (!accessToken || !refreshToken) {
-		return null
+		return null;
 	}
 
-	const installationId = (await readOptionalText(path.join(codexHome, "installation_id")))?.trim() || undefined
-	const modelsCacheText = await readOptionalText(path.join(codexHome, "models_cache.json"))
-	const clientVersion = parseOptionalCodexModelsCache(modelsCacheText)?.client_version
+	const installationId =
+		(await readOptionalText(path.join(codexHome, "installation_id")))?.trim() ||
+		undefined;
+	const modelsCacheText = await readOptionalText(
+		path.join(codexHome, "models_cache.json"),
+	);
+	const clientVersion =
+		parseOptionalCodexModelsCache(modelsCacheText)?.client_version;
 	const tokens = {
 		id_token: authJson.tokens.id_token,
 		access_token: accessToken,
-	}
-	const tokenAccountId = authJson.tokens.account_id?.trim() || undefined
+	};
+	const tokenAccountId = authJson.tokens.account_id?.trim() || undefined;
 
 	return {
 		type: "openai-codex",
@@ -451,12 +535,15 @@ async function loadCodexHomeCredentialsFromPath(
 		id_token: authJson.tokens.id_token,
 		expires: extractExpiryMs(accessToken, now),
 		email: extractEmail(tokens),
-		accountId: extractAccessTokenAccountId(accessToken) ?? tokenAccountId ?? extractJwtFallbackAccountId(tokens),
+		accountId:
+			extractAccessTokenAccountId(accessToken) ??
+			tokenAccountId ??
+			extractJwtFallbackAccountId(tokens),
 		tokenSource: "codex-home",
 		installationId,
 		clientVersion,
 		authMode: authJson.auth_mode,
-	}
+	};
 }
 
 export async function loadCodexHomeCredentials(
@@ -464,67 +551,81 @@ export async function loadCodexHomeCredentials(
 ): Promise<OpenAiCodexCredentials | null> {
 	for (const codexHome of await getCodexHomePaths(options)) {
 		try {
-			const credentials = await loadCodexHomeCredentialsFromPath(codexHome, options?.now)
+			const credentials = await loadCodexHomeCredentialsFromPath(
+				codexHome,
+				options?.now,
+			);
 			if (credentials) {
-				return credentials
+				return credentials;
 			}
 		} catch (error) {
 			Logger.warn(
 				`[openai-codex-oauth] Skipping invalid Codex home credentials candidate: ${safeOpenAiCodexErrorSummary(
 					error,
 				)}`,
-			)
+			);
 		}
 	}
-	return null
+	return null;
 }
 
 export class OpenAiCodexOAuthTokenError extends Error {
-	public readonly status?: number
-	public readonly errorCode?: string
+	public readonly status?: number;
+	public readonly errorCode?: string;
 
 	constructor(message: string, opts?: { status?: number; errorCode?: string }) {
-		super(message)
-		this.name = "OpenAiCodexOAuthTokenError"
-		this.status = opts?.status
-		this.errorCode = opts?.errorCode
+		super(message);
+		this.name = "OpenAiCodexOAuthTokenError";
+		this.status = opts?.status;
+		this.errorCode = opts?.errorCode;
 	}
 
 	public isLikelyInvalidGrant(): boolean {
 		if (this.errorCode && /invalid_grant/i.test(this.errorCode)) {
-			return true
+			return true;
 		}
 		if (this.status === 400 || this.status === 401 || this.status === 403) {
-			return /invalid_grant|revoked|expired|invalid refresh/i.test(this.message)
+			return /invalid_grant|revoked|expired|invalid refresh/i.test(
+				this.message,
+			);
 		}
-		return false
+		return false;
 	}
 
 	public isLikelyAuthFailure(): boolean {
-		return this.status === 401 || this.status === 403 || this.isLikelyInvalidGrant()
+		return (
+			this.status === 401 || this.status === 403 || this.isLikelyInvalidGrant()
+		);
 	}
 }
 
-function parseOAuthErrorDetails(errorText: string): { errorCode?: string; errorMessage?: string } {
+function parseOAuthErrorDetails(errorText: string): {
+	errorCode?: string;
+	errorMessage?: string;
+} {
 	try {
-		const json: unknown = JSON.parse(errorText)
+		const json: unknown = JSON.parse(errorText);
 		if (!json || typeof json !== "object") {
-			return {}
+			return {};
 		}
 
-		const obj = json as Record<string, unknown>
-		const errorField = obj.error
+		const obj = json as Record<string, unknown>;
+		const errorField = obj.error;
 
 		const errorCode: string | undefined =
 			typeof errorField === "string"
 				? errorField
-				: errorField && typeof errorField === "object" && typeof (errorField as Record<string, unknown>).type === "string"
+				: errorField &&
+						typeof errorField === "object" &&
+						typeof (errorField as Record<string, unknown>).type === "string"
 					? ((errorField as Record<string, unknown>).type as string)
-					: undefined
+					: undefined;
 
-		const errorDescription = obj.error_description
+		const errorDescription = obj.error_description;
 		const errorMessageFromError =
-			errorField && typeof errorField === "object" ? (errorField as Record<string, unknown>).message : undefined
+			errorField && typeof errorField === "object"
+				? (errorField as Record<string, unknown>).message
+				: undefined;
 
 		const errorMessage: string | undefined =
 			typeof errorDescription === "string"
@@ -533,25 +634,28 @@ function parseOAuthErrorDetails(errorText: string): { errorCode?: string; errorM
 					? errorMessageFromError
 					: typeof obj.message === "string"
 						? obj.message
-						: undefined
+						: undefined;
 
-		return { errorCode, errorMessage }
+		return { errorCode, errorMessage };
 	} catch {
-		return {}
+		return {};
 	}
 }
 
-function redactKnownSecrets(text: string | undefined, secrets: Array<string | undefined>): string | undefined {
-	if (!text) return undefined
+function redactKnownSecrets(
+	text: string | undefined,
+	secrets: Array<string | undefined>,
+): string | undefined {
+	if (!text) return undefined;
 
-	let redacted = text
+	let redacted = text;
 	for (const secret of secrets) {
-		if (!secret) continue
-		const trimmed = secret.trim()
-		if (!trimmed) continue
-		redacted = redacted.split(trimmed).join("[REDACTED]")
+		if (!secret) continue;
+		const trimmed = secret.trim();
+		if (!trimmed) continue;
+		redacted = redacted.split(trimmed).join("[REDACTED]");
 	}
-	return redacted
+	return redacted;
 }
 
 function formatOAuthHttpError(
@@ -560,12 +664,12 @@ function formatOAuthHttpError(
 	errorText: string,
 	secrets: Array<string | undefined>,
 ): { message: string; errorCode?: string } {
-	const { errorCode, errorMessage } = parseOAuthErrorDetails(errorText)
-	const safeDetails = redactKnownSecrets(errorMessage, secrets) || errorCode
+	const { errorCode, errorMessage } = parseOAuthErrorDetails(errorText);
+	const safeDetails = redactKnownSecrets(errorMessage, secrets) || errorCode;
 	return {
 		errorCode,
 		message: `${prefix} failed: ${response.status} ${response.statusText}${safeDetails ? ` - ${safeDetails}` : ""}`,
-	}
+	};
 }
 
 /**
@@ -573,30 +677,33 @@ function formatOAuthHttpError(
  * Must be 43-128 characters long using unreserved characters
  */
 export function generateCodeVerifier(): string {
-	const buffer = crypto.randomBytes(32)
-	return buffer.toString("base64url")
+	const buffer = crypto.randomBytes(32);
+	return buffer.toString("base64url");
 }
 
 /**
  * Generates the PKCE code challenge from the verifier using S256 method
  */
 export function generateCodeChallenge(verifier: string): string {
-	const hash = crypto.createHash("sha256").update(verifier).digest()
-	return hash.toString("base64url")
+	const hash = crypto.createHash("sha256").update(verifier).digest();
+	return hash.toString("base64url");
 }
 
 /**
  * Generates a random state parameter for CSRF protection
  */
 export function generateState(): string {
-	return crypto.randomBytes(16).toString("hex")
+	return crypto.randomBytes(16).toString("hex");
 }
 
 /**
- * Builds the authorization URL for OpenAI Codex OAuth flow
+ * Builds the authorization URL for the Codie ChatGPT OAuth flow
  * Includes Codex-specific parameters per the implementation guide
  */
-export function buildAuthorizationUrl(codeChallenge: string, state: string): string {
+export function buildAuthorizationUrl(
+	codeChallenge: string,
+	state: string,
+): string {
 	const params = new URLSearchParams({
 		client_id: OPENAI_CODEX_OAUTH_CONFIG.clientId,
 		redirect_uri: OPENAI_CODEX_OAUTH_CONFIG.redirectUri,
@@ -608,10 +715,10 @@ export function buildAuthorizationUrl(codeChallenge: string, state: string): str
 		// Codex-specific parameters
 		codex_cli_simplified_flow: "true",
 		id_token_add_organizations: "true",
-		originator: "cline",
-	})
+		originator: "codie",
+	});
 
-	return `${OPENAI_CODEX_OAUTH_CONFIG.authorizationEndpoint}?${params.toString()}`
+	return `${OPENAI_CODEX_OAUTH_CONFIG.authorizationEndpoint}?${params.toString()}`;
 }
 
 /**
@@ -619,7 +726,10 @@ export function buildAuthorizationUrl(codeChallenge: string, state: string): str
  * Important: Uses application/x-www-form-urlencoded (not JSON)
  * Important: state must NOT be included in token exchange body
  */
-export async function exchangeCodeForTokens(code: string, codeVerifier: string): Promise<OpenAiCodexCredentials> {
+export async function exchangeCodeForTokens(
+	code: string,
+	codeVerifier: string,
+): Promise<OpenAiCodexCredentials> {
 	// Per the implementation guide: use application/x-www-form-urlencoded
 	// and do NOT include state in the body (OpenAI returns error if included)
 	const body = new URLSearchParams({
@@ -628,7 +738,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string):
 		code,
 		redirect_uri: OPENAI_CODEX_OAUTH_CONFIG.redirectUri,
 		code_verifier: codeVerifier,
-	})
+	});
 
 	const response = await fetch(OPENAI_CODEX_OAUTH_CONFIG.tokenEndpoint, {
 		method: "POST",
@@ -637,29 +747,37 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string):
 		},
 		body: body.toString(),
 		signal: AbortSignal.timeout(30000),
-	})
+	});
 
 	if (!response.ok) {
-		const errorText = await response.text()
-		const { errorCode, message } = formatOAuthHttpError("Token exchange", response, errorText, [code, codeVerifier])
-		throw new OpenAiCodexOAuthTokenError(message, { status: response.status, errorCode })
+		const errorText = await response.text();
+		const { errorCode, message } = formatOAuthHttpError(
+			"Token exchange",
+			response,
+			errorText,
+			[code, codeVerifier],
+		);
+		throw new OpenAiCodexOAuthTokenError(message, {
+			status: response.status,
+			errorCode,
+		});
 	}
 
-	const data = await response.json()
-	const tokenResponse = tokenResponseSchema.parse(data)
+	const data = await response.json();
+	const tokenResponse = tokenResponseSchema.parse(data);
 
 	if (!tokenResponse.refresh_token) {
-		throw new Error("Token exchange did not return a refresh_token")
+		throw new Error("Token exchange did not return a refresh_token");
 	}
 
 	// Per the implementation guide: expires is in milliseconds since epoch
-	const expiresAt = Date.now() + tokenResponse.expires_in * 1000
+	const expiresAt = Date.now() + tokenResponse.expires_in * 1000;
 
 	// Extract ChatGPT account ID from JWT claims
 	const accountId = extractAccountId({
 		id_token: tokenResponse.id_token,
 		access_token: tokenResponse.access_token,
-	})
+	});
 
 	return {
 		type: "openai-codex",
@@ -670,19 +788,21 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string):
 		email: tokenResponse.email,
 		accountId,
 		tokenSource: "oauth",
-	}
+	};
 }
 
 /**
  * Refreshes the access token using the refresh token
  * Uses application/x-www-form-urlencoded (not JSON)
  */
-export async function refreshAccessToken(credentials: OpenAiCodexCredentials): Promise<OpenAiCodexCredentials> {
+export async function refreshAccessToken(
+	credentials: OpenAiCodexCredentials,
+): Promise<OpenAiCodexCredentials> {
 	const body = new URLSearchParams({
 		grant_type: "refresh_token",
 		client_id: OPENAI_CODEX_OAUTH_CONFIG.clientId,
 		refresh_token: credentials.refresh_token,
-	})
+	});
 
 	const response = await fetch(OPENAI_CODEX_OAUTH_CONFIG.tokenEndpoint, {
 		method: "POST",
@@ -691,29 +811,37 @@ export async function refreshAccessToken(credentials: OpenAiCodexCredentials): P
 		},
 		body: body.toString(),
 		signal: AbortSignal.timeout(30000),
-	})
+	});
 
 	if (!response.ok) {
-		const errorText = await response.text()
-		const { errorCode, message } = formatOAuthHttpError("Token refresh", response, errorText, [
-			credentials.refresh_token,
-			credentials.access_token,
-			credentials.id_token,
-		])
-		throw new OpenAiCodexOAuthTokenError(message, { status: response.status, errorCode })
+		const errorText = await response.text();
+		const { errorCode, message } = formatOAuthHttpError(
+			"Token refresh",
+			response,
+			errorText,
+			[
+				credentials.refresh_token,
+				credentials.access_token,
+				credentials.id_token,
+			],
+		);
+		throw new OpenAiCodexOAuthTokenError(message, {
+			status: response.status,
+			errorCode,
+		});
 	}
 
-	const data = await response.json()
-	const tokenResponse = tokenResponseSchema.parse(data)
+	const data = await response.json();
+	const tokenResponse = tokenResponseSchema.parse(data);
 
 	// Per the implementation guide: expires is in milliseconds since epoch
-	const expiresAt = Date.now() + tokenResponse.expires_in * 1000
+	const expiresAt = Date.now() + tokenResponse.expires_in * 1000;
 
 	// Extract new account ID from refreshed tokens, or preserve existing one
 	const newAccountId = extractAccountId({
 		id_token: tokenResponse.id_token,
 		access_token: tokenResponse.access_token,
-	})
+	});
 
 	return {
 		type: "openai-codex",
@@ -728,7 +856,7 @@ export async function refreshAccessToken(credentials: OpenAiCodexCredentials): P
 		installationId: credentials.installationId,
 		clientVersion: credentials.clientVersion,
 		authMode: credentials.authMode,
-	}
+	};
 }
 
 /**
@@ -736,34 +864,44 @@ export async function refreshAccessToken(credentials: OpenAiCodexCredentials): P
  * Per the implementation guide: expires is in milliseconds since epoch
  */
 export function isTokenExpired(credentials: OpenAiCodexCredentials): boolean {
-	const bufferMs = 5 * 60 * 1000 // 5 minutes buffer
-	return Date.now() >= credentials.expires - bufferMs
+	const bufferMs = 5 * 60 * 1000; // 5 minutes buffer
+	return Date.now() >= credentials.expires - bufferMs;
 }
 
 /**
- * OpenAiCodexOAuthManager - Handles OAuth flow and token management
+ * OpenAiCodexOAuthManager - Handles ChatGPT for Codie OAuth flow and token management
  */
 export class OpenAiCodexOAuthManager {
-	private credentials: OpenAiCodexCredentials | null = null
-	private refreshPromise: Promise<OpenAiCodexCredentials> | null = null
+	private credentials: OpenAiCodexCredentials | null = null;
+	private refreshPromise: Promise<OpenAiCodexCredentials> | null = null;
+	private readonly createCallbackServer: typeof http.createServer;
 	private pendingAuth: {
-		codeVerifier: string
-		state: string
-		server?: http.Server
-	} | null = null
+		codeVerifier: string;
+		state: string;
+		authUrl: string;
+		server?: http.Server;
+		callbackPromise?: Promise<OpenAiCodexCredentials>;
+		serverReadyPromise?: Promise<void>;
+		rejectCallback?: (error: Error) => void;
+		rejectServerReady?: (error: Error) => void;
+	} | null = null;
+
+	constructor(options: { createServer?: typeof http.createServer } = {}) {
+		this.createCallbackServer = options.createServer ?? http.createServer;
+	}
 
 	private async refreshCurrentCredentials(): Promise<OpenAiCodexCredentials> {
 		if (!this.credentials) {
-			throw new Error("No OpenAI Codex credentials are loaded")
+			throw new Error("No Codie credentials are loaded");
 		}
 		if (!this.refreshPromise) {
-			this.refreshPromise = refreshAccessToken(this.credentials)
+			this.refreshPromise = refreshAccessToken(this.credentials);
 		}
 
-		const newCredentials = await this.refreshPromise
-		this.refreshPromise = null
-		await this.saveCredentials(newCredentials)
-		return newCredentials
+		const newCredentials = await this.refreshPromise;
+		this.refreshPromise = null;
+		await this.saveCredentials(newCredentials);
+		return newCredentials;
 	}
 
 	private async loadVscodeSecretFallbackAfterInvalidGrant(
@@ -775,35 +913,44 @@ export class OpenAiCodexOAuthManager {
 			!(error instanceof OpenAiCodexOAuthTokenError) ||
 			!error.isLikelyInvalidGrant()
 		) {
-			return null
+			return null;
 		}
 
 		try {
-			const fallbackCredentials = await loadVscodeSecretCredentials()
+			const fallbackCredentials = await loadVscodeSecretCredentials();
 			if (!fallbackCredentials) {
-				return null
+				return null;
 			}
-			this.credentials = fallbackCredentials
+			this.credentials = fallbackCredentials;
 			if (!isTokenExpired(fallbackCredentials)) {
-				Logger.log("[openai-codex-oauth] Using VS Code secret credentials after Codex home refresh failed")
-				return fallbackCredentials
+				Logger.log(
+					"[openai-codex-oauth] Using VS Code secret credentials after Codex home refresh failed",
+				);
+				return fallbackCredentials;
 			}
 
-			const refreshedFallback = await this.refreshCurrentCredentials()
-			Logger.log("[openai-codex-oauth] Refreshed VS Code secret credentials after Codex home refresh failed")
-			return refreshedFallback
+			const refreshedFallback = await this.refreshCurrentCredentials();
+			Logger.log(
+				"[openai-codex-oauth] Refreshed VS Code secret credentials after Codex home refresh failed",
+			);
+			return refreshedFallback;
 		} catch (fallbackError) {
-			this.refreshPromise = null
+			this.refreshPromise = null;
 			Logger.error(
 				`[openai-codex-oauth] Failed to use VS Code secret fallback after Codex home refresh failed: ${safeOpenAiCodexErrorSummary(
 					fallbackError,
 				)}`,
-			)
-			if (fallbackError instanceof OpenAiCodexOAuthTokenError && fallbackError.isLikelyInvalidGrant()) {
-				Logger.log("[openai-codex-oauth] VS Code secret refresh token appears invalid; clearing stored credentials")
-				await this.clearCredentials()
+			);
+			if (
+				fallbackError instanceof OpenAiCodexOAuthTokenError &&
+				fallbackError.isLikelyInvalidGrant()
+			) {
+				Logger.log(
+					"[openai-codex-oauth] VS Code secret refresh token appears invalid; clearing stored credentials",
+				);
+				await this.clearCredentials();
 			}
-			return null
+			return null;
 		}
 	}
 
@@ -813,35 +960,42 @@ export class OpenAiCodexOAuthManager {
 	 */
 	async forceRefreshAccessToken(): Promise<string | null> {
 		if (!this.credentials) {
-			await this.loadCredentials()
+			await this.loadCredentials();
 		}
 
 		if (!this.credentials) {
-			return null
+			return null;
 		}
 
 		try {
-			const newCredentials = await this.refreshCurrentCredentials()
-			return newCredentials.access_token
+			const newCredentials = await this.refreshCurrentCredentials();
+			return newCredentials.access_token;
 		} catch (error) {
-			const failedCredentials = this.credentials
-			this.refreshPromise = null
-			Logger.error(`[openai-codex-oauth] Failed to force refresh token: ${safeOpenAiCodexErrorSummary(error)}`)
+			const failedCredentials = this.credentials;
+			this.refreshPromise = null;
+			Logger.error(
+				`[openai-codex-oauth] Failed to force refresh token: ${safeOpenAiCodexErrorSummary(error)}`,
+			);
 			const fallbackCredentials = failedCredentials
-				? await this.loadVscodeSecretFallbackAfterInvalidGrant(failedCredentials, error)
-				: null
+				? await this.loadVscodeSecretFallbackAfterInvalidGrant(
+						failedCredentials,
+						error,
+					)
+				: null;
 			if (fallbackCredentials) {
-				return fallbackCredentials.access_token
+				return fallbackCredentials.access_token;
 			}
 			if (
 				failedCredentials?.tokenSource !== "codex-home" &&
 				error instanceof OpenAiCodexOAuthTokenError &&
 				error.isLikelyInvalidGrant()
 			) {
-				Logger.log("[openai-codex-oauth] Refresh token appears invalid; clearing stored credentials")
-				await this.clearCredentials()
+				Logger.log(
+					"[openai-codex-oauth] Refresh token appears invalid; clearing stored credentials",
+				);
+				await this.clearCredentials();
 			}
-			return null
+			return null;
 		}
 	}
 
@@ -849,11 +1003,11 @@ export class OpenAiCodexOAuthManager {
 	 * Load credentials from the configured auth source order.
 	 */
 	async loadCredentials(options?: {
-		authSource?: OpenAiCodexAuthSource
-		codexHome?: string
-		workspaceRoots?: readonly string[]
+		authSource?: OpenAiCodexAuthSource;
+		codexHome?: string;
+		workspaceRoots?: readonly string[];
 	}): Promise<OpenAiCodexCredentials | null> {
-		const authSource = options?.authSource ?? getOpenAiCodexAuthSource()
+		const authSource = options?.authSource ?? getOpenAiCodexAuthSource();
 		for (const source of getCredentialSourceOrder(authSource)) {
 			try {
 				const credentials =
@@ -862,38 +1016,41 @@ export class OpenAiCodexOAuthManager {
 								codexHome: options?.codexHome,
 								workspaceRoots: options?.workspaceRoots,
 							})
-						: await loadVscodeSecretCredentials()
+						: await loadVscodeSecretCredentials();
 				if (credentials) {
-					this.credentials = credentials
-					return this.credentials
+					this.credentials = credentials;
+					return this.credentials;
 				}
 			} catch (error) {
-				logCredentialSourceLoadFailure(source, error)
+				logCredentialSourceLoadFailure(source, error);
 			}
 		}
 
-		this.credentials = null
-		return null
+		this.credentials = null;
+		return null;
 	}
 
 	/**
 	 * Save credentials to storage via StateManager
 	 */
 	async saveCredentials(credentials: OpenAiCodexCredentials): Promise<void> {
-		const stateManager = StateManager.get()
-		stateManager.setSecret("openai-codex-oauth-credentials", JSON.stringify(credentials))
-		await stateManager.flushPendingState()
-		this.credentials = credentials
+		const stateManager = StateManager.get();
+		stateManager.setSecret(
+			"openai-codex-oauth-credentials",
+			JSON.stringify(credentials),
+		);
+		await stateManager.flushPendingState();
+		this.credentials = credentials;
 	}
 
 	/**
 	 * Clear credentials from storage
 	 */
 	async clearCredentials(): Promise<void> {
-		const stateManager = StateManager.get()
-		stateManager.setSecret("openai-codex-oauth-credentials", undefined)
-		await stateManager.flushPendingState()
-		this.credentials = null
+		const stateManager = StateManager.get();
+		stateManager.setSecret("openai-codex-oauth-credentials", undefined);
+		await stateManager.flushPendingState();
+		this.credentials = null;
 	}
 
 	/**
@@ -902,26 +1059,31 @@ export class OpenAiCodexOAuthManager {
 	async getAccessToken(): Promise<string | null> {
 		// Try to load credentials if not already loaded
 		if (!this.credentials) {
-			await this.loadCredentials()
+			await this.loadCredentials();
 		}
 
 		if (!this.credentials) {
-			return null
+			return null;
 		}
 
 		// Check if token is expired and refresh if needed
 		if (isTokenExpired(this.credentials)) {
 			try {
-				await this.refreshCurrentCredentials()
+				await this.refreshCurrentCredentials();
 			} catch (error) {
-				const failedCredentials = this.credentials
-				this.refreshPromise = null
-				Logger.error(`[openai-codex-oauth] Failed to refresh token: ${safeOpenAiCodexErrorSummary(error)}`)
+				const failedCredentials = this.credentials;
+				this.refreshPromise = null;
+				Logger.error(
+					`[openai-codex-oauth] Failed to refresh token: ${safeOpenAiCodexErrorSummary(error)}`,
+				);
 				const fallbackCredentials = failedCredentials
-					? await this.loadVscodeSecretFallbackAfterInvalidGrant(failedCredentials, error)
-					: null
+					? await this.loadVscodeSecretFallbackAfterInvalidGrant(
+							failedCredentials,
+							error,
+						)
+					: null;
 				if (fallbackCredentials) {
-					return fallbackCredentials.access_token
+					return fallbackCredentials.access_token;
 				}
 
 				// Only clear secrets when the refresh token is clearly invalid/revoked.
@@ -930,14 +1092,16 @@ export class OpenAiCodexOAuthManager {
 					error instanceof OpenAiCodexOAuthTokenError &&
 					error.isLikelyInvalidGrant()
 				) {
-					Logger.log("[openai-codex-oauth] Refresh token appears invalid; clearing stored credentials")
-					await this.clearCredentials()
+					Logger.log(
+						"[openai-codex-oauth] Refresh token appears invalid; clearing stored credentials",
+					);
+					await this.clearCredentials();
 				}
-				return null
+				return null;
 			}
 		}
 
-		return this.credentials.access_token
+		return this.credentials.access_token;
 	}
 
 	/**
@@ -945,9 +1109,9 @@ export class OpenAiCodexOAuthManager {
 	 */
 	async getEmail(): Promise<string | null> {
 		if (!this.credentials) {
-			await this.loadCredentials()
+			await this.loadCredentials();
 		}
-		return this.credentials?.email || null
+		return this.credentials?.email || null;
 	}
 
 	/**
@@ -956,76 +1120,89 @@ export class OpenAiCodexOAuthManager {
 	 */
 	async getAccountId(): Promise<string | null> {
 		if (!this.credentials) {
-			await this.loadCredentials()
+			await this.loadCredentials();
 		}
-		return this.credentials?.accountId || null
+		return this.credentials?.accountId || null;
 	}
 
 	async getInstallationId(): Promise<string | null> {
 		if (!this.credentials) {
-			await this.loadCredentials()
+			await this.loadCredentials();
 		}
-		return this.credentials?.installationId || null
+		return this.credentials?.installationId || null;
 	}
 
 	async getClientVersion(): Promise<string> {
 		if (!this.credentials) {
-			await this.loadCredentials()
+			await this.loadCredentials();
 		}
-		return this.credentials?.clientVersion || OPENAI_CODEX_BACKEND_CONFIG.defaultClientVersion
+		return (
+			this.credentials?.clientVersion ||
+			OPENAI_CODEX_BACKEND_CONFIG.defaultClientVersion
+		);
 	}
 
 	async listBackendModels(): Promise<OpenAiCodexBackendModel[]> {
-		let accessToken = await this.getAccessToken()
+		let accessToken = await this.getAccessToken();
 		if (!accessToken) {
-			return []
+			return [];
 		}
 
-		const clientVersion = await this.getClientVersion()
-		const url = new URL(`${OPENAI_CODEX_BACKEND_CONFIG.baseUrl}/models`)
-		url.searchParams.set("client_version", clientVersion)
-		const sessionId = crypto.randomUUID()
+		const clientVersion = await this.getClientVersion();
+		const url = new URL(`${OPENAI_CODEX_BACKEND_CONFIG.baseUrl}/models`);
+		url.searchParams.set("client_version", clientVersion);
+		const sessionId = crypto.randomUUID();
 
 		const fetchModels = async (token: string) => {
-			const [accountId, installationId] = await Promise.all([this.getAccountId(), this.getInstallationId()])
+			const [accountId, installationId] = await Promise.all([
+				this.getAccountId(),
+				this.getInstallationId(),
+			]);
 			const headers = buildOpenAiCodexBackendHeaders({
 				accessToken: token,
 				accountId,
 				installationId,
 				sessionId,
-			})
+			});
 			const response = await fetch(url.toString(), {
 				method: "GET",
 				headers,
 				signal: AbortSignal.timeout(30000),
-			})
-			return { response, headers }
-		}
+			});
+			return { response, headers };
+		};
 
-		let result = await fetchModels(accessToken)
+		let result = await fetchModels(accessToken);
 		if (result.response.status === 401 || result.response.status === 403) {
-			const refreshed = await this.forceRefreshAccessToken()
+			const refreshed = await this.forceRefreshAccessToken();
 			if (refreshed) {
-				accessToken = refreshed
-				result = await fetchModels(accessToken)
+				accessToken = refreshed;
+				result = await fetchModels(accessToken);
 			}
 		}
 
 		if (!result.response.ok) {
-			const errorText = await result.response.text()
+			const errorText = await result.response.text();
 			if (result.response.status === 401 || result.response.status === 403) {
 				const { errorCode, message } = formatOAuthHttpError(
 					"Codex model list",
 					result.response,
 					errorText,
-					[accessToken, `Bearer ${accessToken}`, ...Object.values(result.headers)],
-				)
-				throw new OpenAiCodexOAuthTokenError(message, { status: result.response.status, errorCode })
+					[
+						accessToken,
+						`Bearer ${accessToken}`,
+						...Object.values(result.headers),
+					],
+				);
+				throw new OpenAiCodexOAuthTokenError(message, {
+					status: result.response.status,
+					errorCode,
+				});
 			}
-			return []
+			return [];
 		}
 
-		const parsed = codexBackendModelsSchema.parse(await result.response.json())
+		const parsed = codexBackendModelsSchema.parse(await result.response.json());
 		return parsed.models
 			.filter((model) => model.supported_in_api !== false)
 			.map((model) => ({
@@ -1033,13 +1210,18 @@ export class OpenAiCodexOAuthManager {
 				name: model.display_name,
 				supportedInApi: model.supported_in_api,
 				contextWindow: model.context_window ?? model.contextWindow,
-				maxTokens: model.max_output_tokens ?? model.maxOutputTokens ?? model.max_tokens ?? model.maxTokens,
+				maxTokens:
+					model.max_output_tokens ??
+					model.maxOutputTokens ??
+					model.max_tokens ??
+					model.maxTokens,
 				supportsImages: model.supports_images ?? model.supportsImages,
-				supportsPromptCache: model.supports_prompt_cache ?? model.supportsPromptCache,
+				supportsPromptCache:
+					model.supports_prompt_cache ?? model.supportsPromptCache,
 				supportsReasoning: model.supports_reasoning ?? model.supportsReasoning,
 				apiFormat: model.api_format ?? model.apiFormat,
 				description: model.description,
-			}))
+			}));
 	}
 
 	/**
@@ -1050,9 +1232,30 @@ export class OpenAiCodexOAuthManager {
 	 */
 	async isAuthenticated(): Promise<boolean> {
 		if (!this.credentials) {
-			await this.loadCredentials()
+			await this.loadCredentials();
 		}
-		return this.credentials !== null
+		return this.credentials !== null;
+	}
+
+	/**
+	 * Check whether stored credentials are currently usable. Unlike
+	 * isAuthenticated(), this refreshes expired credentials so stale local
+	 * profiles do not silently complete onboarding.
+	 */
+	async hasUsableCredentials(): Promise<boolean> {
+		if (!this.credentials) {
+			await this.loadCredentials();
+		}
+
+		if (!this.credentials) {
+			return false;
+		}
+
+		if (!isTokenExpired(this.credentials)) {
+			return true;
+		}
+
+		return (await this.getAccessToken()) !== null;
 	}
 
 	/**
@@ -1060,19 +1263,22 @@ export class OpenAiCodexOAuthManager {
 	 * Returns the authorization URL to open in browser
 	 */
 	startAuthorizationFlow(): string {
-		// Cancel any existing authorization flow before starting a new one
-		this.cancelAuthorizationFlow()
+		if (this.pendingAuth) {
+			return this.pendingAuth.authUrl;
+		}
 
-		const codeVerifier = generateCodeVerifier()
-		const codeChallenge = generateCodeChallenge(codeVerifier)
-		const state = generateState()
+		const codeVerifier = generateCodeVerifier();
+		const codeChallenge = generateCodeChallenge(codeVerifier);
+		const state = generateState();
+		const authUrl = buildAuthorizationUrl(codeChallenge, state);
 
 		this.pendingAuth = {
 			codeVerifier,
 			state,
-		}
+			authUrl,
+		};
 
-		return buildAuthorizationUrl(codeChallenge, state)
+		return authUrl;
 	}
 
 	/**
@@ -1080,73 +1286,118 @@ export class OpenAiCodexOAuthManager {
 	 * Returns a promise that resolves when authentication is complete
 	 */
 	async waitForCallback(): Promise<OpenAiCodexCredentials> {
-		if (!this.pendingAuth) {
-			throw new Error("No pending authorization flow")
+		const auth = this.pendingAuth;
+		if (!auth) {
+			throw new Error("No pending authorization flow");
 		}
 
-		// Close any existing server before starting a new one
-		if (this.pendingAuth.server) {
-			try {
-				this.pendingAuth.server.close()
-			} catch {
-				// Ignore errors when closing
-			}
-			this.pendingAuth.server = undefined
+		if (auth.callbackPromise) {
+			return auth.callbackPromise;
 		}
 
-		return new Promise((resolve, reject) => {
-			const server = http.createServer(async (req, res) => {
+		auth.callbackPromise = new Promise((resolve, reject) => {
+			let settled = false;
+			let resolveServerReady: (() => void) | undefined;
+			let rejectServerReady: ((error: unknown) => void) | undefined;
+			auth.serverReadyPromise = new Promise<void>(
+				(resolveReady, rejectReady) => {
+					resolveServerReady = resolveReady;
+					rejectServerReady = rejectReady;
+				},
+			);
+			void auth.serverReadyPromise.catch(() => undefined);
+
+			const closeServer = () => {
 				try {
-					const url = new URL(req.url || "", `http://localhost:${OPENAI_CODEX_OAUTH_CONFIG.callbackPort}`)
+					server.close();
+				} catch {
+					// Ignore close errors from servers that never reached listen.
+				}
+			};
 
-					if (url.pathname !== "/auth/callback") {
-						res.writeHead(404)
-						res.end("Not Found")
-						return
+			const complete = (callback: () => void) => {
+				if (settled) {
+					return;
+				}
+				settled = true;
+				clearTimeout(timeout);
+				auth.rejectCallback = undefined;
+				auth.rejectServerReady = undefined;
+				if (this.pendingAuth === auth) {
+					this.pendingAuth = null;
+				}
+				closeServer();
+				callback();
+			};
+
+			const fail = (error: Error) => complete(() => reject(error));
+			auth.rejectCallback = fail;
+			auth.rejectServerReady = (error) => {
+				rejectServerReady?.(error);
+			};
+
+			const server = this.createCallbackServer(async (req, res) => {
+				try {
+					if (this.pendingAuth !== auth) {
+						res.writeHead(409);
+						res.end("Authorization flow is no longer active");
+						closeServer();
+						return;
 					}
 
-					const code = url.searchParams.get("code")
-					const state = url.searchParams.get("state")
-					const error = url.searchParams.get("error")
+					const url = new URL(
+						req.url || "",
+						`http://localhost:${OPENAI_CODEX_OAUTH_CONFIG.callbackPort}`,
+					);
+
+					if (url.pathname !== "/auth/callback") {
+						res.writeHead(404);
+						res.end("Not Found");
+						return;
+					}
+
+					const code = url.searchParams.get("code");
+					const state = url.searchParams.get("state");
+					const error = url.searchParams.get("error");
 
 					if (error) {
-						res.writeHead(400)
-						res.end(`Authentication failed: ${error}`)
-						reject(new Error(`OAuth error: ${error}`))
-						server.close()
-						return
+						res.writeHead(400);
+						res.end(`Authentication failed: ${error}`);
+						fail(new Error(`OAuth error: ${error}`));
+						return;
 					}
 
 					if (!code || !state) {
-						res.writeHead(400)
-						res.end("Missing code or state parameter")
-						reject(new Error("Missing code or state parameter"))
-						server.close()
-						return
+						res.writeHead(400);
+						res.end("Missing code or state parameter");
+						fail(new Error("Missing code or state parameter"));
+						return;
 					}
 
-					if (state !== this.pendingAuth?.state) {
-						res.writeHead(400)
-						res.end("State mismatch - possible CSRF attack")
-						reject(new Error("State mismatch"))
-						server.close()
-						return
+					if (state !== auth.state) {
+						res.writeHead(400);
+						res.end("State mismatch - possible CSRF attack");
+						fail(new Error("State mismatch"));
+						return;
 					}
 
 					try {
 						// Note: state is validated above but not passed to exchangeCodeForTokens
 						// per the implementation guide (OpenAI rejects it)
-						const credentials = await exchangeCodeForTokens(code, this.pendingAuth.codeVerifier)
+						const credentials = await exchangeCodeForTokens(
+							code,
+							auth.codeVerifier,
+						);
 
-						await this.saveCredentials(credentials)
+						await this.saveCredentials(credentials);
 
-						res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+						res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
 						res.end(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Authentication Successful</title>
+<title>Signed in to Codie</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -1176,84 +1427,117 @@ export class OpenAiCodexOAuthManager {
   <div class="icon">
     <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
   </div>
-  <h1>Authentication Successful</h1>
-  <p>You're now signed in to OpenAI Codex. You can close this window and return to your IDE.</p>
+  <h1>Signed in to Codie</h1>
+  <p>You're now signed in to Codie. You can close this window and return to your IDE.</p>
   <p class="closing">This window will close automatically...</p>
 </div>
 <script>setTimeout(() => window.close(), 3000);</script>
 </body>
-</html>`)
+</html>`);
 
-						this.pendingAuth = null
-						server.close()
-						resolve(credentials)
+						complete(() => resolve(credentials));
 					} catch (exchangeError) {
-						res.writeHead(500)
-						res.end(`Token exchange failed: ${exchangeError}`)
-						reject(exchangeError)
-						server.close()
+						res.writeHead(500);
+						res.end(`Token exchange failed: ${exchangeError}`);
+						fail(
+							exchangeError instanceof Error
+								? exchangeError
+								: new Error(String(exchangeError)),
+						);
 					}
 				} catch (err) {
-					res.writeHead(500)
-					res.end("Internal server error")
-					reject(err)
-					server.close()
+					res.writeHead(500);
+					res.end("Internal server error");
+					fail(err instanceof Error ? err : new Error(String(err)));
 				}
-			})
+			});
+			auth.server = server;
 
 			server.on("error", (err: NodeJS.ErrnoException) => {
-				this.pendingAuth = null
-				if (err.code === "EADDRINUSE") {
-					reject(
-						new Error(
-							`Port ${OPENAI_CODEX_OAUTH_CONFIG.callbackPort} is already in use. ` +
-								`Please close any other applications using this port and try again.`,
-						),
-					)
-				} else {
-					reject(err)
-				}
-			})
+				const callbackError =
+					err.code === "EADDRINUSE"
+						? new Error(
+								`Port ${OPENAI_CODEX_OAUTH_CONFIG.callbackPort} is already in use. ` +
+									`Please close any other applications using this port and try again.`,
+							)
+						: err;
+				rejectServerReady?.(callbackError);
+				fail(callbackError);
+			});
 
 			// Set a timeout for the callback
 			const timeout = setTimeout(
 				() => {
-					server.close()
-					reject(new Error("Authentication timed out"))
+					fail(new Error("Authentication timed out"));
 				},
 				5 * 60 * 1000,
-			) // 5 minutes
+			); // 5 minutes
 
 			server.listen(OPENAI_CODEX_OAUTH_CONFIG.callbackPort, () => {
-				if (this.pendingAuth) {
-					this.pendingAuth.server = server
+				if (this.pendingAuth !== auth) {
+					closeServer();
+					return;
 				}
-			})
+				resolveServerReady?.();
+			});
 
 			// Clear timeout when server closes
 			server.on("close", () => {
-				clearTimeout(timeout)
-			})
-		})
+				clearTimeout(timeout);
+				if (!settled && this.pendingAuth === auth) {
+					fail(
+						new Error(
+							"Authentication callback server closed before sign-in completed",
+						),
+					);
+				}
+			});
+		});
+		void auth.callbackPromise.catch(() => undefined);
+		return auth.callbackPromise;
+	}
+
+	/**
+	 * Resolves once the local OAuth callback server is listening.
+	 */
+	async waitForCallbackServerReady(): Promise<void> {
+		const serverReadyPromise = this.pendingAuth?.serverReadyPromise;
+		if (!serverReadyPromise) {
+			throw new Error("No pending callback server");
+		}
+		await serverReadyPromise;
 	}
 
 	/**
 	 * Cancel any pending authorization flow
 	 */
 	cancelAuthorizationFlow(): void {
-		if (this.pendingAuth?.server) {
-			this.pendingAuth.server.close()
+		const auth = this.pendingAuth;
+		if (!auth) {
+			return;
 		}
-		this.pendingAuth = null
+
+		this.pendingAuth = null;
+		const error = new Error("Authorization flow cancelled");
+		auth.rejectServerReady?.(error);
+		if (auth.rejectCallback) {
+			auth.rejectCallback(error);
+		} else if (auth.server) {
+			try {
+				auth.server.close();
+			} catch {
+				// Ignore close errors from servers that never reached listen.
+			}
+		}
 	}
 
 	/**
 	 * Get the current credentials (for display purposes)
 	 */
 	getCredentials(): OpenAiCodexCredentials | null {
-		return this.credentials
+		return this.credentials;
 	}
 }
 
 // Singleton instance
-export const openAiCodexOAuthManager = new OpenAiCodexOAuthManager()
+export const openAiCodexOAuthManager = new OpenAiCodexOAuthManager();

@@ -123,7 +123,7 @@ function verifyStandalonePackage(zipPath) {
 	const serializedManifest = JSON.stringify(manifest)
 
 	assert(manifest.schemaVersion === 1, "manifest.schemaVersion must be 1", failures)
-	assert(manifest.product?.name === "CodeVibe", "manifest.product.name must be CodeVibe", failures)
+	assert(manifest.product?.name === "Codie", "manifest.product.name must be Codie", failures)
 	assert(!hasEntry(zip, "standalone.zip.sha256"), "standalone.zip must not include standalone.zip.sha256", failures)
 	assert(
 		manifest.package?.debugBuild === true || !hasEntry(zip, "codevibe-core.js.map"),

@@ -237,7 +237,7 @@ function createAuthSucceededHtml(redirectUri?: string): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeVibe - Authentication Success</title>
+    <title>Codie - Signed In</title>
 	${redirect}
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Azeret:wght@300;400;700&display=swap');
@@ -329,8 +329,8 @@ function createAuthSucceededHtml(redirectUri?: string): string {
 <body>
     <div class="container">
         <div class="checkmark"></div>
-        <h1>Authentication Successful</h1>
-        <p>Your authentication token has been securely sent back to your ${platform}. You can now return to your development environment to continue working.</p>
+        <h1>Signed in to Codie</h1>
+        <p>You can close this window and return to your ${platform}.</p>
         <div class="countdown">Feel free to close this window and continue in your ${platform}</div>
     </div>
 </body>

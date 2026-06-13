@@ -80,7 +80,7 @@ describe("ACP auth", () => {
 		}
 	});
 
-	it("restores OpenAI Codex auth from Codex Home and preserves metadata", () => {
+	it("restores ChatGPT for Codie auth from Codex Home and preserves metadata", () => {
 		process.env.CODEX_HOME = createCodexHomeAuth();
 		const manager = createProviderSettingsManager();
 

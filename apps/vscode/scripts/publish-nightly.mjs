@@ -9,7 +9,7 @@
  * 2. Updates package.json with:
  *    - New version (major.minor.timestamp format)
  *    - Changes name to "codevibe-nightly"
- *    - Changes displayName to "CodeVibe (Nightly)"
+ *    - Changes displayName to "Codie (Nightly)"
  * 3. Packages the extension as a .vsix file
  * 4. Publishes to VS Code Marketplace (if VSCE_PAT is set)
  * 5. Publishes to OpenVSX Registry (if OVSX_PAT is set)
@@ -78,7 +78,7 @@ const config = {
 	// The name and display name for the nightly version
 	nightlyName: "codevibe-nightly",
 	originalName: "codevibe",
-	nightlyDisplayName: "CodeVibe (Nightly)",
+	nightlyDisplayName: "Codie (Nightly)",
 	projectRoot: path.join(__dirname, ".."),
 	get packageJsonPath() {
 		return path.join(this.projectRoot, "package.json")

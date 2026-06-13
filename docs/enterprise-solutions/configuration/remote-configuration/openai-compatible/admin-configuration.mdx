@@ -1,18 +1,18 @@
 ---
 title: "Configure OpenAI Compatible Provider (Admin)"
 sidebarTitle: "Configure OpenAI Compatible (Admin)"
-description: "This guide explains how administrators configure an OpenAI-compatible endpoint as the organization-wide LLM provider for CodeVibe."
+description: "This guide explains how administrators configure an OpenAI-compatible endpoint as the organization-wide LLM provider for Codie."
 ---
 
 
-As an administrator, you can add an OpenAI-compatible endpoint as the organization-wide LLM provider for all CodeVibe users through the hosted admin console. This covers any provider that exposes an OpenAI-compatible API, including Azure Foundry (Azure OpenAI), self-hosted inference engines (vLLM, TGI), and other compatible services.
+As an administrator, you can add an OpenAI-compatible endpoint as the organization-wide LLM provider for all Codie users through the hosted admin console. This covers any provider that exposes an OpenAI-compatible API, including Azure Foundry (Azure OpenAI), self-hosted inference engines (vLLM, TGI), and other compatible services.
 
 ## Before You Begin
 
 To get started with setting up an OpenAI-compatible provider for your organization, you'll need a few items in place.
 
-**Administrator access to the CodeVibe Admin console**
-You need admin privileges to enforce provider settings across your organization. If you can navigate to **Settings → CodeVibe Settings** in the admin console at [app.cline.bot](https://app.cline.bot), you have the right access level.
+**Administrator access to the Codie Admin console**
+You need admin privileges to enforce provider settings across your organization. If you can navigate to **Settings → Codie Settings** in the admin console at [app.codie.dev](https://app.codie.dev), you have the right access level.
 
 **An OpenAI-compatible API endpoint**
 You need a running endpoint that implements the OpenAI chat completions API. This could be:
@@ -30,8 +30,8 @@ You'll need the base URL of your endpoint and any required authentication header
 ## Configuration Steps
 
 <Steps>
-<Step title="Access CodeVibe Settings">
-Navigate to [app.cline.bot](https://app.cline.bot) and sign in with your administrator account. Go to **Settings → CodeVibe Settings**.
+<Step title="Access Codie Settings">
+Navigate to [app.codie.dev](https://app.codie.dev) and sign in with your administrator account. Go to **Settings → Codie Settings**.
 
 <Info>
 You should see the provider configuration options if you have the correct admin access level.
@@ -93,10 +93,10 @@ This field is only relevant for Azure Foundry deployments.
 <Step title="Save Configuration">
 After configuring your settings, close the provider configuration panel and click **Save** on the settings page to persist your changes.
 
-Once saved, all organization members signed into the CodeVibe extension will automatically use the OpenAI Compatible provider with your configured settings. They won't be able to select other providers or switch to their personal CodeVibe accounts.
+Once saved, all organization members signed into the Codie extension will automatically use the OpenAI Compatible provider with your configured settings. They won't be able to select other providers or switch to their personal Codie accounts.
 
 <Warning>
-Members can't switch to personal CodeVibe accounts or join other organizations once remote configuration is enabled. This ensures consistent provider usage across your team.
+Members can't switch to personal Codie accounts or join other organizations once remote configuration is enabled. This ensures consistent provider usage across your team.
 </Warning>
 </Step>
 </Steps>

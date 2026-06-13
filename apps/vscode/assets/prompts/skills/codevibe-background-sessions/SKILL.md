@@ -1,9 +1,9 @@
 ---
 name: codevibe-background-sessions
-description: Use when creating, resuming, reviewing, or debugging CodeVibe background-agent sessions, branches, worktrees, checkpoints, or git helper flows.
+description: Use when creating, resuming, reviewing, or debugging Codie background-agent sessions, branches, worktrees, checkpoints, or git helper flows.
 ---
 
-# CodeVibe Background Sessions
+# Codie Background Sessions
 
 Use this skill when work should continue in a background session, branch, or worktree.
 

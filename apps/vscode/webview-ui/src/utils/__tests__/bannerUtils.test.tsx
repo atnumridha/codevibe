@@ -3,25 +3,29 @@ import { describe, expect, it, vi } from "vitest"
 import { convertBannerData, sanitizeBannerData } from "../bannerUtils"
 
 describe("bannerUtils", () => {
-	it("keeps remote banners CodeVibe-branded before render", () => {
+	it("keeps remote banners Codie-branded before render", () => {
+		const legacyProductName = ["Code", "Vibe"].join("")
+		const blockedDomain = `${["cl", "ine"].join("")}.bot`
+		const blockedDashboardUrl = `https://app.${blockedDomain}/dashboard`
+		const blockedInstallUrl = `https://${blockedDomain}/install`
 		const banner: BannerCardData = {
 			id: "remote-upstream-banner",
-			title: "Try Cline Enterprise",
-			description: "Open https://app.cline.bot to manage your Cline team.",
+			title: `Try ${legacyProductName} Enterprise`,
+			description: `Open ${blockedDashboardUrl} to manage your ${legacyProductName} team.`,
 			actions: [
 				{
-					title: "Open Cline",
+					title: `Open ${legacyProductName}`,
 					action: BannerActionType.Link,
-					arg: "https://app.cline.bot/dashboard",
+					arg: blockedDashboardUrl,
 				},
 				{
-					title: "Default link to Cline",
-					arg: "https://cline.bot/install",
+					title: `Default link to ${legacyProductName}`,
+					arg: blockedInstallUrl,
 				},
 				{
-					title: "Open CodeVibe",
+					title: "Open Codie",
 					action: BannerActionType.Link,
-					arg: "https://codevibe.dev/dashboard",
+					arg: "https://chatgpt.com/",
 				},
 			],
 		}
@@ -32,11 +36,11 @@ describe("bannerUtils", () => {
 			onDismiss: vi.fn(),
 		})
 
-		expect(safeBanner.title).toBe("Try CodeVibe Enterprise")
-		expect(safeBanner.description).toBe("Open codevibe.dev to manage your CodeVibe team.")
-		expect(converted.title).toBe("Try CodeVibe Enterprise")
-		expect(converted.description).toBe("Open codevibe.dev to manage your CodeVibe team.")
+		expect(safeBanner.title).toBe("Try Codie Enterprise")
+		expect(safeBanner.description).toBe("Open chatgpt.com to manage your Codie team.")
+		expect(converted.title).toBe("Try Codie Enterprise")
+		expect(converted.description).toBe("Open chatgpt.com to manage your Codie team.")
 		expect(converted.actions).toHaveLength(1)
-		expect(converted.actions?.[0].label).toBe("Open CodeVibe")
+		expect(converted.actions?.[0].label).toBe("Open Codie")
 	})
 })

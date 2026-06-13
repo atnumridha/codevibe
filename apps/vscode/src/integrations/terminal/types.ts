@@ -6,6 +6,7 @@
 
 import type { ClineToolResponseContent } from "@shared/messages"
 import type { CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
+import type { CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
 import type { EventEmitter } from "events"
 
 // =============================================================================
@@ -177,9 +178,10 @@ export interface ITerminalManager {
 	/**
 	 * Get or create a terminal for the specified working directory.
 	 * @param cwd The working directory for the terminal
+	 * @param options Optional per-command behavior. Standalone managers use this to avoid pre-command shell mutations for sandboxed runs.
 	 * @returns The terminal info for an available terminal
 	 */
-	getOrCreateTerminal(cwd: string): Promise<TerminalInfo>
+	getOrCreateTerminal(cwd: string, options?: CommandExecutionOptions): Promise<TerminalInfo>
 
 	/**
 	 * Get terminals filtered by busy state.
@@ -365,6 +367,11 @@ export interface CommandExecutionOptions {
 	 * "elevated" means the user explicitly approved a trusted terminal run.
 	 */
 	terminalRunMode?: CodeVibeTerminalRunMode
+	/**
+	 * Resolved workspace sandbox policy for runtime-enforced sandboxed execution.
+	 * Required when terminalRunMode is "sandboxed"; the standalone runner fails closed if it cannot enforce it.
+	 */
+	cursorSandboxPolicy?: CursorSandboxRuntimePolicy
 }
 
 /**

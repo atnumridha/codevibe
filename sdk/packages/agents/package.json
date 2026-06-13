@@ -19,7 +19,7 @@
 			"import": "./dist/index.js"
 		}
 	},
-	"description": "Browser-safe agent runtime for the next-generation CodeVibe SDK",
+	"description": "Browser-safe agent runtime for the next-generation Codie SDK",
 	"files": [
 		"dist"
 	],

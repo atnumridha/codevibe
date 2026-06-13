@@ -1,27 +1,27 @@
 ---
-title: "CodeVibe provider"
-description: "Use CodeVibe provider settings for Codex auth, hosted auth, and unified model selection."
+title: "Codie provider"
+description: "Use Codie provider settings for Codie sign-in, optional local auth import, and unified model selection."
 ---
 
-The **CodeVibe provider** path is the simplest way to get started with CodeVibe.
+The **Codie provider** path centralizes sign-in and model selection for Codie.
 
-By default, CodeVibe reads your local Codex auth from `~/.codex/auth.json`. If a hosted CodeVibe account backend is configured, you can also sign in once and select from available models directly in CodeVibe.
+Use any configured Codie-supported provider. When compatibility support is enabled, Codie can also import local auth files such as `~/.codex/auth.json`.
 
-## Why use CodeVibe provider settings
+## Why use Codie provider settings
 
-- **Fastest setup**: reuse Codex auth without manual API key copy/paste
-- **One model picker**: choose Codex, OpenAI-compatible, Anthropic, Gemini, or local models from one place
+- **Fast setup**: use Codie sign-in or optional local auth import without manual API key copy/paste
+- **One model picker**: choose recommended, cloud, BYOK, or local models from one place
 - **Compatibility**: legacy provider IDs can remain internally so existing profiles and upstream patches keep working
 
 ## Setup
 
 <Steps>
-  <Step title="Open CodeVibe Settings">
-    Click the settings icon in the CodeVibe panel.
+  <Step title="Open Codie Settings">
+    Click the settings icon in the Codie panel.
   </Step>
 
   <Step title="Choose Provider">
-    Set **API Provider** to **OpenAI Codex** for the default Codex auth path, or choose another configured provider.
+    Set **API Provider** to your Codie-managed provider, or choose another configured provider.
   </Step>
 
   <Step title="Verify Auth">
@@ -33,14 +33,15 @@ By default, CodeVibe reads your local Codex auth from `~/.codex/auth.json`. If a
   </Step>
 
   <Step title="Verify">
-    Send a test message. If CodeVibe responds, setup is complete.
+    Send a test message. If Codie responds, setup is complete.
   </Step>
 </Steps>
 
-## Credits and usage
+## Account and usage
 
-- Codex auth uses your local Codex account/session.
-- View configured account and usage surfaces in CodeVibe Settings when available.
+- Codie sign-in uses the configured hosted account flow.
+- Local auth import uses your existing local account/session files when enabled.
+- View configured account and usage surfaces in Codie Settings when available.
 - Switch organizations from the provider account menu when the active backend supports it.
 
 ## Related

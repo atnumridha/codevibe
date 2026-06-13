@@ -69,7 +69,7 @@ export function useAccountDialog(opts: {
 					<OAuthLoginContent
 						{...ctx}
 						providerId="cline"
-						providerName="CodeVibe"
+						providerName="Codie Cloud"
 					/>
 				),
 			});

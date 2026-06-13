@@ -2,6 +2,7 @@ import { geminiModels, ModelInfo } from "@shared/api"
 import { VSCodeDropdown, VSCodeOption } from "@vscode/webview-ui-toolkit/react"
 import { useState } from "react"
 import styled from "styled-components"
+import { sanitizeCodieHostedModelDescription } from "@/utils/codieBranding"
 import { ModelDescriptionMarkdown } from "../ModelDescriptionMarkdown"
 import { formatPrice, hasThinkingBudget, supportsBrowserUse, supportsImages, supportsPromptCache } from "../utils/pricingUtils"
 
@@ -100,7 +101,7 @@ const formatCompactPrice = (price: number | undefined): string => {
 		return "N/A"
 	}
 	if (price === 0) {
-		return "Free"
+		return "Included"
 	}
 	if (price < 0.01) {
 		return `$${price.toFixed(4)}/M`
@@ -170,10 +171,11 @@ interface ModelInfoViewProps {
 	selectedModelId: string
 	modelInfo: ModelInfo
 	isPopup?: boolean
-	// Provider routing props (optional - only shown for CodeVibe provider)
+	// Provider routing props (optional - only shown for Codie provider)
 	providerSorting?: string
 	onProviderSortingChange?: (value: string) => void
 	showProviderRouting?: boolean
+	sanitizeHostedModelCopy?: boolean
 }
 
 // ========== Component ==========
@@ -185,8 +187,12 @@ export const ModelInfoView = ({
 	providerSorting,
 	onProviderSortingChange,
 	showProviderRouting,
+	sanitizeHostedModelCopy,
 }: ModelInfoViewProps) => {
 	const [advancedExpanded, setAdvancedExpanded] = useState(false)
+	const description = sanitizeHostedModelCopy
+		? sanitizeCodieHostedModelDescription(modelInfo.description)
+		: modelInfo.description
 
 	const isGemini = Object.keys(geminiModels).includes(selectedModelId)
 	const hasThinkingConfig = hasThinkingBudget(modelInfo)
@@ -201,11 +207,9 @@ export const ModelInfoView = ({
 	const hasCachePricing = modelInfo.supportsPromptCache && (modelInfo.cacheWritesPrice || modelInfo.cacheReadsPrice)
 
 	return (
-		<div style={{ marginTop: 4 }}>
-			{/* Description */}
-			{modelInfo.description && (
-				<ModelDescriptionMarkdown isPopup={isPopup} key="description" markdown={modelInfo.description} />
-			)}
+			<div style={{ marginTop: 4 }}>
+				{/* Description */}
+				{description && <ModelDescriptionMarkdown isPopup={isPopup} key="description" markdown={description} />}
 
 			{/* Compact Info Row: Context, Input, Output */}
 			<InfoRow>
@@ -274,10 +278,10 @@ export const ModelInfoView = ({
 						</>
 					)}
 
-					{/* Tiered Pricing */}
+					{/* Tiered usage */}
 					{hasTiers && (
 						<div style={{ marginTop: 8 }}>
-							<div style={{ fontWeight: 500, marginBottom: 4 }}>Tiered Pricing:</div>
+							<div style={{ fontWeight: 500, marginBottom: 4 }}>Tiered Usage:</div>
 							{modelInfo.tiers && (
 								<>
 									<div>
@@ -298,13 +302,13 @@ export const ModelInfoView = ({
 					{/* Provider Routing */}
 					{showProviderRouting && onProviderSortingChange && (
 						<ProviderRoutingContainer>
-							<ProviderRoutingLabel>Provider Routing</ProviderRoutingLabel>
+							<ProviderRoutingLabel>Routing</ProviderRoutingLabel>
 							<VSCodeDropdown
 								onChange={(e: any) => onProviderSortingChange(e.target.value)}
 								style={{ width: "100%" }}
 								value={providerSorting || ""}>
 								<VSCodeOption value="">Default</VSCodeOption>
-								<VSCodeOption value="price">Price</VSCodeOption>
+								<VSCodeOption value="price">Efficiency</VSCodeOption>
 								<VSCodeOption value="throughput">Throughput</VSCodeOption>
 								<VSCodeOption value="latency">Latency</VSCodeOption>
 							</VSCodeDropdown>
@@ -315,11 +319,10 @@ export const ModelInfoView = ({
 									marginBottom: 0,
 									color: "var(--vscode-descriptionForeground)",
 								}}>
-								{!providerSorting &&
-									"Load balance across providers (AWS, Google Vertex, etc.), prioritizing price while considering uptime"}
-								{providerSorting === "price" && "Sort by price, prioritizing the lowest cost provider"}
+								{!providerSorting && "Balance requests across available routes while considering reliability"}
+								{providerSorting === "price" && "Prioritize the most efficient route"}
 								{providerSorting === "throughput" &&
-									"Sort by throughput, prioritizing highest throughput (may increase cost)"}
+									"Prioritize highest throughput"}
 								{providerSorting === "latency" && "Sort by response time, prioritizing lowest latency"}
 							</p>
 						</ProviderRoutingContainer>

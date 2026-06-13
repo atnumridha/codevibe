@@ -9,8 +9,9 @@ import { Controller } from "../index"
  * @returns The current extension state
  */
 export async function getLatestState(controller: Controller, _: EmptyRequest): Promise<State> {
-	// Get the state using the existing method
-	const state = await controller.getStateToPostToWebview()
+	// Keep direct state reads fast so onboarding/auth recovery is not blocked by
+	// a backend model refresh immediately after ChatGPT sign-in.
+	const state = await controller.getStateToPostToWebview({ skipOpenAiCodexBackendModelsRefresh: true })
 
 	// Convert the state to a JSON string
 	const stateJson = JSON.stringify(state)

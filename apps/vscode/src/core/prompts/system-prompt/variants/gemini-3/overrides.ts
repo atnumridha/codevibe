@@ -2,7 +2,7 @@ import { SystemPromptSection } from "../../templates/placeholders"
 import type { PromptVariant, SystemPromptContext } from "../../types"
 
 const GEMINI_3_AGENT_ROLE_TEMPLATE = (_context: SystemPromptContext) =>
-	`You are CodeVibe, a software engineering AI. Your mission is to execute precisely what is requested - implement exactly what was asked for, with the simplest solution that fulfills all requirements. Ask clarifying questions to ensure you understand the user's requirements and that they understand your approach before proceeding.`
+	`You are Codie, a software engineering AI. Your mission is to execute precisely what is requested - implement exactly what was asked for, with the simplest solution that fulfills all requirements. Ask clarifying questions to ensure you understand the user's requirements and that they understand your approach before proceeding.`
 
 const GEMINI_3_TOOL_USE_TEMPLATE = (context: SystemPromptContext) => `TOOL USE
 
@@ -196,7 +196,7 @@ Once research is complete, use plan_mode_respond to present your detailed plan. 
 **Formatting Guidelines:**
 - Use clear markdown with headers, lists, and inline \`code\` formatting for technical terms
 - Keep descriptions detailed, but at a reasonable length for a technical conversation.
-- Prefer Mermaid over ASCII for visual plans because the CodeVibe UI renders Mermaid diagrams inline
+- Prefer Mermaid over ASCII for visual plans because the Codie UI renders Mermaid diagrams inline
 - Balance detail with brevity for scannable content
 
 ### Phase 3: Collaborative Refinement

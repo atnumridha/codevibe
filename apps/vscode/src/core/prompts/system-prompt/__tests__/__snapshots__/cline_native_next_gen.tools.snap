@@ -44,7 +44,25 @@
           },
           "requires_approval": {
             "type": "boolean",
-            "description": "To indicate whether this command requires explicit user approval or interaction before it should be executed. For system/file altering operations like installing/uninstalling packages, removing/overwriting files, system configuration changes, network operations, or any commands that are considered potentially dangerous must be set to true. False for safe operations like running development servers, building projects, and other non-destructive operations."
+            "description": "To indicate whether this command requires explicit user approval or interaction before it should be executed. System/file altering operations like installing/uninstalling packages, removing/overwriting files, system configuration changes, network operations, long-running services, builds/tests that write artifacts, or any command that uses sandbox_permissions=require_escalated or require_escalated=true must be set to true. False is only for safe read-only commands and clearly non-mutating status checks."
+          },
+          "sandbox_permissions": {
+            "type": "string",
+            "description": "Optional Codie terminal run-mode request. Use 'use_default' or omit to let Codie choose; use 'sandboxed' to prefer Codie sandbox execution; use 'unelevated' for normal terminal mode while configured command permissions and sandbox preflight still apply; use 'require_escalated' only when the command must bypass Codie sandbox preflight or sandbox-derived command restrictions. 'require_escalated' always requires explicit user approval and does not request OS administrator privileges.",
+            "enum": [
+              "use_default",
+              "sandboxed",
+              "unelevated",
+              "require_escalated"
+            ]
+          },
+          "require_escalated": {
+            "type": "boolean",
+            "description": "Optional boolean alias for sandbox_permissions=require_escalated. Set true only when the command must bypass Codie sandbox preflight or sandbox-derived command restrictions. This forces explicit user approval and does not request OS administrator privileges."
+          },
+          "prefix_rule": {
+            "type": "string",
+            "description": "Optional approval context for elevated commands. Provide a JSON array of leading command tokens that exactly match the command prefix, such as [\"npm\",\"run\",\"dev\"]. Codie shows this with the one-off approval but does not persist a new auto-approval rule."
           }
         },
         "required": [

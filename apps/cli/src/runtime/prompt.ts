@@ -14,7 +14,7 @@ import { isImagePath, loadImageAsDataUrl } from "../utils/image-attachments";
 
 const PLAN_MODE_INSTRUCTIONS = `# Plan Mode
 
-You are in Plan mode. Your role is to explore, analyze, and plan -- not to execute. Behave exploration-first, like a Cursor agent preparing a change.
+You are in Plan mode. Your role is to explore, analyze, and plan -- not to execute. Behave exploration-first, like a Codie agent preparing a change.
 
 - Read files, search the codebase, inspect errors/tests, and gather enough context before proposing a concrete plan
 - Do not announce files you intend to inspect instead of inspecting them when tools are available
@@ -29,7 +29,7 @@ When the user aligns on a plan and is ready to proceed, use the switch_to_act_mo
 
 const ACT_MODE_INSTRUCTIONS = `# Act Mode
 
-You are in Act mode. Your role is to implement while preserving Cursor-style reviewability and permission boundaries.
+You are in Act mode. Your role is to implement while preserving import-compatible reviewability and permission boundaries.
 
 - Start by inspecting the relevant current files, existing patterns, and any user changes before editing
 - Keep a concise progress checklist for multi-step work and update it when milestones are completed
@@ -177,7 +177,7 @@ export async function buildUserInputMessage(
 				)
 			) {
 				throw new Error(
-					`Access to ${resolvedPath} is outside Cursor sandbox read paths from .cursor/sandbox.json.`,
+					`Access to ${resolvedPath} is outside import-compatible sandbox read paths from .cursor/sandbox.json.`,
 				);
 			}
 			const stats = statSync(resolvedPath);

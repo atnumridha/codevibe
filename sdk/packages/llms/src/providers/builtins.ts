@@ -16,7 +16,10 @@ import type {
 	ProviderClient,
 	ProviderProtocol,
 } from "../catalog/types";
-import { filterOpenAICodexModels } from "./openai-codex-models";
+import {
+	OPENAI_CODEX_DEFAULT_MODEL_ID,
+	filterOpenAICodexModels,
+} from "./openai-codex-models";
 import {
 	ANTHROPIC_AND_QWEN_CACHE_ROUTING_METADATA,
 	ANTHROPIC_ROUTING_METADATA,
@@ -28,7 +31,6 @@ export const DEFAULT_INTERNAL_OCA_BASE_URL =
 	"https://code-internal.aiservice.us-chicago-1.oci.oraclecloud.com/20250206/app/litellm";
 export const DEFAULT_EXTERNAL_OCA_BASE_URL =
 	"https://code.aiservice.us-chicago-1.oci.oraclecloud.com/20250206/app/litellm";
-const OPENAI_CODEX_DEFAULT_MODEL_ID = "gpt-5.5";
 
 export type ProviderFamily =
 	| "openai"
@@ -442,8 +444,8 @@ const OPENAI_COMPATIBLE_SPECS: BuiltinSpec[] = [
 	},
 	{
 		id: "cline",
-		name: "Cline",
-		description: "Cline API endpoint",
+		name: "Codie Cloud",
+		description: "Codie Cloud API endpoint",
 		family: "openai-compatible",
 		popular: 1,
 		capabilities: ["reasoning", "prompt-cache", "tools", "oauth"],
@@ -828,15 +830,15 @@ export const BUILTIN_SPECS: BuiltinSpec[] = [
 		family: "openai",
 		capabilities: ["reasoning"],
 		modelsProviderId: "openai-native",
-		defaultModelId: "gpt-5.4",
+		defaultModelId: "gpt-5.5",
 		apiKeyEnv: ["OPENAI_API_KEY"],
 		defaults: { baseUrl: "https://api.openai.com/v1" },
 	},
 	{
 		id: "openai-codex",
-		name: "OpenAI ChatGPT Subscription",
+		name: "Codie",
 		description:
-			"OpenAI ChatGPT subscription access uses an OAuth device code flow.",
+			"Codie hosted agent access uses the built-in browser sign-in flow.",
 		family: "openai",
 		popular: 2,
 		capabilities: ["reasoning", "oauth"],
@@ -848,8 +850,8 @@ export const BUILTIN_SPECS: BuiltinSpec[] = [
 	},
 	{
 		id: "openai-codex-cli",
-		name: "OpenAI Codex CLI",
-		description: "OpenAI Codex via the local Codex CLI provider",
+		name: "Codie Local CLI",
+		description: "Codie access through the local CLI provider",
 		family: "openai-codex",
 		capabilities: ["reasoning", "provider-tools", "local-auth"],
 		defaultModelId: "gpt-5.3-codex",
@@ -874,7 +876,7 @@ export const BUILTIN_SPECS: BuiltinSpec[] = [
 	{
 		id: "claude-code",
 		name: "Claude Code",
-		description: "Use Claude Code SDK with Claude Pro/Max subscription",
+		description: "Use Claude Code SDK with local Claude authentication",
 		family: "claude-code",
 		capabilities: ["reasoning"],
 		defaultModelId: "sonnet",

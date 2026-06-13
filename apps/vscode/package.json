@@ -1,8 +1,8 @@
 {
 	"name": "codevibe",
-	"displayName": "CodeVibe",
-	"description": "CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
-	"version": "3.88.76",
+	"displayName": "Codie",
+	"description": "Codie is an editor-native VS Code-based AI IDE agent with Codie sign-in, model-source choices, planning, tools, MCP, browser automation, and background workflows.",
+	"version": "3.88.77",
 	"icon": "assets/icons/icon.png",
 	"engines": {
 		"vscode": "^1.84.0"
@@ -15,7 +15,7 @@
 		"chatSessionsProvider"
 	],
 	"author": {
-		"name": "CodeVibe"
+		"name": "Codie"
 	},
 	"license": "Apache-2.0",
 	"publisher": "atnumridha",
@@ -33,6 +33,7 @@
 		"Testing"
 	],
 	"keywords": [
+		"codie",
 		"codevibe",
 		"mcp",
 		"openrouter",
@@ -65,6 +66,7 @@
 		"onCommand:codevibe.mcpButtonClicked",
 		"onCommand:codevibe.historyButtonClicked",
 		"onCommand:codevibe.accountButtonClicked",
+		"onCommand:codevibe.worktreesButtonClicked",
 		"onCommand:codevibe.settingsButtonClicked",
 		"onCommand:codevibe.nativeAgentDiagnostics",
 		"onCommand:codevibe.newNativeAgentSession",
@@ -87,6 +89,7 @@
 		"onCommand:codevibe.reviewComment.reply",
 		"onCommand:codevibe.reviewComment.addToChat",
 		"onChatParticipant:codevibe",
+		"onChatParticipant:codevibe-agent",
 		"onChatSession:codevibe-agent",
 		"onView:codevibe-agent-chat"
 	],
@@ -94,7 +97,7 @@
 	"contributes": {
 		"icons": {
 			"codevibe-icon": {
-				"description": "CodeVibe",
+				"description": "Codie",
 				"default": {
 					"fontPath": "assets/icons/codevibe-glyph.woff",
 					"fontCharacter": "\\e900"
@@ -104,29 +107,29 @@
 		"walkthroughs": [
 			{
 				"id": "CodeVibeWalkthrough",
-				"title": "Meet CodeVibe, your new coding partner",
-				"description": "CodeVibe codes like a developer because it thinks like one. Here are 5 ways to put it to work:",
+				"title": "Meet Codie, your new coding partner",
+				"description": "Codie codes like a developer because it thinks like one. Here are 5 ways to put it to work:",
 				"steps": [
 					{
 						"id": "welcome",
 						"title": "Start with a Goal, Not Just a Prompt",
-						"description": "Tell CodeVibe what you want to achieve. It plans, asks, and then codes, like a true partner.",
+						"description": "Tell Codie what you want to achieve. It plans, asks, and then codes, like a true partner.",
 						"media": {
 							"markdown": "walkthrough/step1.md"
 						}
 					},
 					{
 						"id": "learn",
-						"title": "Let CodeVibe Learn Your Codebase",
-						"description": "Point CodeVibe to your project. It builds understanding to make smart, context-aware changes.",
+						"title": "Let Codie Learn Your Codebase",
+						"description": "Point Codie to your project. It builds understanding to make smart, context-aware changes.",
 						"media": {
 							"markdown": "walkthrough/step2.md"
 						}
 					},
 					{
 						"id": "advanced-features",
-						"title": "Always Use the Best AI Models",
-						"description": "CodeVibe empowers you with State-of-the-Art AI, connecting to top models (Anthropic, Gemini, OpenAI & more).",
+						"title": "Choose Your Model Source",
+						"description": "Codie connects to Codie sign-in, your own model keys, local runtimes, and compatible gateways from one model picker.",
 						"media": {
 							"markdown": "walkthrough/step3.md"
 						}
@@ -134,7 +137,7 @@
 					{
 						"id": "mcp",
 						"title": "Extend with Powerful Tools (MCP)",
-						"description": "Connect to databases, APIs, or discover new capabilities in the MCP Marketplace.",
+						"description": "Connect to databases, APIs, or discover new capabilities in the MCP catalog.",
 						"media": {
 							"markdown": "walkthrough/step4.md"
 						}
@@ -142,7 +145,7 @@
 					{
 						"id": "getting-started",
 						"title": "You're Always in Control",
-						"description": "Review CodeVibe's plans and diffs. Approve changes before they happen. No surprises.",
+						"description": "Review Codie's plans and diffs. Approve changes before they happen. No surprises.",
 						"media": {
 							"markdown": "walkthrough/step5.md"
 						},
@@ -157,7 +160,7 @@
 			"activitybar": [
 				{
 					"id": "codevibe-agent",
-					"title": "CodeVibe Agent",
+					"title": "Codie Agent",
 					"icon": "assets/icons/activitybar.svg"
 				}
 			]
@@ -173,19 +176,27 @@
 				}
 			]
 		},
+		"chatAgents": [
+			{
+				"id": "codevibe-agent",
+				"name": "codie",
+				"description": "Use Codie Agent for planning, coding, reviews, diffs, terminal approvals, MCP, browser automation, and Codie sign-in.",
+				"path": "agents/00-codevibe-agent.agent.md"
+			}
+		],
 		"chatSessions": [
 			{
 				"id": "codevibe-agent",
 				"type": "codevibe-agent",
-				"name": "CodeVibe Agent",
-				"displayName": "CodeVibe Agent",
+				"name": "Codie Agent",
+				"displayName": "Codie Agent",
 				"icon": "$(codevibe-icon)",
-				"welcomeTitle": "CodeVibe Agent",
-				"welcomeMessage": "Plan, edit, review, run tools, apply diffs, use terminal approvals, MCP, browser automation, and Codex auth.",
-				"inputPlaceholder": "Ask CodeVibe to build, fix, review, or plan",
+				"welcomeTitle": "Codie Agent",
+				"welcomeMessage": "Plan, edit, review, run tools, apply diffs, use terminal approvals, MCP, browser automation, and Codie sign-in.",
+				"inputPlaceholder": "Ask Codie to build, fix, review, or plan",
 				"order": -1000,
 				"canDelegate": true,
-				"description": "Use CodeVibe Agent for local coding workflows",
+				"description": "Use Codie Agent for local coding workflows",
 				"capabilities": {
 					"supportsFileAttachments": true,
 					"supportsProblemAttachments": true,
@@ -203,7 +214,7 @@
 					},
 					{
 						"name": "act",
-						"description": "Start an implementation task in CodeVibe"
+						"description": "Start an implementation task in Codie"
 					},
 					{
 						"name": "review",
@@ -218,7 +229,7 @@
 			{
 				"id": "codevibe",
 				"name": "codevibe",
-				"fullName": "CodeVibe Agent",
+				"fullName": "Codie Agent",
 				"description": "Plan, edit, review, run tools, and work across this repository",
 				"isSticky": true,
 				"isDefault": true,
@@ -235,7 +246,33 @@
 					},
 					{
 						"name": "act",
-						"description": "Start an implementation task in CodeVibe"
+						"description": "Start an implementation task in Codie"
+					},
+					{
+						"name": "review",
+						"description": "Review the current code or selected changes"
+					}
+				]
+			},
+			{
+				"id": "codevibe-agent",
+				"name": "codie-agent",
+				"fullName": "Codie Agent",
+				"description": "Route native Codie Agent sessions into Codie",
+				"locations": [
+					"panel"
+				],
+				"modes": [
+					"agent"
+				],
+				"commands": [
+					{
+						"name": "plan",
+						"description": "Explore the codebase and prepare an implementation plan"
+					},
+					{
+						"name": "act",
+						"description": "Start an implementation task in Codie"
 					},
 					{
 						"name": "review",
@@ -306,169 +343,175 @@
 			{
 				"command": "codevibe.plusButtonClicked",
 				"title": "New Task",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"icon": "$(add)"
 			},
 			{
 				"command": "codevibe.mcpButtonClicked",
 				"title": "MCP Servers",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"icon": "$(server)"
 			},
 			{
 				"command": "codevibe.historyButtonClicked",
 				"title": "History",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"icon": "$(history)"
 			},
 			{
 				"command": "codevibe.accountButtonClicked",
 				"title": "Account",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"icon": "$(account)"
+			},
+			{
+				"command": "codevibe.worktreesButtonClicked",
+				"title": "Open Codie Worktrees",
+				"category": "Codie",
+				"icon": "$(git-branch)"
 			},
 			{
 				"command": "codevibe.settingsButtonClicked",
 				"title": "Settings",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"icon": "$(settings-gear)"
 			},
 			{
 				"command": "codevibe.nativeAgentDiagnostics",
 				"title": "Show Native Agent Diagnostics",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"icon": "$(pulse)"
 			},
 			{
 				"command": "codevibe.newNativeAgentSession",
-				"title": "New CodeVibe Agent",
-				"category": "CodeVibe",
+				"title": "New Codie Agent",
+				"category": "Codie",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "codevibe.dev.createTestTasks",
 				"title": "Create Test Tasks",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"when": "codevibe.isDevMode"
 			},
 			{
 				"command": "codevibe.dev.expireMcpOAuthTokens",
 				"title": "Expire MCP OAuth Tokens (for testing)",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"when": "codevibe.isDevMode"
 			},
 			{
 				"command": "codevibe.addToChat",
-				"title": "Add to CodeVibe",
-				"category": "CodeVibe"
+				"title": "Add to Codie",
+				"category": "Codie"
 			},
 			{
 				"command": "codevibe.addTerminalOutputToChat",
-				"title": "Add to CodeVibe",
-				"category": "CodeVibe"
+				"title": "Add to Codie",
+				"category": "Codie"
 			},
 			{
 				"command": "codevibe.focusChatInput",
-				"title": "Open CodeVibe",
-				"category": "CodeVibe"
+				"title": "Open Codie",
+				"category": "Codie"
 			},
 			{
 				"command": "codevibe.openLegacyWebview",
-				"title": "Show CodeVibe Compatibility Panel",
-				"category": "CodeVibe"
+				"title": "Show Codie Compatibility Panel",
+				"category": "Codie"
 			},
 			{
 				"command": "codevibe.fixWithCodeVibe",
-				"title": "Fix with CodeVibe",
-				"category": "CodeVibe",
+				"title": "Fix with Codie",
+				"category": "Codie",
 				"icon": "$(codevibe-icon)"
 			},
 			{
 				"command": "codevibe.generateGitCommitMessage",
-				"title": "Generate Commit Message with CodeVibe",
-				"category": "CodeVibe",
+				"title": "Generate Commit Message with Codie",
+				"category": "Codie",
 				"icon": "$(codevibe-icon)"
 			},
 			{
 				"command": "codevibe.abortGitCommitMessage",
-				"title": "Generate Commit Message with CodeVibe - Stop",
-				"category": "CodeVibe",
+				"title": "Generate Commit Message with Codie - Stop",
+				"category": "Codie",
 				"icon": "$(debug-stop)"
 			},
 			{
 				"command": "codevibe.explainCode",
-				"title": "Explain with CodeVibe",
-				"category": "CodeVibe"
+				"title": "Explain with Codie",
+				"category": "Codie"
 			},
 			{
 				"command": "codevibe.improveCode",
-				"title": "Improve with CodeVibe",
-				"category": "CodeVibe"
+				"title": "Improve with Codie",
+				"category": "Codie"
 			},
 			{
 				"command": "codevibe.jupyterGenerateCell",
-				"title": "Generate Jupyter Cell with CodeVibe",
-				"category": "CodeVibe",
+				"title": "Generate Jupyter Cell with Codie",
+				"category": "Codie",
 				"icon": "$(sparkle)"
 			},
 			{
 				"command": "codevibe.jupyterExplainCell",
-				"title": "Explain Jupyter Cell with CodeVibe",
-				"category": "CodeVibe",
+				"title": "Explain Jupyter Cell with Codie",
+				"category": "Codie",
 				"icon": "$(question)"
 			},
 			{
 				"command": "codevibe.jupyterImproveCell",
-				"title": "Improve Jupyter Cell with CodeVibe",
-				"category": "CodeVibe",
+				"title": "Improve Jupyter Cell with Codie",
+				"category": "Codie",
 				"icon": "$(lightbulb)"
 			},
 			{
 				"command": "codevibe.openWalkthrough",
 				"title": "Open Walkthrough",
-				"category": "CodeVibe"
+				"category": "Codie"
 			},
 			{
 				"command": "codevibe.reconstructTaskHistory",
 				"title": "Reconstruct Task History",
-				"category": "CodeVibe"
+				"category": "Codie"
 			},
 			{
 				"command": "codevibe.reviewComment.reply",
 				"title": "Reply",
-				"category": "CodeVibe",
+				"category": "Codie",
 				"enablement": "!commentIsEmpty"
 			},
 			{
 				"command": "codevibe.reviewComment.addToChat",
-				"title": "Add to CodeVibe Chat",
-				"category": "CodeVibe",
+				"title": "Add to Codie Chat",
+				"category": "Codie",
 				"icon": "$(link-external)"
 			},
 			{
 				"command": "codevibe.compatibility.ndjson.start",
-				"title": "CodeVibe Compatibility NDJSON: Start Server"
+				"title": "Codie Compatibility NDJSON: Start Server"
 			},
 			{
 				"command": "codevibe.compatibility.ndjson.stop",
-				"title": "CodeVibe Compatibility NDJSON: Stop Server"
+				"title": "Codie Compatibility NDJSON: Stop Server"
 			},
 			{
 				"command": "codevibe.compatibility.ndjson.copyCurl",
-				"title": "CodeVibe Compatibility NDJSON: Copy curl command"
+				"title": "Codie Compatibility NDJSON: Copy curl command"
 			},
 			{
 				"command": "codevibe.compatibility.ndjson.reassignPort",
-				"title": "CodeVibe Compatibility NDJSON: Reassign port and restart server"
+				"title": "Codie Compatibility NDJSON: Reassign port and restart server"
 			},
 			{
 				"command": "codevibe.compatibility.ndjson.showStatus",
-				"title": "CodeVibe Compatibility NDJSON: Show server info"
+				"title": "Codie Compatibility NDJSON: Show server info"
 			},
 			{
 				"command": "codevibe.compatibility.deeplink.debug.trigger",
 				"title": "Debug: Trigger Arbitrary Deeplink",
-				"category": "CodeVibe Compatibility"
+				"category": "Codie Compatibility"
 			}
 		],
 		"keybindings": [
@@ -583,7 +626,7 @@
 			]
 		},
 		"configuration": {
-			"title": "CodeVibe",
+			"title": "Codie",
 			"properties": {
 				"codevibe.openAiCodex.authSource": {
 					"type": "string",
@@ -593,22 +636,22 @@
 						"auto"
 					],
 					"enumItemLabels": [
-						"Codex Home",
+						"Local Auth Files",
 						"VS Code Secret",
 						"Auto"
 					],
-					"default": "codexHome",
-					"description": "Controls where OpenAI Codex credentials are loaded from. Codex Home reads workspace .codex/auth.json first, then ~/.codex/auth.json, unless an explicit path or CODEX_HOME is set."
+					"default": "auto",
+					"description": "Controls where Codie credentials are loaded from. Auto tries IDE sign-in first, then local auth files. Local auth files include workspace .codex/auth.json and ~/.codex/auth.json unless an explicit path or CODEX_HOME is set."
 				},
 				"codevibe.compatibility.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Enables CodeVibe compatibility inputs such as .cursorrules, .cursor/rules, .cursorignore, .cursorindexingignore, .cursor/mcp.json, and .cursor/sandbox.json."
+					"description": "Enables Codie compatibility inputs such as canonical .codie/sandbox.json, Codie rules, ignore files, retrieval-indexing ignores, MCP configs, and legacy sandbox configs."
 				},
 				"codevibe.compatibility.deepLinks.enabled": {
 					"type": "boolean",
 					"default": true,
-					"description": "Enables validation for compatible deep-link route families before routing them into CodeVibe tasks."
+					"description": "Enables validation for compatible deep-link route families before routing them into Codie tasks."
 				},
 				"codevibe.compatibility.retrievalIndexing.privacyGate": {
 					"type": "boolean",
@@ -630,7 +673,7 @@
 						"Disabled"
 					],
 					"default": "prompt",
-					"description": "Default policy for untrusted compatibility sandbox inputs such as .cursor/sandbox.json."
+					"description": "Default policy for untrusted sandbox inputs. Codie prefers .codie/sandbox.json and can fall back to a legacy sandbox config when no Codie sandbox config exists."
 				},
 				"codevibe.compatibility.safeBrowserEvaluate.enabled": {
 					"type": "boolean",
@@ -682,19 +725,19 @@
 				"codevibe.ui.preferOpenAiCodexSidebar": {
 					"type": "boolean",
 					"default": false,
-					"description": "Opens the installed OpenAI Codex sidebar instead of the native CodeVibe Agent sidebar. Disabled by default so CodeVibe stays the primary agent surface."
+					"description": "Opens the installed alternate agent sidebar instead of the native Codie Agent sidebar. Disabled by default so Codie stays the primary agent surface."
 				},
 				"ndjson.port": {
 					"type": "number",
 					"default": 0,
 					"minimum": 0,
 					"maximum": 65535,
-					"description": "Port for the CodeVibe compatibility NDJSON ingest server. Nonzero ports auto-start on activation; set to 0 to keep activation startup disabled while manual start still auto-allocates in range 7242-7942."
+					"description": "Port for the Codie compatibility NDJSON ingest server. Nonzero ports auto-start on activation; set to 0 to keep activation startup disabled while manual start still auto-allocates in range 7242-7942."
 				},
 				"ndjson.bindAddress": {
 					"type": "string",
 					"default": "127.0.0.1",
-					"description": "Address to bind the CodeVibe compatibility NDJSON ingest server to. Non-localhost addresses require confirmation because they can expose the ingest endpoint to the network."
+					"description": "Address to bind the Codie compatibility NDJSON ingest server to. Non-localhost addresses require confirmation because they can expose the ingest endpoint to the network."
 				}
 			}
 		}
@@ -724,7 +767,7 @@
 		"format": "biome format --config-path ./biome.jsonc --changed --since main --no-errors-on-unmatched --files-ignore-unknown=true --diagnostic-level=error",
 		"format:fix": "biome check --config-path ./biome.jsonc --changed --since main --no-errors-on-unmatched --files-ignore-unknown=true --write",
 		"fix:all": "biome check --config-path ./biome.jsonc --no-errors-on-unmatched --files-ignore-unknown=true --write --diagnostic-level=error --unsafe",
-		"ci:check-all": "npx npm-run-all -p check-types lint format branding:audit",
+		"ci:check-all": "npx npm-run-all -p check-types lint format branding:audit compatibility:contracts",
 		"ci:build": "npm run protos && npm run build:webview && node esbuild.mjs && npm run compile-tests",
 		"pretest": "npm run compile && npm run compile-tests && npm run compile-standalone && npm run lint",
 		"test": "npx npm-run-all test:unit test:integration",
@@ -736,6 +779,7 @@
 		"test:tp-orchestrator": "npx tsx scripts/testing-platform-orchestrator.ts",
 		"e2e": "playwright test -c playwright.config.ts",
 		"branding:audit": "node scripts/check-codevibe-branding.mjs",
+		"compatibility:contracts": "node scripts/check-compatibility-contracts.mjs",
 		"package:github-vsix:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight": "node scripts/package-github-vsix.mjs --preflight",
 		"release:preflight:release": "node scripts/check-local-release-prereqs.mjs --release --github-release",
@@ -761,7 +805,7 @@
 		"repair:vscode-state": "node scripts/package-github-vsix.mjs --clean-legacy-view-state-only",
 		"test:e2e:build": "node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix",
 		"smoke:vsix:install": "node scripts/package-github-vsix.mjs --out-file dist/e2e.vsix --install",
-		"smoke:github-vsix:install": "node scripts/package-github-vsix.mjs --verify-install",
+		"smoke:github-vsix:install": "node scripts/package-github-vsix.mjs --install --verify-install",
 		"test:e2e": "playwright install && npm run test:e2e:build && node src/test/e2e/utils/build.mjs && playwright test",
 		"test:e2e:optimal": "npm run test:e2e:build && node src/test/e2e/utils/build.mjs && playwright test",
 		"test:e2e:ui": "npx tsx scripts/interactive-playwright.ts",

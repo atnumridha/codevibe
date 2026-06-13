@@ -21,7 +21,10 @@ import {
 	checkCodexCliInstalled,
 	isOpenAICodexCliProvider,
 } from "../../../utils/codex-cli";
-import { isOAuthProvider } from "../../../utils/provider-auth";
+import {
+	getAuthProviderDisplayName,
+	isOAuthProvider,
+} from "../../../utils/provider-auth";
 import { hasOpenAICodexHomeCredentials } from "../../../utils/provider-readiness";
 import { palette } from "../../palette";
 import {
@@ -69,7 +72,7 @@ export function ProviderPickerContent(
 				const codexHomeAuthAvailable = hasOpenAICodexHomeCredentials();
 				const providerItems = list.map((p) => ({
 					id: p.id,
-					name: p.name,
+					name: getAuthProviderDisplayName(p.id, p.name),
 					models: p.models,
 					// `enabled` is true whenever the provider has any persisted
 					// settings, so keyless local configs (e.g. Ollama saved with
@@ -575,20 +578,20 @@ export function CodexCliStatusContent(
 				<strong>{providerName}</strong>
 			</text>
 
-			{checking && <text fg="gray">Checking for Codex CLI...</text>}
+			{checking && <text fg="gray">Checking local Codie auth...</text>}
 
 			{status?.installed && (
 				<box flexDirection="column" gap={1}>
-					<text fg={palette.success}>{"\u25cf"} Codex CLI installed</text>
+					<text fg={palette.success}>{"\u25cf"} Local Codie auth is ready</text>
 					<text fg="gray">{status.version}</text>
 				</box>
 			)}
 
 			{status && !status.installed && (
 				<box flexDirection="column" gap={1}>
-					<text fg="yellow">Codex CLI was not found</text>
+					<text fg="yellow">Local Codie auth was not found</text>
 					<text fg="gray">{status.reason}</text>
-					<text fg="gray">Install Codex CLI from:</text>
+					<text fg="gray">Set up local Codie auth from:</text>
 					<text fg="cyan" selectable>
 						{CODEX_CLI_INSTALL_URL}
 					</text>

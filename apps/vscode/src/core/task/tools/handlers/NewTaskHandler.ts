@@ -38,8 +38,8 @@ export class NewTaskHandler implements IToolHandler, IPartialBlockHandler {
 		// Show notification if enabled
 		if (config.autoApprovalSettings.enableNotifications) {
 			showSystemNotification({
-				subtitle: "CodeVibe wants to start a new task...",
-				message: `CodeVibe is suggesting to start a new task with: ${context}`,
+				subtitle: "Codie wants to start a new task...",
+				message: `Codie is suggesting to start a new task with: ${context}`,
 			})
 		}
 

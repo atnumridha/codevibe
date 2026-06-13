@@ -6,7 +6,7 @@ import {
 	buildCodeVibeNativeChatTaskText,
 } from "../native-chat-adapter"
 
-describe("native CodeVibe chat adapter", () => {
+describe("native Codie chat adapter", () => {
 	it("passes a normal prompt through unchanged after trimming", () => {
 		expect(buildCodeVibeNativeChatTaskText({ prompt: "  update the tests  " })).to.equal("update the tests")
 	})

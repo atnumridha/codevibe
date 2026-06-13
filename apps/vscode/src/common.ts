@@ -89,7 +89,7 @@ async function showVersionUpdateAnnouncement(stateManager: StateManager) {
 	// Perform post-update actions if necessary
 	try {
 		if (!previousVersion || currentVersion !== previousVersion) {
-			Logger.log(`CodeVibe version changed: ${previousVersion} -> ${currentVersion}. First run or update detected.`)
+			Logger.log(`Codie version changed: ${previousVersion} -> ${currentVersion}. First run or update detected.`)
 
 			// Check if there's a new announcement to show
 			const lastShownAnnouncementId = stateManager.getGlobalStateKey("lastShownAnnouncementId")
@@ -98,8 +98,8 @@ async function showVersionUpdateAnnouncement(stateManager: StateManager) {
 			if (lastShownAnnouncementId !== latestAnnouncementId && process.env.E2E_TEST !== "true") {
 				// Show notification when there's a new announcement (major/minor updates or fresh installs)
 				const message = previousVersion
-					? `CodeVibe has been updated to v${currentVersion}`
-					: `Welcome to CodeVibe v${currentVersion}`
+					? `Codie has been updated to v${currentVersion}`
+					: `Welcome to Codie v${currentVersion}`
 				HostProvider.window.showMessage({
 					type: ShowMessageType.INFORMATION,
 					message,

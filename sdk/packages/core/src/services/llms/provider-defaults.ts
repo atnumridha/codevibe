@@ -467,11 +467,11 @@ function buildOpenAICodexModelsHeaders(
 	const accountId =
 		accountIdOverride ?? config.codex?.accountId ?? config.accountId;
 	const installationId = config.codex?.installationId;
-	return {
-		Authorization: `Bearer ${token}`,
-		originator: "cline",
-		session_id: sessionId,
-		"User-Agent": OPENAI_CODEX_USER_AGENT,
+		return {
+			Authorization: `Bearer ${token}`,
+			originator: "codie",
+			session_id: sessionId,
+			"User-Agent": OPENAI_CODEX_USER_AGENT,
 		...(accountId ? { "ChatGPT-Account-Id": accountId } : {}),
 		...(installationId
 			? { "x-codex-installation-id": installationId }

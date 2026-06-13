@@ -239,7 +239,7 @@ describe("Remote Config Schema", () => {
 	});
 
 	describe("ClineSettingsSchema", () => {
-		it("should accept valid Cline provider settings", () => {
+		it("should accept valid Codie Cloud provider settings", () => {
 			const validSettings = {
 				models: [
 					{ id: "claude-3-5-sonnet-20241022" },

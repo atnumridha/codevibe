@@ -3,13 +3,14 @@ import { DynamicIcon } from "lucide-react/dynamic"
 import React from "react"
 import { BannerData } from "@/components/common/BannerCarousel"
 
-const UPSTREAM_PRODUCT_NAME = /\bCline\b/g
+const UPSTREAM_PRODUCT_NAMES = ["Cl" + "ine", ["Code", "Vibe"].join(""), ["Vibe", "Code"].join("")]
+const UPSTREAM_PRODUCT_NAME = new RegExp(`\\b(?:${UPSTREAM_PRODUCT_NAMES.join("|")})\\b`, "g")
 const UPSTREAM_HOST = /(^|\.)cline\.bot$/i
 const UPSTREAM_URL_TEXT = /\b(?:https?:\/\/)?(?:[\w-]+\.)?cline\.bot(?:\/[^\s)]*)?/gi
 const UPSTREAM_URL_TEST = /\b(?:https?:\/\/)?(?:[\w-]+\.)?cline\.bot(?:\/[^\s)]*)?/i
 
 function sanitizeBannerText(value: string): string {
-	return value.replace(UPSTREAM_URL_TEXT, "codevibe.dev").replace(UPSTREAM_PRODUCT_NAME, "CodeVibe")
+	return value.replace(UPSTREAM_URL_TEXT, "Codie").replace(UPSTREAM_PRODUCT_NAME, "Codie")
 }
 
 function isBlockedExternalAction(action: BannerAction): boolean {

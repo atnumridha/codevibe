@@ -16,8 +16,8 @@ import { writeDiagnostic } from "../utils/output";
  * Supported ACP OAuth provider IDs.
  */
 export const ACP_AUTH_METHODS = [
-	{ id: "openai-codex", name: "Sign in with ChatGPT Subscription" },
-	{ id: "cline", name: "Sign in with CodeVibe Account" },
+	{ id: "openai-codex", name: "Sign in with Codie" },
+	{ id: "cline", name: "Sign in with Codie Cloud" },
 ] as const;
 
 export type AcpAuthMethodId = (typeof ACP_AUTH_METHODS)[number]["id"];
@@ -157,7 +157,7 @@ export async function authenticateAcpProvider(
 		const codexHomeAuth =
 			restoreOpenAICodexHomeAcpAuth(providerSettingsManager);
 		if (codexHomeAuth) {
-			writeDiagnostic(`[acp/auth] Using Codex Home credentials for ${methodId}`);
+			writeDiagnostic(`[acp/auth] Using saved Codie credentials for ${methodId}`);
 			return codexHomeAuth;
 		}
 	}

@@ -19,7 +19,7 @@ function model(name: string): ModelInfo {
 	}
 }
 
-describe("providerUtils OpenAI Codex models", () => {
+describe("providerUtils Codie hosted models", () => {
 	it("merges authenticated backend Codex models with bundled models", () => {
 		const models = getOpenAiCodexModelOptions({
 			"gpt-6-codex-preview": model("GPT-6 Codex Preview"),
@@ -73,7 +73,7 @@ describe("providerUtils OpenAI Codex models", () => {
 	})
 
 	it.each(["plan", "act"] as const)(
-		"defaults missing %s configuration to OpenAI Codex",
+		"defaults missing %s configuration to Codie hosted models",
 		(mode) => {
 			const normalized = normalizeApiConfiguration(undefined, mode)
 

@@ -50,7 +50,7 @@ const version: string = pkg.version;
 const repository: unknown = pkg.repository;
 const sourcePackageName = String(pkg.name ?? "@cline/cli");
 
-console.log(`Building CodeVibe CLI v${version}`);
+console.log(`Building Codie CLI v${version}`);
 
 const buildOptions = parseBuildOptions(process.argv.slice(2));
 
@@ -142,7 +142,7 @@ function shouldBuildHubWebview(): boolean {
 }
 
 if (shouldBuildHubWebview()) {
-	console.log("Building CodeVibe Hub webview...");
+	console.log("Building Codie Hub webview...");
 	await $`bun -F @cline/cline-hub build:webview`.cwd(rootDir);
 }
 
@@ -287,7 +287,7 @@ for (const item of targets) {
 			{
 				name,
 				version,
-				description: `CodeVibe CLI binary for ${displayOs} ${item.arch}`,
+				description: `Codie CLI binary for ${displayOs} ${item.arch}`,
 				os: [item.os],
 				cpu: [item.arch],
 				...(repository ? { repository } : {}),

@@ -1,12 +1,12 @@
 ---
 title: "GitHub Issue RCA Sample"
-description: "Automated GitHub issue analysis using CodeVibe CLI to identify root causes."
+description: "Automated GitHub issue analysis using Codie CLI to identify root causes."
 ---
 
-Automated GitHub issue analysis using CodeVibe CLI. This script uses CodeVibe's autonomous AI capabilities to fetch, analyze, and identify root causes of GitHub issues, outputting clean, parseable results that can be easily integrated into your development workflows.
+Automated GitHub issue analysis using Codie CLI. This script uses Codie's autonomous AI capabilities to fetch, analyze, and identify root causes of GitHub issues, outputting clean, parseable results that can be easily integrated into your development workflows.
 
 <Note>
-**New to CodeVibe CLI?** This sample assumes you have already completed the [Installation Guide](/getting-started/installing-codevibe) and authenticated with `codevibe auth`. If you haven't set up CodeVibe CLI yet, please start there first.
+**New to Codie CLI?** This sample assumes you have already completed the [Installation Guide](/getting-started/installing-codevibe) and authenticated with `codevibe auth`. If you haven't set up Codie CLI yet, please start there first.
 </Note>
 
 <Frame>
@@ -17,9 +17,9 @@ Automated GitHub issue analysis using CodeVibe CLI. This script uses CodeVibe's 
 
 This sample assumes you have already:
 
-- **CodeVibe CLI** installed and authenticated ([Installation Guide](/getting-started/installing-codevibe))
+- **Codie CLI** installed and authenticated ([Installation Guide](/getting-started/installing-codevibe))
 - **At least one AI model provider** configured (e.g., OpenRouter, Anthropic, OpenAI)
-- **Basic familiarity** with CodeVibe CLI commands
+- **Basic familiarity** with Codie CLI commands
 
 Additionally, you'll need:
 
@@ -77,7 +77,7 @@ curl -O https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/s
 
 ```bash
 #!/bin/bash
-# Analyze a GitHub issue using CodeVibe CLI
+# Analyze a GitHub issue using Codie CLI
 
 if [ -z "$1" ]; then
     echo "Usage: $0 <github-issue-url> [prompt]"
@@ -89,7 +89,7 @@ fi
 # Gather the args
 ISSUE_URL="$1"
 PROMPT="${2:-What is the root cause of this issue?}"
-# Ask CodeVibe for its analysis, showing only the summary
+# Ask Codie for its analysis, showing only the summary
 codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
     jq -r 'select(.type == "agent_event" and .event.type == "done") | .event.text' | \
     sed 's/\\n/\n/g'
@@ -128,7 +128,7 @@ Ask specific questions about the issue:
 ```
 
 <Note>
-The script will automatically handle everything: fetching the issue, analyzing it with CodeVibe, and displaying the results. The analysis typically takes 30-60 seconds depending on the issue complexity.
+The script will automatically handle everything: fetching the issue, analyzing it with Codie, and displaying the results. The analysis typically takes 30-60 seconds depending on the issue complexity.
 </Note>
 
 ## How It Works
@@ -173,7 +173,7 @@ PROMPT="${2:-What is the root cause of this issue?}"
 This is where the magic happens:
 
 ```bash
-# Ask CodeVibe for its analysis, showing only the summary
+# Ask Codie for its analysis, showing only the summary
 codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
     jq -r 'select(.type == "agent_event" and .event.type == "done") | .event.text' | \
     sed 's/\\n/\n/g'
@@ -182,7 +182,7 @@ codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
 <Accordion title="Pipeline Breakdown: Understanding Each Component">
 
 **1. `codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL"`**
-   - `codevibe` is the CodeVibe CLI binary
+   - `codevibe` is the Codie CLI binary
    - Act mode is the default for prompt runs
    - `--auto-approve true` allows tool use without interactive prompts
    - `--json` emits newline-delimited JSON for parsing
@@ -323,10 +323,10 @@ Get second opinions on proposed changes:
 
 ## Conclusion
 
-This sample demonstrates how to build an autonomous GitHub issue analysis tool using CodeVibe CLI:
+This sample demonstrates how to build an autonomous GitHub issue analysis tool using Codie CLI:
 
-1. **Building autonomous CLI tools** using CodeVibe's capabilities
-2. **Parsing structured JSON output** from CodeVibe CLI
+1. **Building autonomous CLI tools** using Codie's capabilities
+2. **Parsing structured JSON output** from Codie CLI
 3. **Creating flexible automation scripts** with custom prompting
 4. **Integrating with GitHub** for issue analysis
 5. **Handling command-line arguments** effectively

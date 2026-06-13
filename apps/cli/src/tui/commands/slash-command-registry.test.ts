@@ -113,7 +113,7 @@ describe("slash command registry", () => {
 		expect(resolveSlashCommand(registry, "quit")).toMatchObject({
 			source: "tui",
 			execution: "local",
-			description: "Exit CodeVibe",
+			description: "Exit Codie",
 			visible: true,
 		});
 		expect(

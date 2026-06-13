@@ -7,7 +7,7 @@ description: "Subscribe to runtime and session events for UIs, logs, monitoring,
 The SDK exposes two related event surfaces:
 
 - `AgentRuntimeEvent` from `@cline/agents`, delivered through `agent.subscribe(listener)`.
-- `AgentEvent` / `CoreSessionEvent` from `@cline/core`, delivered through core session adapters and `cline.subscribe(listener)`.
+- `AgentEvent` / `CoreSessionEvent` from `@cline/core`, delivered through CodieCore session adapters and `codie.subscribe(listener)`.
 
 Use this page for event handling patterns. For event shapes, see [Events reference](/sdk/reference/events).
 
@@ -28,7 +28,7 @@ unsubscribe()
 
 ## Core / Host-Facing Agent Events
 
-`AgentEvent` is the host-facing event shape used by `@cline/core` session orchestration. For direct `Agent` usage, prefer `agent.subscribe(...)` and `AgentRuntimeEvent`.
+`AgentEvent` is the host-facing event shape used by CodieCore session orchestration. For direct `Agent` usage, prefer `agent.subscribe(...)` and `AgentRuntimeEvent`.
 
 Common host-facing event categories:
 
@@ -40,23 +40,23 @@ Common host-facing event categories:
 | Notices | `notice` | Recovery and status updates |
 | Completion | `done`, `error` | Final state and failure handling |
 
-## ClineCore Session Events
+## CodieCore Session Events
 
-Use `cline.subscribe()` for session-level events:
+Use `codie.subscribe()` for session-level events:
 
 ```typescript
-const unsubscribe = cline.subscribe((event) => {
+const unsubscribe = codie.subscribe((event) => {
   console.log(event.type, event.sessionId)
 })
 
-await cline.start({ /* ... */ })
+await codie.start({ /* ... */ })
 unsubscribe()
 ```
 
 Pass a `sessionId` filter when you only want one session:
 
 ```typescript
-const unsubscribe = cline.subscribe(listener, { sessionId })
+const unsubscribe = codie.subscribe(listener, { sessionId })
 ```
 
 ## Streaming UI Pattern

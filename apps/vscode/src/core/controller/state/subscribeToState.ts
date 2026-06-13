@@ -35,8 +35,9 @@ export async function subscribeToState(
 		getRequestRegistry().registerRequest(requestId, cleanup, { type: "state_subscription" }, responseStream)
 	}
 
-	// Send the initial state
-	const initialState = await controller.getStateToPostToWebview()
+	// Send the initial state. Keep hydration fast so auth/onboarding recovery is
+	// never blocked by a backend model refresh immediately after ChatGPT sign-in.
+	const initialState = await controller.getStateToPostToWebview({ skipOpenAiCodexBackendModelsRefresh: true })
 	const initialStateJson = JSON.stringify(initialState)
 
 	recordStateSizeTelemetry(Buffer.byteLength(initialStateJson, "utf8"))

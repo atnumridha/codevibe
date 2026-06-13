@@ -46,10 +46,10 @@ const agent = new Agent({
 })
 ```
 
-Or with ClineCore:
+Or with CodieCore:
 
 ```typescript
-const session = await cline.start({
+const session = await codie.start({
   config: {
     enableTools: true,
   },
@@ -77,13 +77,13 @@ Auto-approving all tools means the agent can execute any shell command, modify a
 For applications that need human oversight, implement a custom approval handler:
 
 ```typescript
-import { ClineCore } from "@cline/sdk"
+import { CodieCore } from "@cline/sdk"
 import * as readline from "readline"
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
 const ask = (q: string) => new Promise<string>((res) => rl.question(q, res))
 
-const cline = await ClineCore.create({
+const codie = await CodieCore.create({
   clientName: "interactive-app",
   capabilities: {
     requestToolApproval: async (request) => {
@@ -120,7 +120,7 @@ for (const tool of WRITE_TOOLS) {
 Approve based on what the tool is actually doing, not just which tool it is:
 
 ```typescript
-const cline = await ClineCore.create({
+const codie = await CodieCore.create({
   clientName: "smart-approval",
   capabilities: {
     requestToolApproval: async (request) => {

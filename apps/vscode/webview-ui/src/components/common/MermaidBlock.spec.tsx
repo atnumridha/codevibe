@@ -36,7 +36,7 @@ describe("MermaidBlock", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("renders a CodeVibe plan diagram with a deterministic Mermaid id", async () => {
+	it("renders a Codie plan diagram with a deterministic Mermaid id", async () => {
 		render(
 			<MermaidBlock
 				code={`flowchart TD
@@ -54,7 +54,7 @@ describe("MermaidBlock", () => {
 		expect(renderId).toMatch(/^codevibe-mermaid-\d+-[a-z0-9]+$/);
 		expect(renderedCode).toContain("A[Explore] --> B[Plan]");
 
-		const diagram = screen.getByLabelText("Rendered CodeVibe plan diagram");
+		const diagram = screen.getByLabelText("Rendered Codie plan diagram");
 		expect(diagram.querySelector("svg")).not.toBeNull();
 		expect(diagram).toHaveTextContent("Explore");
 	});

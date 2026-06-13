@@ -1,10 +1,10 @@
 ---
 title: "Authentication"
 sidebarTitle: "Authentication"
-description: "How to authenticate with the CodeVibe API using API keys or account tokens."
+description: "How to authenticate with the Codie API using API keys or account tokens."
 ---
 
-Every request to the CodeVibe API requires authentication via a Bearer token in the `Authorization` header.
+Every request to the Codie API requires authentication via a Bearer token in the `Authorization` header.
 
 ## Authentication Methods
 
@@ -12,8 +12,8 @@ There are two ways to authenticate:
 
 | Method | Use case | How to get it |
 |--------|----------|---------------|
-| **API key** | Direct API calls, scripts, CI/CD | Create at the [app.cline.bot compatibility account console](https://app.cline.bot) under Settings > API Keys |
-| **Account auth token** | CodeVibe extension and CLI | Generated automatically when you sign in |
+| **API key** | Direct API calls, scripts, CI/CD | Create at the [Codie account console](https://app.codie.dev) under Settings > API Keys |
+| **Account auth token** | Codie extension and CLI | Generated automatically when you sign in |
 
 Both methods use the same header format:
 
@@ -29,7 +29,7 @@ API keys are the recommended authentication method for programmatic access.
 
 <Steps>
   <Step title="Sign in">
-    Go to the [app.cline.bot compatibility account console](https://app.cline.bot) and sign in.
+    Go to the [Codie account console](https://app.codie.dev) and sign in.
   </Step>
   <Step title="Open API Keys">
     Navigate to **Settings** > **API Keys**.
@@ -47,30 +47,29 @@ You can also manage keys programmatically through the [Enterprise API](/enterpri
 
 ```bash
 # List your keys
-curl https://api.cline.bot/api/v1/api-keys \
+curl https://api.codie.dev/api/v1/api-keys \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # Delete a key
-curl -X DELETE https://api.cline.bot/api/v1/api-keys/KEY_ID \
+curl -X DELETE https://api.codie.dev/api/v1/api-keys/KEY_ID \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
 ## Account Auth Tokens
 
-When you sign in to the CodeVibe extension (VS Code, JetBrains) or CLI, an account auth token is generated and managed automatically. You do not need to handle these tokens manually.
+When you sign in to the Codie extension (VS Code, JetBrains) or CLI, an account auth token is generated and managed automatically. You do not need to handle these tokens manually.
 
-The CodeVibe CLI uses these tokens when you authenticate via:
+The Codie CLI uses these tokens when you authenticate via:
 
 ```bash
 # Interactive sign-in
 codevibe auth
 
-# Or quick setup with an API key.
-# The provider id remains "cline" for account compatibility.
-codevibe auth -p cline -k "YOUR_API_KEY" -m anthropic/claude-sonnet-4-6
+# Or use Codie browser sign-in
+codevibe auth openai-codex
 ```
 
-See the [CLI Reference](/cli/cli-reference#cline-auth) for all auth options.
+See the [CLI Reference](/cli/cli-reference#auth) for all auth options.
 
 ## Security Best Practices
 
@@ -90,11 +89,11 @@ See the [CLI Reference](/cli/cli-reference#cline-auth) for all auth options.
 
 ```bash
 # Set the key
-export CLINE_API_KEY="your_api_key_here"
+export CODIE_API_KEY="your_api_key_here"
 
 # Use it in requests
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
-  -H "Authorization: Bearer $CLINE_API_KEY" \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
+  -H "Authorization: Bearer $CODIE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"model": "anthropic/claude-sonnet-4-6", "messages": [{"role": "user", "content": "Hello"}]}'
 ```
@@ -103,7 +102,7 @@ curl -X POST https://api.cline.bot/api/v1/chat/completions \
 
 ```bash
 # .env (add to .gitignore)
-CLINE_API_KEY=your_api_key_here
+CODIE_API_KEY=your_api_key_here
 ```
 
 ```python
@@ -111,20 +110,20 @@ import os
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.cline.bot/api/v1",
-    api_key=os.environ["CLINE_API_KEY"],
+    base_url="https://api.codie.dev/api/v1",
+    api_key=os.environ["CODIE_API_KEY"],
 )
 ```
 
 ## Custom Headers
 
-The CodeVibe API accepts optional headers for tracking and identification:
+The Codie API accepts optional headers for tracking and identification:
 
 | Header | Description |
 |--------|-------------|
 | `HTTP-Referer` | Your application's URL. Helps with usage tracking. |
 | `X-Title` | Your application's name. Appears in usage logs. |
-| `X-Task-ID` | A unique task identifier. Used internally by the CodeVibe extension. |
+| `X-Task-ID` | A unique task identifier. Used internally by the Codie extension. |
 
 ## Related
 

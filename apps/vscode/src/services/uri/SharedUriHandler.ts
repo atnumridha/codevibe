@@ -574,7 +574,7 @@ function buildCursorGitHelperDetail(route: CursorCompatibleUriRoute): string {
 
 	return [
 		`Requested git helper: ${getCursorGitHelperTitle(route)}`,
-		"CodeVibe will preview the workspace, command, and safety checks before running anything. Confirming this modal may run the shown git command; push remains blocked and requires separate manual action.",
+		"Codie will preview the workspace, command, and safety checks before running anything. Confirming this modal may run the shown git command; push remains blocked and requires separate manual action.",
 		...(detailLines.length > 0 ? ["", "Route details:", ...detailLines] : []),
 		...(configKeys.length > 0 ? ["", `Config keys: ${configKeys.join(", ")}`] : []),
 	].join("\n")
@@ -738,7 +738,7 @@ export class SharedUriHandler {
 						const launchRequest = buildCursorCompatibleBackgroundAgentLaunchRequest(cursorRoute.route)
 						const choice = await HostProvider.window.showMessage({
 							type: ShowMessageType.WARNING,
-							message: "Launch CodeVibe background agent?",
+							message: "Launch Codie background agent?",
 							options: {
 								modal: true,
 								items: ["Launch and Create Worktree"],
@@ -1096,7 +1096,7 @@ export class SharedUriHandler {
 		const plan = previewCursorGitHelper(route, await getCursorCommandWorkspaceRoots())
 		const choice = await HostProvider.window.showMessage({
 			type: plan.actionable ? ShowMessageType.WARNING : ShowMessageType.INFORMATION,
-			message: plan.actionable ? `Run CodeVibe ${getCursorGitHelperTitle(route)} helper?` : "Git helper needs review",
+			message: plan.actionable ? `Run Codie ${getCursorGitHelperTitle(route)} helper?` : "Git helper needs review",
 			options: {
 				modal: true,
 				items: plan.actionable ? [plan.confirmLabel] : ["OK"],
@@ -1121,7 +1121,7 @@ export class SharedUriHandler {
 	private static async confirmCursorTaskCreation(route: CursorCompatibleUriRoute, action: string): Promise<boolean> {
 		const choice = await HostProvider.window.showMessage({
 			type: ShowMessageType.WARNING,
-			message: `Create CodeVibe ${getCursorTaskRouteLabel(route)} task?`,
+			message: `Create Codie ${getCursorTaskRouteLabel(route)} task?`,
 			options: {
 				modal: true,
 				items: ["Create Task"],
@@ -1139,7 +1139,7 @@ export class SharedUriHandler {
 		if (request.source && request.sourceParam) {
 			const choice = await HostProvider.window.showMessage({
 				type: ShowMessageType.WARNING,
-				message: `Install CodeVibe plugin "${request.displaySource ?? request.source}"?`,
+				message: `Install Codie plugin "${request.displaySource ?? request.source}"?`,
 				options: {
 					modal: true,
 					items: ["Install Plugin"],
@@ -1176,7 +1176,7 @@ export class SharedUriHandler {
 	): Promise<void> {
 		const choice = await HostProvider.window.showMessage({
 			type: ShowMessageType.WARNING,
-			message: "Start CodeVibe PR review?",
+			message: "Start Codie PR review?",
 			options: {
 				modal: true,
 				items: ["Start Review"],

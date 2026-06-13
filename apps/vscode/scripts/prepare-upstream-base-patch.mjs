@@ -9,9 +9,54 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const vscodeRoot = path.resolve(scriptDir, "..")
 const repoRoot = path.resolve(vscodeRoot, "../..")
 
+const upstreamProfiles = {
+	cline: {
+		label: "Cline open-source upstream",
+		sourceKind: "git-remote",
+		remoteName: "codevibe-upstream-cline",
+		upstreamUrl: "https://github.com/cline/cline.git",
+		upstreamRef: "main",
+		outDirName: "cline",
+	},
+	ajcursorclone: {
+		label: "AJCursorClone local Cursor-style source",
+		sourceKind: "local-git",
+		remoteName: "codevibe-upstream-ajcursorclone",
+		localPathEnv: "CODEVIBE_AJCURSORCLONE_PATH",
+		defaultLocalPath: path.join(process.env.HOME ?? "", "Downloads", "AJCursorClone"),
+		upstreamRef: "main",
+		outDirName: "ajcursorclone",
+	},
+	"cursor-local": {
+		label: "Local Cursor-style source",
+		sourceKind: "local-git",
+		remoteName: "codevibe-upstream-cursor-local",
+		localPathEnv: "CODEVIBE_CURSOR_UPSTREAM_PATH",
+		upstreamRef: "main",
+		outDirName: "cursor-local",
+	},
+	vibecode: {
+		label: "VibeCode upstream",
+		sourceKind: "git-remote",
+		remoteName: "codevibe-upstream-vibecode",
+		upstreamUrl: "https://github.com/atnumridha/vibecode.git",
+		upstreamRef: "main",
+		outDirName: "vibecode",
+	},
+	"copilot-local": {
+		label: "Local Copilot-compatible source",
+		sourceKind: "local-git",
+		remoteName: "codevibe-upstream-copilot-local",
+		localPathEnv: "CODEVIBE_COPILOT_UPSTREAM_PATH",
+		upstreamRef: "main",
+		outDirName: "copilot-local",
+	},
+}
+
 const defaultOptions = {
-	remoteName: "codevibe-base-upstream",
-	upstreamUrl: "https://github.com/cline/cline.git",
+	upstreamProfile: "cline",
+	remoteName: upstreamProfiles.cline.remoteName,
+	upstreamUrl: upstreamProfiles.cline.upstreamUrl,
 	upstreamRef: "main",
 	baseRef: "HEAD",
 	outDir: path.join(repoRoot, ".codevibe", "upstream-base"),
@@ -20,6 +65,7 @@ const defaultOptions = {
 	writeReport: false,
 	json: false,
 	allowDirty: false,
+	updateRemoteUrl: false,
 }
 
 const patchLayers = [
@@ -33,7 +79,10 @@ const patchLayers = [
 			"package-lock.json",
 			".vscodeignore",
 		],
-		checks: ["npm --prefix apps/vscode run package:github-vsix:preflight"],
+		checks: [
+			"npm --prefix apps/vscode run compatibility:contracts",
+			"npm --prefix apps/vscode run package:github-vsix:preflight",
+		],
 	},
 	{
 		name: "agent-core-tools-and-prompts",
@@ -51,8 +100,16 @@ const patchLayers = [
 		name: "providers-auth-and-codex-defaults",
 		paths: [
 			"apps/vscode/src/core/api",
+			"apps/vscode/src/core/controller/account/openAiCodexSignIn.ts",
+			"apps/vscode/src/core/controller/account/openAiCodexSignOut.ts",
+			"apps/vscode/src/integrations/openai-codex",
 			"apps/vscode/src/services/auth",
 			"apps/vscode/src/shared/api.ts",
+			"apps/vscode/src/shared/providers/providers.json",
+			"apps/vscode/webview-ui/src/context/CodeVibeAuthContext.tsx",
+			"apps/vscode/webview-ui/src/components/onboarding",
+			"sdk/packages/core/src/auth",
+			"sdk/packages/llms/src/providers/openai-codex-models.ts",
 			"src/core/api",
 			"src/services/auth",
 			"src/shared/api.ts",
@@ -69,7 +126,11 @@ const patchLayers = [
 			"assets",
 			"walkthrough",
 		],
-		checks: ["npm --prefix apps/vscode run build:webview", "npm --prefix apps/vscode run package:github-vsix:preflight"],
+		checks: [
+			"npm --prefix apps/vscode run compatibility:contracts",
+			"npm --prefix apps/vscode run build:webview",
+			"npm --prefix apps/vscode run package:github-vsix:preflight",
+		],
 	},
 	{
 		name: "proto-and-host-bridge",
@@ -86,28 +147,50 @@ const patchLayers = [
 			"src/test",
 			"playwright.config.ts",
 		],
-		checks: ["npm --prefix apps/vscode run lint", "npm --prefix apps/vscode run package:github-vsix:preflight"],
+		checks: [
+			"npm --prefix apps/vscode run compatibility:contracts",
+			"npm --prefix apps/vscode run lint",
+			"npm --prefix apps/vscode run package:github-vsix:preflight",
+		],
 	},
 ]
 
 const codeVibeOverlayFiles = [
 	"apps/vscode/package.json",
+	"apps/vscode/scripts/check-codevibe-branding.mjs",
+	"apps/vscode/scripts/check-compatibility-contracts.mjs",
 	"apps/vscode/scripts/package-github-vsix.mjs",
 	"apps/vscode/scripts/release-github-vsix.mjs",
-	"apps/vscode/src/package/brandGuards.ts",
 	"apps/vscode/src/core/api/providers/openai-codex.ts",
+	"apps/vscode/src/core/controller/account/openAiCodexSignIn.ts",
+	"apps/vscode/src/core/controller/account/openAiCodexSignOut.ts",
+	"apps/vscode/src/core/config/cursor-sandbox.ts",
+	"apps/vscode/src/core/task/tools/handlers/ExecuteCommandToolHandler.ts",
+	"apps/vscode/src/integrations/openai-codex",
 	"apps/vscode/src/services/auth",
+	"apps/vscode/src/shared/api.ts",
+	"apps/vscode/src/shared/providers/providers.json",
+	"apps/vscode/src/shared/terminalPolicy.ts",
 	"apps/vscode/src/hosts",
 	"apps/vscode/src/extension.ts",
-	"apps/vscode/webview-ui/src/components/home",
-	"apps/vscode/webview-ui/src/components/common/CodeVibeMark.tsx",
+	"apps/vscode/webview-ui/src/components/onboarding",
+	"apps/vscode/webview-ui/src/components/welcome",
+	"apps/vscode/webview-ui/src/assets/CodeVibeMark.tsx",
+	"apps/vscode/webview-ui/src/context/CodeVibeAuthContext.tsx",
 	"apps/vscode/webview-ui/src/context/ExtensionStateContext.tsx",
 	"apps/vscode/assets",
 	"apps/vscode/agents/00-codevibe-agent.agent.md",
 	"apps/vscode/walkthrough",
+	"apps/cline-hub",
+	"apps/cli",
+	"docs/compatibility-contracts.md",
+	"sdk/packages/core/src/index.ts",
+	"sdk/packages/core/src/types.ts",
+	"sdk/packages/llms/src/providers/openai-codex-models.ts",
 ]
 
 const brandGuardCommands = [
+	"npm --prefix apps/vscode run compatibility:contracts",
 	"npm --prefix apps/vscode run package:github-vsix:preflight",
 	"npm --prefix apps/vscode run build:webview",
 	"npm --prefix apps/vscode run lint",
@@ -115,6 +198,7 @@ const brandGuardCommands = [
 ]
 
 const finalValidationCommands = [
+	"npm --prefix apps/vscode run compatibility:contracts",
 	"npm --prefix apps/vscode run check-types",
 	"npm --prefix apps/vscode run test:unit -- --grep \"Codex|Cursor|Package manifest|Telemetry\"",
 	"node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install",
@@ -130,9 +214,18 @@ const overlayRiskRules = [
 		severity: "critical",
 		paths: [
 			"apps/vscode/src/core/api",
+			"apps/vscode/src/core/controller/account/openAiCodexSignIn.ts",
+			"apps/vscode/src/core/controller/account/openAiCodexSignOut.ts",
+			"apps/vscode/src/integrations/openai-codex",
+			"apps/vscode/package.json",
 			"apps/vscode/src/services/auth",
 			"apps/vscode/src/core/storage/state-migrations.ts",
 			"apps/vscode/src/shared/api.ts",
+			"apps/vscode/src/shared/providers/providers.json",
+			"apps/vscode/webview-ui/src/context/CodeVibeAuthContext.tsx",
+			"apps/vscode/webview-ui/src/components/onboarding",
+			"sdk/packages/core/src/auth",
+			"sdk/packages/llms/src/providers/openai-codex-models.ts",
 		],
 		reason: "Preserve OpenAI Codex as the default provider and keep .codex/auth.json import behavior intact.",
 	},
@@ -145,7 +238,7 @@ const overlayRiskRules = [
 			"apps/vscode/src/extension.ts",
 			"apps/vscode/agents/00-codevibe-agent.agent.md",
 		],
-		reason: "Keep CodeVibe's agent contribution before Copilot-style agents and avoid reintroducing orphaned view containers.",
+		reason: "Keep Codie's agent contribution before Copilot-style agents and avoid reintroducing orphaned view containers.",
 	},
 	{
 		name: "visible-branding-and-ui",
@@ -157,7 +250,7 @@ const overlayRiskRules = [
 			"apps/vscode/walkthrough",
 			"apps/vscode/webview-ui/src",
 		],
-		reason: "Do not regress CodeVibe look, icons, marketplace copy, or visible UI text back to upstream branding.",
+		reason: "Do not regress Codie look, icons, marketplace copy, or visible UI text back to upstream branding.",
 	},
 	{
 		name: "release-and-package-guards",
@@ -174,7 +267,7 @@ const overlayRiskRules = [
 		name: "standalone-ui-bridge",
 		severity: "high",
 		paths: ["apps/cline-hub", "apps/vscode/src/standalone", "apps/vscode/src/hosts/standalone"],
-		reason: "Preserve the non-VS-Code runtime path for the upcoming CodeVibe standalone UI.",
+		reason: "Preserve the non-VS-Code runtime path for the upcoming Codie standalone UI.",
 	},
 	{
 		name: "cursor-compatibility-surfaces",
@@ -191,18 +284,24 @@ const overlayRiskRules = [
 ]
 
 function printHelp() {
-	console.log(`CodeVibe upstream base patch intake
+	console.log(`Codie upstream base patch intake
 
 Usage:
   node apps/vscode/scripts/prepare-upstream-base-patch.mjs [options]
 
 Options:
-  --remote-name <name>      Upstream base git remote name. Default: codevibe-base-upstream
-  --upstream-url <url>      Upstream base git URL. Default: https://github.com/cline/cline.git
-  --upstream-ref <ref>      Upstream branch/tag/ref to inspect. Default: main
-  --base-ref <ref>          CodeVibe base ref to compare against. Default: HEAD
-  --out-dir <path>          Report/patch output directory. Default: .codevibe/upstream-base
+  --profile <name>          Alias for --upstream-profile
+  --upstream-profile <name> Upstream source profile. Default: cline
+                            Known: ${Object.keys(upstreamProfiles).join(", ")}
+  --list-profiles           Alias for --list-upstream-profiles
+  --list-upstream-profiles  Print the profile matrix as JSON
+  --remote-name <name>      Upstream git remote name. Defaults to the selected profile
+  --upstream-url <url>      Upstream git URL or local git path. Defaults to the selected profile
+  --upstream-ref <ref>      Upstream branch/tag/ref to inspect. Defaults to the selected profile
+  --base-ref <ref>          Codie base ref to compare against. Default: HEAD
+  --out-dir <path>          Report/patch output directory. Default: .codevibe/upstream-base/<profile>
   --fetch                   Add/fetch the upstream remote before planning
+  --update-remote-url       Update an existing profile remote when its URL/path differs
   --export-patch            Write a binary git patch when the upstream ref is locally available
   --write-report            Write the intake report JSON to --out-dir
   --json                    Print JSON instead of a readable report
@@ -211,6 +310,9 @@ Options:
 
 Typical flow:
   npm --prefix apps/vscode run upstream:base:plan -- --fetch --upstream-ref main --write-report
+  npm --prefix apps/vscode run upstream:base:plan -- --upstream-profile ajcursorclone --fetch --write-report --allow-dirty
+  CODEVIBE_CURSOR_UPSTREAM_PATH=/path/to/cursor-like/repo npm --prefix apps/vscode run upstream:base:plan -- --upstream-profile cursor-local --fetch --write-report
+  CODEVIBE_COPILOT_UPSTREAM_PATH=/path/to/copilot-like/repo npm --prefix apps/vscode run upstream:base:plan -- --upstream-profile copilot-local --fetch --write-report
   git switch -c codex/upstream-base-main
   npm --prefix apps/vscode run upstream:base:plan -- --export-patch --write-report
   Apply one patch layer at a time, then run the guard commands printed in the report.
@@ -219,6 +321,7 @@ Typical flow:
 
 function parseArgs(argv) {
 	const options = { ...defaultOptions }
+	const explicit = new Set()
 	for (let index = 0; index < argv.length; index++) {
 		const arg = argv[index]
 		switch (arg) {
@@ -227,23 +330,40 @@ function parseArgs(argv) {
 				printHelp()
 				process.exit(0)
 				break
+			case "--list-profiles":
+			case "--list-upstream-profiles":
+				console.log(JSON.stringify(describeUpstreamProfiles(), null, 2))
+				process.exit(0)
+				break
+			case "--profile":
+			case "--upstream-profile":
+				options.upstreamProfile = readValue(argv, ++index, arg)
+				explicit.add("upstreamProfile")
+				break
 			case "--remote-name":
 				options.remoteName = readValue(argv, ++index, arg)
+				explicit.add("remoteName")
 				break
 			case "--upstream-url":
 				options.upstreamUrl = readValue(argv, ++index, arg)
+				explicit.add("upstreamUrl")
 				break
 			case "--upstream-ref":
 				options.upstreamRef = readValue(argv, ++index, arg)
+				explicit.add("upstreamRef")
 				break
 			case "--base-ref":
 				options.baseRef = readValue(argv, ++index, arg)
 				break
 			case "--out-dir":
 				options.outDir = path.resolve(readValue(argv, ++index, arg))
+				explicit.add("outDir")
 				break
 			case "--fetch":
 				options.fetch = true
+				break
+			case "--update-remote-url":
+				options.updateRemoteUrl = true
 				break
 			case "--export-patch":
 				options.exportPatch = true
@@ -261,7 +381,62 @@ function parseArgs(argv) {
 				throw new Error(`Unknown argument: ${arg}`)
 		}
 	}
+	applyUpstreamProfileDefaults(options, explicit)
 	return options
+}
+
+function describeUpstreamProfiles() {
+	return Object.fromEntries(
+		Object.entries(upstreamProfiles).map(([name, profile]) => [
+			name,
+			{
+				label: profile.label,
+				sourceKind: profile.sourceKind,
+				remoteName: profile.remoteName,
+				upstreamUrl: profile.upstreamUrl ?? null,
+				localPathEnv: profile.localPathEnv ?? null,
+				defaultLocalPath: profile.defaultLocalPath ?? null,
+				upstreamRef: profile.upstreamRef,
+			},
+		]),
+	)
+}
+
+function applyUpstreamProfileDefaults(options, explicit) {
+	const profile = upstreamProfiles[options.upstreamProfile]
+	if (!profile) {
+		throw new Error(
+			`Unknown upstream profile "${options.upstreamProfile}". Known profiles: ${Object.keys(upstreamProfiles).join(", ")}`,
+		)
+	}
+	if (!explicit.has("remoteName")) {
+		options.remoteName = profile.remoteName
+	}
+	if (!explicit.has("upstreamRef")) {
+		options.upstreamRef = profile.upstreamRef
+	}
+	if (!explicit.has("upstreamUrl")) {
+		options.upstreamUrl = resolveProfileUpstreamUrl(profile)
+	}
+	if (!explicit.has("outDir")) {
+		options.outDir = path.join(repoRoot, ".codevibe", "upstream-base", profile.outDirName)
+	}
+	options.upstreamProfileLabel = profile.label
+	options.upstreamSourceKind = profile.sourceKind
+}
+
+function resolveProfileUpstreamUrl(profile) {
+	if (profile.upstreamUrl) {
+		return profile.upstreamUrl
+	}
+	const localPath = profile.localPathEnv ? process.env[profile.localPathEnv] : undefined
+	const candidate = localPath || profile.defaultLocalPath
+	if (!candidate) {
+		throw new Error(
+			`Upstream profile "${profile.label}" requires --upstream-url or ${profile.localPathEnv} pointing at a local git checkout.`,
+		)
+	}
+	return path.resolve(candidate)
 }
 
 function readValue(argv, index, flag) {
@@ -304,9 +479,29 @@ function ensureCleanWorktree(allowDirty) {
 }
 
 function ensureRemote(options) {
+	if (options.upstreamSourceKind === "local-git" && !fs.existsSync(options.upstreamUrl)) {
+		throw new Error(
+			`Upstream profile ${options.upstreamProfile} expects a local git checkout at ${options.upstreamUrl}. ` +
+				"Pass --upstream-url or set the profile environment variable shown by --list-upstream-profiles.",
+		)
+	}
 	const remoteUrl = git(["remote", "get-url", options.remoteName])
 	if (remoteUrl.ok) {
-		return { existed: true, url: remoteUrl.stdout.trim() }
+		const currentUrl = remoteUrl.stdout.trim()
+		if (currentUrl !== options.upstreamUrl) {
+			if (!options.updateRemoteUrl) {
+				throw new Error(
+					`Upstream remote ${options.remoteName} points at ${currentUrl}, but profile ${options.upstreamProfile} expects ${options.upstreamUrl}. ` +
+						"Pass --update-remote-url after confirming the source, or choose a different --remote-name.",
+				)
+			}
+			const setUrl = git(["remote", "set-url", options.remoteName, options.upstreamUrl])
+			if (!setUrl.ok) {
+				throw new Error(`Failed to update upstream remote ${options.remoteName}: ${(setUrl.stderr || setUrl.stdout).trim()}`)
+			}
+			return { existed: true, url: options.upstreamUrl, updated: true, previousUrl: currentUrl }
+		}
+		return { existed: true, url: currentUrl, updated: false }
 	}
 	const add = git(["remote", "add", options.remoteName, options.upstreamUrl])
 	if (!add.ok) {
@@ -324,14 +519,22 @@ function fetchUpstream(options) {
 	return remote
 }
 
+function shouldTryRawUpstreamRef(ref) {
+	return /^[0-9a-f]{7,40}$/i.test(ref) || ref.startsWith("refs/")
+}
+
 function resolveRef(options) {
 	const candidates = [
 		`${options.remoteName}/${options.upstreamRef}`,
 		`refs/remotes/${options.remoteName}/${options.upstreamRef}`,
 		`refs/tags/${options.upstreamRef}`,
-		`FETCH_HEAD`,
-		options.upstreamRef,
 	]
+	if (options.fetch) {
+		candidates.push("FETCH_HEAD")
+	}
+	if (shouldTryRawUpstreamRef(options.upstreamRef)) {
+		candidates.push(options.upstreamRef)
+	}
 	for (const candidate of candidates) {
 		const resolved = git(["rev-parse", "--verify", `${candidate}^{commit}`])
 		if (resolved.ok) {
@@ -342,48 +545,107 @@ function resolveRef(options) {
 }
 
 function listChangedFiles(fromRef, toRef) {
-	const diff = git(["diff", "--name-status", `${fromRef}..${toRef}`])
+	const diff = git(["diff", "--name-status", "-z", "--find-renames", "--find-copies", `${fromRef}..${toRef}`])
 	if (!diff.ok) {
 		return []
 	}
-	return diff.stdout
-		.split("\n")
-		.filter(Boolean)
-		.map((line) => {
-			const [status, ...fileParts] = line.split("\t")
-			return { status, path: fileParts.join("\t") }
+	const tokens = diff.stdout.split("\0").filter(Boolean)
+	const changedFiles = []
+	for (let index = 0; index < tokens.length; ) {
+		const status = tokens[index++]
+		if (!status) {
+			continue
+		}
+
+		if (/^[RC]\d*/.test(status)) {
+			const oldPath = tokens[index++]
+			const newPath = tokens[index++]
+			if (!oldPath || !newPath) {
+				break
+			}
+			changedFiles.push({
+				status,
+				path: newPath,
+				oldPath,
+				newPath,
+				paths: [oldPath, newPath],
+			})
+			continue
+		}
+
+		const filePath = tokens[index++]
+		if (!filePath) {
+			break
+		}
+		changedFiles.push({
+			status,
+			path: filePath,
+			paths: [filePath],
 		})
+	}
+	return changedFiles
+}
+
+function listTreeFiles(commit) {
+	const result = git(["ls-tree", "-r", "-z", "--name-only", commit])
+	if (!result.ok) {
+		return []
+	}
+	return result.stdout
+		.split("\0")
+		.filter(Boolean)
+		.sort()
+		.map((filePath) => ({
+			status: "T",
+			path: filePath,
+			paths: [filePath],
+		}))
 }
 
 function countLayerHits(changedFiles) {
-	return patchLayers.map((layer) => ({
-		name: layer.name,
-		paths: layer.paths,
-		checks: layer.checks,
-		changedFiles: changedFiles
-			.filter((file) => layer.paths.some((layerPath) => file.path.startsWith(layerPath)))
-			.slice(0, 40),
-	}))
+	return patchLayers.map((layer) => {
+		const matchedFiles = changedFiles.filter((file) =>
+			layer.paths.some((layerPath) => fileMatchesCandidatePath(file, layerPath)),
+		)
+		return {
+			name: layer.name,
+			paths: layer.paths,
+			checks: layer.checks,
+			changedFileCount: matchedFiles.length,
+			changedFiles: matchedFiles.slice(0, 40),
+		}
+	})
 }
 
 function pathMatches(filePath, candidatePath) {
 	return filePath === candidatePath || filePath.startsWith(`${candidatePath}/`)
 }
 
+function fileMatchesCandidatePath(file, candidatePath) {
+	return getChangedFilePaths(file).some((filePath) => pathMatches(filePath, candidatePath))
+}
+
+function getChangedFilePaths(file) {
+	if (Array.isArray(file.paths) && file.paths.length > 0) {
+		return file.paths
+	}
+	return [file.path].filter(Boolean)
+}
+
 function findOverlayRisks(changedFiles) {
 	return overlayRiskRules
 		.map((rule) => {
-			const changedFilesForRule = changedFiles
-				.filter((file) => rule.paths.some((rulePath) => pathMatches(file.path, rulePath)))
-				.slice(0, 80)
+			const matchedFiles = changedFiles.filter((file) =>
+				rule.paths.some((rulePath) => fileMatchesCandidatePath(file, rulePath)),
+			)
 			return {
 				name: rule.name,
 				severity: rule.severity,
 				reason: rule.reason,
 				paths: rule.paths,
-				changedFiles: changedFilesForRule,
-				changedFileCount: changedFilesForRule.length,
-				reviewRequired: changedFilesForRule.length > 0,
+				changedFiles: matchedFiles.slice(0, 80),
+				changedFileCount: matchedFiles.length,
+				reviewRequired: matchedFiles.length > 0,
 			}
 		})
 		.sort((a, b) => {
@@ -413,7 +675,8 @@ function exportPatch(options, upstream) {
 	}
 	fs.mkdirSync(options.outDir, { recursive: true })
 	const safeRef = options.upstreamRef.replace(/[^a-zA-Z0-9._-]+/g, "-")
-	const patchPath = path.join(options.outDir, `cline-${safeRef}.patch`)
+	const safeProfile = options.upstreamProfile.replace(/[^a-zA-Z0-9._-]+/g, "-")
+	const patchPath = path.join(options.outDir, `${safeProfile}-${safeRef}.patch`)
 	const baseCommit = mustGit(["rev-parse", "--verify", `${options.baseRef}^{commit}`])
 	const mergeBase = git(["merge-base", baseCommit, upstream.commit])
 	const patchBase = mergeBase.ok ? mergeBase.stdout.trim() : options.baseRef
@@ -431,10 +694,15 @@ function buildReport(options, dirtyFiles, upstream, exportedPatch) {
 	const remoteUrl = git(["remote", "get-url", options.remoteName])
 	const baseCommit = mustGit(["rev-parse", "--verify", `${options.baseRef}^{commit}`])
 	const mergeBase = upstream.commit ? git(["merge-base", baseCommit, upstream.commit]) : { ok: false, stdout: "" }
-	const changedFiles = upstream.commit && mergeBase.ok ? listChangedFiles(mergeBase.stdout.trim(), upstream.commit) : []
+	const changedFiles = upstream.commit
+		? mergeBase.ok
+			? listChangedFiles(mergeBase.stdout.trim(), upstream.commit)
+			: listTreeFiles(upstream.commit)
+		: []
 	const overlayRiskPlan = findOverlayRisks(changedFiles)
 
 	return {
+		schemaVersion: 2,
 		generatedAt: new Date().toISOString(),
 		repoRoot,
 		branch,
@@ -444,12 +712,16 @@ function buildReport(options, dirtyFiles, upstream, exportedPatch) {
 		workingTreeDirty: dirtyFiles.length > 0,
 		dirtyFiles,
 		upstream: {
+			profile: options.upstreamProfile,
+			profileLabel: options.upstreamProfileLabel,
+			sourceKind: options.upstreamSourceKind,
 			remoteName: options.remoteName,
 			remoteUrl: remoteUrl.ok ? remoteUrl.stdout.trim() : options.upstreamUrl,
 			requestedRef: options.upstreamRef,
 			resolvedRef: upstream.ref,
 			commit: upstream.commit,
 			mergeBase: mergeBase.ok ? mergeBase.stdout.trim() : null,
+			noMergeBaseTreeInventory: Boolean(upstream.commit && !mergeBase.ok),
 		},
 		exportedPatchPath: exportedPatch?.path ?? null,
 		exportedPatchBase: exportedPatch?.base ?? null,
@@ -459,14 +731,15 @@ function buildReport(options, dirtyFiles, upstream, exportedPatch) {
 		changedFileCount: changedFiles.length,
 		changedFiles: changedFiles.slice(0, 200),
 		codeVibeOverlayFiles,
+		upstreamProfiles: describeUpstreamProfiles(),
 		brandGuardCommands,
 		finalValidationCommands,
 		githubReleaseValidationCommands,
 		recommendedCommands: [
-			`npm --prefix apps/vscode run upstream:base:plan -- --fetch --upstream-ref ${options.upstreamRef} --write-report`,
-			`git switch -c codex/upstream-base-${options.upstreamRef.replace(/[^a-zA-Z0-9._-]+/g, "-")}`,
+			`npm --prefix apps/vscode run upstream:base:plan -- --upstream-profile ${options.upstreamProfile} --fetch --upstream-ref ${options.upstreamRef} --write-report`,
+			`git switch -c codex/upstream-${options.upstreamProfile}-${options.upstreamRef.replace(/[^a-zA-Z0-9._-]+/g, "-")}`,
 			"Apply one layer at a time from the generated report or patch file.",
-			"Re-apply or preserve the CodeVibe overlay files listed in the report before packaging.",
+			"Re-apply or preserve the Codie overlay files listed in the report before packaging.",
 			...brandGuardCommands,
 			...finalValidationCommands,
 			...githubReleaseValidationCommands,
@@ -482,9 +755,10 @@ function writeReport(options, report) {
 }
 
 function printReadableReport(report, reportPath) {
-	console.log("CodeVibe upstream base patch intake")
+	console.log("Codie upstream base patch intake")
 	console.log(`Branch: ${report.branch}`)
 	console.log(`HEAD: ${report.head}`)
+	console.log(`Profile: ${report.upstream.profile} (${report.upstream.profileLabel})`)
 	console.log(`Upstream: ${report.upstream.remoteName} ${report.upstream.requestedRef}`)
 	console.log(`Resolved upstream commit: ${report.upstream.commit ?? "(not fetched/found)"}`)
 	console.log(`Changed files from upstream merge-base: ${report.changedFileCount}`)
@@ -512,12 +786,12 @@ function printReadableReport(report, reportPath) {
 	}
 	console.log("\nPatch layers:")
 	for (const layer of report.layerPlan) {
-		console.log(`- ${layer.name}: ${layer.changedFiles.length} sampled changed file(s)`)
+		console.log(`- ${layer.name}: ${layer.changedFileCount} changed file(s) (${layer.changedFiles.length} sampled)`)
 		for (const file of layer.changedFiles.slice(0, 8)) {
 			console.log(`  ${file.status} ${file.path}`)
 		}
 	}
-	console.log("\nCodeVibe overlay files to preserve/review:")
+	console.log("\nCodie overlay files to preserve/review:")
 	for (const file of report.codeVibeOverlayFiles) {
 		console.log(`- ${file}`)
 	}
@@ -525,7 +799,7 @@ function printReadableReport(report, reportPath) {
 	for (const command of report.brandGuardCommands) {
 		console.log(`- ${command}`)
 	}
-	console.log("\nFinal validation before a VSIX or GitHub release:")
+	console.log("\nMinimum post-intake validation before the broader release checklist:")
 	for (const command of report.finalValidationCommands) {
 		console.log(`- ${command}`)
 	}

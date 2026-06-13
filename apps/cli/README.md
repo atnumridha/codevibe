@@ -1,6 +1,6 @@
-# CodeVibe CLI
+# Codie CLI
 
-CodeVibe is an autonomous coding agent for terminals, scripts, CI, chat connectors, and future standalone UI surfaces. It uses the same agent core as the CodeVibe VS Code extension, with Plan/Act modes, MCP, checkpoints, rules, skills, hooks, subagents, background hub sessions, and Codex auth.
+Codie is an autonomous coding agent for terminals, scripts, CI, chat connectors, and future standalone UI surfaces. It uses the same agent core as the Codie VS Code extension, with Plan/Act modes, MCP, checkpoints, rules, skills, hooks, subagents, background hub sessions, and Codex auth.
 
 ## Install
 
@@ -8,7 +8,7 @@ CodeVibe is an autonomous coding agent for terminals, scripts, CI, chat connecto
 npm install -g codevibe
 ```
 
-The published `codevibe` wrapper resolves the correct compiled binary for macOS, Linux, or Windows on `arm64` and `x64`. The legacy `cline` command remains available as a compatibility alias so existing scripts keep working while CodeVibe tracks upstream Cline changes.
+The published `codevibe` wrapper resolves the correct compiled binary for macOS, Linux, or Windows on `arm64` and `x64`. The legacy `cline` command remains available as a compatibility alias so existing scripts keep working while Codie tracks upstream compatibility updates.
 
 ## Quick Start
 
@@ -20,19 +20,19 @@ codevibe --help
 codevibe dashboard
 ```
 
-`codevibe dashboard` starts the CodeVibe Hub browser dashboard for local standalone sessions, background agents, approvals, schedules, connectors, and live session monitoring.
+`codevibe dashboard` starts the Codie Hub browser dashboard for local standalone sessions, background agents, approvals, schedules, connectors, and live session monitoring.
 
 ## Auth
 
-CodeVibe defaults to the OpenAI Codex provider and reuses Codex Home credentials from `~/.codex/auth.json` or `CODEX_HOME` when provider settings have not been saved.
+Codie defaults to the Codie provider and can import local auth credentials from `~/.codex/auth.json` or `CODEX_HOME` when provider settings have not been saved.
 
 ```sh
 codevibe auth
 codevibe auth openai-codex
-codevibe auth --provider anthropic --apikey sk-... --modelid claude-sonnet-4-6
+codevibe auth --provider <provider-id> --apikey sk-... --modelid <model-id>
 ```
 
-OAuth-supported providers include `openai-codex`, `oca`, and the legacy `cline` account provider. Non-interactive runs fail fast with a clear auth message when credentials are missing.
+OAuth-supported provider IDs are `openai-codex` (Codie), `cline` (Codie Cloud compatibility ID), and `oca`. Auth aliases `codie` and `codie-cloud` resolve to the compatibility IDs. Non-interactive runs fail fast with a clear auth message when credentials are missing.
 
 ## Modes
 
@@ -54,7 +54,7 @@ codevibe --json "List all TODO comments" | jq -r 'select(.type == "agent_event" 
 
 ## Connectors
 
-Bridge chat surfaces into RPC-backed CodeVibe sessions. Supported platforms include Telegram, Slack, Google Chat, WhatsApp, Discord, and Linear.
+Bridge chat surfaces into RPC-backed Codie sessions. Supported platforms include Telegram, Slack, Google Chat, WhatsApp, Discord, and Linear.
 
 ```sh
 codevibe connect telegram -k 123456:ABCDEF...
@@ -131,9 +131,9 @@ Use `CODEVIBE_*` names for new scripts. The CLI mirrors these into legacy `CLINE
 - `CODEVIBE_HUB_ADDRESS`, `CODEVIBE_HUB_DASHBOARD_PORT`, `CODEVIBE_HUB_WEBVIEW_DIST_DIR`
 - `CODEVIBE_VCR`, `CODEVIBE_VCR_CASSETTE`
 
-## Cursor-Compatible Inputs
+## Compatible Inputs
 
-CodeVibe reads Cursor-style project inputs where supported:
+Codie imports compatible project inputs where supported:
 
 - `.cursorrules`
 - `.cursor/rules`
@@ -144,8 +144,8 @@ CodeVibe reads Cursor-style project inputs where supported:
 
 ## Development And Distribution
 
-See [DEVELOPMENT.md](./DEVELOPMENT.md) and [DISTRIBUTION.md](./DISTRIBUTION.md). The source package still uses selected `@cline/*` workspace names internally to keep upstream patching straightforward; public commands, package metadata, and release artifacts are CodeVibe-first.
+See [DEVELOPMENT.md](./DEVELOPMENT.md) and [DISTRIBUTION.md](./DISTRIBUTION.md). The source package still uses selected `@cline/*` workspace names internally to keep upstream patching straightforward; public commands, package metadata, and release artifacts are Codie-first.
 
 ## License
 
-Apache-2.0. CodeVibe includes upstream Cline-derived code under the original Apache-2.0 license notice.
+Apache-2.0. Codie includes upstream-derived code under the original Apache-2.0 license notices.

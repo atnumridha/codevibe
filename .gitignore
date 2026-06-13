@@ -52,6 +52,9 @@ test-results
 # Smoke test results (generated)
 evals/smoke-tests/results/
 
+# Upstream intake reports and patches are generated per local source drop.
+.codevibe/upstream-base/
+
 .tui-test
 secrets.json
 tui-traces

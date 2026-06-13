@@ -1,5 +1,5 @@
 import type { Meta } from "@storybook/react-vite"
-import CodeVibeMark from "@/assets/CodeVibeMark"
+import { BotIcon } from "lucide-react"
 import { Alert, AlertDescription } from "./alert"
 
 const meta: Meta<typeof Alert> = {
@@ -32,7 +32,7 @@ export const Default = () => (
 			<Alert isDismissible={false} title="Non Dismissible" variant="default">
 				<AlertDescription>This alert cannot be dismissed.</AlertDescription>
 			</Alert>
-			<Alert icon={<CodeVibeMark className="size-2" />} title="CodeVibe" variant="codevibe">
+			<Alert icon={<BotIcon className="size-2" />} title="Codie" variant="codevibe">
 				<AlertDescription>
 					<p className="my-1">How can I help you?</p>
 					<ul className="list-inside list-disc text-sm">

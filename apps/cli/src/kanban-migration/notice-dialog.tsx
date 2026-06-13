@@ -22,7 +22,7 @@ export function MigrationNoticeContent(
 			<text fg={palette.act}>{notice.title}</text>
 			<box flexDirection="column">
 				<text selectable>
-					We rebuilt the CLI from the ground up using the CodeVibe runtime. Learn
+					We rebuilt the CLI from the ground up using the Codie runtime. Learn
 					more:{" "}
 					<a href="https://github.com/atnumridha/codevibe">
 						<span fg={palette.act}>https://github.com/atnumridha/codevibe</span>

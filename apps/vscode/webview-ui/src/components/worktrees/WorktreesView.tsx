@@ -269,8 +269,8 @@ const WorktreesView = ({ onDone }: WorktreesViewProps) => {
 		}
 	}, [mergeWorktree, getMainBranch, deleteAfterMerge, loadWorktrees])
 
-	// Ask CodeVibe to resolve conflicts
-	const handleAskClineToResolve = useCallback(async () => {
+	// Ask Codie to resolve conflicts
+	const handleAskCodieToResolve = useCallback(async () => {
 		if (!mergeResult || !mergeResult.hasConflicts) return
 
 		const conflictList = mergeResult.conflictingFiles.join(", ")
@@ -285,7 +285,7 @@ Please help me resolve these merge conflicts, then complete the merge, and delet
 			// Close worktrees view to show the chat with the new task
 			onDone()
 		} catch (err) {
-			setMergeError(err instanceof Error ? err.message : "Failed to create task for CodeVibe")
+			setMergeError(err instanceof Error ? err.message : "Failed to create task for Codie")
 		}
 	}, [mergeResult, mergeWorktree, closeMergeModal, onDone])
 
@@ -304,7 +304,7 @@ Please help me resolve these merge conflicts, then complete the merge, and delet
 				{/* Description */}
 				<p className="text-sm text-[var(--vscode-descriptionForeground)] m-0 mb-4">
 					Git worktrees let you work on multiple branches at the same time, each in its own folder. Open worktrees in
-					their own windows so CodeVibe can work on multiple tasks in parallel.{" "}
+					their own windows so Codie can work on multiple tasks in parallel.{" "}
 					<a
 						className="text-[var(--vscode-textLink-foreground)] hover:text-[var(--vscode-textLink-activeForeground)]"
 						href="https://github.com/atnumridha/codevibe#readme"
@@ -690,8 +690,8 @@ Please help me resolve these merge conflicts, then complete the merge, and delet
 								</div>
 
 								<div className="flex flex-col gap-2">
-									<VSCodeButton onClick={handleAskClineToResolve} style={{ width: "100%" }}>
-										Ask CodeVibe to Resolve
+									<VSCodeButton onClick={handleAskCodieToResolve} style={{ width: "100%" }}>
+										Ask Codie to Resolve
 									</VSCodeButton>
 									<VSCodeButton appearance="secondary" onClick={closeMergeModal} style={{ width: "100%" }}>
 										I'll Resolve Manually

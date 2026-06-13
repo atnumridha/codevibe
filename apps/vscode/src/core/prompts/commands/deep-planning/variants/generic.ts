@@ -35,7 +35,7 @@ function generateTemplate(): string {
 Your task is to create a comprehensive implementation plan before writing any code. This process has four distinct steps that must be completed in order.
 
 Your behavior should be methodical and thorough - take time to understand the codebase completely before making any recommendations. The quality of your investigation directly impacts the success of the implementation.
-Your final plan should include a visual Mermaid diagram for non-trivial work so the implementation flow is easy to inspect in CodeVibe. Use a flowchart, sequenceDiagram, stateDiagram, or classDiagram when the task crosses multiple files, components, actors, states, or phases. If a diagram would add no value, include a short rationale instead.
+Your final plan should include a visual Mermaid diagram for non-trivial work so the implementation flow is easy to inspect in Codie. Use a flowchart, sequenceDiagram, stateDiagram, or classDiagram when the task crosses multiple files, components, actors, states, or phases. If a diagram would add no value, include a short rationale instead.
 
 ## STEP 1: Silent Investigation
 

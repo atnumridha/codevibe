@@ -225,14 +225,14 @@ export function ClineModelSelectorDialogContent(
 	const { dismiss, dialogId, loadEntries } = props;
 	const [state, setState] = useState<ClineModelEntriesState>({
 		status: "loading",
-		message: "Loading CodeVibe models...",
+		message: "Loading Codie models...",
 	});
 	const generation = useRef(0);
 
 	const reload = useCallback(async () => {
 		const currentGeneration = generation.current + 1;
 		generation.current = currentGeneration;
-		setState({ status: "loading", message: "Loading CodeVibe models..." });
+		setState({ status: "loading", message: "Loading Codie models..." });
 		try {
 			const entries = await loadEntries();
 			if (generation.current === currentGeneration) {

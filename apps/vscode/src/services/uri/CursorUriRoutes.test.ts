@@ -62,7 +62,19 @@ describe("CursorUriRoutes", () => {
 		)
 	})
 
-	it("normalizes native codevibe:// route hosts into Cursor-compatible route paths", () => {
+	it("normalizes native codie:// route hosts into Cursor-compatible route paths", () => {
+		expect(getCursorCompatibleUriPath(new URL("codie://createchat?prompt=hi"))).to.equal("/createchat")
+		expect(getCursorCompatibleUriPath(new URL("codie://mcp/install?name=docs"))).to.equal("/mcp/install")
+		expect(getCursorCompatibleUriPath(new URL("codie://plugin/add?id=docs"))).to.equal("/plugin/add")
+		expect(getCursorCompatibleUriPath(new URL("codie://anysphere.cursor-mcp/install?name=docs"))).to.equal(
+			"/mcp/install",
+		)
+		expect(getCursorCompatibleUriPath(new URL("codie://atnumridha.codevibe/background-agent?prompt=hi"))).to.equal(
+			"/background-agent",
+		)
+	})
+
+	it("keeps legacy native codevibe:// route hosts compatible", () => {
 		expect(getCursorCompatibleUriPath(new URL("codevibe://createchat?prompt=hi"))).to.equal("/createchat")
 		expect(getCursorCompatibleUriPath(new URL("codevibe://mcp/install?name=docs"))).to.equal("/mcp/install")
 		expect(getCursorCompatibleUriPath(new URL("codevibe://atnumridha.codevibe/background-agent?prompt=hi"))).to.equal(

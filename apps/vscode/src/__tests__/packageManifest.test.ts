@@ -6,11 +6,13 @@ const vscodeRoot = process.cwd()
 const packagePath = path.join(vscodeRoot, "package.json")
 const CODEVIBE_CHAT_PARTICIPANT_ID = "codevibe"
 const CODEVIBE_CHAT_SESSION_TYPE = "codevibe-agent"
+const CODEVIBE_NATIVE_CHAT_AGENT_PARTICIPANT_ID = CODEVIBE_CHAT_SESSION_TYPE
 const CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE = "agent-host-codevibe"
 const CODEVIBE_NATIVE_AGENT_FILE_NAME = "00-codevibe-agent.agent.md"
 const CODEVIBE_ACTIVITY_ICON = "assets/icons/activitybar.svg"
 const CODEVIBE_MARKETPLACE_ICON = "assets/icons/icon.png"
 const CHAT_PROMPT_CONTRIBUTION_KEYS = new Set(["path", "name", "description", "when", "sessionTypes"])
+const CHAT_AGENT_CONTRIBUTION_KEYS = new Set(["id", "name", "description", "path"])
 const CHAT_SESSION_CONTRIBUTION_KEYS = new Set([
 	"id",
 	"type",
@@ -45,6 +47,17 @@ const CHAT_SESSION_CAPABILITY_KEYS = new Set([
 	"supportsHandOffs",
 ])
 const CHAT_SESSION_COMMAND_KEYS = new Set(["name", "description", "when"])
+const VISIBLE_MANIFEST_STRING_KEYS = new Set([
+	"category",
+	"description",
+	"displayName",
+	"fullName",
+	"inputPlaceholder",
+	"name",
+	"title",
+	"welcomeMessage",
+	"welcomeTitle",
+])
 const FAST_CURSOR_PARITY_EVIDENCE_FLAGS = [
 	"--run-retrieval-indexing",
 	"--run-mcp-oauth",
@@ -71,10 +84,35 @@ function assertOnlyAllowedKeys(value: Record<string, any>, allowedKeys: Set<stri
 	}
 }
 
+function collectVisibleManifestStrings(value: unknown, key = "", strings: string[] = []): string[] {
+	if (typeof value === "string") {
+		if (VISIBLE_MANIFEST_STRING_KEYS.has(key)) {
+			strings.push(value)
+		}
+		return strings
+	}
+	if (Array.isArray(value)) {
+		for (const item of value) {
+			collectVisibleManifestStrings(item, "", strings)
+		}
+		return strings
+	}
+	if (value && typeof value === "object") {
+		for (const [entryKey, entryValue] of Object.entries(value)) {
+			collectVisibleManifestStrings(entryValue, entryKey, strings)
+		}
+	}
+	return strings
+}
+
 describe("Package manifest", () => {
 	it("declares valid CodeVibe native agent contributions", async () => {
 		const packageJSON = await readPackageManifest()
-		const participant = packageJSON.contributes.chatParticipants?.[0]
+		const chatParticipants = packageJSON.contributes.chatParticipants ?? []
+		const participant = chatParticipants.find((entry: { id?: string }) => entry.id === CODEVIBE_CHAT_PARTICIPANT_ID)
+		const nativeAgentParticipant = chatParticipants.find(
+			(entry: { id?: string }) => entry.id === CODEVIBE_NATIVE_CHAT_AGENT_PARTICIPANT_ID,
+		)
 		const activitybarContainers = packageJSON.contributes.viewsContainers?.activitybar ?? []
 		const activitybarContainerIds = activitybarContainers.map((container: { id: string }) => container.id)
 		const codeVibeActivitybarContainer = activitybarContainers.find(
@@ -85,8 +123,18 @@ describe("Package manifest", () => {
 		const nativeAgentView = codeVibeAgentViews.find((view: { id?: string }) => view.id === "codevibe-agent-chat")
 
 		assert.equal(packageJSON.icon, CODEVIBE_MARKETPLACE_ICON)
-		assert.equal(participant.id, CODEVIBE_CHAT_PARTICIPANT_ID)
-		assert.match(participant.id, /^[A-Za-z0-9_-]+$/)
+		assert.deepEqual(
+			chatParticipants.map((entry: { id?: string }) => entry.id),
+			[CODEVIBE_CHAT_PARTICIPANT_ID, CODEVIBE_NATIVE_CHAT_AGENT_PARTICIPANT_ID],
+		)
+		assert.equal(participant?.id, CODEVIBE_CHAT_PARTICIPANT_ID)
+		assert.equal(participant?.isDefault, true)
+		assert.equal(participant?.isSticky, true)
+		assert.equal(nativeAgentParticipant?.id, CODEVIBE_NATIVE_CHAT_AGENT_PARTICIPANT_ID)
+		assert.equal(nativeAgentParticipant?.isDefault, undefined)
+		assert.equal(nativeAgentParticipant?.isSticky, undefined)
+		assert.match(participant?.id ?? "", /^[A-Za-z0-9_-]+$/)
+		assert.match(nativeAgentParticipant?.id ?? "", /^[A-Za-z0-9_-]+$/)
 		assert.deepEqual(activitybarContainerIds, ["codevibe-agent"])
 		assert.equal(codeVibeActivitybarContainer?.icon, CODEVIBE_ACTIVITY_ICON)
 		assert.notEqual(codeVibeActivitybarContainer?.icon, CODEVIBE_MARKETPLACE_ICON)
@@ -103,6 +151,11 @@ describe("Package manifest", () => {
 		assert.ok(Object.hasOwn(views, "codevibe-agent"))
 		assert.equal(Object.hasOwn(views, "codevibe.agent"), false)
 		assert.equal(packageJSON.activationEvents.includes("onView:codevibe.agent.chat"), false)
+		assert.equal(packageJSON.activationEvents.includes(`onChatParticipant:${CODEVIBE_CHAT_PARTICIPANT_ID}`), true)
+		assert.equal(
+			packageJSON.activationEvents.includes(`onChatParticipant:${CODEVIBE_NATIVE_CHAT_AGENT_PARTICIPANT_ID}`),
+			true,
+		)
 		assert.equal(packageJSON.activationEvents.includes("onView:codevibe-agent-chat"), true)
 		assert.equal(packageJSON.activationEvents.includes(`onChatSession:${CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE}`), false)
 		assert.equal(nativeAgentView?.visibility, "hidden")
@@ -121,6 +174,7 @@ describe("Package manifest", () => {
 	it("places CodeVibe before Copilot-style native agents", async () => {
 		const packageJSON = await readPackageManifest()
 		const [chatSession] = packageJSON.contributes.chatSessions ?? []
+		const [chatAgent] = packageJSON.contributes.chatAgents ?? []
 		const [newSessionMenu] = packageJSON.contributes.menus?.["chatSessions/newSession"] ?? []
 		const sessionTypes = (packageJSON.contributes.chatSessions ?? []).map((session: { type?: string }) => session.type)
 		const agentFile = await readFile(path.join(vscodeRoot, "agents", CODEVIBE_NATIVE_AGENT_FILE_NAME), "utf8")
@@ -131,8 +185,12 @@ describe("Package manifest", () => {
 			assertOnlyAllowedKeys(command, CHAT_SESSION_COMMAND_KEYS, `chatSessions[0].commands[${index}]`)
 			assert.match(command.name, /^[A-Za-z0-9_-]+$/)
 		}
-		assert.deepEqual(packageJSON.contributes.chatAgents ?? [], [])
-		assert.match(agentFile, /^---\nid: codevibe\n/m)
+		assertOnlyAllowedKeys(chatAgent, CHAT_AGENT_CONTRIBUTION_KEYS, "chatAgents[0]")
+		assert.equal(chatAgent?.id, CODEVIBE_CHAT_SESSION_TYPE)
+		assert.equal(chatAgent?.name, "codie")
+		assert.equal(chatAgent?.path, `agents/${CODEVIBE_NATIVE_AGENT_FILE_NAME}`)
+		assert.equal((packageJSON.contributes.chatAgents ?? []).length, 1)
+		assert.match(agentFile, /^---\nid: codevibe-agent\n/m)
 		assert.match(agentFile, /fenced `mermaid`/)
 		assert.match(agentFile, /sandboxed execution/)
 		assert.match(agentFile, /elevated trust/)
@@ -146,7 +204,10 @@ describe("Package manifest", () => {
 		assert.match(chatSession?.type, /^[A-Za-z0-9_-]+$/)
 		assert.equal(chatSession?.type.startsWith("agent-host-"), false)
 		assert.deepEqual(sessionTypes, [CODEVIBE_CHAT_SESSION_TYPE])
-		assert.equal(sessionTypes.some((sessionType?: string) => sessionType?.startsWith("agent-host-")), false)
+		assert.equal(
+			sessionTypes.some((sessionType?: string) => sessionType?.startsWith("agent-host-")),
+			false,
+		)
 		assert.equal(sessionTypes.includes(CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE), false)
 		assert.equal(newSessionMenu?.command, "codevibe.newNativeAgentSession")
 		assert.equal(newSessionMenu?.group, "navigation@-1000")
@@ -191,13 +252,10 @@ describe("Package manifest", () => {
 		}
 	})
 
-	it("keeps visible contribution strings on CodeVibe branding", async () => {
+	it("keeps visible contribution strings on Codie branding", async () => {
 		const packageJSON = await readPackageManifest()
 		const serializedContributions = JSON.stringify(packageJSON.contributes)
-		const brandingAuditScript = await readFile(
-			path.join(vscodeRoot, "scripts", "check-codevibe-branding.mjs"),
-			"utf8",
-		)
+		const brandingAuditScript = await readFile(path.join(vscodeRoot, "scripts", "check-codevibe-branding.mjs"), "utf8")
 		const storybookErrorStory = await readFile(
 			path.join(vscodeRoot, "webview-ui", "src", "components", "chat", "ErrorRow.stories.tsx"),
 			"utf8",
@@ -206,9 +264,26 @@ describe("Package manifest", () => {
 			path.join(vscodeRoot, "webview-ui", "src", "components", "ui", "button.stories.tsx"),
 			"utf8",
 		)
-		const storybookVisibleCopy = `${storybookErrorStory}\n${storybookButtonStory}`
+		const storybookReadme = await readFile(path.join(vscodeRoot, "webview-ui", ".storybook", "README.md"), "utf8")
+		const hostEnvProto = await readFile(path.join(vscodeRoot, "proto", "host", "env.proto"), "utf8")
+		const hostWorkspaceProto = await readFile(path.join(vscodeRoot, "proto", "host", "workspace.proto"), "utf8")
+		const storybookVisibleCopy = `${storybookErrorStory}\n${storybookButtonStory}\n${storybookReadme}`
+		const hostProtoComments = `${hostEnvProto}\n${hostWorkspaceProto}`
 
+		assert.equal(packageJSON.name, "codevibe")
+		assert.equal(packageJSON.displayName, "Codie")
+		assert.equal(packageJSON.author?.name, "Codie")
+		assert.equal(packageJSON.contributes.viewsContainers?.activitybar?.[0]?.title, "Codie Agent")
+		assert.equal(packageJSON.contributes.chatSessions?.[0]?.name, "Codie Agent")
+		assert.equal(packageJSON.contributes.chatSessions?.[0]?.displayName, "Codie Agent")
+		assert.deepEqual(
+			(packageJSON.contributes.chatParticipants ?? []).map((participant: { fullName?: string }) => participant.fullName),
+			["Codie Agent", "Codie Agent"],
+		)
 		assert.equal(/\bCline\b/.test(serializedContributions), false)
+		for (const visibleString of collectVisibleManifestStrings(packageJSON.contributes)) {
+			assert.equal(/\bCodeVibe\b/.test(visibleString), false, visibleString)
+		}
 		assert.equal(serializedContributions.includes("claude-dev.SidebarProvider"), false)
 		for (const command of packageJSON.contributes.commands ?? []) {
 			assert.equal(String(command.command).startsWith("cline."), false)
@@ -216,6 +291,8 @@ describe("Package manifest", () => {
 		const commandIds = new Set(
 			(packageJSON.contributes.commands ?? []).map((command: { command?: string }) => command.command),
 		)
+		assert.equal(commandIds.has("codevibe.worktreesButtonClicked"), true)
+		assert.equal(packageJSON.activationEvents.includes("onCommand:codevibe.worktreesButtonClicked"), true)
 		assert.equal(commandIds.has("codevibe.fixWithCodeVibe"), true)
 		assert.equal(packageJSON.activationEvents.includes("onCommand:codevibe.fixWithCodeVibe"), true)
 		for (const [menuId, items] of Object.entries(packageJSON.contributes.menus ?? {})) {
@@ -227,19 +304,27 @@ describe("Package manifest", () => {
 		assert.equal(brandingAuditScript.includes("extension.vsixmanifest"), true)
 		assert.equal(brandingAuditScript.includes("ClineModelPicker"), true)
 		assert.equal(brandingAuditScript.includes("legacy Cline version payload key"), true)
+		assert.equal(brandingAuditScript.includes("webview-ui/.storybook"), true)
 		assert.equal(/\bCline[A-Za-z0-9_]*Error\b/.test(storybookVisibleCopy), false)
 		assert.equal(/sign in to cline/i.test(storybookVisibleCopy), false)
 		assert.equal(storybookVisibleCopy.includes("Cline-specific errors"), false)
 		assert.equal(storybookVisibleCopy.includes("clineignore errors"), false)
+		assert.equal(storybookVisibleCopy.includes("Cline's webview"), false)
 		assert.equal(/options:\s*\[[^\]]*clineignore_error/.test(storybookErrorStory), false)
 		assert.equal(storybookErrorStory.includes("workspace_ignore_error"), true)
+		assert.equal(hostProtoComments.includes("saoudrizwan.claude-dev"), false)
+		assert.equal(hostProtoComments.includes("Cline for JetBrains"), false)
+		assert.equal(hostProtoComments.includes("Cline sidebar panel"), false)
 	})
 
 	it("cleans stale invalid CodeVibe view containers during VSIX install", async () => {
 		const packageJSON = await readPackageManifest()
 		const packageScript = await readFile(path.join(vscodeRoot, "scripts", "package-github-vsix.mjs"), "utf8")
 		const extensionSource = await readFile(path.join(vscodeRoot, "src", "extension.ts"), "utf8")
-		const webviewProviderSource = await readFile(path.join(vscodeRoot, "src", "hosts", "vscode", "VscodeWebviewProvider.ts"), "utf8")
+		const webviewProviderSource = await readFile(
+			path.join(vscodeRoot, "src", "hosts", "vscode", "VscodeWebviewProvider.ts"),
+			"utf8",
+		)
 
 		assert.equal(packageScript.includes("pruneInstalledCodeVibeExtensionVersions"), true)
 		assert.equal(packageScript.includes("createNativeAgentDiscoveryTombstones"), false)
@@ -292,13 +377,14 @@ describe("Package manifest", () => {
 		assert.equal(packageScript.includes("assertCodeVibeChatResourceContributions"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatPromptFiles"), true)
 		assert.equal(packageScript.includes("packageJson.contributes?.chatSkills"), true)
-		assert.equal(extensionSource.includes("`id: ${CODEVIBE_CHAT_PARTICIPANT_ID}`"), true)
+		assert.equal(extensionSource.includes("registerCodeVibeNativeAgentProvider(context, nativeAgentRegistration)"), true)
+		assert.equal(extensionSource.includes("`id: ${CODEVIBE_CHAT_SESSION_TYPE}`"), true)
 		assert.equal(extensionSource.includes("hostChatParticipantRegistered"), false)
 		assert.equal(extensionSource.includes("CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE"), false)
 		assert.equal(extensionSource.includes("agentHostChatParticipant || defaultChatParticipant"), false)
 		assert.equal(extensionSource.includes("await webview.showPanel(preserveEditorFocus)"), true)
 		assert.equal(extensionSource.includes("await webview.show(preserveEditorFocus)"), false)
-		assert.equal(webviewProviderSource.includes('createWebviewPanel(ExtensionRegistryInfo.views.Panel'), true)
+		assert.equal(webviewProviderSource.includes("createWebviewPanel(ExtensionRegistryInfo.views.Panel"), true)
 		assert.equal(webviewProviderSource.includes('"codevibe.agentPanel"'), false)
 		assert.equal(webviewProviderSource.includes("revealAgentSidebar"), false)
 	})
@@ -359,7 +445,10 @@ describe("Package manifest", () => {
 			packageJSON.scripts?.["upstream:base:export-patch"],
 			"node scripts/prepare-upstream-base-patch.mjs --export-patch --write-report",
 		)
-		assert.equal(scriptNames.some((name) => name.startsWith("upstream:cline:")), false)
+		assert.equal(
+			scriptNames.some((name) => name.startsWith("upstream:cline:")),
+			false,
+		)
 		assert.equal(packageScript.includes('for (const key of ["scripts", "lint-staged", "devDependencies"])'), true)
 		assert.equal(/assertPackagedManifestNoDevMetadata\(\s*packagedPackageJson/.test(packageScript), true)
 		assert.equal(/assertPackagedManifestNoDevMetadata\(\s*installedPackageJson/.test(packageScript), true)
@@ -424,7 +513,10 @@ describe("Package manifest", () => {
 		assert.equal(standaloneSmokeScript.includes("waitForGrpcHealth"), true)
 		assert.equal(standaloneSmokeScript.includes("CodeVibeApiServerMock"), true)
 		assert.equal(standaloneSmokeScript.includes("npx"), false)
-		assert.equal(packageJSON.scripts?.["smoke:standalone-package"], "node node_modules/tsx/dist/cli.mjs scripts/smoke-standalone-package.ts")
+		assert.equal(
+			packageJSON.scripts?.["smoke:standalone-package"],
+			"node node_modules/tsx/dist/cli.mjs scripts/smoke-standalone-package.ts",
+		)
 		assert.equal(cursorParityEvidenceScript.includes("Standalone package artifact build and manifest verification"), true)
 		assert.equal(cursorParityEvidenceScript.includes("Standalone extracted package consumer smoke"), true)
 		assert.equal(cursorParityEvidenceScript.includes("BrowserToolHandler.evaluate.test.ts"), true)

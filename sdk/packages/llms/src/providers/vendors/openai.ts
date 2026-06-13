@@ -7,7 +7,8 @@ import type {
 import { resolveApiKey } from "../http";
 import type { ProviderFactoryResult } from "./types";
 
-const OPENAI_CODEX_USER_AGENT = `CodeVibe/${process.env.npm_package_version || "1.0.0"}`;
+const OPENAI_CODEX_USER_AGENT = `Codie/${process.env.npm_package_version || "1.0.0"}`;
+const OPENAI_CODEX_BASE_URL = "https://chatgpt.com/backend-api/codex";
 
 function readOptions(
 	config: GatewayResolvedProviderConfig,
@@ -112,7 +113,7 @@ function buildOpenAIHeaders(
 	const options = readOptions(config);
 	const accountId = readStringOption(options, "accountId");
 	const installationId = readStringOption(options, "installationId");
-	const originator = readStringOption(options, "originator") ?? "cline";
+	const originator = readStringOption(options, "originator") ?? "codie";
 	const sessionId =
 		readStringOptionAny(options, ["sessionId", "session_id"]) ?? randomUUID();
 	const userAgent =
@@ -146,6 +147,15 @@ function buildOpenAIFetch(
 	return wrapCodexFetch(config.fetch, clientVersion);
 }
 
+function resolveOpenAIBaseUrl(
+	config: GatewayResolvedProviderConfig,
+): string | undefined {
+	if (config.providerId !== "openai-codex") {
+		return config.baseUrl;
+	}
+	return config.baseUrl ?? OPENAI_CODEX_BASE_URL;
+}
+
 export async function createOpenAIProviderModule(
 	config: GatewayResolvedProviderConfig,
 	context: GatewayProviderContext,
@@ -153,7 +163,7 @@ export async function createOpenAIProviderModule(
 	const apiKey = await resolveApiKey(config);
 	const provider = createOpenAI({
 		apiKey,
-		baseURL: config.baseUrl,
+		baseURL: resolveOpenAIBaseUrl(config),
 		headers: buildOpenAIHeaders(config),
 		fetch: buildOpenAIFetch(config),
 		name: context.provider.id,

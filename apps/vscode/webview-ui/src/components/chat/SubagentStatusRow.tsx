@@ -196,7 +196,7 @@ export default function SubagentStatusRow({ message, isLast, lastModifiedMessage
 			resumedBeforeNextVisibleMessage)
 
 	const singular = data.items.length === 1
-	const title = singular ? "CodeVibe wants to open a focus lane:" : "CodeVibe wants to open parallel focus lanes:"
+	const title = singular ? "Codie wants to open a focus lane:" : "Codie wants to open parallel focus lanes:"
 	const isPromptConstructionRow = message.ask === "use_subagents" || message.say === "use_subagents"
 	const toggleItem = (index: number) => {
 		setExpandedItems((prev) => ({

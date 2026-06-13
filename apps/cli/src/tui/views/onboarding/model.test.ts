@@ -8,8 +8,9 @@ import {
 } from "./model";
 
 describe("onboarding model helpers", () => {
-	it("presents ChatGPT as the first onboarding auth choice", () => {
+	it("presents Codie as the first onboarding auth choice", () => {
 		expect(MAIN_MENU[0]?.value).toBe("openai-codex");
+		expect(MAIN_MENU[0]?.label).toBe("Sign in with Codie");
 	});
 
 	it("maps provider catalog entries into onboarding provider entries", () => {
@@ -24,7 +25,7 @@ describe("onboarding model helpers", () => {
 			}),
 		).toEqual({
 			id: "cline",
-			name: "Cline",
+			name: "Codie Cloud",
 			isOAuth: true,
 			isLocalAuth: false,
 			hasAuth: true,
@@ -50,11 +51,11 @@ describe("onboarding model helpers", () => {
 		});
 	});
 
-	it("marks the OpenAI Codex CLI provider as local auth", () => {
+	it("marks the Codie local CLI provider as local auth", () => {
 		expect(
 			toProviderEntry({
 				id: "openai-codex-cli",
-				name: "OpenAI Codex CLI",
+				name: "Codie Local CLI",
 				models: null,
 			}),
 		).toMatchObject({
@@ -64,7 +65,7 @@ describe("onboarding model helpers", () => {
 		});
 	});
 
-	it("marks ChatGPT as authenticated when Codex Home auth is available", () => {
+	it("marks Codie as authenticated when local auth is available", () => {
 		expect(
 			toProviderEntry(
 				{
@@ -76,6 +77,7 @@ describe("onboarding model helpers", () => {
 			),
 		).toMatchObject({
 			id: "openai-codex",
+			name: "Codie",
 			isOAuth: true,
 			hasAuth: true,
 		});
@@ -133,8 +135,8 @@ describe("onboarding model helpers", () => {
 	});
 
 	it("formats OAuth provider labels for onboarding status views", () => {
-		expect(getOAuthProviderLabel("cline")).toBe("CodeVibe");
-		expect(getOAuthProviderLabel("openai-codex")).toBe("ChatGPT");
-		expect(getOAuthProviderLabel("oca")).toBe("oca");
+		expect(getOAuthProviderLabel("cline")).toBe("Codie Cloud");
+		expect(getOAuthProviderLabel("openai-codex")).toBe("Codie");
+		expect(getOAuthProviderLabel("oca")).toBe("OCA");
 	});
 });

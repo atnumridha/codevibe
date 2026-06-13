@@ -117,7 +117,7 @@ export class CommandExecutor {
 		)
 
 		// Get terminal and run command
-		const terminalInfo = await manager.getOrCreateTerminal(this.cwd)
+		const terminalInfo = await manager.getOrCreateTerminal(this.cwd, options)
 		terminalInfo.terminal.show()
 		const process = manager.runCommand(terminalInfo, command, options)
 

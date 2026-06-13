@@ -2,13 +2,26 @@
 
 import { normalizeProviderId } from "@/lib/provider-id";
 
-export const CODEVIBE_AGENT_PROVIDER_ID = "openai-codex";
+export const CODIE_AGENT_PROVIDER_ID = "openai-codex";
 
-const CODEVIBE_PROVIDER_LABELS: Record<string, string> = {
-	[CODEVIBE_AGENT_PROVIDER_ID]: "CodeVibe Agent",
-	"openai-codex-cli": "CodeVibe Agent (Codex CLI)",
-	cline: "CodeVibe Cloud",
-	oca: "CodeVibe OCA",
+const CODIE_PROVIDER_LABELS: Record<string, string> = {
+	[CODIE_AGENT_PROVIDER_ID]: "Codie Agent",
+	anthropic: "Anthropic",
+	bedrock: "Amazon Bedrock",
+	"openai-codex-cli": "Codie Local CLI",
+	cline: "Codie Cloud",
+	deepseek: "DeepSeek",
+	gemini: "Google Gemini",
+	lmstudio: "LM Studio",
+	ollama: "Ollama",
+	oca: "Codie OCA",
+	openai: "OpenAI",
+	"openai-compatible": "OpenAI Compatible",
+	openrouter: "OpenRouter",
+	qwen: "Qwen",
+	vertex: "Google Vertex AI",
+	xai: "xAI",
+	zai: "Z.ai",
 };
 
 function titleCaseProviderId(providerId: string): string {
@@ -33,10 +46,10 @@ export function isCopilotProviderId(providerId: string): boolean {
 export function getProviderDisplayLabel(providerId: string): string {
 	const normalizedProvider = normalizeProviderId(providerId);
 	if (!normalizedProvider) {
-		return "CodeVibe Agent";
+		return "Codie Agent";
 	}
 	return (
-		CODEVIBE_PROVIDER_LABELS[normalizedProvider] ??
+		CODIE_PROVIDER_LABELS[normalizedProvider] ??
 		titleCaseProviderId(normalizedProvider)
 	);
 }
@@ -46,7 +59,7 @@ export function getProviderDisplayName(provider: {
 	name?: string;
 }): string {
 	const normalizedProvider = normalizeProviderId(provider.id);
-	if (normalizedProvider in CODEVIBE_PROVIDER_LABELS) {
+	if (normalizedProvider in CODIE_PROVIDER_LABELS) {
 		return getProviderDisplayLabel(normalizedProvider);
 	}
 	return provider.name?.trim() || getProviderDisplayLabel(normalizedProvider);
@@ -55,12 +68,12 @@ export function getProviderDisplayName(provider: {
 export function getPersistableDefaultProviderId(providerId: string): string {
 	const normalizedProvider = normalizeProviderId(providerId);
 	if (!normalizedProvider || isCopilotProviderId(normalizedProvider)) {
-		return CODEVIBE_AGENT_PROVIDER_ID;
+		return CODIE_AGENT_PROVIDER_ID;
 	}
 	return normalizedProvider;
 }
 
-export function prioritizeCodeVibeProviderIds(providerIds: string[]): string[] {
+export function prioritizeCodieProviderIds(providerIds: string[]): string[] {
 	const seen = new Set<string>();
 	const normalized = providerIds
 		.map((providerId) => normalizeProviderId(providerId))
@@ -73,8 +86,8 @@ export function prioritizeCodeVibeProviderIds(providerIds: string[]): string[] {
 		});
 
 	return normalized.sort((a, b) => {
-		if (a === CODEVIBE_AGENT_PROVIDER_ID) return -1;
-		if (b === CODEVIBE_AGENT_PROVIDER_ID) return 1;
+		if (a === CODIE_AGENT_PROVIDER_ID) return -1;
+		if (b === CODIE_AGENT_PROVIDER_ID) return 1;
 		if (a === "openai-codex-cli") return -1;
 		if (b === "openai-codex-cli") return 1;
 		const aCopilot = isCopilotProviderId(a);
@@ -89,10 +102,10 @@ export function prioritizeCodeVibeProviderIds(providerIds: string[]): string[] {
 	});
 }
 
-export function prioritizeCodeVibeProviders<T extends { id: string }>(
+export function prioritizeCodieProviders<T extends { id: string }>(
 	providers: T[],
 ): T[] {
-	const orderedIds = prioritizeCodeVibeProviderIds(
+	const orderedIds = prioritizeCodieProviderIds(
 		providers.map((provider) => provider.id),
 	);
 	const orderById = new Map(

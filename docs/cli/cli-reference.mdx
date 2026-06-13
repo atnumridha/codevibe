@@ -1,6 +1,6 @@
 ---
 title: "CLI Reference"
-description: "Complete command reference for CodeVibe CLI including all commands, flags, and configuration options."
+description: "Complete command reference for Codie CLI including all commands, flags, and configuration options."
 ---
 
 ```bash
@@ -19,7 +19,7 @@ codevibe [options] [command] [prompt]
 ```text
 Usage: codevibe [options] [command] [prompt]
 
-CodeVibe CLI - editor-native coding agent in your terminal
+Codie CLI - editor-native coding agent in your terminal
 
 Arguments:
   prompt                       Your prompt. Default to start in act mode with auto-approve enabled.
@@ -56,11 +56,11 @@ Commands:
   doctor                       Diagnose and fix configuration issues
   history|h [options]          List session history or manage saved sessions
   hook                         Handle a hook payload from stdin
-  plugin                       Manage CodeVibe plugins
+  plugin                       Manage Codie plugins
   schedule                     Manage scheduled tasks
   hub                          Manage the local hub daemon
   update [options]             Check for updates and install if available
-  version                      Show CodeVibe CLI version number
+  version                      Show Codie CLI version number
   kanban                       Launch the kanban app and exit
 ```
 
@@ -171,7 +171,7 @@ cat payload.json | codevibe hook
 
 ### `plugin`
 
-Manage CodeVibe plugins. Install plugins from file URLs, npm, git repositories, or local paths. See [Plugins](/customization/plugins) for full details and the plugin manifest format.
+Manage Codie plugins. Install plugins from file URLs, npm, git repositories, or local paths. See [Plugins](/customization/plugins) for full details and the plugin manifest format.
 
 ```bash
 codevibe plugin install <source>  # Install a plugin
@@ -218,7 +218,7 @@ codevibe update
 
 ### `version`
 
-Show CodeVibe CLI version number.
+Show Codie CLI version number.
 
 ```bash
 codevibe version
@@ -247,7 +247,7 @@ codevibe kanban
 | `CODEVIBE_DEBUG_PORT_BASE` | Base port for Node.js inspector |
 | `CODEVIBE_COMMAND_PERMISSIONS` | JSON policy restricting shell commands (see below) |
 
-Legacy `CLINE_*` environment variables remain accepted as compatibility aliases so existing automation keeps working while CodeVibe tracks upstream changes.
+Legacy `CLINE_*` environment variables remain accepted as compatibility aliases so existing automation keeps working while Codie tracks upstream changes.
 
 ### CODEVIBE_COMMAND_PERMISSIONS
 
@@ -306,4 +306,4 @@ When using `--json`, each message is a JSON object on its own line:
   agents.yaml                    # Agent definitions
 ```
 
-CodeVibe also reads selected `.cline/` and `~/.cline/` paths for upstream compatibility and migration.
+Codie also reads selected `.cline/` and `~/.cline/` paths for upstream compatibility and migration.

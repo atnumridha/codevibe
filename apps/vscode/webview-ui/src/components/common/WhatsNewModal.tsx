@@ -110,7 +110,7 @@ export const WhatsNewModal: React.FC<WhatsNewModalProps> = ({ open, onClose, ver
 
 						{/* GitHub Star CTA */}
 						<p className="text-sm text-center" style={{ color: "var(--vscode-descriptionForeground)" }}>
-							Please support CodeVibe by{" "}
+							Please support Codie by{" "}
 							<a
 								href="https://github.com/atnumridha/codevibe"
 								rel="noopener noreferrer"

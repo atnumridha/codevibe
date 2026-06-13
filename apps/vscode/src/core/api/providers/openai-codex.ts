@@ -20,12 +20,42 @@ import { convertToOpenAIResponsesInput } from "../transform/openai-response-form
 import { ApiStream, ApiStreamUsageChunk } from "../transform/stream"
 
 /**
- * OpenAI Codex base URL for API requests
+ * ChatGPT for Codie backend base URL for API requests
  * Routes to chatgpt.com/backend-api/codex
  */
 const CODEX_API_BASE_URL = OPENAI_CODEX_BACKEND_CONFIG.baseUrl
 const CODEX_RESPONSES_WEBSOCKET_URL = "wss://chatgpt.com/backend-api/codex/responses"
 const CODEX_REDACTED_SECRET = "[REDACTED]"
+const STALE_OPENAI_CODEX_MODEL_IDS = new Set([
+	"gpt-5",
+	"gpt-5-codex",
+	"gpt-5-mini",
+	"gpt-5-nano",
+	"gpt-5-chat-latest",
+	"gpt-5.1",
+	"gpt-5.1-codex",
+	"gpt-5.1-codex-max",
+	"gpt-5.1-codex-mini",
+	"gpt-5.1-chat-latest",
+	"gpt-5.2-codex",
+	"gpt-5.2-chat-latest",
+])
+
+function normalizeOpenAiCodexRuntimeModelId(modelId: string | undefined): string {
+	const trimmed = modelId?.trim()
+	if (!trimmed) {
+		return openAiCodexDefaultModelId
+	}
+
+	const unprefixed = trimmed.startsWith("openai/") ? trimmed.slice("openai/".length) : trimmed
+	if (unprefixed in openAiCodexModels) {
+		return unprefixed
+	}
+	if (STALE_OPENAI_CODEX_MODEL_IDS.has(unprefixed)) {
+		return openAiCodexDefaultModelId
+	}
+	return unprefixed
+}
 
 function redactCodexErrorMessage(message: string, secrets: Array<string | undefined>): string {
 	let redacted = message
@@ -170,7 +200,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 		// Get access token from OAuth manager
 		let accessToken = await openAiCodexOAuthManager.getAccessToken()
 		if (!accessToken) {
-			throw new Error("Not authenticated with OpenAI Codex. Please sign in using the OpenAI Codex OAuth flow in settings.")
+			throw new Error("Codie sign-in is required. Please sign in with Codie in Settings.")
 		}
 		const useWebsocketMode = this.useWebsocketMode(model.info.apiFormat)
 		const { input, previousResponseId } = convertToOpenAIResponsesInput(messages, { usePreviousResponseId: useWebsocketMode })
@@ -193,9 +223,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 					// Force refresh the token for retry
 					const refreshed = await openAiCodexOAuthManager.forceRefreshAccessToken()
 					if (!refreshed) {
-						throw new Error(
-							"Not authenticated with OpenAI Codex. Please sign in using the OpenAI Codex OAuth flow in settings.",
-						)
+						throw new Error("Codie sign-in is required. Please sign in with Codie in Settings.")
 					}
 					accessToken = refreshed
 					continue
@@ -285,7 +313,7 @@ export class OpenAiCodexHandler implements ApiHandler {
 					return
 				} catch (error) {
 					Logger.error(
-						"OpenAI Codex websocket mode failed, falling back to HTTP Responses API:",
+						"Codie ChatGPT websocket mode failed, falling back to HTTP Responses API:",
 						redactCodexError(error, codexHeaderRedactionSecrets(codexHeaders, [accessToken])),
 					)
 					this.closeResponsesWebsocket()
@@ -829,29 +857,22 @@ export class OpenAiCodexHandler implements ApiHandler {
 	}
 
 	getModel(): { id: string; info: ModelInfo } {
-		const modelId = this.options.apiModelId?.trim()
+		const modelId = normalizeOpenAiCodexRuntimeModelId(this.options.apiModelId)
 
-		if (modelId && modelId in openAiCodexModels) {
+		if (modelId in openAiCodexModels) {
 			return {
 				id: modelId,
 				info: openAiCodexModels[modelId as keyof typeof openAiCodexModels],
 			}
 		}
 
-		if (modelId) {
-			const defaultInfo = openAiCodexModels[openAiCodexDefaultModelId]
-			return {
-				id: modelId,
-				info: {
-					...defaultInfo,
-					name: modelId,
-				},
-			}
-		}
-
+		const defaultInfo = openAiCodexModels[openAiCodexDefaultModelId]
 		return {
-			id: openAiCodexDefaultModelId,
-			info: openAiCodexModels[openAiCodexDefaultModelId],
+			id: modelId,
+			info: {
+				...defaultInfo,
+				name: modelId,
+			},
 		}
 	}
 }

@@ -76,11 +76,11 @@ describe("auth/codex token lifecycle", () => {
 		}
 	});
 
-	it("uses the Cline Codex originator in authorization URLs by default", async () => {
+	it("uses the Codie originator in authorization URLs by default", async () => {
 		const flow = await createAuthorizationFlow();
 		const url = new URL(flow.url);
 
-		expect(url.searchParams.get("originator")).toBe("cline");
+		expect(url.searchParams.get("originator")).toBe("codie");
 		expect(url.searchParams.get("codex_cli_simplified_flow")).toBe("true");
 		expect(url.searchParams.get("id_token_add_organizations")).toBe("true");
 	});

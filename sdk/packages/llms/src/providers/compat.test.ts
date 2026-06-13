@@ -1,12 +1,24 @@
+import type { AgentMessage } from "@cline/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createOpenAICodexProvider } from "./ai-sdk";
 import { createGatewayApiHandler, toGatewayRequestMessages } from "./compat";
 import type { Message } from "./types";
 
 const streamTextSpy = vi.fn();
+const openaiFactorySpy = vi.fn();
+const openaiResponsesSpy = vi.fn((modelId: string) => ({
+	modelId,
+	family: "openai",
+}));
 const openaiCompatibleFactorySpy = vi.fn();
 const openaiCompatibleSpy = vi.fn((modelId: string) => ({
 	modelId,
 	family: "openai-compatible",
+}));
+const codexExecFactorySpy = vi.fn();
+const codexExecSpy = vi.fn((modelId: string) => ({
+	modelId,
+	family: "openai-codex-cli",
 }));
 
 vi.mock("ai", () => ({
@@ -26,9 +38,12 @@ vi.mock("@ai-sdk/openai-compatible", () => ({
 }));
 
 vi.mock("@ai-sdk/openai", () => ({
-	createOpenAI: () => ({
-		responses: (modelId: string) => ({ modelId, family: "openai" }),
-	}),
+	createOpenAI: (config: unknown) => {
+		openaiFactorySpy(config);
+		return {
+			responses: (modelId: string) => openaiResponsesSpy(modelId),
+		};
+	},
 }));
 
 vi.mock("@ai-sdk/anthropic", () => ({
@@ -46,11 +61,140 @@ vi.mock("@ai-sdk/google", () => ({
 }));
 
 vi.mock("ai-sdk-provider-codex-cli", () => ({
-	createCodexExec: () => (modelId: string) => ({
-		modelId,
-		family: "openai-codex",
-	}),
+	createCodexExec: (config: unknown) => {
+		codexExecFactorySpy(config);
+		return (modelId: string) => codexExecSpy(modelId);
+	},
 }));
+
+async function* makeStreamParts(parts: unknown[]) {
+	for (const part of parts) {
+		yield part;
+	}
+}
+
+const baseAgentMessages: AgentMessage[] = [
+	{
+		id: "user_1",
+		role: "user",
+		content: [{ type: "text", text: "Hello" }],
+		createdAt: Date.now(),
+	},
+];
+
+const baseCompatMessages: Message[] = [{ role: "user", content: "Hello" }];
+
+describe("openai-codex runtime routing", () => {
+	beforeEach(() => {
+		streamTextSpy.mockReset();
+		openaiFactorySpy.mockReset();
+		openaiResponsesSpy.mockReset();
+		openaiCompatibleFactorySpy.mockReset();
+		openaiCompatibleSpy.mockReset();
+		codexExecFactorySpy.mockReset();
+		codexExecSpy.mockReset();
+		openaiResponsesSpy.mockImplementation((modelId: string) => ({
+			modelId,
+			family: "openai",
+		}));
+	});
+
+	it("keeps the legacy createOpenAICodexProvider export on ChatGPT Responses", async () => {
+		streamTextSpy.mockReturnValue({
+			fullStream: makeStreamParts([
+				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
+			]),
+		});
+
+		const provider = await createOpenAICodexProvider({
+			providerId: "openai-codex",
+			apiKey: "test-token",
+		});
+
+		for await (const _event of provider.stream(
+			{
+				providerId: "openai-codex",
+				modelId: "gpt-5.4",
+				messages: baseAgentMessages,
+				systemPrompt: "System instructions",
+			},
+			{
+				provider: { id: "openai-codex", capabilities: [] },
+				model: { id: "gpt-5.4" },
+			} as never,
+		)) {
+			// Drain the stream so the provider request is executed.
+		}
+
+		expect(codexExecFactorySpy).not.toHaveBeenCalled();
+		expect(openaiFactorySpy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				baseURL: "https://chatgpt.com/backend-api/codex",
+				headers: expect.objectContaining({
+					originator: "codie",
+					session_id: expect.any(String),
+					"User-Agent": expect.stringMatching(/^Codie\//),
+				}),
+			}),
+		);
+		expect(openaiResponsesSpy).toHaveBeenCalledWith("gpt-5.4");
+	});
+
+	it("ignores stale CLI routing overrides for public openai-codex configs", async () => {
+		streamTextSpy.mockReturnValue({
+			fullStream: makeStreamParts([
+				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
+			]),
+		});
+
+		const handler = createGatewayApiHandler({
+			providerId: "openai-codex",
+			routingProviderId: "openai-codex-cli",
+			modelId: "gpt-5.4",
+			apiKey: "test-token",
+		});
+
+		for await (const _chunk of handler.createMessage(
+			"System instructions",
+			baseCompatMessages,
+		)) {
+			// Drain the stream so the provider request is executed.
+		}
+
+		expect(codexExecFactorySpy).not.toHaveBeenCalled();
+		expect(openaiFactorySpy).toHaveBeenCalledWith(
+			expect.objectContaining({
+				baseURL: "https://chatgpt.com/backend-api/codex",
+			}),
+		);
+		expect(openaiResponsesSpy).toHaveBeenCalledWith("gpt-5.4");
+	});
+
+	it("keeps explicit openai-codex-cli configs on the CLI provider", async () => {
+		streamTextSpy.mockReturnValue({
+			fullStream: makeStreamParts([
+				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
+			]),
+		});
+
+		const handler = createGatewayApiHandler({
+			providerId: "openai-codex-cli",
+			modelId: "gpt-5.3-codex",
+			apiKey: "test-token",
+		});
+
+		for await (const _chunk of handler.createMessage(
+			"System instructions",
+			baseCompatMessages,
+		)) {
+			// Drain the stream so the provider request is executed.
+		}
+
+		expect(openaiFactorySpy).not.toHaveBeenCalled();
+		expect(codexExecFactorySpy).toHaveBeenCalled();
+		expect(codexExecSpy).toHaveBeenCalledWith("gpt-5.3-codex");
+	});
+});
 
 describe("createGatewayApiHandler.getMessages", () => {
 	it("preserves structured tool_result content for gateway requests", () => {

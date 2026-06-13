@@ -178,7 +178,7 @@ export class AttemptCompletionHandler implements IToolHandler, IPartialBlockHand
 			} else {
 				// Manual approval flow - need to ask for approval
 				showNotificationForApproval(
-					`CodeVibe wants to execute a command: ${command}`,
+					`Codie wants to execute a command: ${command}`,
 					config.autoApprovalSettings.enableNotifications,
 				)
 

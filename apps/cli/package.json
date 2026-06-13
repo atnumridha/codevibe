@@ -1,8 +1,8 @@
 {
 	"name": "@cline/cli",
-	"displayName": "codevibe",
+	"displayName": "Codie CLI",
 	"version": "3.0.20",
-	"description": "CodeVibe autonomous coding agent CLI with Codex auth, Cursor-compatible workflows, MCP, browser tools, and background sessions.",
+	"description": "Codie CLI for autonomous coding with Codie auth, editor-compatible workflows, MCP, browser tools, and background sessions.",
 	"type": "module",
 	"publishConfig": {
 		"access": "public"
@@ -13,22 +13,20 @@
 		"directory": "apps/cli"
 	},
 	"keywords": [
+		"codie",
+		"codex",
 		"codevibe",
-		"claude",
-		"dev",
 		"mcp",
 		"openrouter",
 		"coding",
 		"agent",
 		"autonomous",
-		"chatgpt",
-		"sonnet",
 		"ai",
 		"llama",
 		"cli"
 	],
 	"author": {
-		"name": "CodeVibe"
+		"name": "Codie"
 	},
 	"license": "Apache-2.0",
 	"homepage": "https://github.com/atnumridha/codevibe",

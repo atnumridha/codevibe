@@ -287,12 +287,12 @@ export class McpHub {
 	}
 
 	private async readNativeMcpSettingsFile(): Promise<McpSettings | undefined> {
-		return this.readAndValidateMcpSettingsPath(await this.getNativeMcpSettingsFilePath(), "CodeVibe")
+		return this.readAndValidateMcpSettingsPath(await this.getNativeMcpSettingsFilePath(), "Codie")
 	}
 
 	private async readAllMcpSettingsFiles(): Promise<McpSettingsReadResult | undefined> {
 		const nativeSettingsPath = await this.getNativeMcpSettingsFilePath()
-		const nativeSettings = await this.readAndValidateMcpSettingsPath(nativeSettingsPath, "CodeVibe")
+		const nativeSettings = await this.readAndValidateMcpSettingsPath(nativeSettingsPath, "Codie")
 		if (!nativeSettings) {
 			return undefined
 		}
@@ -550,7 +550,7 @@ export class McpHub {
 			// Each MCP server requires its own transport connection and has unique capabilities, configurations, and error handling. Having separate clients also allows proper scoping of resources/tools and independent server management like reconnection.
 			const client = new Client(
 				{
-					name: "CodeVibe",
+					name: "Codie",
 					version: this.clientVersion,
 				},
 				{

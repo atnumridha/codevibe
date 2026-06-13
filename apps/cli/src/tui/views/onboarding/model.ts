@@ -1,5 +1,8 @@
 import { isOpenAICodexCliProvider } from "../../../utils/codex-cli";
-import { isOAuthProvider } from "../../../utils/provider-auth";
+import {
+	getAuthProviderDisplayName,
+	isOAuthProvider,
+} from "../../../utils/provider-auth";
 
 export type OnboardingStep =
 	| "menu"
@@ -38,13 +41,13 @@ export interface MenuOption {
 
 export const MAIN_MENU: MenuOption[] = [
 	{
-		label: "Sign in with ChatGPT",
+		label: "Sign in with Codie",
 		value: "openai-codex",
-		detail: "Use your ChatGPT Plus subscription",
+		detail: "Use Codie hosted models",
 		icon: "\u2726",
 	},
 	{
-		label: "Sign in with CodeVibe",
+		label: "Sign in with Codie Cloud",
 		value: "cline",
 		detail: "Latest models with regular free promos",
 		icon: "\u263a",
@@ -109,7 +112,7 @@ export function toProviderEntry(
 ): ProviderEntry {
 	return {
 		id: provider.id,
-		name: provider.name,
+		name: getAuthProviderDisplayName(provider.id, provider.name),
 		isOAuth: isOAuthProvider(provider.id),
 		isLocalAuth: isOpenAICodexCliProvider(provider.id),
 		hasAuth:
@@ -145,11 +148,5 @@ export function toModelEntriesFromKnownModels(
 }
 
 export function getOAuthProviderLabel(providerId: string): string {
-	if (providerId === "cline") {
-		return "CodeVibe";
-	}
-	if (providerId === "openai-codex") {
-		return "ChatGPT";
-	}
-	return providerId;
+	return getAuthProviderDisplayName(providerId);
 }

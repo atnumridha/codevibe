@@ -1,29 +1,29 @@
 ---
-title: "ClineCore"
-sidebarTitle: "ClineCore"
-description: "The full CodeVibe harness: built-in tools, sessions, approvals, scheduling, and hub support."
+title: "CodieCore"
+sidebarTitle: "CodieCore"
+description: "The full Codie harness: built-in tools, sessions, approvals, scheduling, and hub support."
 ---
 
-`ClineCore` is the full CodeVibe harness as a programmable runtime. It gives you everything CodeVibe ships out of the box: built-in tools for files, shell, search, and web; session persistence and message history; tool approval callbacks; local, hub, and remote backends; scheduling and automation APIs; and plugin support.
+CodieCore is the full Codie harness as a programmable runtime. It gives you everything Codie ships out of the box: built-in tools for files, shell, search, and web; session persistence and message history; tool approval callbacks; local, hub, and remote backends; scheduling and automation APIs; and plugin support.
 
-Under the hood, `ClineCore` uses the `Agent` class from `@cline/agents`. You can use `Agent` directly if you want to skip the harness and wire everything yourself: your own tools, your own persistence, your own lifecycle.
+Import `CodieCore` from `@cline/sdk` for new applications. The compatibility export `ClineCore` and the `@cline/*` package scope remain supported for existing integrations and upstream-compatible packages. Under the hood, CodieCore uses the `Agent` class from `@cline/agents`. You can use `Agent` directly if you want to skip the harness and wire everything yourself: your own tools, your own persistence, your own lifecycle.
 
 ## When to use which
 
 | Need | Use |
 |------|-----|
-| Sessions, persistence, message history | `ClineCore` |
-| Built-in tools for files, shell, search, web fetch | `ClineCore` |
-| Hub/remote runtime | `ClineCore` |
-| Scheduling or event automation | `ClineCore` |
-| Multi-agent teams | `ClineCore` |
+| Sessions, persistence, message history | CodieCore |
+| Built-in tools for files, shell, search, web fetch | CodieCore |
+| Hub/remote runtime | CodieCore |
+| Scheduling or event automation | CodieCore |
+| Multi-agent teams | CodieCore |
 | Browser-compatible or lightweight in-process agent | `Agent` |
 | Custom tools only, no built-ins | `Agent` |
 | Full control over persistence and lifecycle | `Agent` |
 
-## ClineCore
+## CodieCore
 
-`ClineCore` wraps runtime execution with application features:
+CodieCore wraps runtime execution with application features:
 
 - session manifests and message artifacts
 - built-in tools
@@ -33,14 +33,14 @@ Under the hood, `ClineCore` uses the `Agent` class from `@cline/agents`. You can
 - optional plugin paths and extensions
 
 ```typescript
-import { ClineCore } from "@cline/sdk"
+import { CodieCore } from "@cline/sdk"
 
-const cline = await ClineCore.create({
+const codie = await CodieCore.create({
   clientName: "my-app",
   backendMode: "auto",
 })
 
-const session = await cline.start({
+const session = await codie.start({
   prompt: "Set up GitHub Actions for this repo",
   config: {
     providerId: "anthropic",
@@ -63,7 +63,7 @@ console.log(session.result?.finishReason)
 
 | Method | Purpose |
 |--------|---------|
-| `ClineCore.create(options)` | Create the runtime |
+| `CodieCore.create(options)` | Create the runtime |
 | `start(input)` | Start a session |
 | `send({ sessionId, prompt })` | Send a follow-up message |
 | `subscribe(listener, options?)` | Listen to session events |
@@ -76,7 +76,7 @@ console.log(session.result?.finishReason)
 | `delete(sessionId)` | Delete a session |
 | `dispose(reason?)` | Clean up runtime resources |
 
-See [ClineCore reference](/sdk/reference/cline-core) for exact signatures.
+See [CodieCore reference](/sdk/reference/cline-core) for exact signatures.
 
 ## Backend Modes
 
@@ -91,7 +91,7 @@ For process topology, see [Hub & Spoke](/sdk/architecture/hub-spoke).
 
 ## Session Artifacts
 
-`ClineCore` stores session manifests and messages as files. A session result includes:
+CodieCore stores session manifests and messages as files. A session result includes:
 
 | Field | Meaning |
 |-------|---------|
@@ -106,7 +106,7 @@ For process topology, see [Hub & Spoke](/sdk/architecture/hub-spoke).
 Use tool policies for simple cases:
 
 ```typescript
-await cline.start({
+await codie.start({
   prompt: "Audit this repo",
   config: {
     providerId: "anthropic",
@@ -131,7 +131,7 @@ await cline.start({
 Use `requestToolApproval` when your application needs to decide dynamically:
 
 ```typescript
-const cline = await ClineCore.create({
+const codie = await CodieCore.create({
   clientName: "my-app",
   capabilities: {
     requestToolApproval: async (request) => {
@@ -145,7 +145,7 @@ For tool behavior and policies, see [Tools](/sdk/tools).
 
 ## Using Agent directly
 
-`Agent` (also exported as `AgentRuntime`) is the stateless primitive that `ClineCore` builds on. Use it directly when you want full control or don't need the harness.
+`Agent` (also exported as `AgentRuntime`) is the stateless primitive that CodieCore builds on. Use it directly when you want full control or don't need the harness.
 
 `Agent` is an alias for `AgentRuntime`. Use `Agent` when constructing from provider/model IDs. Use `AgentRuntime` when supplying a pre-built `AgentModel`.
 

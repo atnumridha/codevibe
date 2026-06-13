@@ -48,7 +48,7 @@ const LOADED_ACTIONS: AccountAction[] = [
 	{
 		id: "change-model",
 		label: "Change model",
-		description: "Open the CodeVibe model selector",
+		description: "Open the Codie model selector",
 		enabled: true,
 	},
 	{
@@ -69,13 +69,13 @@ const UNAUTHENTICATED_ACTIONS: AccountAction[] = [
 	{
 		id: "login",
 		label: "Sign in or create account",
-		description: "Use CodeVibe OAuth",
+		description: "Use Codie OAuth",
 		enabled: true,
 	},
 	{
 		id: "learn-more",
 		label: "Learn more",
-		description: "Open CodeVibe on GitHub",
+		description: "Open Codie on GitHub",
 		enabled: true,
 	},
 ];
@@ -424,7 +424,7 @@ export function AccountDialogContent(
 	if (state.status === "loading") {
 		return (
 			<box flexDirection="column" paddingX={1} gap={1}>
-				<text fg="cyan">CodeVibe Account</text>
+				<text fg="cyan">Codie Account</text>
 				<text fg="gray">{state.message}</text>
 				<text fg="gray">Esc to close</text>
 			</box>
@@ -434,7 +434,7 @@ export function AccountDialogContent(
 	if (state.status === "error") {
 		return (
 			<box flexDirection="column" paddingX={1} gap={1}>
-				<text fg="cyan">CodeVibe Account</text>
+				<text fg="cyan">Codie Account</text>
 				<text fg="red">{state.message}</text>
 				<text fg="gray">Esc to close</text>
 			</box>
@@ -444,8 +444,8 @@ export function AccountDialogContent(
 	if (state.status === "unauthenticated") {
 		return (
 			<box flexDirection="column" paddingX={1} gap={1}>
-				<text fg="cyan">CodeVibe Account</text>
-				<text>Sign in or create a CodeVibe account.</text>
+				<text fg="cyan">Codie Account</text>
+				<text>Sign in or create a Codie account.</text>
 				<text fg="gray">
 					Get access to the latest models with regular free promos and
 					discounts.
@@ -498,12 +498,12 @@ export function AccountDialogContent(
 	const displayName =
 		loaded.user.displayName?.trim() ||
 		loaded.user.email?.trim() ||
-		"CodeVibe user";
+		"Codie user";
 	const activeAccount = loaded.activeOrganization?.name ?? "Personal account";
 
 	return (
 		<box flexDirection="column" paddingX={1} gap={1}>
-			<text fg="cyan">CodeVibe Account</text>
+			<text fg="cyan">Codie Account</text>
 
 			<box flexDirection="row" gap={2}>
 				<box

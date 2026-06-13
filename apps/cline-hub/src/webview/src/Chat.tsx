@@ -48,10 +48,10 @@ import {
 import TeamTasks, { type TeamToolEvent } from "@/components/TeamTasks";
 import { Button } from "@/components/ui/button";
 import {
-	CODEVIBE_AGENT_PROVIDER_ID,
+	CODIE_AGENT_PROVIDER_ID,
 	getPersistableDefaultProviderId,
 	isCopilotProviderId,
-	prioritizeCodeVibeProviders,
+	prioritizeCodieProviders,
 } from "@/lib/provider-display";
 import { cn } from "@/lib/utils";
 import type {
@@ -86,7 +86,7 @@ type ModelSelectionStorage = {
 };
 
 const EMPTY_SELECTION: ModelSelectionStorage = {
-	lastProvider: CODEVIBE_AGENT_PROVIDER_ID,
+	lastProvider: CODIE_AGENT_PROVIDER_ID,
 	lastModelByProvider: {},
 };
 
@@ -715,7 +715,7 @@ function pickProvider(
 		}
 	}
 	return (
-		providers.find((item) => item.id === CODEVIBE_AGENT_PROVIDER_ID)?.id ||
+		providers.find((item) => item.id === CODIE_AGENT_PROVIDER_ID)?.id ||
 		providers.find((item) => item.enabled)?.id ||
 		providers[0]?.id ||
 		""
@@ -765,7 +765,7 @@ export default function Chat({
 	const [model, setModel] = useState(
 		() =>
 			lastSelection.lastModelByProvider[lastSelection.lastProvider] ??
-			(lastSelection.lastProvider === CODEVIBE_AGENT_PROVIDER_ID
+			(lastSelection.lastProvider === CODIE_AGENT_PROVIDER_ID
 				? DEFAULT_HUB_MODEL_ID
 				: ""),
 	);
@@ -897,7 +897,7 @@ export default function Chat({
 					setSessions(message.sessions);
 					return;
 				case "providers": {
-					const orderedProviders = prioritizeCodeVibeProviders(
+					const orderedProviders = prioritizeCodieProviders(
 						message.providers,
 					);
 					setProviders(orderedProviders);
@@ -1081,11 +1081,11 @@ export default function Chat({
 					onSessionSelectedRef.current?.(undefined);
 					setStatus("Started a new chat session.");
 					setMessages([]);
-					setProvider(CODEVIBE_AGENT_PROVIDER_ID);
+					setProvider(CODIE_AGENT_PROVIDER_ID);
 					setModel(DEFAULT_HUB_MODEL_ID);
 					postToHost({
 						type: "loadModels",
-						providerId: CODEVIBE_AGENT_PROVIDER_ID,
+						providerId: CODIE_AGENT_PROVIDER_ID,
 					});
 					return;
 				case "fork_done":
@@ -1195,8 +1195,8 @@ export default function Chat({
 			approvalId,
 			approved,
 			reason: approved
-				? "Approved in CodeVibe Hub."
-				: "Rejected in CodeVibe Hub.",
+				? "Approved in Codie Agent Hub."
+				: "Rejected in Codie Agent Hub.",
 		});
 		setStatus(approved ? "Approval sent." : "Rejection sent.");
 	};

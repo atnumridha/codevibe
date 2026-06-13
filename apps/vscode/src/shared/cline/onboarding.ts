@@ -8,7 +8,7 @@ export const CLINE_ONBOARDING_MODELS: OnboardingModel[] = [
 	{
 		group: "free",
 		id: "kwaipilot/kat-coder-pro",
-		name: "KwaiKAT: Kat Coder Pro",
+		name: "Fast starter model",
 		score: 88,
 		latency: 2,
 		badge: "Best",
@@ -24,7 +24,7 @@ export const CLINE_ONBOARDING_MODELS: OnboardingModel[] = [
 	{
 		group: "free",
 		id: "minimax/minimax-m2.5",
-		name: "MiniMax: MiniMax M2.5",
+		name: "Starter coding model",
 		score: 90,
 		latency: 2,
 		badge: "New",
@@ -40,7 +40,7 @@ export const CLINE_ONBOARDING_MODELS: OnboardingModel[] = [
 	{
 		group: "free",
 		id: "arcee-ai/trinity-large-preview:free",
-		name: "Arcee AI: Trinity Large Preview",
+		name: "Preview starter model",
 		score: 88,
 		latency: 2,
 		badge: "New",
@@ -56,7 +56,7 @@ export const CLINE_ONBOARDING_MODELS: OnboardingModel[] = [
 	{
 		group: "frontier",
 		id: "anthropic/claude-sonnet-4.5",
-		name: "Anthropic: Claude Sonnet 4.5",
+		name: "Advanced coding model",
 		badge: "Best",
 		score: 97,
 		latency: 3,
@@ -72,7 +72,7 @@ export const CLINE_ONBOARDING_MODELS: OnboardingModel[] = [
 	{
 		group: "frontier",
 		id: "google/gemini-3.1-pro-preview",
-		name: "Gemini 3.1 Pro",
+		name: "Long-context coding model",
 		badge: "Preview",
 		score: 97,
 		latency: 3,
@@ -88,7 +88,7 @@ export const CLINE_ONBOARDING_MODELS: OnboardingModel[] = [
 	{
 		group: "frontier",
 		id: "openai/gpt-5-codex",
-		name: "OpenAI: GPT-5 Codex",
+		name: "Recommended coding model",
 		badge: "Best",
 		score: 97,
 		latency: 7,

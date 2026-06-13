@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { formatCreditsBalance } from "@/utils/format"
 
-// Custom hook for animated credit display with styled decimals
+// Custom hook for animated usage display with styled decimals.
 const useAnimatedCredits = (targetValue: number, duration: number = 660) => {
 	const [currentValue, setCurrentValue] = useState(0)
 	const animationRef = useRef<number>()
@@ -41,7 +41,7 @@ const useAnimatedCredits = (targetValue: number, duration: number = 660) => {
 	return currentValue
 }
 
-// Custom component to handle styled credit display
+// Custom component to handle styled usage display.
 export const StyledCreditDisplay = ({ balance }: { balance: number }) => {
 	const animatedValue = useAnimatedCredits(formatCreditsBalance(balance))
 	const formatted = animatedValue.toFixed(4)

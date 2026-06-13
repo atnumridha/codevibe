@@ -290,7 +290,7 @@ export function RemoteConfigSection({ renderSectionHeader }: RemoteConfigSection
 				<div className="flex flex-col justify-center gap-4">
 					<h3>
 						You haven't configured remote config yet. Do so through our{" "}
-						<VSCodeLink href="https://github.com/atnumridha/codevibe#readme">CodeVibe docs</VSCodeLink>.
+						<VSCodeLink href="https://github.com/atnumridha/codevibe#readme">Codie docs</VSCodeLink>.
 					</h3>
 
 					<RefreshButton />

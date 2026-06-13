@@ -13,6 +13,7 @@ export async function setWelcomeViewCompleted(controller: Controller, request: B
 	try {
 		// Update the global state to set welcomeViewCompleted to the requested value
 		controller.stateManager.setGlobalState("welcomeViewCompleted", request.value)
+		await controller.stateManager.flushPendingState()
 
 		await controller.postStateToWebview()
 

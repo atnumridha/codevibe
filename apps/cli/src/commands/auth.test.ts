@@ -2,7 +2,12 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import type { ProviderSettingsManager } from "@cline/core";
 import { describe, expect, it, vi } from "vitest";
-import { getPersistedProviderApiKey, saveOAuthProviderSettings } from "./auth";
+import {
+	getPersistedProviderApiKey,
+	runAuthCommand,
+	runAuthProviderCommand,
+	saveOAuthProviderSettings,
+} from "./auth";
 
 describe("saveOAuthProviderSettings", () => {
 	it("preserves existing manual apiKey while updating OAuth tokens", () => {
@@ -106,6 +111,44 @@ describe("getPersistedProviderApiKey", () => {
 				},
 			}),
 		).toBe("workos:oauth-access");
+	});
+});
+
+describe("runAuthCommand", () => {
+	it("uses Codie labels in OAuth provider guidance while preserving provider IDs for commands", async () => {
+		const errors: string[] = [];
+		const result = await runAuthCommand({
+			providerSettingsManager: {} as ProviderSettingsManager,
+			explicitProvider: "anthropic",
+			io: {
+				writeln: vi.fn(),
+				writeErr: (text) => errors.push(text),
+			},
+		});
+
+		expect(result).toBe(1);
+		expect(errors[0]).toContain('provider "anthropic" requires API key setup');
+		expect(errors[0]).toContain(
+			"auth --provider anthropic --apikey <key> --modelid <id>",
+		);
+	});
+
+	it("uses Codie provider labels in OAuth-only errors", async () => {
+		const errors: string[] = [];
+		const result = await runAuthProviderCommand(
+			{} as ProviderSettingsManager,
+			"anthropic",
+			{
+				writeln: vi.fn(),
+				writeErr: (text) => errors.push(text),
+			},
+		);
+
+		expect(result).toBe(1);
+		expect(errors[0]).toContain(
+			'provider "anthropic" does not support OAuth login',
+		);
+		expect(errors[0]).toContain("supported: Codie, Codie Cloud, OCA");
 	});
 });
 

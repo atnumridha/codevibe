@@ -10,13 +10,12 @@ import type {
 	ClineAccountUser,
 } from "@cline/core";
 import {
+	Activity,
 	AlertCircle,
 	Building,
-	CreditCard,
 	ExternalLink,
 	Loader2,
 	LogOut,
-	Receipt,
 	RefreshCw,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -24,7 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { desktopClient } from "@/lib/desktop-client";
 import { cn } from "@/lib/utils";
 
-const CODEVIBE_HOME_URL = "https://github.com/atnumridha/codevibe";
+const CODIE_HOME_URL = "https://github.com/atnumridha/VibeCode";
 
 function normalizeAccountViewError(error: unknown): Error {
 	const message = error instanceof Error ? error.message : String(error);
@@ -123,7 +122,7 @@ async function fetchPaymentTransactions(): Promise<
 // ---------------------------------------------------------------------------
 
 export function AccountView() {
-	const [activeTab, setActiveTab] = useState<"overview" | "usage" | "billing">(
+	const [activeTab, setActiveTab] = useState<"overview" | "usage" | "payments">(
 		"overview",
 	);
 
@@ -147,13 +146,13 @@ export function AccountView() {
 	const [usageLoaded, setUsageLoaded] = useState(false);
 	const usageGenerationRef = useRef(0);
 
-	// Billing data
+	// Access history data
 	const [paymentTransactions, setPaymentTransactions] = useState<
 		ClineAccountPaymentTransaction[]
 	>([]);
-	const [billingLoading, setBillingLoading] = useState(false);
-	const [billingError, setBillingError] = useState<string | null>(null);
-	const [billingLoaded, setBillingLoaded] = useState(false);
+	const [paymentsLoading, setPaymentsLoading] = useState(false);
+	const [paymentsError, setPaymentsError] = useState<string | null>(null);
+	const [paymentsLoaded, setPaymentsLoaded] = useState(false);
 	const activeOrganization = organizations.find((org) => org.active) ?? null;
 
 	// -- Overview fetch --
@@ -227,27 +226,27 @@ export function AccountView() {
 		}
 	}, [activeTab, usageLoaded, loadUsage]);
 
-	// -- Billing fetch (lazy on tab switch) --
-	const loadBilling = useCallback(async () => {
-		setBillingLoading(true);
-		setBillingError(null);
+	// -- Access history fetch (lazy on tab switch) --
+	const loadPayments = useCallback(async () => {
+		setPaymentsLoading(true);
+		setPaymentsError(null);
 		try {
 			const data = await fetchPaymentTransactions();
 			setPaymentTransactions(data);
-			setBillingLoaded(true);
+			setPaymentsLoaded(true);
 		} catch (err) {
 			const message = normalizeAccountViewError(err).message;
-			setBillingError(message);
+			setPaymentsError(message);
 		} finally {
-			setBillingLoading(false);
+			setPaymentsLoading(false);
 		}
 	}, []);
 
 	useEffect(() => {
-		if (activeTab === "billing" && !billingLoaded) {
-			void loadBilling();
+		if (activeTab === "payments" && !paymentsLoaded) {
+			void loadPayments();
 		}
-	}, [activeTab, billingLoaded, loadBilling]);
+	}, [activeTab, paymentsLoaded, loadPayments]);
 
 	// -- Formatters --
 
@@ -277,7 +276,12 @@ export function AccountView() {
 		? (organizationBalance?.balance ?? balance?.balance ?? null)
 		: (balance?.balance ?? null);
 
-	const tabs = ["overview", "usage", "billing"] as const;
+	const tabs = ["overview", "usage", "payments"] as const;
+	const tabLabels: Record<(typeof tabs)[number], string> = {
+		overview: "Overview",
+		usage: "Activity",
+		payments: "Account activity",
+	};
 
 	// -- Shared error / loading UI --
 
@@ -325,13 +329,13 @@ export function AccountView() {
 							type="button"
 							onClick={() => setActiveTab(tab)}
 							className={cn(
-								"relative px-4 py-2.5 text-sm font-medium capitalize transition-colors",
+								"relative px-4 py-2.5 text-sm font-medium transition-colors",
 								activeTab === tab
 									? "text-foreground"
 									: "text-muted-foreground hover:text-foreground",
 							)}
 						>
-							{tab}
+							{tabLabels[tab]}
 							{activeTab === tab && (
 								<span className="absolute inset-x-0 -bottom-px h-0.5 bg-foreground" />
 							)}
@@ -366,7 +370,7 @@ export function AccountView() {
 											</p>
 										</div>
 										<a
-											href={CODEVIBE_HOME_URL}
+											href={CODIE_HOME_URL}
 											target="_blank"
 											rel="noopener noreferrer"
 											className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
@@ -381,23 +385,22 @@ export function AccountView() {
 									<div className="rounded-lg border border-border p-5">
 										<div className="flex items-center justify-between mb-4">
 											<div className="flex items-center gap-3">
-												<CreditCard className="h-5 w-5 text-primary" />
+												<Activity className="h-5 w-5 text-primary" />
 												<h3 className="text-sm font-semibold text-foreground">
 													{activeOrganization
-														? `${activeOrganization.name} Balance`
-														: "Credits Balance"}
+														? `${activeOrganization.name} Capacity`
+														: "Available Capacity"}
 												</h3>
 											</div>
 										</div>
 										<div className="flex items-baseline gap-2">
 											<span className="text-3xl font-bold text-foreground">
-												${formatCreditBalance(displayedBalance)}
+												{formatCreditBalance(displayedBalance)}
 											</span>
 										</div>
 										{activeOrganization && balance && (
 											<p className="mt-2 text-xs text-muted-foreground">
-												Personal account: {formatCreditBalance(balance.balance)}{" "}
-												credits
+												Personal capacity: {formatCreditBalance(balance.balance)}
 											</p>
 										)}
 									</div>
@@ -455,8 +458,8 @@ export function AccountView() {
 					<div>
 						<p className="mb-6 text-sm text-muted-foreground">
 							{activeOrganization
-								? `Recent API usage and token consumption for ${activeOrganization.name}.`
-								: "Recent API usage and token consumption across all providers."}
+								? `Recent model activity and token volume for ${activeOrganization.name}.`
+								: "Recent model activity and token volume across all providers."}
 						</p>
 						{usageLoading && renderLoading()}
 						{usageError && renderError(usageError, loadUsage)}
@@ -465,14 +468,14 @@ export function AccountView() {
 							usageLoaded &&
 							(usageTransactions.length === 0 ? (
 								<p className="py-8 text-center text-sm text-muted-foreground">
-									No usage transactions yet.
+									No activity yet.
 								</p>
 							) : (
 								<div className="rounded-lg border border-border overflow-hidden">
 									<div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 border-b border-border bg-secondary/50 px-4 py-2.5 text-xs font-medium text-muted-foreground">
 										<span>Model</span>
 										<span className="text-right">Tokens</span>
-										<span className="text-right">Credits</span>
+										<span className="text-right">Capacity</span>
 										<span className="text-right">Time</span>
 									</div>
 									<div className="divide-y divide-border">
@@ -507,42 +510,38 @@ export function AccountView() {
 					</div>
 				)}
 
-				{/* Billing Tab */}
-				{activeTab === "billing" && (
+				{/* Access History Tab */}
+				{activeTab === "payments" && (
 					<div>
 						<p className="mb-6 text-sm text-muted-foreground">
-							Payment history and credit purchases.
+							Account access history.
 						</p>
-						{billingLoading && renderLoading()}
-						{billingError && renderError(billingError, loadBilling)}
-						{!billingLoading &&
-							!billingError &&
-							billingLoaded &&
+						{paymentsLoading && renderLoading()}
+						{paymentsError && renderError(paymentsError, loadPayments)}
+						{!paymentsLoading &&
+							!paymentsError &&
+							paymentsLoaded &&
 							(paymentTransactions.length === 0 ? (
 								<p className="py-8 text-center text-sm text-muted-foreground">
-									No payment transactions yet.
+									No access updates yet.
 								</p>
 							) : (
 								<div className="rounded-lg border border-border overflow-hidden">
-									<div className="grid grid-cols-[1fr_auto_auto] gap-4 border-b border-border bg-secondary/50 px-4 py-2.5 text-xs font-medium text-muted-foreground">
+									<div className="grid grid-cols-[1fr_auto] gap-4 border-b border-border bg-secondary/50 px-4 py-2.5 text-xs font-medium text-muted-foreground">
 										<span>Date</span>
-										<span className="text-right">Amount</span>
-										<span className="text-right">Credits</span>
+										<span className="text-right">Capacity added</span>
 									</div>
 									<div className="divide-y divide-border">
 										{paymentTransactions.map((tx) => (
 											<div
 												key={`${tx.paidAt}-${tx.amountCents}-${tx.credits}`}
-												className="grid grid-cols-[1fr_auto_auto] gap-4 px-4 py-3 text-sm transition-colors hover:bg-accent/20"
+												className="grid grid-cols-[1fr_auto] gap-4 px-4 py-3 text-sm transition-colors hover:bg-accent/20"
 											>
 												<div className="flex items-center gap-3">
-													<Receipt className="h-4 w-4 text-muted-foreground" />
+													<Activity className="h-4 w-4 text-muted-foreground" />
 													<span className="text-foreground">
 														{formatDate(tx.paidAt)}
 													</span>
-												</div>
-												<div className="text-right text-foreground font-medium">
-													${(tx.amountCents / 100).toFixed(2)}
 												</div>
 												<div className="text-right text-primary font-medium">
 													+{formatCreditBalance(tx.credits)}

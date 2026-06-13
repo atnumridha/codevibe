@@ -18,12 +18,12 @@ describe("OpenAiCodexHandler", () => {
 		const headers = await (handler as any).buildCodexHeaders()
 
 		expect(headers).to.deep.include({
-			originator: "cline",
+			originator: "codie",
 			"ChatGPT-Account-Id": "acct_123",
 			"x-codex-installation-id": "install_123",
 		})
 		expect(headers.session_id).to.be.a("string").and.not.equal("")
-		expect(headers["User-Agent"]).to.match(/^CodeVibe\//)
+		expect(headers["User-Agent"]).to.match(/^Codie\//)
 	})
 
 	it("adds client_version to Codex responses endpoints", () => {
@@ -37,6 +37,26 @@ describe("OpenAiCodexHandler", () => {
 		)
 	})
 
+	it("builds GPT_API-compatible Codex response request bodies", () => {
+		const handler = new OpenAiCodexHandler({ reasoningEffort: "none" })
+		const model = handler.getModel()
+		const body = (handler as any).buildRequestBody(
+			model,
+			[{ role: "user", content: [{ type: "input_text", text: "hello" }] }],
+			"You are Codie.",
+		)
+
+		expect(body).to.deep.include({
+			model: "gpt-5.5-pro",
+			stream: true,
+			store: false,
+			instructions: "You are Codie.",
+		})
+		expect(body.input).to.be.an("array")
+		expect(body.input[0]).to.deep.include({ role: "user" })
+		expect(body).not.to.have.property("messages")
+	})
+
 	it("preserves authenticated backend model ids that are not bundled", () => {
 		const handler = new OpenAiCodexHandler({ apiModelId: "gpt-6-codex-preview" })
 
@@ -44,7 +64,7 @@ describe("OpenAiCodexHandler", () => {
 
 		expect(model.id).to.equal("gpt-6-codex-preview")
 		expect(model.info.name).to.equal("gpt-6-codex-preview")
-		expect(model.info.supportsPromptCache).to.equal(true)
+		expect(model.info.supportsPromptCache).to.equal(false)
 	})
 
 	it("falls back to the bundled default when no Codex model is selected", () => {
@@ -52,8 +72,26 @@ describe("OpenAiCodexHandler", () => {
 
 		const model = handler.getModel()
 
-		expect(model.id).to.equal("gpt-5.5")
-		expect(model.info.supportsPromptCache).to.equal(true)
+		expect(model.id).to.equal("gpt-5.5-pro")
+		expect(model.info.supportsPromptCache).to.equal(false)
+	})
+
+	it("normalizes stale generic Codex model ids before runtime requests", () => {
+		for (const staleModelId of ["gpt-5", "gpt-5-codex", "gpt-5.1-codex-max", "gpt-5.2-codex"]) {
+			const handler = new OpenAiCodexHandler({ apiModelId: staleModelId })
+
+			expect(handler.getModel().id).to.equal("gpt-5.5-pro")
+		}
+	})
+
+	it("strips OpenAI provider prefixes while preserving future backend model ids", () => {
+		const known = new OpenAiCodexHandler({ apiModelId: "openai/gpt-5.5-pro" }).getModel()
+		const allowed = new OpenAiCodexHandler({ apiModelId: "openai/gpt-5.5" }).getModel()
+		const unknown = new OpenAiCodexHandler({ apiModelId: "openai/gpt-6-codex-preview" }).getModel()
+
+		expect(known.id).to.equal("gpt-5.5-pro")
+		expect(allowed.id).to.equal("gpt-5.5")
+		expect(unknown.id).to.equal("gpt-6-codex-preview")
 	})
 
 	it("redacts Codex backend error messages before throwing", async () => {

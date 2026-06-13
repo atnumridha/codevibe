@@ -432,7 +432,7 @@ async function fetchDiscordJson(input: {
 		headers: {
 			Authorization: `Bot ${input.botToken}`,
 			...(input.body ? { "Content-Type": "application/json" } : {}),
-			"User-Agent": "CodeVibe Discord Connector",
+			"User-Agent": "Codie Discord Connector",
 		},
 		...(input.body ? { body: JSON.stringify(input.body) } : {}),
 	});

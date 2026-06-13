@@ -266,7 +266,7 @@ const BasetenModelPicker: React.FC<BasetenModelPickerProps> = ({ isPopup, curren
 					<VSCodeLink className="inline text-inherit" href="https://www.baseten.co/products/model-apis/">
 						Baseten.
 					</VSCodeLink>
-					If you're unsure which model to choose, start with your Codex default or a high-capability coding model with
+					If you're unsure which model to choose, start with your Codie default or a high-capability coding model with
 					tool use and strong reasoning. A popular fallback on Baseten is{" "}
 					<VSCodeLink className="inline text-inherit" onClick={() => handleModelChange("moonshotai/Kimi-K2-Instruct")}>
 						moonshotai/Kimi-K2-Instruct.

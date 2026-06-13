@@ -6,6 +6,8 @@ const COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes
 const COOLDOWN_KEY = "cline:spendLimitRequestCooldown"
 
 type RequestButtonState = "idle" | "sending" | "sent"
+const ACCESS_LIMIT_MESSAGE = "Your access limit has been reached."
+const BILLING_LIMIT_COPY_PATTERN = /(?:\$|\b(?:payment|billing|spend|spent|cost|subscription|pro)\b)/i
 
 function formatResetsAt(resetsAt?: string): string | null {
 	if (!resetsAt) return null
@@ -28,9 +30,9 @@ interface SpendLimitErrorProps {
 	message: string
 	/** Which period the limit applies to: "daily" | "monthly" */
 	budgetPeriod?: string
-	/** The configured spend limit in USD */
+	/** The configured access limit in USD-equivalent units */
 	limitUsd?: number
-	/** How much the user has spent in USD this period */
+	/** How much access capacity has been consumed this period */
 	spentUsd?: number
 	/** ISO 8601 timestamp of when the limit resets (may be null for monthly) */
 	resetsAt?: string
@@ -38,7 +40,11 @@ interface SpendLimitErrorProps {
 
 const SpendLimitError: React.FC<SpendLimitErrorProps> = ({ message, budgetPeriod, limitUsd, spentUsd, resetsAt }) => {
 	const displayMessage =
-		limitUsd != null && budgetPeriod ? `$${limitUsd.toFixed(2)} ${budgetPeriod} limit has been reached.` : message
+		limitUsd != null && budgetPeriod
+			? `Your ${budgetPeriod} access limit has been reached.`
+			: BILLING_LIMIT_COPY_PATTERN.test(message)
+				? ACCESS_LIMIT_MESSAGE
+				: message
 
 	const [buttonState, setButtonState] = useState<RequestButtonState>(() => {
 		try {
@@ -96,9 +102,9 @@ const SpendLimitError: React.FC<SpendLimitErrorProps> = ({ message, budgetPeriod
 				<div className="mb-3">
 					{spentUsd != null && limitUsd != null && (
 						<div className="text-foreground" style={{ fontSize: "var(--vscode-font-size)", lineHeight: 1.3 }}>
-							{periodLabel ? `${periodLabel} usage` : "Usage"}:{" "}
+							{periodLabel ? `${periodLabel} capacity` : "Capacity"}:{" "}
 							<span className="font-bold">
-								${spentUsd.toFixed(2)} / ${limitUsd.toFixed(2)}
+								{spentUsd.toFixed(2)} / {limitUsd.toFixed(2)} capacity
 							</span>
 						</div>
 					)}
@@ -134,7 +140,7 @@ const SpendLimitError: React.FC<SpendLimitErrorProps> = ({ message, budgetPeriod
 				) : (
 					<>
 						<span className="codicon codicon-arrow-up mr-1.5" />
-						Request Increase
+						Request More Access
 					</>
 				)}
 			</VSCodeButton>

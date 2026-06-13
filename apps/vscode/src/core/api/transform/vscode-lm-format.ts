@@ -162,7 +162,7 @@ export function convertToAnthropicRole(
 export function convertToAnthropicMessage(vsCodeLmMessage: vscode.LanguageModelChatMessage): Anthropic.Messages.Message {
 	const anthropicRole = convertToAnthropicRole(vsCodeLmMessage.role)
 	if (anthropicRole !== "assistant") {
-		throw new Error("CodeVibe <Language Model API>: Only assistant messages are supported.")
+		throw new Error("Codie <Language Model API>: Only assistant messages are supported.")
 	}
 
 	return {

@@ -81,8 +81,8 @@ const ApiConfigurationSection = ({ renderSectionHeader, initialModelTab }: ApiCo
 						Use different models for Plan and Act modes
 					</VSCodeCheckbox>
 					<p className="text-xs mt-[5px] text-(--vscode-descriptionForeground)">
-						Switching between Plan and Act mode will persist the API and model used in the previous mode. This may be
-						helpful e.g. when using a strong reasoning model to architect a plan for a cheaper coding model to act on.
+						Switching between Plan and Act mode will keep the model used in each mode. This can help you use one
+						model for planning and another for implementation.
 					</p>
 				</div>
 			</Section>

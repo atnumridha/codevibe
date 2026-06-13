@@ -43,7 +43,7 @@ import {
 export { ensureCustomProvidersLoaded } from "./local-provider-registry";
 
 const CODEVIBE_AGENT_PROVIDER_ID = "openai-codex";
-const CODEVIBE_DEFAULT_MODEL_ID = "gpt-5.5";
+const CODEVIBE_DEFAULT_MODEL_ID = "gpt-5.5-pro";
 
 export interface UpdateLocalProviderRequest {
 	providerId: string;
@@ -685,10 +685,10 @@ export async function listLocalProviders(
 				return {
 					provider: {
 						id,
-						name: isCodeVibeAgent ? "CodeVibe Agent" : name,
+						name: isCodeVibeAgent ? "Codie Agent" : name,
 						models: modelList.length,
 						color: stableColor(id),
-						letter: isCodeVibeAgent ? "CV" : createLetter(name),
+						letter: isCodeVibeAgent ? "CA" : createLetter(name),
 						enabled:
 							Boolean(persistedSettings) ||
 							(isCodeVibeAgent && hasCodexHomeAuth),

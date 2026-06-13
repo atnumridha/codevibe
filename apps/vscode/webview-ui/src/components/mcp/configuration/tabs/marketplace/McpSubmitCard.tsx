@@ -34,8 +34,8 @@ const McpSubmitCard = () => {
 					Submit MCP Server
 				</h3>
 				<p style={{ fontSize: "13px", margin: 0, color: "var(--vscode-descriptionForeground)" }}>
-					Help others discover great MCP servers by submitting an issue to{" "}
-					<a href="https://github.com/atnumridha/codevibe/issues">github.com/atnumridha/codevibe</a>
+					Help others discover great MCP servers by submitting a marketplace request to the{" "}
+					<a href="https://github.com/atnumridha/codevibe/issues">repository</a>
 				</p>
 			</div>
 		</div>

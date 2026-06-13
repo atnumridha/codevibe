@@ -136,7 +136,7 @@ export function buildSessionStartInput(
 			enableSafeBrowserEvaluate:
 				options?.enableSafeBrowserEvaluate === true &&
 				options?.enableBrowserAutomation === true,
-			teamName: options?.teamName ?? "codevibe-hub",
+			teamName: options?.teamName ?? "codie-agent-hub",
 			missionLogIntervalSteps: 3,
 			missionLogIntervalMs: 120000,
 			checkpoint: { enabled: true },
@@ -516,7 +516,7 @@ export async function initializePeer(
 	syncHubClientsAndSessions: () => Promise<void>,
 ): Promise<void> {
 	await syncHubClientsAndSessions();
-	ctx.send(peer, { type: "status", text: "CodeVibe Hub is ready." });
+	ctx.send(peer, { type: "status", text: "Codie Agent Hub is ready." });
 	ctx.send(peer, { type: "defaults", defaults: resolveBrowserDefaults(ctx) });
 	await loadProviders(ctx, peer);
 	await sendProviderCatalog(ctx, peer);

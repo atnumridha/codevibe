@@ -18,8 +18,11 @@ const DEFAULT_BUY_CREDITS_URL = {
 	ORG: "https://github.com/atnumridha/codevibe#readme",
 }
 
+const ACCOUNT_LIMIT_MESSAGE = "You've reached your usage limit."
+const BILLING_COPY_PATTERN = /\b(buy|credit|credits|payment|purchase|billing|spent|spend)\b/i
+
 const CreditLimitError: React.FC<CreditLimitErrorProps> = ({
-	message = "You have run out of credits.",
+	message = ACCOUNT_LIMIT_MESSAGE,
 	buyCreditsUrl,
 	currentBalance,
 	totalPromotions,
@@ -48,27 +51,29 @@ const CreditLimitError: React.FC<CreditLimitErrorProps> = ({
 		fetchCallbackUrl()
 	}, [dashboardUrl])
 
+	const displayMessage = BILLING_COPY_PATTERN.test(message) ? ACCOUNT_LIMIT_MESSAGE : message
+
 	// We have to divide because the balance is stored in microcredits
 	return (
 		<div className="p-2 border-none rounded-md mb-2 bg-(--vscode-textBlockQuote-background)">
 			<div className="mb-3 font-azeret-mono">
-				<div className="text-error mb-2">{message}</div>
+				<div className="text-error mb-2">{displayMessage}</div>
 				<div className="mb-3">
 					{currentBalance ? (
 						<div className="text-foreground">
-							Current Balance: <span className="font-bold">{currentBalance.toFixed(2)}</span>
+							Available capacity: <span className="font-bold">{currentBalance.toFixed(2)}</span>
 						</div>
 					) : null}
-					{totalSpent ? <div className="text-foreground">Total Spent: {totalSpent.toFixed(2)}</div> : null}
+					{totalSpent ? <div className="text-foreground">Consumed: {totalSpent.toFixed(2)}</div> : null}
 					{totalPromotions ? (
-						<div className="text-foreground">Total Promotions: {totalPromotions.toFixed(2)}</div>
+						<div className="text-foreground">Included capacity: {totalPromotions.toFixed(2)}</div>
 					) : null}
 				</div>
 			</div>
 
 			<VSCodeButtonLink className="w-full mb-2" href={fullBuyCreditsUrl}>
-				<span className="codicon codicon-credit-card mr-[6px] text-[14px]" />
-				Buy Credits
+				<span className="codicon codicon-dashboard mr-[6px] text-[14px]" />
+				Manage Access
 			</VSCodeButtonLink>
 
 			<VSCodeButton

@@ -400,14 +400,14 @@ export function ProviderDetailContent({
 							{oauthLoginPending ? (
 								<Loader2 className="h-4 w-4 animate-spin" />
 							) : null}
-							<span>Login via Browser</span>
+								<span>Connect in browser</span>
 						</Button>
 					</div>
 				) : null}
 				{provider.oauthAccessTokenPresent ? (
 					<p className="mb-8 text-xs text-muted-foreground">
-						OAuth is connected. Manual credentials remain available when this
-						provider supports them.
+							Browser sign-in is connected. Manual credentials remain available when this
+							provider supports them.
 					</p>
 				) : null}
 

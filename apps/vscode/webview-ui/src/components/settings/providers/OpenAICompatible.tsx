@@ -346,7 +346,7 @@ export const OpenAICompatibleProvider = ({ showModelOptions, isPopup, currentMod
 								)
 							}}
 							style={{ flex: 1 }}>
-							<span style={{ fontWeight: 500 }}>Input Price / 1M tokens</span>
+							<span style={{ fontWeight: 500 }}>Input Rate / 1M tokens</span>
 						</DebouncedTextField>
 
 						<DebouncedTextField
@@ -365,7 +365,7 @@ export const OpenAICompatibleProvider = ({ showModelOptions, isPopup, currentMod
 								)
 							}}
 							style={{ flex: 1 }}>
-							<span style={{ fontWeight: 500 }}>Output Price / 1M tokens</span>
+							<span style={{ fontWeight: 500 }}>Output Rate / 1M tokens</span>
 						</DebouncedTextField>
 					</div>
 
@@ -398,7 +398,7 @@ export const OpenAICompatibleProvider = ({ showModelOptions, isPopup, currentMod
 					color: "var(--vscode-descriptionForeground)",
 				}}>
 				<span style={{ color: "var(--vscode-errorForeground)" }}>
-					(<span style={{ fontWeight: 500 }}>Note:</span> CodeVibe uses complex prompts and works best with
+					(<span style={{ fontWeight: 500 }}>Note:</span> Codie uses complex prompts and works best with
 					high-capability coding models. Less capable models may not work as expected.)
 				</span>
 			</p>

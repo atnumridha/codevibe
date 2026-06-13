@@ -1,10 +1,10 @@
 ---
 title: "Models"
 sidebarTitle: "Models"
-description: "Available models, pricing tiers, free models, and how model IDs work in the CodeVibe API."
+description: "Available models, pricing tiers, free models, and how model IDs work in the Codie API."
 ---
 
-The CodeVibe API gives you access to models from multiple providers through a single endpoint. Model IDs follow the `provider/model-name` format, the same convention used by [OpenRouter](https://openrouter.ai).
+The Codie API gives you access to models from multiple providers through a single endpoint. Model IDs follow the `provider/model-name` format, the same convention used by [OpenRouter](https://openrouter.ai).
 
 ## Model ID Format
 
@@ -24,7 +24,7 @@ Pass this string as the `model` parameter in your [Chat Completions](/api/chat-c
 Example:
 
 ```bash
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -54,7 +54,7 @@ Models with reasoning support include most Claude, Gemini 2.5, and Grok 3 models
 | Multi-modal (text + images) | `openai/gpt-4o` or `anthropic/claude-sonnet-4-6` |
 | Complex reasoning | Any model with reasoning support |
 
-For setup and account flow details, see the [CodeVibe provider guide](/getting-started/codevibe-provider).
+For setup and account flow details, see the [Codie provider guide](/getting-started/codevibe-provider).
 
 ## Image Support
 
@@ -83,7 +83,7 @@ Not all models support images. Check the model's `supportsImages` capability bef
   <Card title="Chat Completions" icon="message" href="/api/chat-completions">
     Use these models in your API requests.
   </Card>
-  <Card title="CodeVibe provider" icon="scale-balanced" href="/getting-started/codevibe-provider">
+  <Card title="Codie provider" icon="scale-balanced" href="/getting-started/codevibe-provider">
     Fastest setup path with built-in authentication and billing.
   </Card>
 </CardGroup>

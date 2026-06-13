@@ -156,12 +156,33 @@ const disallowedPackagedVisibleTextFragments = [
 	"works best with Claude models",
 	"recommended to use Claude 4.5 Sonnet",
 	"models like Claude Sonnet",
+	"Anthropic, Gemini, OpenAI",
+	"Codex, GPT, Gemini, Claude",
+	"Codex, OpenAI, Claude, Gemini",
+	"OpenAI-compatible, Anthropic, Gemini",
+	"Claude Max/Pro subscription",
+	"Continue with ChatGPT",
+	"Sign in with ChatGPT",
+	"Signed in to ChatGPT",
+	"ChatGPT authorization",
+	"ChatGPT auth",
+	"ChatGPT-backed",
+	"Codex auth",
+	"Absolutely Free",
+	"Frontier Model",
+	"premium hosted",
+	"View Billing & Usage",
+	"Add Credits",
+	"Buy Credits",
+	"Credits Used",
+	"Credit Limit Reached",
+	"Spend Limit Reached",
 	"cursor://createchat",
 	"Cursor workspace",
 	"Cursor global",
 ]
 
-const packagedWebviewHtmlTitlePattern = /<title>\s*CodeVibe\s*<\/title>/i
+const packagedWebviewHtmlTitlePattern = /<title>\s*Codie\s*<\/title>/i
 
 const vscodeChatPromptContributionKeys = new Set(["path", "name", "description", "when", "sessionTypes"])
 const vscodeChatSessionContributionKeys = new Set([
@@ -226,12 +247,12 @@ const disallowedVsixEntries = new Set([
 
 const githubVsixManifestOverrides = {
 	name: "codevibe",
-	displayName: "CodeVibe",
+	displayName: "Codie",
 	description:
-		"CodeVibe editor-native coding agent for VS Code, with Codex auth, planning, tools, MCP, browser automation, and background workflows.",
+		"Codie is a professional editor-native VS Code-based AI IDE agent with Codie sign-in, multi-provider models, planning, tools, MCP, browser automation, and background workflows.",
 	publisher: "atnumridha",
 	author: {
-		name: "CodeVibe",
+		name: "Codie",
 	},
 	repository: {
 		type: "git",
@@ -620,7 +641,7 @@ function writePackageJson(packageJson) {
 }
 
 function replaceVisibleClineBrand(value) {
-	return value.replace(/\bCline\b/g, "CodeVibe")
+	return value.replace(/\bCline\b/g, "Codie")
 }
 
 function replaceVisibleMarkdownBrand(value) {
@@ -707,7 +728,32 @@ function getInstalledCodeVibeExtensionDirs(metadata, extensionsDir = resolveVsCo
 		.readdirSync(extensionsDir, { withFileTypes: true })
 		.filter((entry) => entry.isDirectory() && entry.name.toLowerCase().startsWith(extensionPrefix))
 		.map((entry) => path.join(extensionsDir, entry.name))
+		.filter((extensionPath) => isInstalledCodeVibeExtensionDir(metadata, extensionPath))
 		.sort()
+}
+
+function isInstalledCodeVibeExtensionDir(metadata, extensionPath) {
+	const manifestPath = path.join(extensionPath, "package.json")
+	if (!fs.existsSync(manifestPath)) {
+		return false
+	}
+	try {
+		const packageJson = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+		const extensionId = String(packageJson.extensionId ?? "").toLowerCase()
+		if (extensionId && extensionId === metadata.extensionId.toLowerCase()) {
+			return true
+		}
+		const separatorIndex = metadata.extensionId.indexOf(".")
+		const expectedPublisher = separatorIndex === -1 ? "" : metadata.extensionId.slice(0, separatorIndex).toLowerCase()
+		const expectedName =
+			separatorIndex === -1 ? metadata.extensionId.toLowerCase() : metadata.extensionId.slice(separatorIndex + 1).toLowerCase()
+		return (
+			String(packageJson.publisher ?? "").toLowerCase() === expectedPublisher &&
+			String(packageJson.name ?? "").toLowerCase() === expectedName
+		)
+	} catch {
+		return false
+	}
 }
 
 function resolveVsCodeUserStorageDir() {
@@ -1140,7 +1186,7 @@ function assertVisibleManifestStringsBranded(value, label, pathParts = []) {
 	if (typeof value === "string") {
 		const key = pathParts.at(-1) ?? ""
 		if (visibleManifestStringKeys.has(key) && /\bCline\b/.test(value)) {
-			throw new Error(`${label} visible manifest string ${pathParts.join(".")} must use CodeVibe branding`)
+			throw new Error(`${label} visible manifest string ${pathParts.join(".")} must use Codie branding`)
 		}
 		return
 	}
@@ -1208,8 +1254,8 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (!codeVibeAgentParticipant) {
 		throw new Error(`${label} must contribute the native codevibe chat participant`)
 	}
-	if (codeVibeAgentParticipant.name !== "codevibe" || codeVibeAgentParticipant.fullName !== "CodeVibe Agent") {
-		throw new Error(`${label} codevibe chat participant must be named CodeVibe Agent`)
+	if (codeVibeAgentParticipant.name !== "codevibe" || codeVibeAgentParticipant.fullName !== "Codie Agent") {
+		throw new Error(`${label} codevibe chat participant must be named Codie Agent`)
 	}
 	if (codeVibeAgentParticipant.isDefault !== true) {
 		throw new Error(`${label} codevibe chat participant must be the default agent-mode participant`)
@@ -1221,8 +1267,18 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 		throw new Error(`${label} codevibe chat participant must register for native agent mode`)
 	}
 	const chatAgents = Array.isArray(packageJson.contributes?.chatAgents) ? packageJson.contributes.chatAgents : []
-	if (chatAgents.length > 0) {
-		throw new Error(`${label} must not contribute chatAgents until CodeVibe owns the external agent-host runtime`)
+	if (chatAgents.length !== 1) {
+		throw new Error(`${label} must contribute exactly one Codie native chatAgent`)
+	}
+	const codeVibeAgent = chatAgents[0]
+	if (codeVibeAgent?.id !== "codevibe-agent") {
+		throw new Error(`${label} Codie native chatAgent id must be codevibe-agent`)
+	}
+	if (codeVibeAgent?.name !== "codie") {
+		throw new Error(`${label} Codie native chatAgent name must be codie`)
+	}
+	if (codeVibeAgent?.path !== "agents/00-codevibe-agent.agent.md") {
+		throw new Error(`${label} Codie native chatAgent must point at agents/00-codevibe-agent.agent.md`)
 	}
 	const chatSessions = Array.isArray(packageJson.contributes?.chatSessions) ? packageJson.contributes.chatSessions : []
 	for (const [index, session] of chatSessions.entries()) {
@@ -1282,8 +1338,8 @@ function assertNativeCodeVibeContributionIds(packageJson, label) {
 	if (codeVibeSession !== chatSessions[0]) {
 		throw new Error(`${label} must list ${codeVibeNativeChatSessionType} before Copilot-style providers`)
 	}
-	if (codeVibeSession.name !== "CodeVibe Agent" || codeVibeSession.displayName !== "CodeVibe Agent") {
-		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must display as CodeVibe Agent`)
+	if (codeVibeSession.name !== "Codie Agent" || codeVibeSession.displayName !== "Codie Agent") {
+		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must display as Codie Agent`)
 	}
 	if (typeof codeVibeSession.order !== "number" || codeVibeSession.order >= 0) {
 		throw new Error(`${label} ${codeVibeNativeChatSessionType} chat session must be ordered before Copilot-style providers`)
@@ -1451,14 +1507,14 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (packageJson.name !== "codevibe") {
 		throw new Error(`${label} must use name codevibe`)
 	}
-	if (packageJson.displayName !== "CodeVibe") {
-		throw new Error(`${label} must use displayName CodeVibe`)
+	if (packageJson.displayName !== "Codie") {
+		throw new Error(`${label} must use displayName Codie`)
 	}
 	if (packageJson.publisher !== "atnumridha") {
 		throw new Error(`${label} must use publisher atnumridha`)
 	}
-	if (packageJson.author?.name !== "CodeVibe") {
-		throw new Error(`${label} must use author.name CodeVibe`)
+	if (packageJson.author?.name !== "Codie") {
+		throw new Error(`${label} must use author.name Codie`)
 	}
 	if (packageJson.repository?.url !== "https://github.com/atnumridha/codevibe") {
 		throw new Error(`${label} must point repository.url at https://github.com/atnumridha/codevibe`)
@@ -1517,11 +1573,14 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	}
 
 	const codexAuth = properties["codevibe.openAiCodex.authSource"]
-	if (codexAuth.default !== "codexHome") {
-		throw new Error(`${label} must default codevibe.openAiCodex.authSource to codexHome`)
+	if (codexAuth.default !== "auto") {
+		throw new Error(`${label} must default codevibe.openAiCodex.authSource to auto`)
+	}
+	if (!String(codexAuth.description || "").includes("IDE sign-in first")) {
+		throw new Error(`${label} must describe IDE-first Codie sign-in discovery`)
 	}
 	if (!String(codexAuth.description || "").includes("workspace .codex/auth.json")) {
-		throw new Error(`${label} must describe workspace .codex/auth.json Codex auth discovery`)
+		throw new Error(`${label} must describe workspace .codex/auth.json local auth import`)
 	}
 	if (properties["codevibe.ui.preferOpenAiCodexSidebar"].default !== false) {
 		throw new Error(`${label} must default codevibe.ui.preferOpenAiCodexSidebar to false`)
@@ -1584,7 +1643,7 @@ function stripAllowedMarkdownClineReferences(value) {
 function assertPackagedMarkdownTextBranded(value, label) {
 	const normalized = stripAllowedMarkdownClineReferences(value)
 	if (/\bCline\b/.test(normalized)) {
-		throw new Error(`${label} must use CodeVibe branding for visible markdown copy`)
+		throw new Error(`${label} must use Codie branding for visible markdown copy`)
 	}
 	const lower = normalized.toLowerCase()
 	for (const fragment of disallowedPackagedMarkdownFragments) {
@@ -1622,7 +1681,7 @@ function assertPackagedVisibleTextBranded(zip) {
 		}
 		const text = readZipEntry(zip, entryName).toString("utf8")
 		if (entryName === "extension/webview-ui/build/index.html" && !packagedWebviewHtmlTitlePattern.test(text)) {
-			throw new Error("VSIX artifact extension/webview-ui/build/index.html must title the webview as CodeVibe")
+			throw new Error("VSIX artifact extension/webview-ui/build/index.html must title the webview as Codie")
 		}
 		for (const fragment of disallowedPackagedVisibleTextFragments) {
 			if (text.includes(fragment)) {
@@ -1790,14 +1849,17 @@ function assertNativeChatRegistrationSource() {
 	if (source.includes("agent-host-codevibe") || source.includes("CODEVIBE_AGENT_HOST_CHAT_SESSION_TYPE")) {
 		throw new Error("Native Chat activation must not register or activate the reserved agent-host-codevibe alias")
 	}
-	if (!source.includes("registerCodeVibeChatParticipant(context, nativeAgentRegistration)")) {
+	if (
+		!source.includes("registerCodeVibeChatParticipants(context, nativeAgentRegistration)") ||
+		!source.includes("registerCodeVibeChatParticipant(context, registration, CODEVIBE_CHAT_PARTICIPANT_ID)")
+	) {
 		throw new Error("Native Chat activation must register the public codevibe participant implementation")
 	}
 	if (!/registerChatSessionContentProvider!\(\s*chatSessionType,\s*contentProvider,\s*defaultChatParticipant/.test(source)) {
 		throw new Error("Native Chat session providers must register with the declared CodeVibe chat participant")
 	}
-	if (source.includes("registerCodeVibeNativeAgentProvider(context")) {
-		throw new Error("Native Chat activation must not register the external CodeVibe agent-host provider")
+	if (!source.includes("registerCodeVibeNativeAgentProvider(context, nativeAgentRegistration)")) {
+		throw new Error("Native Chat activation must register the Codie custom agent provider")
 	}
 }
 
@@ -1908,7 +1970,7 @@ function assertCodeVibeReleasePublishPaths() {
 	}
 	assertReleaseTextIncludes(nightlyPublisher, 'nightlyName: "codevibe-nightly"', "VS Code nightly publish script")
 	assertReleaseTextIncludes(nightlyPublisher, 'originalName: "codevibe"', "VS Code nightly publish script")
-	assertReleaseTextIncludes(nightlyPublisher, 'nightlyDisplayName: "CodeVibe (Nightly)"', "VS Code nightly publish script")
+	assertReleaseTextIncludes(nightlyPublisher, 'nightlyDisplayName: "Codie (Nightly)"', "VS Code nightly publish script")
 	assertReleaseTextIncludes(nightlyPublisher, '"codevibe-nightly.vsix"', "VS Code nightly publish script")
 	assertReleaseTextIncludes(nightlyPublisher, '"--no-dependencies"', "VS Code nightly publish script")
 	assertReleaseTextIncludes(nightlyPublisher, '${config.nightlyName}-agent', "VS Code nightly publish script")
@@ -2052,6 +2114,7 @@ async function main() {
 		const githubVsixPackageJson = createGithubVsixPackageJson(readPackageJson())
 		assertManifestInputs(githubVsixPackageJson)
 		assertCodeVibeReleasePublishPaths()
+		runCommand([process.execPath], ["scripts/check-compatibility-contracts.mjs"])
 		runCommand([process.execPath], ["scripts/check-codevibe-branding.mjs"])
 		runCommand(
 			[process.execPath],
@@ -2067,7 +2130,6 @@ async function main() {
 	const githubVsixPackageJson = createGithubVsixPackageJson(originalPackageJson)
 	const metadata = readPackageMetadata(githubVsixPackageJson)
 	const outPath = resolveOutputPath(options, metadata)
-	assertManifestInputs(githubVsixPackageJson)
 	if (options.printMetadata) {
 		console.log(
 			JSON.stringify(
@@ -2087,6 +2149,7 @@ async function main() {
 		)
 		return
 	}
+	assertManifestInputs(githubVsixPackageJson)
 
 	let brandedMarkdownSnapshot
 	const restorePackageInputs = () => {

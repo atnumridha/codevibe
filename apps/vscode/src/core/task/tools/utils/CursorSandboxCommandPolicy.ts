@@ -31,6 +31,23 @@ const READ_REDIRECT_OPERATORS = new Set(["<", "<&"])
 const WRITE_REDIRECT_OPERATORS = new Set([">", ">>", ">&"])
 
 const PRIVILEGED_WRAPPER_COMMANDS = new Set(["sudo", "su", "doas", "pkexec"])
+const OPAQUE_SHELL_EVALUATORS = new Map<string, Set<string>>([
+	["bash", new Set(["-c"])],
+	["cmd", new Set(["/c"])],
+	["fish", new Set(["-c"])],
+	["sh", new Set(["-c"])],
+	["zsh", new Set(["-c"])],
+	["powershell", new Set(["-command", "-c"])],
+	["pwsh", new Set(["-command", "-c"])],
+])
+const OPAQUE_INLINE_EVALUATORS = new Map<string, Set<string>>([
+	["node", new Set(["-e", "--eval", "-p", "--print"])],
+	["perl", new Set(["-e"])],
+	["php", new Set(["-r"])],
+	["python", new Set(["-c"])],
+	["python3", new Set(["-c"])],
+	["ruby", new Set(["-e"])],
+])
 const COMMAND_WRAPPERS = new Set(["command", "builtin", "nohup", "time"])
 const READ_ONLY_COMMANDS = new Set(["cat", "find", "git", "grep", "head", "less", "ls", "more", "pwd", "rg", "stat", "tail", "wc"])
 const GIT_READ_ONLY_SUBCOMMANDS = new Set(["diff", "log", "show", "status"])
@@ -41,7 +58,20 @@ export function validateCursorSandboxTerminalPreflight(
 	input: CursorSandboxCommandPreflightInput,
 ): CursorSandboxCommandPreflightResult {
 	const { command, executionDir, policy, terminalRunMode } = input
-	if (!policy || terminalRunMode === "elevated") {
+	if (terminalRunMode === "elevated") {
+		return { ok: true }
+	}
+
+	if (!policy) {
+		if (terminalRunMode === "sandboxed") {
+			return {
+				ok: false,
+				error:
+					`Codie sandbox blocked terminal command "${truncateCommand(command)}" because no enforceable sandbox policy is active. ` +
+					"Choose unelevated terminal mode to use current terminal permissions, or elevated terminal mode to run it intentionally.",
+			}
+		}
+
 		return { ok: true }
 	}
 
@@ -62,7 +92,7 @@ export function validateCursorSandboxTerminalPreflight(
 	if (!parseResult.ok) {
 		return {
 			ok: false,
-			error: `Cursor sandbox blocked terminal command "${truncateCommand(command)}" because the shell command could not be parsed safely.`,
+			error: `Codie sandbox blocked terminal command "${truncateCommand(command)}" because the shell command could not be parsed safely.`,
 		}
 	}
 
@@ -77,8 +107,17 @@ export function validateCursorSandboxTerminalPreflight(
 			return {
 				ok: false,
 				error:
-					`Cursor sandbox blocked terminal command "${truncateCommand(command)}" because "${commandName}" ` +
+					`Codie sandbox blocked terminal command "${truncateCommand(command)}" because "${commandName}" ` +
 					"requires elevated terminal mode.",
+			}
+		}
+
+		if (isOpaqueInlineEvaluator(commandName, segment, commandIndex)) {
+			return {
+				ok: false,
+				error:
+					`Codie sandbox blocked terminal command "${truncateCommand(command)}" because "${commandName}" ` +
+					"can hide filesystem or network access inside inline code. Choose elevated terminal mode to run it intentionally.",
 			}
 		}
 
@@ -86,7 +125,7 @@ export function validateCursorSandboxTerminalPreflight(
 			return {
 				ok: false,
 				error:
-					`Cursor sandbox blocked terminal command "${truncateCommand(command)}" because read-only sandbox mode ` +
+					`Codie sandbox blocked terminal command "${truncateCommand(command)}" because read-only sandbox mode ` +
 					`does not allow "${commandName}". Choose elevated terminal mode to run it intentionally.`,
 			}
 		}
@@ -281,6 +320,31 @@ function isReadOnlySegment(
 	return READ_ONLY_COMMANDS.has(commandName)
 }
 
+function isOpaqueInlineEvaluator(
+	commandName: string,
+	segment: readonly SegmentToken[],
+	commandIndex: number,
+): boolean {
+	const flags = OPAQUE_SHELL_EVALUATORS.get(commandName) ?? OPAQUE_INLINE_EVALUATORS.get(commandName)
+	if (!flags) {
+		return false
+	}
+	return segment
+		.slice(commandIndex + 1)
+		.some((token) => isOpaqueEvaluatorFlag(token.value, flags))
+}
+
+function isOpaqueEvaluatorFlag(value: string, flags: ReadonlySet<string>): boolean {
+	const lowerValue = value.toLowerCase()
+	if (flags.has(lowerValue) || [...flags].some((flag) => lowerValue.startsWith(`${flag}=`))) {
+		return true
+	}
+	if (!lowerValue.startsWith("-") || lowerValue.startsWith("--")) {
+		return false
+	}
+	return [...flags].some((flag) => flag.length === 2 && lowerValue.includes(flag[1]))
+}
+
 function validateSegmentNetworkAccess(
 	command: string,
 	segment: readonly SegmentToken[],
@@ -298,8 +362,8 @@ function validateSegmentNetworkAccess(
 			continue
 		}
 		return (
-			`Cursor sandbox blocked terminal command "${truncateCommand(command)}" because network access to ` +
-			`${url.hostname} is not allowed by .cursor/sandbox.json networkPolicy.`
+			`Codie sandbox blocked terminal command "${truncateCommand(command)}" because network access to ` +
+			`${url.hostname} is not allowed by the active sandbox networkPolicy.`
 		)
 	}
 	return undefined
@@ -441,8 +505,8 @@ function formatSandboxPathError(input: {
 	reason: string
 }): string {
 	return (
-		`Cursor sandbox blocked terminal command "${truncateCommand(input.command)}": ${input.reason} ` +
-		`"${input.displayPath}" is outside sandbox ${input.accessKind} paths from .cursor/sandbox.json. ` +
+		`Codie sandbox blocked terminal command "${truncateCommand(input.command)}": ${input.reason} ` +
+		`"${input.displayPath}" is outside sandbox ${input.accessKind} paths from the active sandbox config. ` +
 		"Choose elevated terminal mode to run it intentionally."
 	)
 }

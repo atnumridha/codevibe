@@ -1,7 +1,7 @@
 {
 	"$schema": "https://mintlify.com/docs.json",
 	"theme": "mint",
-	"name": "CodeVibe",
+	"name": "Codie",
 	"description": "Editor-native coding agent for VS Code, terminal, and standalone workflows",
 	"colors": {
 		"primary": "#9D4EDD",
@@ -49,14 +49,14 @@
 		],
 		"primary": {
 			"type": "button",
-			"label": "Install CodeVibe",
+			"label": "Install Codie",
 			"href": "https://github.com/atnumridha/codevibe/releases/latest"
 		}
 	},
 	"navigation": {
 		"tabs": [
 			{
-				"tab": "CodeVibe",
+				"tab": "Codie",
 				"icon": "sparkles",
 				"groups": [
 					{
@@ -1012,6 +1012,6 @@
 		}
 	],
 	"search": {
-		"prompt": "Search CodeVibe documentation..."
+		"prompt": "Search Codie documentation..."
 	}
 }

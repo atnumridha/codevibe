@@ -45,6 +45,7 @@ export interface CodeVibeCompatibilityStatus {
 	sandboxRuntime: {
 		status: "loaded" | "invalid" | "missing" | "disabled"
 		effectiveAccess: "prompt" | "workspace" | "readOnly" | "disabled"
+		configSource?: "codie" | "cursorCompatibility" | "none"
 		configPath?: string
 		workspaceRoot?: string
 		error?: string

@@ -1,14 +1,14 @@
 ---
 title: ".codevibeignore"
 sidebarTitle: "Ignore files"
-description: "Control which files and directories CodeVibe can access in your project."
+description: "Control which files and directories Codie can access in your project."
 ---
 
-The `.codevibeignore` file tells CodeVibe which files and directories to skip when analyzing your codebase. It works like `.gitignore`: create a file named `.codevibeignore` in your project root, add patterns for files you want excluded, and CodeVibe will ignore them.
+The `.codevibeignore` file tells Codie which files and directories to skip when analyzing your codebase. It works like `.gitignore`: create a file named `.codevibeignore` in your project root, add patterns for files you want excluded, and Codie will ignore them.
 
 ## Why It Matters
 
-Without an ignore file, CodeVibe may load your entire project into context, including dependencies, build artifacts, and generated files. This wastes tokens, increases costs, and can push useful context out of the window.
+Without an ignore file, Codie may load your entire project into context, including dependencies, build artifacts, and generated files. This wastes tokens, increases costs, and can push useful context out of the window.
 
 Adding a `.codevibeignore` can cut your starting context from 200k+ tokens to under 50k. That means faster responses, lower costs, and the ability to use smaller, cheaper models effectively.
 
@@ -77,37 +77,37 @@ Start with these categories and adjust for your project:
 
 **Keep accessible:**
 - Source code you actively work on
-- Configuration files CodeVibe needs to understand (`tsconfig.json`, `package.json`)
+- Configuration files Codie needs to understand (`tsconfig.json`, `package.json`)
 - Documentation and READMEs
-- Test files (CodeVibe often needs these for context)
+- Test files (Codie often needs these for context)
 
 ## How It Works
 
-When CodeVibe scans your project to build context, it checks each file path against your `.codevibeignore` patterns. Matching files are excluded from:
+When Codie scans your project to build context, it checks each file path against your `.codevibeignore` patterns. Matching files are excluded from:
 
-- The file listing CodeVibe sees when starting a task
+- The file listing Codie sees when starting a task
 - Automatic context gathering during conversations
-- Search results when CodeVibe looks for relevant code
+- Search results when Codie looks for relevant code
 
-You can still reference ignored files explicitly using [@ mentions](/core-workflows/working-with-files). If you type `@/node_modules/some-package/index.js`, CodeVibe will read that specific file even though `node_modules/` is in your ignore file. The ignore rules control automatic loading, not explicit access.
+You can still reference ignored files explicitly using [@ mentions](/core-workflows/working-with-files). If you type `@/node_modules/some-package/index.js`, Codie will read that specific file even though `node_modules/` is in your ignore file. The ignore rules control automatic loading, not explicit access.
 
 <Note>
-`.codevibeignore` is separate from `.gitignore`. Files tracked by Git but irrelevant to CodeVibe (like large test fixtures or data files) should go in `.codevibeignore` even if they're not in `.gitignore`.
+`.codevibeignore` is separate from `.gitignore`. Files tracked by Git but irrelevant to Codie (like large test fixtures or data files) should go in `.codevibeignore` even if they're not in `.gitignore`.
 </Note>
 
 <Note>
-Existing projects with `.clineignore` continue to work during migration, but new CodeVibe projects should use `.codevibeignore`.
+Existing projects with `.clineignore` continue to work during migration, but new Codie projects should use `.codevibeignore`.
 </Note>
 
 ## Tips
 
 - Add `.codevibeignore` early in your project. It's easier to start with broad exclusions and narrow them than to debug why context is bloated later.
 - Check your token usage in the task header after adding an ignore file. The difference is often dramatic.
-- If CodeVibe seems to be missing context about a file, check whether it's being excluded by your ignore patterns.
+- If Codie seems to be missing context about a file, check whether it's being excluded by your ignore patterns.
 - For monorepos or multi-root workspaces, each workspace root can have its own `.codevibeignore`. See [Multi-Root Workspaces](/features/multiroot-workspace) for details.
 
 ## Related
 
-- [CodeVibe Rules](/customization/rules) - Define persistent instructions for CodeVibe
+- [Codie Rules](/customization/rules) - Define persistent instructions for Codie
 - [Task Management](/core-workflows/task-management#context-window) - Understand how context windows work
 - [Auto-Compact](/features/auto-compact) - Automatic context compression during long tasks

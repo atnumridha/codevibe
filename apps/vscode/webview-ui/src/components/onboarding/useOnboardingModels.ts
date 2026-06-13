@@ -6,6 +6,7 @@ import type { OnboardingModel, OnboardingModelGroup } from "@shared/proto/cline/
 import { useEffect, useMemo, useState } from "react"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { ModelsServiceClient } from "@/services/grpc-client"
+import { getCodieHostedModelDisplayName } from "@/utils/codieBranding"
 
 export type OnboardingModelsStatus = "loading" | "success" | "empty"
 
@@ -26,7 +27,7 @@ function toOnboardingModel(
 
 	return {
 		id: rec.id,
-		name: rec.name || rec.id,
+		name: getCodieHostedModelDisplayName(rec, fallbackBadge),
 		group,
 		badge,
 		score: 0,
@@ -99,7 +100,7 @@ export function useOnboardingModels(): UseOnboardingModelsResult {
 		}
 
 		const { data } = fetchState
-		const freeModels = data.free.map((rec) => toOnboardingModel(rec, "free", "Free", modelCatalog))
+		const freeModels = data.free.map((rec) => toOnboardingModel(rec, "free", "Starter", modelCatalog))
 		const frontierModels = data.recommended.map((rec) => toOnboardingModel(rec, "frontier", "", modelCatalog))
 
 		return { status: "success", models: { models: [...freeModels, ...frontierModels] } }

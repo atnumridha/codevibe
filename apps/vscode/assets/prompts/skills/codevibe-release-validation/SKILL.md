@@ -1,9 +1,9 @@
 ---
 name: codevibe-release-validation
-description: Use when preparing, validating, packaging, installing, tagging, or releasing CodeVibe VSIX and standalone runtime artifacts.
+description: Use when preparing, validating, packaging, installing, tagging, or releasing Codie VSIX and standalone runtime artifacts.
 ---
 
-# CodeVibe Release Validation
+# Codie Release Validation
 
 Use this skill before publishing a VSIX, candidate tag, GitHub Release, marketplace release, or standalone runtime artifact.
 
@@ -11,7 +11,7 @@ Use this skill before publishing a VSIX, candidate tag, GitHub Release, marketpl
 
 - Clean git status for source changes.
 - Package manifest and version consistency.
-- CodeVibe branding audit.
+- Codie branding audit.
 - Focused unit tests for touched manifest, provider, route, or packaging code.
 - VSIX package and install smoke.
 - Installed VS Code version check.

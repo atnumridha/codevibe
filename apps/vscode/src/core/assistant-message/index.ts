@@ -13,6 +13,9 @@ export interface TextStreamContent {
 export const toolParamNames = [
 	"command",
 	"requires_approval",
+	"sandbox_permissions",
+	"require_escalated",
+	"prefix_rule",
 	"path",
 	"absolutePath",
 	"content",

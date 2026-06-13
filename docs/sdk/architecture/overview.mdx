@@ -6,6 +6,8 @@ description: "How SDK packages fit together, what each package exports, and wher
 
 The SDK is split into layered packages. Dependencies flow downward: `core` depends on `agents`, `llms`, and `shared`; `agents` depends on `llms` and `shared`; `llms` depends on `shared`.
 
+Published package names intentionally remain under the stable compatibility scope `@cline/*`. CodieCore is the product-facing name and preferred export for the full runtime harness; `ClineCore` remains as a stable compatibility export.
+
 ## Package Stack
 
 ```txt
@@ -35,9 +37,10 @@ Key exports include:
 
 | Export | Description |
 |--------|-------------|
-| `ClineCore` | Main runtime entry point |
-| `ClineCoreOptions` | Constructor options |
-| `ClineCoreStartInput` | Session start input |
+| `CodieCore` | Preferred export for the CodieCore runtime entry point |
+| `CodieCoreOptions` | Constructor options for CodieCore |
+| `CodieCoreStartInput` | Session start input for CodieCore |
+| `ClineCore` | Stable compatibility export for existing imports |
 | `CoreSessionConfig` | Session configuration |
 | `SessionRecord` | Persisted session metadata |
 | `AgentPlugin` | Public plugin type |
@@ -116,7 +119,7 @@ No higher-layer dependencies.
 npm install @cline/sdk
 ```
 
-`@cline/sdk` re-exports everything from `@cline/core`. Install `@cline/agents` or `@cline/llms` directly only if you need lower-level control.
+`@cline/sdk` re-exports everything from `@cline/core`. Install `@cline/agents` or `@cline/llms` directly only if you need lower-level control. There are no `@codie/*` package aliases today.
 
 ## Design Principles
 

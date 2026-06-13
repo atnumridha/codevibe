@@ -4,10 +4,19 @@ export type {
 	WorkspaceInfo,
 	WorkspaceManifest,
 } from "@cline/shared";
-export { ClineCore } from "./ClineCore";
+export { ClineCore, ClineCore as CodieCore } from "./ClineCore";
 export type {
+	ClineCoreAutomationApi as CodieCoreAutomationApi,
+	ClineCoreAutomationApi,
+	ClineCoreAutomationOptions as CodieCoreAutomationOptions,
+	ClineCoreAutomationOptions,
+	ClineCoreListHistoryOptions as CodieCoreListHistoryOptions,
 	ClineCoreListHistoryOptions,
+	ClineCoreOptions as CodieCoreOptions,
 	ClineCoreOptions,
+	ClineCoreSettingsApi as CodieCoreSettingsApi,
+	ClineCoreSettingsApi,
+	ClineCoreStartInput as CodieCoreStartInput,
 	ClineCoreStartInput,
 	HubOptions,
 	RemoteOptions,

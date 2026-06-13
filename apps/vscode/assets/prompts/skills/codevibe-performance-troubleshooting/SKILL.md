@@ -1,11 +1,11 @@
 ---
 name: codevibe-performance-troubleshooting
-description: Use when investigating CodeVibe startup latency, agent response latency, indexing cost, native chat activation, packaging size, or UI performance.
+description: Use when investigating Codie startup latency, agent response latency, indexing cost, native chat activation, packaging size, or UI performance.
 ---
 
-# CodeVibe Performance Troubleshooting
+# Codie Performance Troubleshooting
 
-Use this skill when CodeVibe feels slow, noisy, duplicated, or heavy.
+Use this skill when Codie feels slow, noisy, duplicated, or heavy.
 
 ## Workflow
 

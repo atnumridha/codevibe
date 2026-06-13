@@ -1,6 +1,35 @@
 import type { ProviderSettings } from "@cline/core";
 import { describe, expect, it } from "vitest";
-import { isProviderConfigured } from "./provider-auth";
+import {
+	getAuthProviderDisplayName,
+	isProviderConfigured,
+	normalizeAuthProviderId,
+	toProviderApiKey,
+} from "./provider-auth";
+
+describe("provider auth aliases and display names", () => {
+	it("normalizes Codie auth aliases onto stable provider IDs", () => {
+		expect(normalizeAuthProviderId("codie")).toBe("openai-codex");
+		expect(normalizeAuthProviderId("codex")).toBe("openai-codex");
+		expect(normalizeAuthProviderId("codie-cloud")).toBe("cline");
+		expect(normalizeAuthProviderId("codevibe-cloud")).toBe("cline");
+	});
+
+	it("keeps stable IDs behind Codie display names", () => {
+		expect(getAuthProviderDisplayName("openai-codex", "ChatGPT")).toBe("Codie");
+		expect(getAuthProviderDisplayName("cline", "Cline")).toBe("Codie Cloud");
+		expect(getAuthProviderDisplayName("oca")).toBe("OCA");
+		expect(getAuthProviderDisplayName("anthropic", "Anthropic")).toBe(
+			"Anthropic",
+		);
+	});
+
+	it("treats Codie Cloud aliases as the legacy OAuth token format", () => {
+		expect(toProviderApiKey("codie-cloud", { access: "oauth-access" })).toBe(
+			"workos:oauth-access",
+		);
+	});
+});
 
 describe("isProviderConfigured", () => {
 	it("returns false when settings is undefined", () => {

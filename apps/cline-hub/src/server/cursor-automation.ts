@@ -98,7 +98,7 @@ export async function ingestCursorAutomation(
 	}
 
 	const core = await ClineCore.create({
-		clientName: "codevibe-hub-cursor-automation-ingest",
+		clientName: "codie-agent-hub-cursor-automation-ingest",
 		backendMode: "local",
 		automation: {
 			workspaceRoot: requestedWorkspaceRoot,

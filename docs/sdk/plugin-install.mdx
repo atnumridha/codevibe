@@ -4,7 +4,7 @@ sidebarTitle: "Installing Plugins"
 description: "Install plugins from file URLs, npm, git, or local sources using the CLI or programmatically."
 ---
 
-The CodeVibe CLI provides a `plugin install` command to install plugins from various sources. You can also load plugins programmatically via session config.
+The Codie CLI provides a `plugin install` command to install plugins from various sources. You can also load plugins programmatically via session config.
 
 ## CLI Installation
 
@@ -31,7 +31,7 @@ Installs a single `.ts` or `.js` plugin file from an HTTPS URL. GitHub `blob` UR
 codevibe plugin install --npm @scope/plugin-name
 ```
 
-Installs the package from the npm registry into the CodeVibe plugin directory.
+Installs the package from the npm registry into the Codie plugin directory.
 
 ### Install from Git
 
@@ -110,20 +110,20 @@ To add a single-file plugin to a project, install it with `--cwd`:
 codevibe plugin install https://github.com/owner/repo/blob/main/plugins/my-plugin.ts --cwd .
 ```
 
-Global plugins are discovered from `~/.codevibe/plugins/` by default; legacy `~/.cline/plugins/` remains supported. CodeVibe may also discover plugins from the system Plugins folder. Use `--cwd .` when you want plugins to stay with a specific project.
+Global plugins are discovered from `~/.codevibe/plugins/` by default; legacy `~/.cline/plugins/` remains supported. Codie may also discover plugins from the system Plugins folder. Use `--cwd .` when you want plugins to stay with a specific project.
 
 ## Programmatic Installation
 
-### Using `pluginPaths` (ClineCore)
+### Using `pluginPaths` (CodieCore)
 
 In SDK code, load plugins from file paths using the `pluginPaths` session config option:
 
 ```typescript
-import { ClineCore } from "@cline/sdk"
+import { CodieCore } from "@cline/sdk"
 
-const cline = await ClineCore.create({ clientName: "my-app" })
+const codie = await CodieCore.create({ clientName: "my-app" })
 
-await cline.start({
+await codie.start({
   config: {
     systemPrompt: "Analyze this project",
     // ...model/runtime config
@@ -149,16 +149,16 @@ const agent = new Agent({
 })
 ```
 
-### Using `extensions` (ClineCore)
+### Using `extensions` (CodieCore)
 
-With `ClineCore`, use the `extensions` config array instead:
+With CodieCore, use the `extensions` config array instead:
 
 ```typescript
-import { ClineCore } from "@cline/sdk"
+import { CodieCore } from "@cline/sdk"
 
-const cline = await ClineCore.create({ clientName: "my-app" })
+const codie = await CodieCore.create({ clientName: "my-app" })
 
-await cline.start({
+await codie.start({
   config: {
     systemPrompt: "Analyze customer records",
     extensions: [myPlugin],

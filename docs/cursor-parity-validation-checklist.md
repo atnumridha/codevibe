@@ -1,4 +1,4 @@
-# CodeVibe Cursor-Parity Validation Checklist
+# Codie Cursor-Parity Validation Checklist
 
 Use this checklist as the evidence target for `CODEVIBE_PARITY_EVIDENCE_URL` before any GitHub Release, marketplace publish, or release-gated local VSIX packaging. Do not set `CODEVIBE_ALL_PARITY_VALIDATED=true` until every required item below has concrete evidence.
 
@@ -13,6 +13,22 @@ Use this checklist as the evidence target for `CODEVIBE_PARITY_EVIDENCE_URL` bef
 - Evidence owner:
 - Validation date:
 
+## Current Evidence Snapshot
+
+Snapshot date: 2026-06-12. This is a working-tree evidence snapshot, not a release approval. The worktree currently has uncommitted changes, `CODEVIBE_ALL_PARITY_VALIDATED` is not true, and `CODEVIBE_PARITY_EVIDENCE_URL` is not set to a final `https://` checklist or validation log.
+
+| Requirement | Current evidence | Release status |
+| --- | --- | --- |
+| ChatGPT auth fix | Focused OAuth/provider/SDK originator tests passed on 2026-06-12 after the Codie originator update. Keep the broader auth gate green before release, but the prior `expected 'codie' to equal 'cline'` blocker is reconciled. | Focused guard passed |
+| VSIX install presence | `node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install` packaged `/private/tmp/codevibe-vsix/codevibe-3.88.77.vsix`, installed it, and smoke-verified `atnumridha.codevibe@3.88.77` on 2026-06-12. | Installed extension present |
+| Branding audit | `npm --prefix apps/vscode run branding:audit` passed on 2026-06-12. | Guard passed |
+| Compatibility contracts | `npm --prefix apps/vscode run compatibility:contracts` passed on 2026-06-12. | Guard passed |
+| VSIX release preflight | `npm --prefix apps/vscode run package:github-vsix:preflight` passed on 2026-06-11 with 3 warnings: dirty worktree, missing `CODEVIBE_ALL_PARITY_VALIDATED=true`, and missing final `CODEVIBE_PARITY_EVIDENCE_URL`. | Preflight-ready only |
+| Hub branding | The current branding audit does not scan `apps/cline-hub`. Standalone hub provider labels still need review, especially `apps/cline-hub/src/webview/src/lib/provider-display.ts`. | Open gap |
+| Full evidence run | No current green `npm --prefix apps/vscode run release:cursor-parity:evidence:full` result is recorded. Existing local evidence can be useful context but is not a final gate. | Open gap |
+| Installed VS Code visual validation | The active VS Code window rendered the `CODIE AGENT` sidebar and composer after reload; screenshot evidence: `/private/tmp/codie-code-app-activated.png`. `npm run test:e2e:optimal -- src/test/e2e/native-chat-installed.test.ts --project "e2e tests"` passed on 2026-06-12 and verified installed VSIX command exposure. Native session invocation, prompt/skill discovery, model/account visibility, approvals, MCP, browser automation, retrieval, background agents, sandbox policy, and deeplink flows still need recorded installed-VS-Code evidence. | Partially validated |
+| Upstream patch intake | Upstream intake reports are generated under `.codevibe/upstream-base/<profile>/` and ignored by git. The planner now avoids stale `FETCH_HEAD`/local-branch false zero-delta reports unless the current invocation fetched the upstream ref. | Planning workflow guarded; overlay review still required |
+
 ## Required Commands
 
 Record command output or CI links for each item.
@@ -24,10 +40,13 @@ npm --prefix apps/vscode ci --include=optional
 npm --prefix apps/vscode/webview-ui ci --include=optional
 npm --prefix apps/vscode run check-types
 npm --prefix apps/vscode run lint
+npm --prefix apps/vscode run branding:audit
+npm --prefix apps/vscode run compatibility:contracts
 npm --prefix apps/vscode run test:unit
 npm --prefix apps/vscode run test:e2e:optimal
 npm --prefix apps/vscode run package:github-vsix -- --verify-install
 npm --prefix apps/vscode run release:standalone:assets
+git diff --check
 ```
 
 Also record the extracted runtime smoke command and output. The evidence must show the command extracted `apps/vscode/dist-standalone/standalone.zip`, read `standalone-manifest.json` from the extracted package, used the manifest launch fields, and started the runtime from the extracted directory.
@@ -67,11 +86,13 @@ code --install-extension apps/vscode/dist/codevibe-<version>.vsix --force
 code --list-extensions --show-versions | rg '^atnumridha\.codevibe@'
 ```
 
+Current install-presence evidence: on 2026-06-11, `node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install` installed and smoke-verified `atnumridha.codevibe@3.88.76`. The active VS Code window also rendered the `CODIE AGENT` sidebar and composer after reload; screenshot evidence: `/private/tmp/codie-code-app-activated.png`. This proves install presence and basic sidebar/composer rendering; it does not prove the full visual/manual checklist below.
+
 Manual checks:
 
-- CodeVibe sidebar opens and renders the chat/composer.
-- Native CodeVibe prompt files are discoverable from VS Code Chat and target the CodeVibe Agent session.
-- Native CodeVibe chat skills are discoverable from VS Code Chat and target the CodeVibe Agent session.
+- Codie sidebar opens and renders the chat/composer.
+- Native Codie prompt files are discoverable from VS Code Chat and target the Codie Agent session.
+- Native Codie chat skills are discoverable from VS Code Chat and target the Codie Agent session.
 - `openai-codex` is the default Plan provider and Act provider.
 - Codex auth imports from `~/.codex/auth.json` without logging token values.
 - Codex account, installation id, and model list are visible without exposing secrets.
@@ -126,7 +147,7 @@ Manual checks:
 - Manual installed-VS-Code validation passed:
 - Standalone runtime assets and extracted smoke passed:
 - Standalone UI validation passed:
-- Known residual risks:
+- Known residual risks: current open items include the failed ChatGPT OAuth assertion in the attempted unit command, standalone hub branding coverage, missing full evidence run, remaining installed-VS-Code visual checks beyond sidebar/composer, and manual review of the generated upstream intake report's overlay risk areas.
 - Release approver:
 
 Only after this section is complete may the release job be dispatched with:

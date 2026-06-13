@@ -231,7 +231,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/createchat?prompt=Review%20the%20diff")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe chat task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Codie chat task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("normal approvals")
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
@@ -244,7 +244,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("cursor://createchat?prompt=Review%20the%20diff")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe chat task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Codie chat task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
 			})
@@ -256,7 +256,19 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("codevibe://createchat?prompt=Review%20the%20diff")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe chat task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Codie chat task?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
+				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
+			})
+
+			it("should create a task from a native codie:// createchat route", async () => {
+				showMessageStub.resetBehavior()
+				showMessageStub.resolves({ selectedOption: "Create Task" })
+
+				const result = await SharedUriHandler.handleUri("codie://createchat?prompt=Review%20the%20diff")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Codie chat task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /createchat")
 				sinon.assert.calledOnceWithExactly(handleTaskCreationStub, "Review the diff")
 			})
@@ -281,7 +293,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/prompt?text=Review%20the%20diff")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe prompt task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Codie prompt task?")
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -296,7 +308,7 @@ describe("SharedUriHandler", () => {
 
 				expect(result).to.be.true
 				const modal = showMessageStub.firstCall.args[0]
-				expect(modal.message).to.equal("Create CodeVibe glass prompt task?")
+				expect(modal.message).to.equal("Create Codie glass prompt task?")
 				expect(modal.options.detail).to.contain("Glass mode: overlay")
 				expect(modal.options.detail).to.contain("Config keys: placement, token")
 				expect(modal.options.detail).not.to.contain("secret-value")
@@ -378,6 +390,23 @@ describe("SharedUriHandler", () => {
 			it("should confirm and install a native CodeVibe MCP install route", async () => {
 				const result = await SharedUriHandler.handleUri(
 					"codevibe://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+				)
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install MCP server "docs"?')
+				sinon.assert.calledOnce(addServerFromConfigStub)
+				expect(addServerFromConfigStub.firstCall.args[0]).to.equal("docs")
+				expect(addServerFromConfigStub.firstCall.args[1]).to.deep.include({
+					type: "streamableHttp",
+					url: "https://mcp.example.com",
+				})
+				sinon.assert.calledOnce(postStateToWebviewStub)
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should confirm and install a native Codie MCP install route", async () => {
+				const result = await SharedUriHandler.handleUri(
+					"codie://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 				)
 
 				expect(result).to.be.true
@@ -548,7 +577,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch CodeVibe background agent?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Codie background agent?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Repository: owner/repo")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Branch: main")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: mode, token")
@@ -574,7 +603,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch CodeVibe background agent?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Codie background agent?")
 				sinon.assert.calledOnce(handleCursorBackgroundAgentLaunchStub)
 				expect(handleTaskCreationStub.called).to.be.false
 				const launchRequest = handleCursorBackgroundAgentLaunchStub.firstCall.args[0]
@@ -671,11 +700,28 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe checkout/switch helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Codie checkout/switch helper?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Requested git helper: checkout/switch")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Command: git checkout feature/cursor-parity")
 				expect(showMessageStub.secondCall.args[0].message).to.equal("Checked out feature/cursor-parity.")
 				expect(git(workspaceDir, ["branch", "--show-current"])).to.equal("feature/cursor-parity")
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should confirm and run native Codie git checkout helpers", async () => {
+				await initGitWorkspace(workspaceDir)
+				git(workspaceDir, ["checkout", "-b", "feature/codie-route"])
+				git(workspaceDir, ["checkout", "main"])
+				showMessageStub.resetBehavior()
+				showMessageStub.onFirstCall().resolves({ selectedOption: "Run Checkout" })
+				showMessageStub.resolves({ selectedOption: undefined })
+
+				const result = await SharedUriHandler.handleUri("codie://git/checkout?branch=feature%2Fcodie-route")
+
+				expect(result).to.be.true
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Codie checkout/switch helper?")
+				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Command: git checkout feature/codie-route")
+				expect(git(workspaceDir, ["branch", "--show-current"])).to.equal("feature/codie-route")
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -690,7 +736,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe branch creation or switch helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Codie branch creation or switch helper?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(
 					"Requested git helper: branch creation or switch",
 				)
@@ -711,7 +757,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe commit preparation helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Codie commit preparation helper?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Requested git helper: commit preparation")
 				expect(showMessageStub.secondCall.args[0].message).to.equal("Committed changes.")
 				expect(git(workspaceDir, ["log", "-1", "--pretty=%s"])).to.equal("fix: cursor routes")
@@ -746,7 +792,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/git/checkout?branch=feature%2Fsafe-changes")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Run CodeVibe checkout/switch helper?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Run Codie checkout/switch helper?")
 				expect(git(workspaceDir, ["branch", "--show-current"])).to.equal("main")
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -760,7 +806,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch CodeVibe background agent?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Launch Codie background agent?")
 				expect(handleCursorBackgroundAgentLaunchStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -786,6 +832,14 @@ describe("SharedUriHandler", () => {
 				expect(openSettingsStub.secondCall.args[0]).to.deep.equal({
 					query: "@id:codevibe.compatibility.deepLinks.enabled",
 				})
+				expect(handleTaskCreationStub.called).to.be.false
+			})
+
+			it("should open native Codie settings slugs through the host", async () => {
+				const result = await SharedUriHandler.handleUri("codie://settings?section=codex-auth")
+
+				expect(result).to.be.true
+				sinon.assert.calledOnceWithExactly(openSettingsStub, { query: "@id:codevibe.openAiCodex.authSource" })
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -827,7 +881,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/plugin/add?id=docs-helper")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Codie plugin "docs-helper"?')
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("requires confirmation")
 				sinon.assert.calledOnce(handleCursorPluginAddStub)
 				expect(handleCursorPluginAddStub.firstCall.args[0]).to.deep.include({
@@ -864,7 +918,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/plugin/add?id=docs-helper")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Codie plugin "docs-helper"?')
 				expect(handleCursorPluginAddStub.called).to.be.false
 				expect(handleTaskCreationStub.called).to.be.false
 			})
@@ -881,7 +935,7 @@ describe("SharedUriHandler", () => {
 				expect(result).to.be.true
 				const modal = showMessageStub.firstCall.args[0]
 				expect(modal.message).to.equal(
-					'Install CodeVibe plugin "https://example.com/plugins/docs.js?[redacted]#[redacted]"?',
+					'Install Codie plugin "https://example.com/plugins/docs.js?[redacted]#[redacted]"?',
 				)
 				expect(modal.options.detail).to.contain("https://example.com/plugins/docs.js?[redacted]#[redacted]")
 				expect(modal.options.detail).not.to.contain("secret-value")
@@ -904,7 +958,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri(`vscode://atnumridha.codevibe/plugin/add?config=${config}`)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal('Install CodeVibe plugin "docs-helper"?')
+				expect(showMessageStub.firstCall.args[0].message).to.equal('Install Codie plugin "docs-helper"?')
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Source parameter: config.source")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Config keys: source, token")
 				expect(showMessageStub.firstCall.args[0].options.detail).not.to.contain("secret-value")
@@ -942,14 +996,14 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Start CodeVibe PR review?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Start Codie PR review?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("owner/repo#42")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("From ref: origin/main")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("To ref: pr-42")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("focus tests")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				const prompt = handleTaskCreationStub.firstCall.args[0]
-				expect(prompt).to.contain("CodeVibe's review workflow")
+				expect(prompt).to.contain("Codie's review workflow")
 				expect(prompt).to.contain("focus tests")
 				expect(prompt).to.contain("generate_explanation")
 				expect(prompt).to.contain("<from_ref>origin/main</from_ref>")
@@ -987,7 +1041,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Start CodeVibe PR review?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Start Codie PR review?")
 				expect(handleTaskCreationStub.called).to.be.false
 			})
 
@@ -1182,7 +1236,7 @@ describe("SharedUriHandler", () => {
 				)
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe command task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Codie command task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route: /command")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain("Route parameters: command, cwd")
 				sinon.assert.calledOnce(handleTaskCreationStub)
@@ -1211,7 +1265,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=review-code")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe command task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Codie command task?")
 				expect(showMessageStub.firstCall.args[0].options.detail).to.contain(".cursor/commands/review-code.md")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				const prompt = handleTaskCreationStub.firstCall.args[0]
@@ -1308,7 +1362,7 @@ describe("SharedUriHandler", () => {
 				const result = await SharedUriHandler.handleUri("vscode://atnumridha.codevibe/command?name=missing-command")
 
 				expect(result).to.be.true
-				expect(showMessageStub.firstCall.args[0].message).to.equal("Create CodeVibe command task?")
+				expect(showMessageStub.firstCall.args[0].message).to.equal("Create Codie command task?")
 				sinon.assert.calledOnce(handleTaskCreationStub)
 				const prompt = handleTaskCreationStub.firstCall.args[0]
 				expect(prompt).to.contain('compatible command deeplink named "missing-command"')

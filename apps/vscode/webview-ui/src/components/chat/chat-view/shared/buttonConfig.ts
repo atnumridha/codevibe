@@ -172,7 +172,7 @@ export const BUTTON_CONFIGS: Record<string, ButtonConfig> = {
 	report_bug: {
 		sendingDisabled: false,
 		enableButtons: true,
-		primaryText: "Report GitHub issue",
+		primaryText: "Report issue",
 		secondaryText: undefined,
 		primaryAction: "utility",
 		secondaryAction: undefined,

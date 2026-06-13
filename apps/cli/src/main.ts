@@ -249,7 +249,7 @@ export async function runCli(): Promise<void> {
 
 	const pluginCmd = program
 		.command("plugin")
-		.description("Manage CodeVibe plugins")
+		.description("Manage Codie plugins")
 		.action(() => {
 			pluginCmd.help();
 		});
@@ -257,7 +257,7 @@ export async function runCli(): Promise<void> {
 		.command("install")
 		.alias("i")
 		.description(
-			"Install a CodeVibe plugin from an official keyword, npm, git, URL, or a local path",
+			"Install a Codie plugin from an official keyword, npm, git, URL, or a local path",
 		)
 		.argument(
 			"<source>",
@@ -299,7 +299,7 @@ export async function runCli(): Promise<void> {
 		.command("uninstall")
 		.alias("remove")
 		.alias("rm")
-		.description("Uninstall a CodeVibe plugin by name or path")
+		.description("Uninstall a Codie plugin by name or path")
 		.argument("<name>", "plugin package name, installed slug, or plugin path")
 		.option("--json", "Output as JSON")
 		.option(
@@ -322,7 +322,7 @@ export async function runCli(): Promise<void> {
 	const connectCmd = program
 		.command("connect")
 		.description("Connect to an external channel")
-		.argument("[channel]", "Channel to connect CodeVibe CLI to")
+		.argument("[channel]", "Channel to connect Codie CLI to")
 		.option("--stop", "Kill all current channel connections")
 		.allowUnknownOption()
 		.passThroughOptions()
@@ -375,8 +375,8 @@ export async function runCli(): Promise<void> {
 
 	const mcpInstallCmd = mcpCmd
 		.command("install")
-		.description("Preview or install a Cursor-compatible MCP server deeplink")
-		.argument("<uri>", "Cursor-compatible /mcp/install URI")
+		.description("Preview or install an import-compatible MCP server deeplink")
+		.argument("<uri>", "Import-compatible /mcp/install URI")
 		.option("--yes", "Write the MCP server to settings after previewing")
 		.option("--json", "Output the install result as JSON")
 		.action(async (uri: string) => {
@@ -400,7 +400,7 @@ export async function runCli(): Promise<void> {
 		.description(
 			"Preview or import MCP servers from workspace .cursor/mcp.json",
 		)
-		.option("--yes", "Write the Cursor MCP servers to native MCP settings")
+		.option("--yes", "Write imported MCP servers to native MCP settings")
 		.option("--json", "Output the import result as JSON")
 		.option("--global", "Import MCP servers from ~/.cursor/mcp.json")
 		.option(
@@ -433,8 +433,8 @@ export async function runCli(): Promise<void> {
 
 	const uriCmd = program
 		.command("uri")
-		.description("Preview or dispatch a Cursor-compatible deeplink")
-		.argument("<uri>", "Cursor-compatible URI")
+		.description("Preview or dispatch an import-compatible deeplink")
+		.argument("<uri>", "Import-compatible URI")
 		.option("--yes", "Apply supported deeplink changes after previewing")
 		.option("--json", "Output the dispatch result as JSON")
 		.option(
@@ -655,7 +655,7 @@ export async function runCli(): Promise<void> {
 
 	const dashboardCmd = program
 		.command("dashboard")
-		.description("Start the CodeVibe Hub dashboard and open it in a browser")
+		.description("Start the Codie Hub dashboard and open it in a browser")
 		.option("-c, --cwd <path>", "Workspace root", process.cwd())
 		.option("--host <host>", "Dashboard bind host")
 		.option("--port <port>", "Dashboard HTTP/WebSocket port")
@@ -699,7 +699,7 @@ export async function runCli(): Promise<void> {
 
 	program
 		.command("version")
-		.description("Show CodeVibe CLI version number")
+		.description("Show Codie CLI version number")
 		.action(async () => {
 			const { showVersion } = await import("./commands/help");
 			showVersion();

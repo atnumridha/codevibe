@@ -167,7 +167,7 @@ const CodeVibeNewRuleRow: React.FC<NewRuleRowProps> = ({ isGlobal, ruleType, exi
 								Select hook type to create
 							</label>
 							<span className="sr-only" id="hook-select-description">
-								Choose a hook type to create. Hooks execute at specific points in CodeVibe's lifecycle. Available:{" "}
+								Choose a hook type to create. Hooks execute at specific points in Codie's lifecycle. Available:{" "}
 								{availableHookTypes.map((h) => h.name).join(", ")}
 							</span>
 							<select

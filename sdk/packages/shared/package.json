@@ -1,7 +1,7 @@
 {
 	"name": "@cline/shared",
 	"version": "0.0.43",
-	"description": "Shared utilities, types, and schemas for CodeVibe packages",
+	"description": "Shared utilities, types, and schemas for Codie packages",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/atnumridha/codevibe",

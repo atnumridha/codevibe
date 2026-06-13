@@ -1,6 +1,6 @@
-# CodeVibe Hub
+# Codie Agent Hub
 
-A browser dashboard for the local CodeVibe hub. Open it to see who's connected, what sessions are running, drive a session from a chat box, and restart the hub when you need a fresh daemon.
+A browser dashboard for the local Codie Agent hub. Open it to see who's connected, what sessions are running, drive a session from a chat box, and restart the hub when you need a fresh daemon.
 
 ## Capabilities
 
@@ -12,7 +12,7 @@ A browser dashboard for the local CodeVibe hub. Open it to see who's connected, 
 - **Restart Hub** button: gracefully stops the local detached hub and respawns a fresh one
 - optional LAN/tunnel exposure gated by a shared `ROOM_SECRET`
 
-The dashboard registers CodeVibe Hub clients for driving sessions and streaming the admin view.
+The dashboard registers Codie Agent Hub clients for driving sessions and streaming the admin view.
 
 ## Run
 

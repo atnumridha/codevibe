@@ -601,7 +601,7 @@ describe("sandbox environment", () => {
 		}
 	});
 
-	it("enables sandbox from CodeVibe or legacy sandbox flags", () => {
+	it("enables sandbox from Codie or legacy sandbox flags", () => {
 		expect(isSandboxEnvironmentEnabled({ CODEVIBE_SANDBOX: "1" })).toBe(true);
 		expect(isSandboxEnvironmentEnabled({ CLINE_SANDBOX: "1" })).toBe(true);
 		expect(

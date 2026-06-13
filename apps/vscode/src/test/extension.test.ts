@@ -21,13 +21,18 @@ describe("CodeVibe Extension", () => {
 
 	it("declares valid CodeVibe native agent contributions", async () => {
 		const packageJSON = JSON.parse(await readFile(packagePath, "utf8"))
-		const participant = packageJSON.contributes.chatParticipants?.[0]
+		const participantIds = packageJSON.contributes.chatParticipants?.map((participant: { id?: string }) => participant.id)
+		const chatAgent = packageJSON.contributes.chatAgents?.[0]
 		const activitybarContainers = packageJSON.contributes.viewsContainers?.activitybar ?? []
 		const activitybarContainerIds = activitybarContainers.map((container: { id: string }) => container.id)
 		const views = packageJSON.contributes.views ?? {}
 
-		participant.id.should.equal("codevibe")
-		participant.id.should.match(/^[A-Za-z0-9_-]+$/)
+		participantIds.should.deepEqual(["codevibe", "codevibe-agent"])
+		for (const participantId of participantIds) {
+			participantId.should.match(/^[A-Za-z0-9_-]+$/)
+		}
+		chatAgent.id.should.equal("codevibe-agent")
+		chatAgent.path.should.equal("agents/00-codevibe-agent.agent.md")
 		activitybarContainerIds.should.containEql("codevibe-agent")
 		views.should.have.property("codevibe-agent")
 		views.should.not.have.property("codevibe.agent")

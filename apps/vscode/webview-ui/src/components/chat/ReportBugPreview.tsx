@@ -66,7 +66,7 @@ const ReportBugPreview: React.FC<ReportBugPreviewProps> = ({ data }) => {
 
 				{codeVibeVersion && (
 					<div>
-						<div className="font-semibold">CodeVibe Version</div>
+						<div className="font-semibold">Codie Version</div>
 						<MarkdownBlock markdown={codeVibeVersion} />
 					</div>
 				)}

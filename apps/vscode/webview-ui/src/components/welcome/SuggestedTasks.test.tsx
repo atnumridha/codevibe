@@ -17,14 +17,14 @@ describe("SuggestedTasks", () => {
 		vi.clearAllMocks();
 	});
 
-	it("renders the CodeVibe command deck outside starter workflow mode", () => {
+	it("renders the Codie command deck outside starter workflow mode", () => {
 		render(<SuggestedTasks shouldShowStarterWorkflows={false} />);
 
-		expect(screen.getByText("Agent command deck")).toBeInTheDocument();
-		expect(screen.getByText("Spawn parallel agents")).toBeInTheDocument();
-		expect(screen.getByText("Plan terminal safety")).toBeInTheDocument();
-		expect(screen.getByText("Use OpenAI skills")).toBeInTheDocument();
-		expect(screen.getByText("Check Codex auth")).toBeInTheDocument();
+		expect(screen.getByText("Quick commands")).toBeInTheDocument();
+		expect(screen.getByText("Open focus lanes")).toBeInTheDocument();
+		expect(screen.getByText("Check terminal safety")).toBeInTheDocument();
+		expect(screen.getByText("Load skills")).toBeInTheDocument();
+		expect(screen.getByText("Check Codie sign-in")).toBeInTheDocument();
 		expect(screen.queryByText("Suggested commands")).not.toBeInTheDocument();
 	});
 
@@ -34,7 +34,7 @@ describe("SuggestedTasks", () => {
 		render(<SuggestedTasks shouldShowStarterWorkflows={false} />);
 
 		await user.click(
-			screen.getByRole("button", { name: /Review current diff/ }),
+			screen.getByRole("button", { name: /Review diff/ }),
 		);
 
 		expect(TaskServiceClient.newTask).toHaveBeenCalledTimes(1);

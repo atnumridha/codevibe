@@ -142,7 +142,7 @@ const HELP_ROWS: HelpRow[] = [
 		kind: "entry",
 		id: "c-account",
 		key: "/account",
-		desc: "View CodeVibe account and switch account",
+		desc: "View Codie account and switch account",
 	},
 	{
 		kind: "entry",
@@ -180,7 +180,7 @@ const HELP_ROWS: HelpRow[] = [
 		key: "/undo",
 		desc: "Restore to a previous checkpoint",
 	},
-	{ kind: "entry", id: "c-quit", key: "/quit", desc: "Exit CodeVibe" },
+	{ kind: "entry", id: "c-quit", key: "/quit", desc: "Exit Codie" },
 	{ kind: "entry", id: "c-help", key: "/help", desc: "Show this help" },
 
 	{ kind: "spacer", id: "s2" },

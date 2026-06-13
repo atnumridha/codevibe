@@ -1,12 +1,12 @@
 ---
 title: "Rules"
 sidebarTitle: "Rules"
-description: "Define specific instructions and coding standards for CodeVibe."
+description: "Define specific instructions and coding standards for Codie."
 ---
 
-Rules are markdown files that provide persistent instructions across all conversations. Instead of repeating the same preferences every time you start a new task, rules let you define them once and have CodeVibe follow them automatically.
+Rules are markdown files that provide persistent instructions across all conversations. Instead of repeating the same preferences every time you start a new task, rules let you define them once and have Codie follow them automatically.
 
-Use rules when you want CodeVibe to:
+Use rules when you want Codie to:
 - Follow your team's coding standards (naming conventions, file organization, error handling patterns)
 - Understand project-specific context (tech stack, architecture decisions, dependencies)
 - Apply consistent documentation or testing requirements
@@ -14,11 +14,11 @@ Use rules when you want CodeVibe to:
 
 ## Supported Rule Types
 
-CodeVibe recognizes rules from multiple sources, so you can use existing rule files from other tools:
+Codie recognizes rules from multiple sources, so you can use existing rule files from other tools:
 
 | Rule Type | Location | Description |
 |-----------|----------|-------------|
-| CodeVibe Rules | `.codevibe/rules/` | Primary rule format |
+| Codie Rules | `.codevibe/rules/` | Primary rule format |
 | Legacy rules | `.clinerules/` | Migration-compatible rule format |
 | Cursor Rules | `.cursorrules` | Automatically detected |
 | Windsurf Rules | `.windsurfrules` | Automatically detected |
@@ -33,7 +33,7 @@ Rules can be stored in two locations: your project workspace or globally on your
 
 **Workspace rules** go in `.codevibe/rules/` at your project root. Use these for team standards, project-specific constraints, and anything you want to share with collaborators via version control.
 
-**Global rules** go in your system's CodeVibe Rules directory. Use these for personal preferences that apply across all projects. CodeVibe also reads cross-tool global AGENTS instructions from `~/.agents/AGENTS.md`.
+**Global rules** go in your system's Codie Rules directory. Use these for personal preferences that apply across all projects. Codie also reads cross-tool global AGENTS instructions from `~/.agents/AGENTS.md`.
 
 ```text
 your-project/
@@ -46,9 +46,9 @@ your-project/
 └── ...
 ```
 
-CodeVibe processes all `.md` and `.txt` files inside `.codevibe/rules/`, combining them into a unified set of rules. Numeric prefixes (like `01-coding.md`) help organize files but are optional. Existing `.clinerules/` files are still detected for compatibility.
+Codie processes all `.md` and `.txt` files inside `.codevibe/rules/`, combining them into a unified set of rules. Numeric prefixes (like `01-coding.md`) help organize files but are optional. Existing `.clinerules/` files are still detected for compatibility.
 
-When both workspace and global rules exist, CodeVibe combines them. Workspace rules take precedence when they conflict with global rules. See [Storage Locations](/getting-started/config#storage-locations) for more guidance.
+When both workspace and global rules exist, Codie combines them. Workspace rules take precedence when they conflict with global rules. See [Storage Locations](/getting-started/config#storage-locations) for more guidance.
 
 ### Global Rules Directory
 
@@ -59,7 +59,7 @@ When both workspace and global rules exist, CodeVibe combines them. Workspace ru
 | Linux/WSL | `~/.codevibe/rules` |
 
 <Note>
-CodeVibe also checks `~/Documents/CodeVibe/Rules`. Legacy `~/.cline/rules` and older Documents-based rule directories are still read for migration.
+Codie also checks `~/Documents/CodeVibe/Rules`. Legacy `~/.cline/rules` and older Documents-based rule directories are still read for migration.
 </Note>
 
 
@@ -67,7 +67,7 @@ CodeVibe also checks `~/Documents/CodeVibe/Rules`. Legacy `~/.cline/rules` and o
 
 <Steps>
   <Step title="Open the Rules menu">
-    Click the scale icon at the bottom of the CodeVibe panel, to the left of the model selector.
+    Click the scale icon at the bottom of the Codie panel, to the left of the model selector.
   </Step>
   <Step title="Create a new rule file">
     Click "New rule file..." and enter a filename (e.g., `coding-standards`). The file will be created with a `.md` extension.
@@ -77,7 +77,7 @@ CodeVibe also checks `~/Documents/CodeVibe/Rules`. Legacy `~/.cline/rules` and o
   </Step>
 </Steps>
 
-You can also use the [`/newrule` slash command](/core-workflows/using-commands#newrule) to have CodeVibe create a rule interactively.
+You can also use the [`/newrule` slash command](/core-workflows/using-commands#newrule) to have Codie create a rule interactively.
 
 ### Toggling Rules
 
@@ -106,17 +106,17 @@ Brief context about why this rule exists (optional but helpful).
 - Include the "why" when it's not obvious
 ```
 
-CodeVibe reads rules as context, so formatting matters. Headers help CodeVibe understand the scope of each instruction. Bullet points make individual requirements clear. Code examples show exactly what you want.
+Codie reads rules as context, so formatting matters. Headers help Codie understand the scope of each instruction. Bullet points make individual requirements clear. Code examples show exactly what you want.
 
 ### Best Practices
 
-**Be specific, not vague.** "Use descriptive variable names" is too broad. "Use camelCase for variables, PascalCase for classes, UPPER_SNAKE for constants" gives CodeVibe something concrete to follow.
+**Be specific, not vague.** "Use descriptive variable names" is too broad. "Use camelCase for variables, PascalCase for classes, UPPER_SNAKE for constants" gives Codie something concrete to follow.
 
-**Include the why.** When a rule might seem arbitrary, explain the reason. "Don't modify files in /legacy (this code is scheduled for removal in Q2)" helps CodeVibe make better decisions in edge cases.
+**Include the why.** When a rule might seem arbitrary, explain the reason. "Don't modify files in /legacy (this code is scheduled for removal in Q2)" helps Codie make better decisions in edge cases.
 
 **Point to examples.** If your codebase already demonstrates the pattern you want, reference it. "Follow the error handling pattern in /src/utils/errors.ts" is more effective than describing the pattern from scratch.
 
-**Keep rules current.** Outdated rules confuse CodeVibe and waste context. If a constraint no longer applies, remove it. If your tech stack changes, update the rules.
+**Keep rules current.** Outdated rules confuse Codie and waste context. If a constraint no longer applies, remove it. If your tech stack changes, update the rules.
 
 **One concern per file.** Split rules by topic: `coding.md` for style, `testing.md` for test requirements, `architecture.md` for structural decisions. This makes it easy to toggle specific rules on or off.
 
@@ -155,11 +155,11 @@ Conditional rules let you scope rules to specific parts of your codebase. Rules 
 
 For example, documentation style rules should only appear when you're editing docs, not when you're writing application code or tests.
 
-As your rule library grows, loading every rule for every request wastes context tokens and can dilute CodeVibe's focus. Conditional rules solve this by giving CodeVibe only the instructions that matter for the files you're actually touching. This means faster, more accurate responses. Your frontend rules won't compete for attention when you're deep in backend code, and your testing standards appear exactly when you're writing tests. It's the difference between handing someone an entire policy manual versus the one page they need right now.
+As your rule library grows, loading every rule for every request wastes context tokens and can dilute Codie's focus. Conditional rules solve this by giving Codie only the instructions that matter for the files you're actually touching. This means faster, more accurate responses. Your frontend rules won't compete for attention when you're deep in backend code, and your testing standards appear exactly when you're writing tests. It's the difference between handing someone an entire policy manual versus the one page they need right now.
 
 ### How It Works
 
-Conditional rules use YAML frontmatter at the top of your rule files. When CodeVibe processes a request, it gathers context from your current work (open files, visible tabs, mentioned paths, edited files), evaluates each rule's conditions, and activates matching rules.
+Conditional rules use YAML frontmatter at the top of your rule files. When Codie processes a request, it gathers context from your current work (open files, visible tabs, mentioned paths, edited files), evaluates each rule's conditions, and activates matching rules.
 
 <Note>
 When a conditional rule activates, you'll see a notification: **"Conditional rules applied: workspace:frontend-rules.md"**
@@ -232,19 +232,19 @@ paths:
 
 **Empty paths array**: `paths: []` means the rule never activates. Use this to temporarily disable a rule.
 
-**Invalid YAML**: If frontmatter can't be parsed, CodeVibe fails open. The rule activates with raw content visible to help debugging.
+**Invalid YAML**: If frontmatter can't be parsed, Codie fails open. The rule activates with raw content visible to help debugging.
 
 ### What Counts as "Current Context"
 
-CodeVibe evaluates rules based on:
+Codie evaluates rules based on:
 
 1. **Your message**: File paths mentioned in your prompt (e.g., "update `src/App.tsx`")
 2. **Open tabs**: Files currently open in your editor
 3. **Visible files**: Files visible in your active editor panes
-4. **Edited files**: Files CodeVibe has created, modified, or deleted during the task
-5. **Pending operations**: Files CodeVibe is about to edit
+4. **Edited files**: Files Codie has created, modified, or deleted during the task
+5. **Pending operations**: Files Codie is about to edit
 
-Conditional rules can activate on your first message, when relevant files are open, or mid-task when CodeVibe starts working with matching files.
+Conditional rules can activate on your first message, when relevant files are open, or mid-task when Codie starts working with matching files.
 
 <Tip>
 Be explicit about file paths in your prompts. "Update `src/services/user.ts`" reliably triggers path-based rules; "update the user service" may not.

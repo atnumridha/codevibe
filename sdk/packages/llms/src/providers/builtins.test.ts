@@ -56,12 +56,15 @@ describe("built-in provider metadata", () => {
 			capabilities: expect.arrayContaining(["popular"]),
 			metadata: { popularRank: 1 },
 		});
+		await expect(getProvider("openai-codex")).resolves.toMatchObject({
+			defaultModelId: "gpt-5.5-pro",
+		});
 		await expect(getProvider("zai")).resolves.not.toMatchObject({
 			capabilities: expect.arrayContaining(["popular"]),
 		});
 	});
 
-	it("derives ChatGPT subscription models from the generated OpenAI catalog", async () => {
+	it("derives Codie hosted models from the generated OpenAI catalog", async () => {
 		const chatGptModels = await getModelsForProvider("openai-codex");
 		const openAiModels = await getModelsForProvider("openai-native");
 		const modelIds = Object.keys(chatGptModels);
@@ -86,6 +89,13 @@ describe("built-in provider metadata", () => {
 				...openAiModels["gpt-5.5"],
 				maxInputTokens: 272_000,
 				contextWindow: 400_000,
+			}),
+		);
+		expect(chatGptModels["gpt-5.5-pro"]).toEqual(
+			expect.objectContaining({
+				...openAiModels["gpt-5.5-pro"],
+				name: "GPT-5.5 Pro",
+				contextWindow: 1_050_000,
 			}),
 		);
 		expect(chatGptModels["gpt-5.4"]).toEqual(

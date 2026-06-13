@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Post-install script for CodeVibe CLI.
+// Post-install script for Codie CLI.
 //
 // Creates a hard link (or copy fallback) from the platform-specific binary
 // to bin/.codevibe and bin/.cline for fast startup on subsequent runs.
@@ -97,7 +97,7 @@ function main() {
 		fs.chmodSync(target, 0o755);
 	}
 	console.log(
-		`Cached CodeVibe binary from ${resolvedPackageName} at ${targets.join(", ")}`,
+		`Cached Codie binary from ${resolvedPackageName} at ${targets.join(", ")}`,
 	);
 }
 

@@ -235,7 +235,7 @@ const McpMarketplaceView = () => {
 						value={sortBy}>
 						<VSCodeRadio value="downloadCount">Most Installs</VSCodeRadio>
 						<VSCodeRadio value="newest">Newest</VSCodeRadio>
-						<VSCodeRadio value="stars">GitHub Stars</VSCodeRadio>
+						<VSCodeRadio value="stars">Repository Stars</VSCodeRadio>
 						<VSCodeRadio value="name">Name</VSCodeRadio>
 					</VSCodeRadioGroup>
 				</div>

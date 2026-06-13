@@ -319,7 +319,7 @@ function getUserPromptSubmitTemplate(): string {
 #
 # UserPromptSubmit Hook
 # 
-# Executes when the user submits a prompt to CodeVibe.
+# Executes when the user submits a prompt to Codie.
 # 
 # Input: { taskId, userPromptSubmit: { prompt: string, attachments: string[] }, codevibeVersion, timestamp, ... }
 # Output: { cancel: boolean, contextModification?: string, errorMessage?: string }
@@ -353,7 +353,7 @@ function getNotificationTemplate(): string {
 #
 # Notification Hook
 #
-# Executes when CodeVibe reaches a user-attention boundary or emits lifecycle notifications.
+# Executes when Codie reaches a user-attention boundary or emits lifecycle notifications.
 #
 # Input: {
 #   taskId,

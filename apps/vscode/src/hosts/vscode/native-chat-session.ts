@@ -61,7 +61,7 @@ const SKIPPED_TRANSCRIPT_MESSAGE_TYPES = new Set([
 export function buildCodeVibeChatSessionLabel(request: CodeVibeNativeChatRequestLike | undefined): string {
 	const prompt = typeof request?.prompt === "string" ? normalizeLabel(request.prompt) : ""
 	if (!prompt) {
-		return "New CodeVibe Session"
+		return "New Codie Session"
 	}
 	return truncateNativeSessionLabel(prompt)
 }
@@ -83,7 +83,7 @@ export function buildCodeVibeNativeSessionDescriptor(
 	item: HistoryItem,
 	options: CodeVibeNativeSessionDescriptorOptions = {},
 ): CodeVibeNativeSessionDescriptor {
-	const label = truncateNativeSessionLabel(normalizeLabel(item.task) || `CodeVibe Task ${item.id}`)
+	const label = truncateNativeSessionLabel(normalizeLabel(item.task) || `Codie Task ${item.id}`)
 	const workspacePath = item.cwdOnTaskInitialization || options.workspacePath
 	const metadata: Record<string, unknown> = {
 		source: "codevibe.taskHistory",
@@ -193,7 +193,7 @@ function truncateNativeSessionLabel(label: string): string {
 }
 
 function buildCodeVibeNativeSessionTooltip(item: HistoryItem, label: string, workspacePath: string | undefined): string {
-	const lines = [`CodeVibe task: ${label}`, `Task ID: ${item.id}`]
+	const lines = [`Codie task: ${label}`, `Task ID: ${item.id}`]
 	if (workspacePath) {
 		lines.push(`Workspace: ${workspacePath}`)
 	}

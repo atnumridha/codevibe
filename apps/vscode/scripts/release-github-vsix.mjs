@@ -4,6 +4,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
+import zlib from "node:zlib"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -100,6 +101,105 @@ function defaultVsixPath(version) {
 	return path.join(projectRoot, "dist", `codevibe-${version}.vsix`)
 }
 
+function findZipEndOfCentralDirectory(buffer) {
+	const minimumOffset = Math.max(0, buffer.length - 22 - 0xffff)
+	for (let offset = buffer.length - 22; offset >= minimumOffset; offset -= 1) {
+		if (buffer.readUInt32LE(offset) === 0x06054b50) {
+			return offset
+		}
+	}
+	throw new Error("VSIX artifact is not a readable zip archive")
+}
+
+function listZipEntries(zipPath) {
+	const buffer = fs.readFileSync(zipPath)
+	const eocdOffset = findZipEndOfCentralDirectory(buffer)
+	const entryCount = buffer.readUInt16LE(eocdOffset + 10)
+	const centralDirectoryOffset = buffer.readUInt32LE(eocdOffset + 16)
+	const entries = new Map()
+	let offset = centralDirectoryOffset
+	for (let index = 0; index < entryCount; index += 1) {
+		if (buffer.readUInt32LE(offset) !== 0x02014b50) {
+			throw new Error(`VSIX central directory is corrupt at entry ${index}`)
+		}
+		const compressionMethod = buffer.readUInt16LE(offset + 10)
+		const compressedSize = buffer.readUInt32LE(offset + 20)
+		const fileNameLength = buffer.readUInt16LE(offset + 28)
+		const extraFieldLength = buffer.readUInt16LE(offset + 30)
+		const fileCommentLength = buffer.readUInt16LE(offset + 32)
+		const localHeaderOffset = buffer.readUInt32LE(offset + 42)
+		const fileName = buffer.toString("utf8", offset + 46, offset + 46 + fileNameLength)
+		entries.set(fileName, {
+			compressionMethod,
+			compressedSize,
+			localHeaderOffset,
+		})
+		offset += 46 + fileNameLength + extraFieldLength + fileCommentLength
+	}
+	return { buffer, entries }
+}
+
+function readZipEntry(zip, entryName) {
+	const entry = zip.entries.get(entryName)
+	if (!entry) {
+		throw new Error(`VSIX artifact is missing ${entryName}`)
+	}
+	const { buffer } = zip
+	if (buffer.readUInt32LE(entry.localHeaderOffset) !== 0x04034b50) {
+		throw new Error(`VSIX local file header is corrupt for ${entryName}`)
+	}
+	const fileNameLength = buffer.readUInt16LE(entry.localHeaderOffset + 26)
+	const extraFieldLength = buffer.readUInt16LE(entry.localHeaderOffset + 28)
+	const dataOffset = entry.localHeaderOffset + 30 + fileNameLength + extraFieldLength
+	const compressed = buffer.subarray(dataOffset, dataOffset + entry.compressedSize)
+	if (entry.compressionMethod === 0) {
+		return compressed
+	}
+	if (entry.compressionMethod === 8) {
+		return zlib.inflateRawSync(compressed)
+	}
+	throw new Error(`VSIX entry ${entryName} uses unsupported compression method ${entry.compressionMethod}`)
+}
+
+function validateVsixArtifact(vsixPath, version) {
+	const zip = listZipEntries(vsixPath)
+	const entries = [...zip.entries.keys()]
+	for (const requiredEntry of ["extension/package.json", "extension/dist/extension.js", "extension.vsixmanifest"]) {
+		if (!zip.entries.has(requiredEntry)) {
+			throw new Error(`VSIX artifact is missing ${requiredEntry}`)
+		}
+	}
+	if (!entries.some((entryName) => entryName.startsWith("extension/webview-ui/build/"))) {
+		throw new Error("VSIX artifact is missing extension/webview-ui/build assets")
+	}
+	for (const entryName of entries) {
+		if (entryName.endsWith(".vsix")) {
+			throw new Error(`VSIX artifact must not include nested VSIX artifact ${entryName}`)
+		}
+	}
+
+	const packagedPackageJson = JSON.parse(readZipEntry(zip, "extension/package.json").toString("utf8"))
+	if (packagedPackageJson.name !== "codevibe") {
+		throw new Error(`VSIX package name mismatch: expected codevibe, found ${packagedPackageJson.name ?? "missing"}`)
+	}
+	if (packagedPackageJson.publisher !== "atnumridha") {
+		throw new Error(`VSIX publisher mismatch: expected atnumridha, found ${packagedPackageJson.publisher ?? "missing"}`)
+	}
+	if (packagedPackageJson.version !== version) {
+		throw new Error(`VSIX version mismatch: expected ${version}, found ${packagedPackageJson.version ?? "missing"}`)
+	}
+	if (!String(packagedPackageJson.displayName ?? "").includes("Codie")) {
+		throw new Error("VSIX package displayName must use Codie branding")
+	}
+
+	const manifest = readZipEntry(zip, "extension.vsixmanifest").toString("utf8")
+	for (const expected of [`Version="${version}"`, 'Id="codevibe"', 'Publisher="atnumridha"']) {
+		if (!manifest.includes(expected)) {
+			throw new Error(`VSIX manifest is missing ${expected}`)
+		}
+	}
+}
+
 function getCurrentGitHead() {
 	const result = spawnSync("git", ["rev-parse", "HEAD"], {
 		cwd: path.join(projectRoot, "..", ".."),
@@ -125,6 +225,7 @@ function resolveInputs(rawOptions) {
 	if (!stat.isFile() || stat.size <= 0) {
 		throw new Error(`VSIX path must point at a non-empty file: ${vsixPath}`)
 	}
+	validateVsixArtifact(vsixPath, version)
 
 	return {
 		...rawOptions,
@@ -285,6 +386,21 @@ function printDryRun(inputs) {
 	)
 }
 
+function runReleasePreflight() {
+	if (process.env.CODEVIBE_SKIP_RELEASE_PREFLIGHT === "true") {
+		console.warn("Skipping Codie VSIX release preflight because CODEVIBE_SKIP_RELEASE_PREFLIGHT=true")
+		return
+	}
+	const result = spawnSync(process.execPath, [path.join(__dirname, "package-github-vsix.mjs"), "--preflight"], {
+		cwd: projectRoot,
+		env: process.env,
+		stdio: "inherit",
+	})
+	if (result.status !== 0) {
+		throw new Error("Codie VSIX release preflight failed")
+	}
+}
+
 async function main() {
 	const rawOptions = parseArgs(process.argv.slice(2))
 	const inputs = resolveInputs(rawOptions)
@@ -292,6 +408,7 @@ async function main() {
 		printDryRun(inputs)
 		return
 	}
+	runReleasePreflight()
 
 	const token = getGithubToken()
 	if (!token) {

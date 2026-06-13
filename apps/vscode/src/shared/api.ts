@@ -1843,6 +1843,7 @@ export type OpenAiNativeModelId = keyof typeof openAiNativeModels
 export const openAiNativeDefaultModelId: OpenAiNativeModelId = "gpt-5.5"
 export const openAiNativeModels = {
 	"gpt-5.5": {
+		name: "GPT-5.5",
 		maxTokens: 8_192,
 		contextWindow: 1_050_000,
 		supportsImages: true,
@@ -1856,7 +1857,22 @@ export const openAiNativeModels = {
 		supportsReasoning: true,
 		supportsReasoningEffort: true,
 	},
+	"gpt-5.5-pro": {
+		name: "GPT-5.5 Pro",
+		maxTokens: 128_000,
+		contextWindow: 1_050_000,
+		supportsImages: true,
+		supportsPromptCache: false,
+		inputPrice: 30.0,
+		outputPrice: 180.0,
+		apiFormat: ApiFormat.OPENAI_RESPONSES,
+		temperature: 1,
+		systemRole: "developer",
+		supportsReasoning: true,
+		supportsReasoningEffort: true,
+	},
 	"gpt-5.4": {
+		name: "GPT-5.4",
 		maxTokens: 8_192,
 		contextWindow: 1_050_000,
 		supportsImages: true,
@@ -1871,6 +1887,7 @@ export const openAiNativeModels = {
 		supportsReasoningEffort: true,
 	},
 	"gpt-5.4-mini": {
+		name: "GPT-5.4 mini",
 		maxTokens: 8_192,
 		contextWindow: 400_000,
 		supportsImages: true,
@@ -2211,25 +2228,27 @@ export const openAiNativeModels = {
 	},
 } as const satisfies Record<string, OpenAiCompatibleModelInfo>
 
-// OpenAI Codex (ChatGPT Plus/Pro subscription)
+// ChatGPT for Codie
 // Uses OAuth authentication via ChatGPT, routes to chatgpt.com/backend-api/codex/responses
-// Subscription-based pricing (all costs are $0)
+// Usage cost display is hidden because billing is handled by the authenticated ChatGPT account.
 export type OpenAiCodexModelId = keyof typeof openAiCodexModels
-export const openAiCodexDefaultModelId: OpenAiCodexModelId = "gpt-5.5"
+export const openAiCodexDefaultModelId: OpenAiCodexModelId = "gpt-5.5-pro"
 export const openAiCodexModels = {
 	"gpt-5.5": {
+		name: "GPT-5.5",
 		maxTokens: 128_000,
 		contextWindow: 400_000,
 		supportsImages: true,
 		supportsPromptCache: true,
 		supportsReasoning: true,
 		apiFormat: ApiFormat.OPENAI_RESPONSES,
-		// Subscription-based: no per-token costs
+		// Hosted account usage: no local per-token display.
 		inputPrice: 0,
 		outputPrice: 0,
-		description: "GPT-5.5 Codex: OpenAI's latest flagship coding model via ChatGPT subscription",
+		description: "GPT-5.5 Codex: Latest flagship coding model with Codie sign-in",
 	},
 	"gpt-5.5-pro": {
+		name: "GPT-5.5 Pro",
 		maxTokens: 128_000,
 		contextWindow: 1_050_000,
 		supportsImages: true,
@@ -2238,21 +2257,23 @@ export const openAiCodexModels = {
 		apiFormat: ApiFormat.OPENAI_RESPONSES,
 		inputPrice: 0,
 		outputPrice: 0,
-		description: "GPT-5.5 Pro: OpenAI's highest-capability model via ChatGPT subscription",
+		description: "GPT-5.5 Pro: Highest-capability model with Codie sign-in",
 	},
 	"gpt-5.4": {
+		name: "GPT-5.4",
 		maxTokens: 128_000,
 		contextWindow: 1_050_000,
 		supportsImages: true,
 		supportsPromptCache: true,
 		supportsReasoning: true,
 		apiFormat: ApiFormat.OPENAI_RESPONSES,
-		// Subscription-based: no per-token costs
+		// Hosted account usage: no local per-token display.
 		inputPrice: 0,
 		outputPrice: 0,
-		description: "GPT-5.4 Codex: OpenAI's latest flagship coding model via ChatGPT subscription",
+		description: "GPT-5.4 Codex: Flagship coding model with Codie sign-in",
 	},
 	"gpt-5.4-mini": {
+		name: "GPT-5.4 mini",
 		maxTokens: 128_000,
 		contextWindow: 400_000,
 		supportsImages: true,
@@ -2261,21 +2282,23 @@ export const openAiCodexModels = {
 		apiFormat: ApiFormat.OPENAI_RESPONSES,
 		inputPrice: 0,
 		outputPrice: 0,
-		description: "GPT-5.4 mini: Faster model via ChatGPT subscription",
+		description: "GPT-5.4 mini: Faster model with Codie sign-in",
 	},
 	"gpt-5.3-codex": {
+		name: "GPT-5.3 Codex",
 		maxTokens: 128_000,
 		contextWindow: 400_000,
 		supportsImages: true,
 		supportsPromptCache: true,
 		supportsReasoning: true,
 		apiFormat: ApiFormat.OPENAI_RESPONSES,
-		// Subscription-based: no per-token costs
+		// Hosted account usage: no local per-token display.
 		inputPrice: 0,
 		outputPrice: 0,
-		description: "GPT-5.3 Codex: OpenAI's latest flagship coding model via ChatGPT subscription",
+		description: "GPT-5.3 Codex: Flagship coding model with Codie sign-in",
 	},
 	"gpt-5.3-codex-spark": {
+		name: "GPT-5.3 Codex Spark",
 		maxTokens: 32_000,
 		contextWindow: 128_000,
 		supportsImages: true,
@@ -2284,9 +2307,10 @@ export const openAiCodexModels = {
 		apiFormat: ApiFormat.OPENAI_RESPONSES,
 		inputPrice: 0,
 		outputPrice: 0,
-		description: "GPT-5.3 Codex Spark: Fast coding model via ChatGPT subscription",
+		description: "GPT-5.3 Codex Spark: Fast coding model with Codie sign-in",
 	},
 	"gpt-5.2": {
+		name: "GPT-5.2",
 		maxTokens: 128_000,
 		contextWindow: 400_000,
 		supportsImages: true,
@@ -2295,7 +2319,7 @@ export const openAiCodexModels = {
 		apiFormat: ApiFormat.OPENAI_RESPONSES,
 		inputPrice: 0,
 		outputPrice: 0,
-		description: "GPT-5.2: Latest GPT model via ChatGPT subscription",
+		description: "GPT-5.2: General-purpose model with Codie sign-in",
 	},
 } as const satisfies Record<string, ModelInfo>
 

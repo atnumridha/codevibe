@@ -13,7 +13,7 @@ import {
 	ensureOAuthProviderApiKey,
 	getPersistedProviderApiKey,
 	isOAuthProvider,
-	normalizeProviderId,
+	normalizeAuthProviderId,
 } from "../commands/auth";
 import type { CliLoggerAdapter } from "../logging/adapter";
 import { resolveSystemPrompt } from "../runtime/prompt";
@@ -64,7 +64,7 @@ export async function buildConnectorStartRequest(input: {
 	defaultModel?: string;
 }): Promise<ChatStartSessionRequest> {
 	const providerSettingsManager = new ProviderSettingsManager();
-	const provider = normalizeProviderId(
+	const provider = normalizeAuthProviderId(
 		input.options.provider?.trim() || DEFAULT_CLI_PROVIDER_ID,
 	);
 	let selectedProviderSettings =

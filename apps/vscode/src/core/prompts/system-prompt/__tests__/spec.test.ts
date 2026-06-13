@@ -7,6 +7,7 @@ import { toolSpecFunctionDeclarations, toolSpecFunctionDefinition, toolSpecInput
 import { browser_action_variants } from "../tools/browser_action"
 import { browser_screenshot_variants } from "../tools/browser_screenshot"
 import { browser_snapshot_variants } from "../tools/browser_snapshot"
+import { execute_command_variants } from "../tools/execute_command"
 import { plan_mode_respond_variants } from "../tools/plan_mode_respond"
 import type { SystemPromptContext } from "../types"
 
@@ -145,6 +146,49 @@ describe("plan_mode_respond native schema", () => {
 			expect(properties.needs_more_exploration).to.deep.include({
 				type: "boolean",
 			})
+		}
+	})
+})
+
+describe("execute_command terminal policy schema", () => {
+	const sandboxPermissionEnum = ["use_default", "sandboxed", "unelevated", "require_escalated"]
+	const optionalTerminalPolicyParams = ["sandbox_permissions", "require_escalated", "prefix_rule"]
+
+	it("exposes optional sandbox escalation parameters for every execute_command variant", () => {
+		for (const spec of execute_command_variants) {
+			const parameters = spec.parameters ?? []
+			const parameterByName = new Map(parameters.map((parameter) => [parameter.name, parameter]))
+
+			for (const paramName of optionalTerminalPolicyParams) {
+				expect(parameterByName.get(paramName), `${spec.variant} ${paramName}`).to.include({
+					required: false,
+				})
+			}
+
+			expect(parameterByName.get("sandbox_permissions")?.enum).to.include.members(sandboxPermissionEnum)
+
+			const openAI = toolSpecFunctionDefinition(spec, mockContext)
+			const openAIParameters = (openAI as any).function.parameters
+			const openAIProperties = openAIParameters.properties
+			const anthropic = toolSpecInputSchema(spec, mockContext)
+			const anthropicSchema = (anthropic as any).input_schema
+			const anthropicProperties = anthropicSchema.properties
+			const gemini = toolSpecFunctionDeclarations(spec, mockContext)
+			const geminiParameters = gemini.parameters as any
+			const geminiProperties = geminiParameters.properties
+
+			for (const paramName of optionalTerminalPolicyParams) {
+				expect(openAIProperties[paramName], `${spec.variant} OpenAI ${paramName}`).to.exist
+				expect(openAIParameters.required).to.not.include(paramName)
+				expect(anthropicProperties[paramName], `${spec.variant} Anthropic ${paramName}`).to.exist
+				expect(anthropicSchema.required).to.not.include(paramName)
+				expect(geminiProperties[paramName], `${spec.variant} Gemini ${paramName}`).to.exist
+				expect(geminiParameters.required).to.not.include(paramName)
+			}
+
+			expect(openAIProperties.sandbox_permissions.enum).to.include.members(sandboxPermissionEnum)
+			expect(anthropicProperties.sandbox_permissions.enum).to.include.members(sandboxPermissionEnum)
+			expect(geminiProperties.sandbox_permissions.enum).to.include.members(sandboxPermissionEnum)
 		}
 	})
 })

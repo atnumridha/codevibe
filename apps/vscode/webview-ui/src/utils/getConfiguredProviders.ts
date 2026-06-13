@@ -20,10 +20,10 @@ export function getConfiguredProviders(
 		return ["openai-codex", "cline"]
 	}
 
-	// OpenAI Codex is the default CodeVibe path and can import ~/.codex/auth.json.
+	// ChatGPT for Codie is the default path and can import ~/.codex/auth.json.
 	configured.push("openai-codex")
 
-	// CodeVibe Cloud remains available as the legacy account-backed provider.
+	// Codie Cloud remains available as the legacy account-backed provider.
 	configured.push("cline")
 
 	// Anthropic - requires API key
@@ -241,6 +241,13 @@ export function getConfiguredProviders(
  * Uses the canonical providers.json as source of truth
  */
 export function getProviderLabel(provider: ApiProvider): string {
+	if (provider === "openai-codex") {
+		return "Codie Agent"
+	}
+	if (provider === "cline") {
+		return "Codie Cloud"
+	}
+
 	const providerEntry = PROVIDERS.list.find((p) => p.value === provider)
 	return providerEntry?.label || provider
 }

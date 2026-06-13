@@ -1,18 +1,18 @@
 ---
 title: "Code Examples"
 sidebarTitle: "Code Examples"
-description: "Use the CodeVibe API from Python, Node.js, curl, the CodeVibe CLI, and the VS Code extension."
+description: "Use the Codie API from Python, Node.js, curl, the Codie CLI, and the VS Code extension."
 ---
 
-The CodeVibe API is OpenAI-compatible, so any library or tool that works with OpenAI also works with the CodeVibe API. Just change the base URL and API key.
+The Codie API is OpenAI-compatible, so any library or tool that works with OpenAI also works with the Codie API. Just change the base URL and API key.
 
 ## curl
 
 ### Non-Streaming
 
 ```bash
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
-  -H "Authorization: Bearer $CLINE_API_KEY" \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
+  -H "Authorization: Bearer $CODIE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "anthropic/claude-sonnet-4-6",
@@ -24,8 +24,8 @@ curl -X POST https://api.cline.bot/api/v1/chat/completions \
 ### Streaming
 
 ```bash
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
-  -H "Authorization: Bearer $CLINE_API_KEY" \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
+  -H "Authorization: Bearer $CODIE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "anthropic/claude-sonnet-4-6",
@@ -38,13 +38,13 @@ curl -X POST https://api.cline.bot/api/v1/chat/completions \
 
 ### OpenAI SDK
 
-The [OpenAI Python SDK](https://github.com/openai/openai-python) works with the CodeVibe API by setting `base_url`:
+The [OpenAI Python SDK](https://github.com/openai/openai-python) works with the Codie API by setting `base_url`:
 
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.cline.bot/api/v1",
+    base_url="https://api.codie.dev/api/v1",
     api_key="YOUR_API_KEY",
 )
 
@@ -62,7 +62,7 @@ print(response.choices[0].message.content)
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="https://api.cline.bot/api/v1",
+    base_url="https://api.codie.dev/api/v1",
     api_key="YOUR_API_KEY",
 )
 
@@ -86,7 +86,7 @@ from openai import OpenAI
 import json
 
 client = OpenAI(
-    base_url="https://api.cline.bot/api/v1",
+    base_url="https://api.codie.dev/api/v1",
     api_key="YOUR_API_KEY",
 )
 
@@ -129,7 +129,7 @@ If you prefer not to use the OpenAI SDK:
 import requests
 
 response = requests.post(
-    "https://api.cline.bot/api/v1/chat/completions",
+    "https://api.codie.dev/api/v1/chat/completions",
     headers={
         "Authorization": "Bearer YOUR_API_KEY",
         "Content-Type": "application/json",
@@ -149,13 +149,13 @@ print(data["choices"][0]["message"]["content"])
 
 ### OpenAI SDK
 
-The [OpenAI Node.js SDK](https://github.com/openai/openai-node) works with the CodeVibe API by setting `baseURL`:
+The [OpenAI Node.js SDK](https://github.com/openai/openai-node) works with the Codie API by setting `baseURL`:
 
 ```typescript
 import OpenAI from "openai"
 
 const client = new OpenAI({
-  baseURL: "https://api.cline.bot/api/v1",
+  baseURL: "https://api.codie.dev/api/v1",
   apiKey: "YOUR_API_KEY",
 })
 
@@ -173,7 +173,7 @@ console.log(response.choices[0].message.content)
 import OpenAI from "openai"
 
 const client = new OpenAI({
-  baseURL: "https://api.cline.bot/api/v1",
+  baseURL: "https://api.codie.dev/api/v1",
   apiKey: "YOUR_API_KEY",
 })
 
@@ -195,7 +195,7 @@ console.log()
 ### Using fetch
 
 ```typescript
-const response = await fetch("https://api.cline.bot/api/v1/chat/completions", {
+const response = await fetch("https://api.codie.dev/api/v1/chat/completions", {
   method: "POST",
   headers: {
     Authorization: "Bearer YOUR_API_KEY",
@@ -212,19 +212,18 @@ const data = await response.json()
 console.log(data.choices[0].message.content)
 ```
 
-## CodeVibe CLI
+## Codie CLI
 
-The [CodeVibe CLI](/cli/cli-reference) is the fastest way to use the CodeVibe API from your terminal. It handles authentication, streaming, and tool execution for you.
+The [Codie CLI](/cli/cli-reference) is the fastest way to use the Codie API from your terminal. It handles authentication, streaming, and tool execution for you.
 
 ### Setup
 
 ```bash
-# Install the CodeVibe CLI.
+# Install the Codie CLI.
 npm install -g codevibe
 
-# Authenticate with a CodeVibe API key.
-# The provider id remains "cline" for account compatibility.
-codevibe auth -p cline -k "YOUR_API_KEY" -m anthropic/claude-sonnet-4-6
+# Authenticate with Codie browser sign-in.
+codevibe auth openai-codex
 ```
 
 ### Run Tasks
@@ -247,16 +246,16 @@ See the [CLI Reference](/cli/cli-reference) for all commands and options.
 
 ## VS Code / JetBrains
 
-The CodeVibe extension handles the API integration for you:
+The Codie extension handles the API integration for you:
 
-1. Open the CodeVibe panel in your editor
-2. Select **CodeVibe** as the provider in the model picker
-3. Sign in with your CodeVibe account
-4. Start chatting or give CodeVibe a task
+1. Open the Codie panel in your editor
+2. Select **Codie** as the provider in the model picker
+3. Sign in with your Codie account
+4. Start chatting or give Codie a task
 
 Your API key is managed automatically. No manual configuration needed.
 
-For setup instructions, see [Installing CodeVibe](/getting-started/installing-codevibe) and [Authorizing with CodeVibe](/getting-started/authorization).
+For setup instructions, see [Installing Codie](/getting-started/installing-codevibe) and [Authorizing with Codie](/getting-started/authorization).
 
 ## Related
 
@@ -271,6 +270,6 @@ For setup instructions, see [Installing CodeVibe](/getting-started/installing-co
     Browse available models.
   </Card>
   <Card title="CLI Reference" icon="terminal" href="/cli/cli-reference">
-    Complete CodeVibe CLI command reference.
+    Complete Codie CLI command reference.
   </Card>
 </CardGroup>

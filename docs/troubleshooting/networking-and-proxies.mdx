@@ -1,23 +1,23 @@
 ---
 title: "Networking and Proxies"
 sidebarTitle: "Networking & Proxies"
-description: "Configure CodeVibe to work behind firewalls and proxies"
+description: "Configure Codie to work behind firewalls and proxies"
 ---
 
 If you're working behind a corporate proxy or firewall, you'll need to configure
-proxy settings for CodeVibe to connect to AI providers. The configuration varies
-depending on which version of CodeVibe you're using.
+proxy settings for Codie to connect to AI providers. The configuration varies
+depending on which version of Codie you're using.
 
 ## VSCode Extension
 
 The VSCode extension automatically uses VSCode's built-in proxy settings. See
 [Network Connections in Visual Studio Code, Proxy server support](https://code.visualstudio.com/docs/setup/network#_proxy-server-support)
 for instructions on how to set up proxies in VSCode. No additional configuration
-is needed for CodeVibe itself.
+is needed for Codie itself.
 
 ## CLI
 
-The CodeVibe CLI uses standard HTTP proxy environment variables. Configure these before running `codevibe` commands.
+The Codie CLI uses standard HTTP proxy environment variables. Configure these before running `codevibe` commands.
 
 ### Basic Configuration
 
@@ -105,7 +105,7 @@ export NODE_EXTRA_CA_CERTS=/path/to/ca-certificate.pem
 
 ### Known Limitations
 
-CodeVibe CLI only supports HTTP proxies. It does not support SOCKS proxies,
+Codie CLI only supports HTTP proxies. It does not support SOCKS proxies,
 proxy autoconfiguration (PAC) scripts, or HTTP proxies which require
 authentication beyond a basic username and password.
 
@@ -142,9 +142,9 @@ The JetBrains plugin uses the IDE's HTTP proxy settings.
 
 ### Test Connection
 
-After configuring the proxy, test that CodeVibe can connect to your AI provider:
+After configuring the proxy, test that Codie can connect to your AI provider:
 
-1. Open the CodeVibe panel
+1. Open the Codie panel
 2. Try sending a simple message
 3. If connection fails, check the IDE's Event Log for error messages
 
@@ -159,12 +159,12 @@ If your proxy uses a custom CA:
 
 ### Known Limitations
 
-CodeVibe in JetBrains only supports HTTP proxies. It does not support SOCKS
+Codie in JetBrains only supports HTTP proxies. It does not support SOCKS
 proxies, proxy autoconfiguration (PAC) scripts, or HTTP proxies which require
 authentication beyond a basic username and password.
 
-CodeVibe does not pick up changed proxy settings dynamically. After changing proxy
-settings, restart the IDE for CodeVibe to use the new settings.
+Codie does not pick up changed proxy settings dynamically. After changing proxy
+settings, restart the IDE for Codie to use the new settings.
 
 ## Troubleshooting
 
@@ -187,7 +187,7 @@ If you see certificate-related errors:
 
 ### Testing Proxy Configuration
 
-If you encounter problems with CodeVibe networking, first verify your proxy
+If you encounter problems with Codie networking, first verify your proxy
 configuration works using curl:
 
 ```bash

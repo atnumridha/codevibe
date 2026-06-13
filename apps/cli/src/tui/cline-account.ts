@@ -100,9 +100,7 @@ async function resolveValidClineAccountAuthToken(input: {
 			{ apiBaseUrl: input.apiBaseUrl },
 		);
 		if (!credentials) {
-			throw new Error(
-				"CodeVibe account requires re-authentication. Run codevibe auth openai-codex.",
-			);
+			throw new Error("Codie account requires re-authentication. Run codevibe auth and choose Codie Cloud.");
 		}
 		const nextAccessToken = toProviderApiKey("cline", credentials);
 		if (
@@ -167,7 +165,7 @@ export async function loadClineAccountSnapshot(input: {
 }): Promise<ClineAccountSnapshot> {
 	const service = await createClineAccountService(input);
 	if (!service) {
-		throw new Error("No CodeVibe account auth token found");
+		throw new Error("No Codie account auth token found");
 	}
 
 	const user = await service.fetchMe();
@@ -202,7 +200,7 @@ export async function switchClineAccount(input: {
 }): Promise<void> {
 	const service = await createClineAccountService(input);
 	if (!service) {
-		throw new Error("No CodeVibe account auth token found");
+		throw new Error("No Codie account auth token found");
 	}
 	await service.switchAccount(input.organizationId);
 }

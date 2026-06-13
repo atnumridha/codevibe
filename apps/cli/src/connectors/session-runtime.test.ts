@@ -183,7 +183,7 @@ describe("buildConnectorStartRequest", () => {
 		expect(request.provider).toBe("openai-codex");
 	});
 
-	it("defaults connector sessions to OpenAI Codex when no provider was selected", async () => {
+	it("defaults connector sessions to ChatGPT for Codie when no provider was selected", async () => {
 		mockGetLastUsedProviderSettings.mockReturnValue(undefined);
 		mockGetProviderSettings.mockReturnValue(undefined);
 		mockGetProviderCollection.mockReturnValue({
@@ -209,7 +209,7 @@ describe("buildConnectorStartRequest", () => {
 			}),
 		);
 		expect(request.provider).toBe("openai-codex");
-		expect(request.model).toBe("gpt-5.5");
+		expect(request.model).toBe("gpt-5.5-pro");
 		expect(request.apiKey).toBe("");
 	});
 

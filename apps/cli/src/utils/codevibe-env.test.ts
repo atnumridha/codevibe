@@ -53,7 +53,7 @@ describe("installCodeVibeEnvAliases", () => {
 		);
 	});
 
-	it("mirrors selected config dirs into both CodeVibe and legacy names", () => {
+	it("mirrors selected config dirs into both Codie and legacy names", () => {
 		const env: NodeJS.ProcessEnv = {
 			CODEVIBE_DIR: "/tmp/old-codevibe",
 			CLINE_DIR: "/tmp/old-legacy",

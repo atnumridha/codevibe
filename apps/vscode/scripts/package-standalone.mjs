@@ -79,7 +79,7 @@ async function installNodeDependencies() {
  * to download the binary.
  *
  * The modules are downloaded to dist-standalone/binaries/{os}-{platform}/.
- * When CodeVibe core is installed, the installer should use the correct module for the current platform.
+ * When Codie core is installed, the installer should use the correct module for the current platform.
  */
 async function packageAllBinaryDeps() {
 	// Check for native .node modules.
@@ -99,7 +99,7 @@ async function packageAllBinaryDeps() {
 		console.log(`Installing binaries for ${module}...`)
 		const src = path.join(BUILD_DIR, "node_modules", module)
 		if (!fs.existsSync(src)) {
-			console.warn(`Warning: Trying to install binaries for the module '${module}', but it is not being used by CodeVibe.`)
+			console.warn(`Warning: Trying to install binaries for the module '${module}', but it is not being used by Codie.`)
 			continue
 		}
 
@@ -136,7 +136,7 @@ function createStandaloneManifest() {
 	return {
 		schemaVersion: 1,
 		product: {
-			name: "CodeVibe",
+			name: "Codie",
 			extensionId: `${extensionPackage.publisher}.${extensionPackage.name}`,
 			extensionVersion: extensionPackage.version,
 			runtimeName: runtimePackage.name,
@@ -255,7 +255,7 @@ async function zipDistribution() {
 	// Also ignore the dist directory, the build directory for the extension.
 	const isIgnored = createIsIgnored(["dist/**"])
 
-	// Add the whole cline directory under "extension", except the for the ignored files.
+	// Add the whole extension directory under "extension", except for ignored files.
 	archive.directory(process.cwd(), "extension", (entry) => {
 		if (isIgnored(entry.name)) {
 			//log_verbose("Ignoring", entry.name)

@@ -352,22 +352,22 @@ export function OnboardingCodexCliScreen(props: {
 				{props.checking && (
 					<box flexDirection="row" gap={1}>
 						<spinner name="dots" color="gray" />
-						<text fg="gray">Checking for Codex CLI...</text>
+						<text fg="gray">Checking local Codie auth...</text>
 					</box>
 				)}
 
 				{installedStatus && (
 					<box flexDirection="column" gap={1} alignItems="center">
-						<text fg={palette.success}>{"\u25cf"} Codex CLI installed</text>
+						<text fg={palette.success}>{"\u25cf"} Local Codie auth is ready</text>
 						<text fg="gray">{installedStatus.version}</text>
 					</box>
 				)}
 
 				{props.status && !props.status.installed && (
 					<box flexDirection="column" gap={1} width={props.contentWidth}>
-						<text fg="yellow">Codex CLI was not found</text>
+						<text fg="yellow">Local Codie auth was not found</text>
 						<text fg="gray">{props.status.reason}</text>
-						<text fg="gray">Install Codex CLI from:</text>
+						<text fg="gray">Set up local Codie auth from:</text>
 						<text fg="cyan" selectable>
 							{CODEX_CLI_INSTALL_URL}
 						</text>
@@ -656,7 +656,7 @@ export function OnboardingMainMenuScreen(props: {
 				marginTop={1}
 			>
 				<text fg={defaultFg}>
-					<strong>Welcome to CodeVibe</strong>
+					<strong>Welcome to Codie</strong>
 				</text>
 				<text fg="gray" marginTop={1}>
 					Connect a model provider to get started.

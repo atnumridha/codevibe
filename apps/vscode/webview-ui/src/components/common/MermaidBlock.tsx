@@ -229,7 +229,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 			{renderError && <ErrorMessage role="status">{renderError}</ErrorMessage>}
 			<SvgContainer
 				$isLoading={isLoading}
-				aria-label="Rendered CodeVibe plan diagram"
+				aria-label="Rendered Codie plan diagram"
 				onClick={handleOpenImage}
 				ref={containerRef}
 				role="img"

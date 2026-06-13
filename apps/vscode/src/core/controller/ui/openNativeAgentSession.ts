@@ -6,7 +6,7 @@ import { Logger } from "@/shared/services/Logger"
 import type { Controller } from "../index"
 
 /**
- * Opens CodeVibe's preferred native agent session from the legacy webview.
+ * Opens Codie's preferred native agent session from the legacy webview.
  */
 export async function openNativeAgentSession(_controller: Controller, _request: EmptyRequest): Promise<Empty> {
 	try {
@@ -14,7 +14,7 @@ export async function openNativeAgentSession(_controller: Controller, _request: 
 		telemetryService.captureButtonClick("webview_openNativeAgentSession")
 		return Empty.create({})
 	} catch (error) {
-		Logger.error(`Failed to open CodeVibe native agent session: ${error}`)
+		Logger.error(`Failed to open Codie native agent session: ${error}`)
 		throw error
 	}
 }

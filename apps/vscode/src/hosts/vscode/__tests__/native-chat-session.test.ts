@@ -18,10 +18,10 @@ const historyItem = (overrides: Partial<HistoryItem>): HistoryItem => ({
 	...overrides,
 })
 
-describe("native CodeVibe chat sessions", () => {
+describe("native Codie chat sessions", () => {
 	it("builds new-session labels from requests", () => {
 		expect(buildCodeVibeChatSessionLabel({ prompt: "  fix   native chat history  " })).to.equal("fix native chat history")
-		expect(buildCodeVibeChatSessionLabel(undefined)).to.equal("New CodeVibe Session")
+		expect(buildCodeVibeChatSessionLabel(undefined)).to.equal("New Codie Session")
 	})
 
 	it("truncates long request labels for native Chat pickers", () => {
@@ -72,7 +72,7 @@ describe("native CodeVibe chat sessions", () => {
 		expect(getCodeVibeNativeSessionTaskIdFromPath("/")).to.equal(undefined)
 	})
 
-	it("maps persisted CodeVibe UI messages into native Chat transcript turns", () => {
+	it("maps persisted Codie UI messages into native Chat transcript turns", () => {
 		const history = buildCodeVibeNativeChatSessionHistory(
 			[
 				{ type: "say", say: "task", text: "Build the feature", ts: 1 },

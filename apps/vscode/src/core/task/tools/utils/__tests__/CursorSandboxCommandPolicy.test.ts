@@ -39,14 +39,28 @@ function makePolicy(overrides: Partial<CursorSandboxRuntimePolicy> = {}): Cursor
 }
 
 describe("CursorSandboxCommandPolicy", () => {
-	it("allows commands when no sandbox policy is active", () => {
+	it("allows default terminal runs when no sandbox policy is active", () => {
 		const result = validateCursorSandboxTerminalPreflight({
 			command: `cat ${path.join(outsideRoot, "secret.txt")}`,
 			executionDir: outsideRoot,
-			terminalRunMode: "sandboxed",
+			terminalRunMode: "default",
 		})
 
 		assert.deepEqual(result, { ok: true })
+	})
+
+	it("blocks sandboxed terminal runs when no enforceable sandbox policy is active", () => {
+		const result = validateCursorSandboxTerminalPreflight({
+			command: "npm test",
+			executionDir: workspaceRoot,
+			terminalRunMode: "sandboxed",
+		})
+
+		assert.equal(result.ok, false)
+		if (!result.ok) {
+			assert.match(result.error, /no enforceable sandbox policy is active/)
+			assert.match(result.error, /unelevated terminal mode/)
+		}
 	})
 
 	it("blocks sandboxed execution from outside the sandbox roots", () => {
@@ -149,6 +163,55 @@ describe("CursorSandboxCommandPolicy", () => {
 	it("bypasses sandbox path checks for explicitly elevated runs", () => {
 		const result = validateCursorSandboxTerminalPreflight({
 			command: `sudo cat ${path.join(outsideRoot, "secret.txt")}`,
+			executionDir: outsideRoot,
+			policy: makePolicy(),
+			terminalRunMode: "elevated",
+		})
+
+		assert.deepEqual(result, { ok: true })
+	})
+
+	it("blocks opaque inline shell evaluators in sandboxed runs", () => {
+		const result = validateCursorSandboxTerminalPreflight({
+			command: `bash -c "cat ${path.join(outsideRoot, "secret.txt")}"`,
+			executionDir: workspaceRoot,
+			policy: makePolicy(),
+			terminalRunMode: "sandboxed",
+		})
+
+		assert.equal(result.ok, false)
+		if (!result.ok) {
+			assert.match(result.error, /inline code/)
+			assert.match(result.error, /elevated terminal mode/)
+		}
+	})
+
+	it("blocks combined opaque evaluator flags in sandboxed runs", () => {
+		const commands = [
+			`bash -lc "cat ${path.join(outsideRoot, "secret.txt")}"`,
+			`zsh -fc "cat ${path.join(outsideRoot, "secret.txt")}"`,
+			`node -pe "require('fs').readFileSync('${path.join(outsideRoot, "secret.txt")}', 'utf8')"`,
+		]
+
+		for (const command of commands) {
+			const result = validateCursorSandboxTerminalPreflight({
+				command,
+				executionDir: workspaceRoot,
+				policy: makePolicy(),
+				terminalRunMode: "sandboxed",
+			})
+
+			assert.equal(result.ok, false, command)
+			if (!result.ok) {
+				assert.match(result.error, /inline code/)
+				assert.match(result.error, /elevated terminal mode/)
+			}
+		}
+	})
+
+	it("allows opaque inline evaluators after explicit elevation", () => {
+		const result = validateCursorSandboxTerminalPreflight({
+			command: `bash -c "cat ${path.join(outsideRoot, "secret.txt")}"`,
 			executionDir: outsideRoot,
 			policy: makePolicy(),
 			terminalRunMode: "elevated",

@@ -71,6 +71,24 @@ describe("Cursor MCP install URI parser", () => {
 		).toBe("/background-agent");
 	});
 
+	it("normalizes native codie:// route hosts into Cursor-compatible route paths", () => {
+		expect(getCursorCompatibleUriPath("codie://createchat?prompt=hi")).toBe(
+			"/createchat",
+		);
+		expect(getCursorCompatibleUriPath("codie://mcp/install?name=docs")).toBe(
+			"/mcp/install",
+		);
+		expect(getCursorCompatibleUriPath("codie://plugin/add?id=docs")).toBe(
+			"/plugin/add",
+		);
+		expect(
+			getCursorCompatibleUriPath("codie://anysphere.cursor-mcp/install?name=docs"),
+		).toBe("/mcp/install");
+		expect(
+			getCursorCompatibleUriPath("codie://atnumridha.codevibe/background-agent?prompt=hi"),
+		).toBe("/background-agent");
+	});
+
 	it("recognizes the planned Cursor-compatible route families", () => {
 		for (const [uri, expectedPath] of [
 			["cursor://createchat?prompt=hi", "/createchat"],
@@ -714,7 +732,7 @@ describe("Cursor MCP install URI parser", () => {
 
 		expect(() =>
 			buildCursorAgentTaskRouteRequest("vscode://cline.cline/settings?query=codex"),
-		).toThrow("Unsupported Cursor agent task route");
+		).toThrow("Unsupported import-compatible agent task route");
 	});
 
 	it("builds guarded prompts for PR review routes", () => {
@@ -816,7 +834,7 @@ describe("Cursor MCP install URI parser", () => {
 			buildCursorAgentTaskRouteRequest(
 				"vscode://cline.cline/plugin/add?id=docs-helper",
 			),
-		).toThrow("Unsupported Cursor agent task route");
+		).toThrow("Unsupported import-compatible agent task route");
 	});
 
 	it("allows empty glass routes as agent prompts", () => {

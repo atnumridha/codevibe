@@ -138,8 +138,9 @@ export class StandaloneTerminalManager implements ITerminalManager {
 	 * @param cwd The working directory for the terminal
 	 * @returns The terminal info for an available terminal
 	 */
-	async getOrCreateTerminal(cwd: string): Promise<TerminalInfo> {
+	async getOrCreateTerminal(cwd: string, options?: CommandExecutionOptions): Promise<TerminalInfo> {
 		const terminals = this.registry.getAllTerminals()
+		const requiresSandboxedRun = options?.terminalRunMode === "sandboxed"
 
 		// Find available terminal with matching CWD
 		const matchingTerminal = terminals.find((t) => {
@@ -155,7 +156,7 @@ export class StandaloneTerminalManager implements ITerminalManager {
 		}
 
 		// Find any available terminal if reuse is enabled
-		if (this.terminalReuseEnabled) {
+		if (this.terminalReuseEnabled && !requiresSandboxedRun) {
 			const availableTerminal = terminals.find((t) => !t.busy)
 			if (availableTerminal) {
 				// Change directory
@@ -172,7 +173,7 @@ export class StandaloneTerminalManager implements ITerminalManager {
 		// Create new terminal
 		const newTerminalInfo = this.registry.createTerminal({
 			cwd: cwd,
-			name: `CodeVibe Terminal ${this.registry.size + 1}`,
+			name: `Codie Terminal ${this.registry.size + 1}`,
 		})
 		this.terminalIds.add(newTerminalInfo.id)
 		return newTerminalInfo

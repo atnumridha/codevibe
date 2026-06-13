@@ -51,7 +51,7 @@ const meta: Meta<typeof ErrorRow> = {
 		docs: {
 			description: {
 				component:
-					"Displays different types of error messages in the chat interface, including API errors, credit limit errors, diff errors, and direct-access ignore errors. Handles special error parsing for CodeVibe provider errors and provides appropriate user actions.",
+					"Displays different types of error messages in the chat interface, including API errors, credit limit errors, diff errors, and direct-access ignore errors. Handles special error parsing for Codie provider errors and provides appropriate user actions.",
 			},
 		},
 	},
@@ -120,7 +120,7 @@ export const ApiStreamingFailed: Story = {
 	},
 }
 
-// CodeVibe-hosted provider errors
+// Hosted provider errors
 export const CodeVibeBalanceError: Story = {
 	args: {
 		message: createMockMessage(),
@@ -267,7 +267,7 @@ export const InteractiveSignIn: Story = {
 		message: createMockMessage(),
 		errorType: "error",
 		apiRequestFailedMessage: JSON.stringify({
-			message: "Please sign in to access CodeVibe services.",
+			message: "Please sign in to access Codie services.",
 			code: "ERR_BAD_REQUEST",
 			request_id: "req_signin_test",
 			providerId: "cline",

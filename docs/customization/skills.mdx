@@ -1,12 +1,12 @@
 ---
 title: "Skills"
 sidebarTitle: "Skills"
-description: "Modular instruction sets that extend CodeVibe's capabilities for specific tasks."
+description: "Modular instruction sets that extend Codie's capabilities for specific tasks."
 ---
 
-Skills are modular instruction sets that extend CodeVibe's capabilities for specific tasks. Each skill packages detailed guidance, processes, and optional resources that CodeVibe loads only when relevant to your request.
+Skills are modular instruction sets that extend Codie's capabilities for specific tasks. Each skill packages detailed guidance, processes, and optional resources that Codie loads only when relevant to your request.
 
-Install multiple skills and CodeVibe only loads what it needs. A deployment skill stays dormant until you ask about deploying. Unlike [rules](/customization/rules) (which are always active), skills load on-demand so they don't consume context when you're working on something unrelated.
+Install multiple skills and Codie only loads what it needs. A deployment skill stays dormant until you ask about deploying. Unlike [rules](/customization/rules) (which are always active), skills load on-demand so they don't consume context when you're working on something unrelated.
 
 <Note>
 Skills is an experimental feature. Enable it in **Settings → Features → Enable Skills**.
@@ -22,7 +22,7 @@ Skills use progressive loading to maximize efficiency:
 | Instructions | When skill is triggered | Under 5k tokens | SKILL.md body with instructions and guidance |
 | Resources | As needed | Effectively unlimited | Bundled files accessed via `read_file` or executed scripts |
 
-When you send a message, CodeVibe sees a list of available skills with their descriptions. If your request matches a skill's description, CodeVibe activates it using the `use_skill` tool, which loads the full instructions from SKILL.md.
+When you send a message, Codie sees a list of available skills with their descriptions. If your request matches a skill's description, Codie activates it using the `use_skill` tool, which loads the full instructions from SKILL.md.
 
 ## Triggering Skills with Slash Commands
 
@@ -30,7 +30,7 @@ You can also invoke enabled skills explicitly from the chat input using slash co
 
 1. Type `/` in chat to open command suggestions.
 2. Select the skill command you want to run (for example, `/aws-deploy`).
-3. CodeVibe triggers that skill and loads its `SKILL.md` instructions.
+3. Codie triggers that skill and loads its `SKILL.md` instructions.
 
 This is useful when you want to force a specific skill immediately instead of waiting for auto-matching based on description.
 
@@ -57,7 +57,7 @@ description: Brief description of what this skill does and when to use it.
 
 # My Skill
 
-Detailed instructions for CodeVibe to follow when this skill is activated.
+Detailed instructions for Codie to follow when this skill is activated.
 
 ## Steps
 1. First, do this
@@ -67,16 +67,16 @@ Detailed instructions for CodeVibe to follow when this skill is activated.
 
 Required fields:
 - `name` must exactly match the directory name
-- `description` tells CodeVibe when to use this skill (max 1024 characters)
+- `description` tells Codie when to use this skill (max 1024 characters)
 
 ## Creating a Skill
 
 <Steps>
   <Step title="Open the Skills menu">
-    Click the scale icon at the bottom of the CodeVibe panel, to the left of the model selector. Switch to the Skills tab.
+    Click the scale icon at the bottom of the Codie panel, to the left of the model selector. Switch to the Skills tab.
   </Step>
   <Step title="Create a new skill">
-    Click "New skill..." and enter a name for your skill (e.g., `aws-deploy`). CodeVibe creates a skill directory with a template `SKILL.md` file.
+    Click "New skill..." and enter a name for your skill (e.g., `aws-deploy`). Codie creates a skill directory with a template `SKILL.md` file.
   </Step>
   <Step title="Write your skill instructions">
     Edit the `SKILL.md` file:
@@ -86,9 +86,9 @@ Required fields:
   </Step>
 </Steps>
 
-You can also create skills manually by creating the directory structure in your file system. Place skill directories in `.codevibe/skills/` (workspace) or `~/.codevibe/skills/` (global) and CodeVibe will detect them automatically. Legacy `.cline/skills/` and `.clinerules/skills/` locations remain supported for migration.
+You can also create skills manually by creating the directory structure in your file system. Place skill directories in `.codevibe/skills/` (workspace) or `~/.codevibe/skills/` (global) and Codie will detect them automatically. Legacy `.cline/skills/` and `.clinerules/skills/` locations remain supported for migration.
 
-Put the important information first in your SKILL.md. CodeVibe reads the file sequentially, so front-load the common cases. Use clear section headers like "## Error Handling" or "## Configuration" so CodeVibe can scan for relevant sections.
+Put the important information first in your SKILL.md. Codie reads the file sequentially, so front-load the common cases. Use clear section headers like "## Error Handling" or "## Configuration" so Codie can scan for relevant sections.
 
 ### Toggling Skills
 
@@ -116,7 +116,7 @@ Avoid:
 
 ### Writing Effective Descriptions
 
-The description determines when CodeVibe activates the skill. A vague description means the skill won't trigger when you expect it to.
+The description determines when Codie activates the skill. A vague description means the skill won't trigger when you expect it to.
 
 Good descriptions are specific and actionable:
 
@@ -142,7 +142,7 @@ Start with what the skill does (action verbs), include trigger phrases users mig
 
 ### Keeping Skills Focused
 
-Keep SKILL.md under 5k tokens. If your skill needs more content, split it into separate files in a `docs/` directory and reference them from the main instructions. CodeVibe loads referenced files only when needed.
+Keep SKILL.md under 5k tokens. If your skill needs more content, split it into separate files in a `docs/` directory and reference them from the main instructions. Codie loads referenced files only when needed.
 
 Include real examples. Show what commands to run, what output to expect, and what the result should look like. Abstract instructions are harder to follow than concrete examples.
 
@@ -166,7 +166,7 @@ Version control your project skills by committing `.codevibe/skills/`. Your team
 
 ## Bundling Supporting Files
 
-Skills can include additional files that CodeVibe accesses only when needed.
+Skills can include additional files that Codie accesses only when needed.
 
 ```text title="Directory structure"
 complex-skill/
@@ -188,7 +188,7 @@ Use docs for information that's too detailed for SKILL.md or only relevant in sp
 - Reference material (API schemas, database schemas)
 - Platform-specific instructions
 
-A deployment skill might have `docs/aws.md`, `docs/gcp.md`, and `docs/azure.md`. CodeVibe loads only the relevant platform guide based on your request.
+A deployment skill might have `docs/aws.md`, `docs/gcp.md`, and `docs/azure.md`. Codie loads only the relevant platform guide based on your request.
 
 ### templates/
 
@@ -197,7 +197,7 @@ Use templates when your skill creates configuration files, boilerplate code, or 
 - Code scaffolding (component templates, test fixtures)
 - Documentation templates (README, API docs)
 
-A project setup skill could include `templates/dockerfile`, `templates/docker-compose.yml`, and `templates/.env.example` that CodeVibe customizes for each new project.
+A project setup skill could include `templates/dockerfile`, `templates/docker-compose.yml`, and `templates/.env.example` that Codie customizes for each new project.
 
 ### scripts/
 
@@ -221,7 +221,7 @@ Run the validation script to check your configuration:
 python scripts/validate.py
 ```
 
-CodeVibe reads documentation files using `read_file` when the instructions reference them. Scripts can be executed directly, and only the script's output enters the context window.
+Codie reads documentation files using `read_file` when the instructions reference them. Scripts can be executed directly, and only the script's output enters the context window.
 
 | Use Scripts For | Use Instructions For |
 |-----------------|---------------------|
@@ -269,4 +269,4 @@ print(df.info())
 For visualization, prefer matplotlib or seaborn depending on complexity.
 ```
 
-Skills transform CodeVibe from a general-purpose assistant into a specialist that knows your domain. Start with one skill for a task you repeat often, test it, and iterate on the description until it triggers reliably.
+Skills transform Codie from a general-purpose assistant into a specialist that knows your domain. Start with one skill for a task you repeat often, test it, and iterate on the description until it triggers reliably.

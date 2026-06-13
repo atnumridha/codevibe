@@ -280,7 +280,7 @@ function getMcpSourceLabel(source: McpSettingsSource): string {
 		case "cursor-global":
 			return "Global import";
 		default:
-			return "CodeVibe";
+			return "Codie";
 	}
 }
 
@@ -648,8 +648,8 @@ function readCursorMcpServers(input: {
 	if (!existsSync(sourcePath)) {
 		throw new Error(
 			input.source === "global"
-				? "No global ~/.cursor/mcp.json found"
-				: "No .cursor/mcp.json found in the active workspace",
+				? "No global MCP import file found"
+				: "No workspace MCP import file found",
 		);
 	}
 	const parsed = JSON.parse(readFileSync(sourcePath, "utf8")) as JsonRecord;
@@ -663,7 +663,7 @@ function readCursorMcpServers(input: {
 	}) as JsonRecord;
 	const servers = getRecordValue(normalized.mcpServers);
 	if (!servers || Object.keys(servers).length === 0) {
-		throw new Error(".cursor/mcp.json does not contain any MCP servers");
+		throw new Error("The selected MCP import file does not contain any MCP servers");
 	}
 	return { sourcePath, servers };
 }
@@ -932,11 +932,11 @@ export async function authorizeMcpServerOAuthForHub(
 	const result = await authorize({
 		serverName,
 		filePath: settingsPath,
-		clientName: "codevibe-hub",
+		clientName: "codie-agent-hub",
 		clientVersion: "0.0.0",
 		timeoutMs: toPositiveInt(args?.timeoutMs) ?? 110_000,
 		successHtml:
-			"<html><body><h1>MCP authorization complete</h1><p>You can return to CodeVibe.</p></body></html>",
+			"<html><body><h1>MCP authorization complete</h1><p>You can return to Codie.</p></body></html>",
 		openUrl: deps.openUrl ?? openExternalUrl,
 		onServerListening: (info) => {
 			serverListening.push({
@@ -993,19 +993,19 @@ export function upsertMcpServer(input: JsonRecord): JsonRecord {
 	if (previousName) {
 		if (!previousOwner || previousOwner.settingsSource !== "cline") {
 			throw new Error(
-				"Only CodeVibe MCP servers can be edited from the hub editor.",
+				"Only Codie MCP servers can be edited from the hub editor.",
 			);
 		}
-		if (previousName !== name && existingNameOwner) {
+			if (previousName !== name && existingNameOwner) {
+				throw new Error(
+					`MCP server "${name}" already exists in ${getMcpSourceLabel(existingNameOwner.settingsSource)} settings.`,
+				);
+			}
+		} else if (existingNameOwner) {
 			throw new Error(
-				`MCP server "${name}" already exists in ${existingNameOwner.settingsSource} settings.`,
+				`MCP server "${name}" already exists in ${getMcpSourceLabel(existingNameOwner.settingsSource)} settings.`,
 			);
 		}
-	} else if (existingNameOwner) {
-		throw new Error(
-			`MCP server "${name}" already exists in ${existingNameOwner.settingsSource} settings.`,
-		);
-	}
 	const next: JsonRecord =
 		transportType === "stdio"
 			? {

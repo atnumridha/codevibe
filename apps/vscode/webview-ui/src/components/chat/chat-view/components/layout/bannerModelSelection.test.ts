@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { getCodeVibeBannerModelSelection } from "./bannerModelSelection"
 
 describe("getCodeVibeBannerModelSelection", () => {
-	it("keeps welcome banner model actions on OpenAI Codex", () => {
+	it("keeps welcome banner model actions on ChatGPT for Codie", () => {
 		const selection = getCodeVibeBannerModelSelection("gpt-5.5-pro")
 
 		expect(selection.planModeApiProvider).toBe("openai-codex")

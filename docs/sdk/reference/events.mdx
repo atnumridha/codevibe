@@ -66,10 +66,10 @@ interface AgentUsageEvent {
 
 ## CoreSessionEvent
 
-`ClineCore.subscribe(listener, options?)` emits session-level events from the runtime host.
+`CodieCore.subscribe(listener, options?)` emits session-level events from the runtime host. The stable `ClineCore` compatibility export exposes the same method for existing integrations.
 
 ```typescript
-const unsubscribe = cline.subscribe((event) => {
+const unsubscribe = codie.subscribe((event) => {
   console.log(event.type, event.sessionId)
 }, { sessionId })
 ```

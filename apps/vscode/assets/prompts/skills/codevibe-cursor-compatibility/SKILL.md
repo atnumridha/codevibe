@@ -3,9 +3,9 @@ name: codevibe-editor-compatibility
 description: Use when importing, validating, or debugging editor-compatible rules, deeplinks, ignore files, sandbox policy, MCP config, plugin add routes, or automation ingest.
 ---
 
-# CodeVibe Editor Compatibility
+# Codie Editor Compatibility
 
-Use this skill for compatibility work that makes CodeVibe behave correctly with editor-native inputs and legacy project formats.
+Use this skill for compatibility work that makes Codie behave correctly with editor-native inputs and legacy project formats.
 
 ## Inputs To Check
 
@@ -20,7 +20,7 @@ Use this skill for compatibility work that makes CodeVibe behave correctly with 
 
 ## Workflow
 
-1. Parse structured files with the existing CodeVibe parsers instead of ad hoc string edits.
+1. Parse structured files with the existing Codie parsers instead of ad hoc string edits.
 2. Verify privacy gates before retrieval, indexing, browser automation, or remote execution.
 3. Require explicit confirmation for sensitive deeplinks, replacement installs, commands, network exposure, or git writes.
 4. Preserve redaction for tokens, auth headers, query strings, and config values.

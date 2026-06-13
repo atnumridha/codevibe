@@ -64,7 +64,7 @@ const TUI_LOCAL_COMMANDS: Array<{
 	},
 	{
 		name: "account",
-		description: "View CodeVibe account",
+		description: "View Codie account",
 	},
 	{
 		name: "mcp",
@@ -105,7 +105,7 @@ const TUI_LOCAL_COMMANDS: Array<{
 	},
 	{
 		name: "quit",
-		description: "Exit CodeVibe",
+		description: "Exit Codie",
 	},
 ];
 

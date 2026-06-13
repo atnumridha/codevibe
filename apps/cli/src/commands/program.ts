@@ -41,7 +41,7 @@ export function addRootOptions(cmd: Command): Command {
 				"Open the terminal user interface (TUI) for interactive sessions",
 			)
 			.option("--id <session-id>", "Resume an existing session by ID")
-			.option("-P, --provider <id>", "Provider id (default: openai-codex)")
+			.option("-P, --provider <id>", "Provider id or alias (default: Codie)")
 			.option("-k, --key <api-key>", "API key override for this run")
 			.option(
 				"-m, --model <model-id>",
@@ -66,7 +66,7 @@ export function addRootOptions(cmd: Command): Command {
 			)
 			.option(
 				"--config <path>",
-				"Configuration directory (CodeVibe data/settings path; legacy ~/.cline paths remain accepted)",
+				"Configuration directory (Codie data/settings path; legacy ~/.cline paths remain accepted)",
 			)
 			.option(
 				"--data-dir <path>",
@@ -78,7 +78,7 @@ export function addRootOptions(cmd: Command): Command {
 			)
 			.option(
 				"--worktree",
-				"Auto-create a detached git worktree under the CodeVibe worktrees directory and run the task there",
+				"Auto-create a detached git worktree under the Codie worktrees directory and run the task there",
 			)
 			.option("--update", "Check for updates and install if available")
 			.option("--kanban", "Run the kanban app")
@@ -109,7 +109,7 @@ export function addRootOptions(cmd: Command): Command {
 
 export function createProgram(): Command {
 	const program = new Command("codevibe")
-		.description("CodeVibe CLI - editor-native coding agent in your terminal")
+		.description("Codie CLI - editor-native coding agent in your terminal")
 		.version(version, "-V, --version", "Output the version number")
 		.exitOverride() // don't call process.exit
 		.configureOutput({

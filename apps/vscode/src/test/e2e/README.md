@@ -1,6 +1,6 @@
 # E2E Tests
 
-This directory contains the end-to-end tests for the Cline VS Code extension using Playwright. These tests simulate user interactions with the extension in a real VS Code environment.
+This directory contains the end-to-end tests for the CodeVibe VS Code extension using Playwright. These tests simulate user interactions with the extension in a real VS Code environment.
 
 ## Test Structure
 

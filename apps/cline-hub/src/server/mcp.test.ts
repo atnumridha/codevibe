@@ -426,7 +426,7 @@ test("authorizeMcpServerOAuthForHub delegates to SDK OAuth helper", async (t) =>
 
 	assert.equal(captured?.serverName, "remote");
 	assert.equal(captured?.filePath, settingsPath);
-	assert.equal(captured?.clientName, "codevibe-hub");
+	assert.equal(captured?.clientName, "codie-agent-hub");
 	assert.equal(captured?.timeoutMs, 12_345);
 	assert.equal(openedUrl, "https://auth.example.test/authorize");
 	assert.equal(response.route, "mcp-oauth");
@@ -586,7 +586,7 @@ test("upsertMcpServer rejects names already owned by Cursor sources", (t) => {
 				transportType: "stdio",
 				command: "native-remote",
 			}),
-		/MCP server "remote" already exists in cursor-global settings/,
+		/MCP server "remote" already exists in Global import settings/,
 	);
 });
 

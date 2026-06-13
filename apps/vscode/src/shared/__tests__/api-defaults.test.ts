@@ -1,5 +1,5 @@
 import { expect } from "chai"
-import { DEFAULT_API_PROVIDER, openAiCodexDefaultModelId, openAiCodexModels } from "../api"
+import { DEFAULT_API_PROVIDER, openAiCodexDefaultModelId, openAiCodexModels, openAiNativeModels } from "../api"
 import {
 	convertApiConfigurationToProto,
 	convertProtoToApiConfiguration,
@@ -8,9 +8,9 @@ import {
 import { ApiProvider as ProtoApiProvider, ModelsApiConfiguration } from "../proto/cline/models"
 
 describe("API defaults", () => {
-	it("defaults new installs to OpenAI Codex with the latest bundled Codex model", () => {
+	it("defaults new installs to ChatGPT for Codie with the latest bundled model", () => {
 		expect(DEFAULT_API_PROVIDER).to.equal("openai-codex")
-		expect(openAiCodexDefaultModelId).to.equal("gpt-5.5")
+		expect(openAiCodexDefaultModelId).to.equal("gpt-5.5-pro")
 	})
 
 	it("keeps bundled Codex fallback models aligned with the SDK Codex catalog filter", () => {
@@ -33,11 +33,20 @@ describe("API defaults", () => {
 			expect(modelIds).to.not.include(staleModelId)
 		}
 		expect(openAiCodexModels["gpt-5.5"].contextWindow).to.equal(400_000)
+		expect(openAiCodexModels["gpt-5.5-pro"].name).to.equal("GPT-5.5 Pro")
+		expect(openAiCodexModels["gpt-5.5-pro"].contextWindow).to.equal(1_050_000)
 		expect(openAiCodexModels["gpt-5.5-pro"].supportsPromptCache).to.equal(false)
 		expect(openAiCodexModels["gpt-5.3-codex-spark"].maxTokens).to.equal(32_000)
 	})
 
-	it("defaults proto settings to OpenAI Codex when provider fields are absent", () => {
+	it("keeps OpenAI Native model choices aligned with the generated GPT catalog", () => {
+		expect(openAiNativeModels["gpt-5.5"].name).to.equal("GPT-5.5")
+		expect(openAiNativeModels["gpt-5.5-pro"].name).to.equal("GPT-5.5 Pro")
+		expect(openAiNativeModels["gpt-5.5-pro"].contextWindow).to.equal(1_050_000)
+		expect(openAiNativeModels["gpt-5.5-pro"].supportsPromptCache).to.equal(false)
+	})
+
+	it("defaults proto settings to ChatGPT for Codie when provider fields are absent", () => {
 		const proto = convertApiConfigurationToProto({})
 
 		expect(proto.planModeApiProvider).to.equal(ProtoApiProvider.OPENAI_CODEX)

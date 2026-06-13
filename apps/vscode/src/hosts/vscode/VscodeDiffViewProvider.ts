@@ -78,7 +78,7 @@ export class VscodeDiffViewProvider extends DiffViewProvider {
 						query: Buffer.from(this.originalContent ?? "").toString("base64"),
 					}),
 					uri,
-					`${fileName}: ${fileExists ? "Original ↔ CodeVibe's Changes" : "New File"} (Editable)`,
+					`${fileName}: ${fileExists ? "Original ↔ Codie's Changes" : "New File"} (Editable)`,
 					{
 						preserveFocus: true,
 					},
@@ -208,7 +208,7 @@ export class VscodeDiffViewProvider extends DiffViewProvider {
 	}
 
 	protected async closeAllDiffViews(): Promise<void> {
-		// Close all CodeVibe diff views, including tabs opened with the legacy scheme.
+		// Close all Codie diff views, including tabs opened with the legacy scheme.
 		const tabs = vscode.window.tabGroups.all
 			.flatMap((tg) => tg.tabs)
 			.filter((tab) => tab.input instanceof vscode.TabInputTextDiff && isDiffViewUriScheme(tab.input?.original?.scheme))

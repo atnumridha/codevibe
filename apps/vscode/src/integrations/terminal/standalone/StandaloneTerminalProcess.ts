@@ -11,6 +11,7 @@
 import { telemetryService } from "@services/telemetry"
 import { ChildProcess, spawn } from "child_process"
 import { EventEmitter } from "events"
+import { existsSync } from "fs"
 import { terminateProcessTree } from "@/utils/process-termination"
 
 import {
@@ -28,17 +29,136 @@ import type {
 	TerminalCompletionDetails,
 	TerminalProcessEvents,
 } from "../types"
+import {
+	buildCodeVibeTerminalPolicyEnv,
+	type TerminalSandboxEnforcement,
+} from "../terminalPolicyEnv"
 
-export function buildCodeVibeTerminalPolicyEnv(options?: CommandExecutionOptions): NodeJS.ProcessEnv {
-	const mode = options?.terminalRunMode ?? "default"
-	const background = Boolean(options?.useBackgroundExecution || mode === "sandboxed")
+const MACOS_SANDBOX_EXEC_PATH = "/usr/bin/sandbox-exec"
 
-	return {
-		CODEVIBE_TERMINAL_RUN_MODE: mode,
-		CODEVIBE_TERMINAL_SANDBOX: mode === "sandboxed" ? "1" : "0",
-		CODEVIBE_TERMINAL_ELEVATED: mode === "elevated" ? "1" : "0",
-		CODEVIBE_TERMINAL_BACKGROUND: background ? "1" : "0",
+export type StandaloneSandboxEnforcement = TerminalSandboxEnforcement
+
+export interface StandaloneTerminalSpawnPlan {
+	command: string
+	args: string[]
+	detached: boolean
+	shell?: boolean
+	sandboxEnforcement: StandaloneSandboxEnforcement
+}
+
+export interface StandaloneSandboxRuntime {
+	platform?: NodeJS.Platform
+	sandboxExecPath?: string
+	pathExists?: (filePath: string) => boolean
+	tmpDir?: string
+}
+
+export { buildCodeVibeTerminalPolicyEnv } from "../terminalPolicyEnv"
+
+export function buildStandaloneTerminalSpawnPlan(
+	shell: string,
+	shellArgs: string[],
+	options?: CommandExecutionOptions,
+	runtime: StandaloneSandboxRuntime = {},
+): StandaloneTerminalSpawnPlan {
+	if (options?.terminalRunMode !== "sandboxed") {
+		const useCmdShell = shell.toLowerCase().includes("cmd")
+		return {
+			command: useCmdShell ? "cmd.exe" : shell,
+			args: shellArgs,
+			shell: useCmdShell ? true : undefined,
+			detached: !useCmdShell,
+			sandboxEnforcement: "none",
+		}
 	}
+
+	const policy = options.cursorSandboxPolicy
+	if (!policy) {
+		throw new Error(
+			"Codie sandboxed terminal mode requires a resolved sandbox policy. Refusing to run without runtime enforcement.",
+		)
+	}
+	if (policy.status !== "loaded") {
+		throw new Error(
+			`Codie sandboxed terminal mode requires a valid sandbox policy. ${policy.error ?? "The current policy is invalid."}`,
+		)
+	}
+
+	const platform = runtime.platform ?? process.platform
+	if (platform !== "darwin") {
+		throw new Error(
+			`Codie sandboxed terminal mode is not runtime-enforced on ${platform}. Refusing to run unrestricted.`,
+		)
+	}
+
+	const sandboxExecPath = runtime.sandboxExecPath ?? MACOS_SANDBOX_EXEC_PATH
+	const pathExists = runtime.pathExists ?? existsSync
+	if (!pathExists(sandboxExecPath)) {
+		throw new Error(
+			`Codie sandboxed terminal mode requires ${sandboxExecPath}, but it is not available. Refusing to run unrestricted.`,
+		)
+	}
+
+	const profile = buildMacOsSandboxProfile(options, runtime)
+	return {
+		command: sandboxExecPath,
+		args: ["-p", profile, shell, ...shellArgs],
+		detached: true,
+		sandboxEnforcement: "macos-sandbox-exec",
+	}
+}
+
+export function buildMacOsSandboxProfile(
+	options: Pick<CommandExecutionOptions, "cursorSandboxPolicy">,
+	runtime: Pick<StandaloneSandboxRuntime, "tmpDir"> = {},
+): string {
+	const policy = options.cursorSandboxPolicy
+	if (!policy || policy.status !== "loaded") {
+		throw new Error("Cannot build a macOS sandbox profile without a loaded Codie sandbox policy.")
+	}
+	if (policy.networkPolicy.default === "deny" && policy.networkPolicy.allow.length > 0) {
+		throw new Error(
+			"Codie sandboxed terminal mode cannot enforce host-specific network allow lists with macOS sandbox-exec. Use default allow or default deny.",
+		)
+	}
+
+	const writeFilters = [
+		...policy.writablePaths.map((filePath) => sandboxSubpath(filePath)),
+		...(policy.disableTmpWrite
+			? []
+			: ["/tmp", "/private/tmp", runtime.tmpDir ?? process.env.TMPDIR]
+					.filter((filePath): filePath is string => Boolean(filePath))
+					.map((filePath) => sandboxSubpath(filePath))),
+		sandboxLiteral("/dev/null"),
+	]
+	const writeRule =
+		writeFilters.length > 0 ? [`(allow file-write*`, ...writeFilters.map((filter) => `  ${filter}`), `)`] : []
+	const networkRule = policy.networkPolicy.default === "allow" ? ["(allow network*)"] : []
+
+	return [
+		"(version 1)",
+		"(deny default)",
+		"(allow process*)",
+		"(allow signal (target self))",
+		"(allow sysctl-read)",
+		"(allow mach-lookup)",
+		"(allow ipc*)",
+		"(allow file-read*)",
+		...writeRule,
+		...networkRule,
+	].join("\n")
+}
+
+function sandboxSubpath(filePath: string): string {
+	return `(subpath ${quoteSandboxString(filePath)})`
+}
+
+function sandboxLiteral(filePath: string): string {
+	return `(literal ${quoteSandboxString(filePath)})`
+}
+
+function quoteSandboxString(value: string): string {
+	return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
 }
 
 /**
@@ -103,10 +223,11 @@ export class StandaloneTerminalProcess extends EventEmitter<TerminalProcessEvent
 		const shell = (terminal as any)._shellPath || this.getDefaultShell()
 		const cwd = (terminal as any)._cwd || process.cwd()
 
-		// Prepare command for execution
-		const shellArgs = this.getShellArgs(shell, command)
-
 		try {
+			// Prepare command for execution
+			const shellArgs = this.getShellArgs(shell, command)
+			const spawnPlan = buildStandaloneTerminalSpawnPlan(shell, shellArgs, options)
+
 			// Create shell options
 			const shellOptions: {
 				cwd: string
@@ -124,24 +245,17 @@ export class StandaloneTerminalProcess extends EventEmitter<TerminalProcessEvent
 					GIT_PAGER: "cat", // Prevent git from using less
 					SYSTEMD_PAGER: "", // Disable systemd pager
 					MANPAGER: "cat", // Disable man pager
-					...buildCodeVibeTerminalPolicyEnv(options),
+					...buildCodeVibeTerminalPolicyEnv(options, spawnPlan.sandboxEnforcement),
 				},
 			}
 
-			// Enable the shell option for "cmd.exe" to prevent double quotes from being over escaped
-			if (shell.toLowerCase().includes("cmd")) {
-				shellOptions.shell = true
-
-				// Spawn the process with special handling for "cmd.exe"
-				this.childProcess = spawn("cmd.exe", shellArgs, shellOptions)
-			} else {
-				// Spawn the process with detached: true to create a process group
-				// This allows us to kill the entire process tree when terminating
-				this.childProcess = spawn(shell, shellArgs, {
-					...shellOptions,
-					detached: true,
-				})
-			}
+			// Spawn the process with detached: true when possible to create a process group.
+			// This allows us to kill the entire process tree when terminating.
+			this.childProcess = spawn(spawnPlan.command, spawnPlan.args, {
+				...shellOptions,
+				shell: spawnPlan.shell,
+				detached: spawnPlan.detached,
+			})
 
 			// Track process state
 			let didEmitEmptyLine = false

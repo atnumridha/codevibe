@@ -37,7 +37,7 @@ export type StandaloneReadinessRuntimeState = {
 };
 
 export type StandaloneReadinessPayload = {
-	app: "CodeVibe";
+	app: "Codie";
 	mode: "standalone";
 	vscodeRequired: false;
 	coreVersion: string;
@@ -150,7 +150,7 @@ export function standaloneReadinessPayload(
 ): StandaloneReadinessPayload {
 	const runtime = runtimeStatus(state);
 	return {
-		app: "CodeVibe",
+		app: "Codie",
 		mode: "standalone",
 		vscodeRequired: false,
 		coreVersion,

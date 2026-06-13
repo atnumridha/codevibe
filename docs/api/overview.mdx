@@ -1,17 +1,17 @@
 ---
-title: "CodeVibe API"
+title: "Codie API"
 sidebarTitle: "Overview"
 description: "Programmatic access to AI models through an OpenAI-compatible Chat Completions API."
 ---
 
-Welcome to the CodeVibe API documentation. Use the same models that power the CodeVibe extension and CLI from any language, framework, or tool that speaks the OpenAI format.
+Welcome to the Codie API documentation. Use the same models that power the Codie extension and CLI from any language, framework, or tool that speaks the OpenAI format.
 
-## What is the CodeVibe API?
+## What is the Codie API?
 
-The CodeVibe API is an OpenAI-compatible Chat Completions endpoint. You authenticate once with a CodeVibe API key and get access to models from Anthropic, OpenAI, Google, and more through a single base URL. No need to manage separate keys for each provider.
+The Codie API is an OpenAI-compatible Chat Completions endpoint. You authenticate once with a Codie API key and get access to models from Anthropic, OpenAI, Google, and more through a single base URL. No need to manage separate keys for each provider.
 
 ```
-Your App  →  CodeVibe API (api.cline.bot compatibility endpoint)  →  Anthropic / OpenAI / Google / etc.
+Your App  →  Codie API  →  Anthropic / OpenAI / Google / etc.
 ```
 
 <CardGroup cols={2}>
@@ -25,7 +25,7 @@ Your App  →  CodeVibe API (api.cline.bot compatibility endpoint)  →  Anthrop
     Full endpoint reference with request schemas, streaming, and tool calling.
   </Card>
   <Card title="Code Examples" icon="code" href="/api/sdk-examples">
-    Ready-to-copy examples for Python, Node.js, curl, and the CodeVibe CLI.
+    Ready-to-copy examples for Python, Node.js, curl, and the Codie CLI.
   </Card>
 </CardGroup>
 
@@ -46,7 +46,7 @@ Your App  →  CodeVibe API (api.cline.bot compatibility endpoint)  →  Anthrop
 ## Quick Start
 
 ```bash
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -55,4 +55,4 @@ curl -X POST https://api.cline.bot/api/v1/chat/completions \
   }'
 ```
 
-Get your API key from the CodeVibe account console at [app.cline.bot](https://app.cline.bot) (Settings > API Keys), then follow the [Getting Started](/api/getting-started) guide.
+Get your API key from the Codie account console at [app.codie.dev](https://app.codie.dev) (Settings > API Keys), then follow the [Getting Started](/api/getting-started) guide.

@@ -27,7 +27,7 @@ service WorkspaceService {
   // Opens the IDE file explorer panel and selects a file or directory.
   rpc openInFileExplorerPanel(OpenInFileExplorerPanelRequest) returns (OpenInFileExplorerPanelResponse);
 
-  // Opens and focuses the Cline sidebar panel in the host IDE.
+  // Opens and focuses the CodeVibe sidebar panel in the host IDE.
   rpc openClineSidebarPanel(OpenClineSidebarPanelRequest) returns (OpenClineSidebarPanelResponse);
 
   // Opens CodeVibe's preferred native agent session in the host IDE.

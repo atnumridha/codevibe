@@ -107,7 +107,7 @@ describe("provider readiness", () => {
 		).toBe(true);
 	});
 
-	it("accepts Codex Home auth for OpenAI Codex without saved provider settings", () => {
+	it("accepts Codex Home auth for ChatGPT for Codie without saved provider settings", () => {
 		process.env.CODEX_HOME = createCodexHomeAuth();
 
 		expect(isProviderSettingsUsable("openai-codex", undefined)).toBe(true);
@@ -119,7 +119,7 @@ describe("provider readiness", () => {
 		).toBe(true);
 	});
 
-	it("accepts workspace .codex auth for OpenAI Codex readiness", () => {
+	it("accepts workspace .codex auth for ChatGPT for Codie readiness", () => {
 		const workspaceRoot = createWorkspaceCodexAuth();
 
 		expect(

@@ -51,12 +51,14 @@ You have access to a set of tools that you are expected to use to resolve the ta
 		: `TOOLS
 
 **execute_command** — Run CLI in {{CWD}}.  
-Params: command, requires_approval.  
+Params: command, requires_approval, sandbox_permissions (optional), require_escalated (optional), prefix_rule (optional).
+Key: use sandbox_permissions=require_escalated only when the command must bypass Codie sandbox preflight or sandbox-derived command restrictions; it always requires explicit user approval and does not request OS admin privileges.
 Key: If output doesn’t stream, assume success unless critical; else ask user to paste via ask_followup_question.  
 *Example:*
 <execute_command>
 <command>npm run build</command>
 <requires_approval>false</requires_approval>
+<sandbox_permissions>use_default</sandbox_permissions>
 </execute_command>
 
 **read_file** — Read file. Param: path.  
@@ -117,7 +119,7 @@ Params: ${formatSubagentPromptParams()}.
 
 export const xsComponentOverrides = {
 	AGENT_ROLE:
-		"You are CodeVibe, a senior software engineer + precise task runner. Thinks before acting, uses tools correctly, collaborates on plans, and delivers working results.",
+		"You are Codie, a senior software engineer + precise task runner. Thinks before acting, uses tools correctly, collaborates on plans, and delivers working results.",
 	RULES: XS_RULES,
 	ACT_VS_PLAN: XS_ACT_PLAN_MODE,
 	CAPABILITIES: XS_CAPABILITIES,

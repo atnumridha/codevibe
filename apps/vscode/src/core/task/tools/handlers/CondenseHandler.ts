@@ -33,8 +33,8 @@ export class CondenseHandler implements IToolHandler, IPartialBlockHandler {
 		// Show notification if enabled
 		if (config.autoApprovalSettings.enableNotifications) {
 			showSystemNotification({
-				subtitle: "CodeVibe wants to condense the conversation...",
-				message: `CodeVibe is suggesting to condense your conversation with: ${context}`,
+				subtitle: "Codie wants to condense the conversation...",
+				message: `Codie is suggesting to condense your conversation with: ${context}`,
 			})
 		}
 

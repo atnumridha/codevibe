@@ -91,7 +91,7 @@ function renderDevIndexHtml(devServerUrl: string): string {
   </script>
   <script type="module" src="${devServerUrl}/@vite/client"></script>
   <link rel="icon" type="image/svg+xml" href="${devServerUrl}/favicon.svg" />
-  <title>CodeVibe Hub</title>
+  <title>Codie Agent Hub</title>
 </head>
 <body>
   <div id="root"></div>
@@ -124,7 +124,7 @@ export class WebviewAssets {
 			});
 		}
 		return createTextResponse(
-			"CodeVibe Hub webview is not built. Run `npm --prefix apps/cline-hub/src/webview run build`.",
+			"Codie Agent Hub webview is not built. Run `npm --prefix apps/cline-hub/src/webview run build`.",
 			503,
 		);
 	}

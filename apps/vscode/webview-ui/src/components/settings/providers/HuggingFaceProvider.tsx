@@ -40,8 +40,8 @@ export const HuggingFaceProvider = ({ showModelOptions, isPopup, currentMode }: 
 					marginTop: "5px",
 					color: "var(--vscode-descriptionForeground)",
 				}}>
-				This key is stored locally and only used to make API requests from this extension. We don’t show pricing here
-				because it depends on your Hugging Face provider settings and isn’t consistently available via their API{" "}
+				This key is stored locally and only used to make API requests from this extension. Usage details depend on your
+				Hugging Face settings and are not consistently available via their API{" "}
 				<a href="https://huggingface.co/settings/tokens" rel="noopener noreferrer" target="_blank">
 					Get your API key here
 				</a>

@@ -11,7 +11,12 @@ import {
 	PROCESS_HOT_TIMEOUT_NORMAL,
 	TRUNCATE_KEEP_LINES,
 } from "@/integrations/terminal/constants"
-import type { ITerminalProcess, TerminalCompletionDetails, TerminalProcessEvents } from "@/integrations/terminal/types"
+import type {
+	CommandExecutionOptions,
+	ITerminalProcess,
+	TerminalCompletionDetails,
+	TerminalProcessEvents,
+} from "@/integrations/terminal/types"
 import { Logger } from "@/shared/services/Logger"
 
 /**
@@ -40,7 +45,7 @@ export class VscodeTerminalProcess extends EventEmitter<TerminalProcessEvents> i
 	private exitCode: number | null | undefined = undefined
 	private signal: NodeJS.Signals | null = null
 
-	async run(terminal: vscode.Terminal, command: string) {
+	async run(terminal: vscode.Terminal, command: string, _options?: CommandExecutionOptions) {
 		this.exitCode = undefined
 		this.signal = null
 

@@ -1,12 +1,13 @@
 ---
 title: "Authorization"
-description: "Authenticate with CodeVibe and choose your first AI model"
+description: "Authenticate with Codie and choose your first AI model"
 ---
 
-CodeVibe connects to AI models through a **provider**. You have three paths:
+Codie connects to AI models through a **provider**. You can use:
 
-- **Codex auth** (default): reuse your local `~/.codex/auth.json` session.
-- **CodeVibe account provider**: sign in with a supported hosted account flow when configured.
+- **Codie provider** (default): use the configured Codie sign-in and model path.
+- **Local auth import**: reuse `~/.codex/auth.json` when compatibility support is enabled.
+- **Codie account provider**: sign in with a supported hosted account flow when configured.
 - **Bring Your Own Key (BYOK)**: use your own provider credentials (cloud or local runtimes).
 
 ## Menu
@@ -17,8 +18,8 @@ CodeVibe connects to AI models through a **provider**. You have three paths:
 ## IDE Setup
 
 <Steps>
-  <Step title="Open CodeVibe Settings">
-    Click the settings icon in the CodeVibe panel.
+  <Step title="Open Codie Settings">
+    Click the settings icon in the Codie panel.
   </Step>
 
   <Step title="Select Provider">
@@ -26,29 +27,30 @@ CodeVibe connects to AI models through a **provider**. You have three paths:
   </Step>
 
   <Step title="Authenticate">
-    - **Codex auth:** keep `~/.codex/auth.json` populated; CodeVibe loads it by default.
-    - **CodeVibe account provider:** click **Sign In** and complete OAuth.
+    - **Codie provider:** complete Codie sign-in from the provider settings.
+    - **Local auth import:** keep `~/.codex/auth.json` populated when compatibility support is enabled.
+    - **Codie account provider:** click **Sign In** and complete OAuth.
     - **BYOK cloud provider:** Paste your API key into the **API Key** field.
     - **Local runtime (Ollama/LM Studio):** no key needed; ensure runtime is running.
   </Step>
 
   <Step title="Select Model">
-    Choose your desired Codex, OpenAI, Claude, Gemini, or compatible model from the **Model** dropdown.
+    Choose a recommended, cloud, or local model from the **Model** dropdown.
   </Step>
 </Steps>
 
 ## Provider Options
 
-### Codex Auth
+### Local Auth Import
 
-- Reads `~/.codex/auth.json`, `~/.codex/installation_id`, and local Codex model cache when present
-- Uses `openai-codex` as the default Plan and Act provider
-- Preserves Codex session headers and refresh behavior without logging token contents
+- Reads `~/.codex/auth.json`, `~/.codex/installation_id`, and local model cache when compatibility support is enabled
+- Can use `openai-codex` internally for compatible profiles without making it the visible product path
+- Preserves session headers and refresh behavior without logging token contents
 
-### CodeVibe Account Provider
+### Codie Account Provider
 
 - One sign-in when a hosted account backend is configured
-- Unified model selection from the CodeVibe settings UI
+- Unified model selection from the Codie settings UI
 - Legacy provider IDs may remain internally so existing profiles continue to load
 
 ### BYOK (cloud + local)
@@ -57,17 +59,14 @@ CodeVibe connects to AI models through a **provider**. You have three paths:
 
 | Provider | Best For | Setup Guide |
 |----------|----------|-------------|
-| **OpenRouter** | Multiple models, competitive pricing | [Setup](/provider-config/openrouter) |
-| **Anthropic** | Direct Claude access | [Setup](/provider-config/anthropic) |
-| **Claude Code** | Claude Max/Pro subscription | [Setup](/provider-config/anthropic) |
-| **OpenAI** | GPT models | [Setup](/provider-config/openai) |
-| **Google Gemini** | Gemini models | [Setup](/provider-config/google-gemini) |
-| **AWS Bedrock** | Enterprise | [Setup](/provider-config/aws-bedrock/api-key) |
-| **DeepSeek** | Great value | [Setup](/provider-config/deepseek) |
+| **Multi-model router** | Broad hosted model access | [Setup](/provider-config/openrouter) |
+| **Direct hosted provider** | First-party model APIs | [Setup](/provider-config/openai) |
+| **Enterprise cloud** | Managed cloud model access | [Setup](/provider-config/aws-bedrock/api-key) |
+| **DeepSeek** | DeepSeek API access | [Setup](/provider-config/deepseek) |
 
 ### Local Models
 
-Run models on your own hardware for complete privacy and zero per-request costs.
+Run models on your own hardware for local inference.
 
 | Provider | Best For | Setup Guide |
 |----------|----------|-------------|
@@ -93,6 +92,6 @@ Runs the same auth flow as IDE setup.
 | Issue | Fix |
 |-------|-----|
 | "Unauthorized: Please sign in" | Session expired. Click **Sign In** to re-authenticate. |
-| Browser doesn't open | Check default browser settings. Copy the URL from the CodeVibe output panel manually. |
+| Browser doesn't open | Check default browser settings. Copy the URL from the Codie output panel manually. |
 | Frequent re-authentication | Check org security policies. Ensure you're not clearing IDE secrets. Try a full sign-out/sign-in. |
 | Can't access organization | Ask your workspace admin about permissions. Sign out and back in. |

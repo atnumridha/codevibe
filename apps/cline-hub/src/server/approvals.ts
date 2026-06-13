@@ -52,7 +52,7 @@ export function rejectOrphanedApprovals(ctx: HubContext): void {
 		if (!ctx.hasSelectedPeer(pending.sessionId)) {
 			resolveToolApproval(ctx, approvalId, {
 				approved: false,
-				reason: "CodeVibe Hub webview disconnected before approval was resolved.",
+				reason: "Codie Agent Hub webview disconnected before approval was resolved.",
 			});
 		}
 	}
@@ -65,7 +65,7 @@ export function requestToolApprovalFromWebview(
 	if (!ctx.hasSelectedPeer(request.sessionId)) {
 		return Promise.resolve({
 			approved: false,
-			reason: "No CodeVibe Hub webview is attached to this session.",
+			reason: "No Codie Agent Hub webview is attached to this session.",
 		});
 	}
 
@@ -114,7 +114,7 @@ export function handleToolApprovalResponse(
 		approved: frame.approved,
 		reason:
 			frame.reason ??
-			(frame.approved ? "Approved in CodeVibe Hub." : "Rejected in CodeVibe Hub."),
+			(frame.approved ? "Approved in Codie Agent Hub." : "Rejected in Codie Agent Hub."),
 	});
 	if (!resolved) {
 		console.warn(`Ignoring unknown tool approval response: ${approvalId}`);

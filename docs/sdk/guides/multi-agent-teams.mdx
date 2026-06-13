@@ -8,14 +8,14 @@ Multi-agent teams let you break complex work across multiple agents that coordin
 
 ## Enabling Teams
 
-Teams are a ClineCore feature. Enable them in the session config:
+Teams are a CodieCore feature. Enable them in the session config:
 
 ```typescript
-import { ClineCore } from "@cline/sdk"
+import { CodieCore } from "@cline/sdk"
 
-const cline = await ClineCore.create({ clientName: "team-app" })
+const codie = await CodieCore.create({ clientName: "team-app" })
 
-const session = await cline.start({
+const session = await codie.start({
   prompt: "Plan and implement a user authentication module with tests",
   config: {
     providerId: "anthropic",
@@ -91,7 +91,7 @@ Sub-agents are lighter weight. The parent agent spawns a child, waits for its re
 
 ```typescript
 // Sub-agents: simple delegation within a single session
-const session = await cline.start({
+const session = await codie.start({
   config: {
     enableSpawnAgent: true,  // Agent can spawn sub-agents
     // ...

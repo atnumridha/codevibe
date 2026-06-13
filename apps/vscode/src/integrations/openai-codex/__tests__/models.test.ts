@@ -7,7 +7,7 @@ import {
 	toOpenAiCodexBackendModelInfo,
 } from "../models"
 
-describe("OpenAI Codex backend model merge", () => {
+describe("Codie ChatGPT backend model merge", () => {
 	it("preserves bundled fallback models while adding authenticated backend models", () => {
 		const merged = mergeOpenAiCodexBackendModels([
 			{

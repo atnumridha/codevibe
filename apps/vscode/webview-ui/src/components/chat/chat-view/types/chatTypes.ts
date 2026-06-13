@@ -152,6 +152,7 @@ export interface WelcomeSectionProps {
 	version: string
 	taskHistory: any[]
 	shouldShowStarterWorkflows: boolean
+	onFocusComposer?: () => void
 }
 
 /**

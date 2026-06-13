@@ -713,10 +713,11 @@ export class SubagentRunner {
 				say: async () => undefined,
 				sayAndCreateMissingParamError: async (_toolName, paramName) =>
 					formatResponse.toolError(formatResponse.missingToolParameterError(paramName)),
-				executeCommandTool: async (command: string, timeoutSeconds: number | undefined) => {
+				executeCommandTool: async (command, timeoutSeconds, options) => {
 					this.activeCommandExecutions += 1
 					try {
 						return await baseCallbacks.executeCommandTool(command, timeoutSeconds, {
+							...options,
 							useBackgroundExecution: true,
 							suppressUserInteraction: true,
 						})

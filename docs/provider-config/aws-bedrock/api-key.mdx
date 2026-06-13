@@ -1,15 +1,15 @@
 ---
 title: "API Key (Simple Setup)"
 sidebarTitle: "API Key"
-description: "Set up AWS Bedrock with CodeVibe using Bedrock API Keys. Simplest setup for individual developers to access frontier provider."
+description: "Set up AWS Bedrock API key access in Codie."
 ---
 
 ### Overview
 
--   **AWS Bedrock:** A fully managed service that offers access to leading generative AI models (e.g., Anthropic Claude, Amazon Nova) through AWS.\
+-   **AWS Bedrock:** AWS-hosted model access configured for Codie.\
     [Learn more about AWS Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/what-is-bedrock.html).
--   **CodeVibe:** A VS Code extension that acts as a coding assistant by integrating with AI models-empowering developers to generate code, debug, and analyze data.
--   **Developer Focus:** This guide is tailored for individual developers that want to enable access to frontier models via AWS Bedrock with a simplified setup using API Keys.
+-   **Codie:** The VS Code extension where you configure Bedrock credentials and select models.
+-   **Developer Focus:** This guide is for individual API key setup.
 
 ---
 
@@ -23,12 +23,12 @@ For more detailed instructions check the [documentation](https://docs.aws.amazon
    [AWS Console](https://aws.amazon.com/console/)
 2. **Access Bedrock Console:**
     - [Bedrock Console](https://console.aws.amazon.com/bedrock)
-    - Create a new Long Lived API Key. This API Key will have by default the `AmazonBedrockLimitedAccess` IAM policy
+    - Create a Bedrock API key and review the IAM policy AWS associates with it, such as `AmazonBedrockLimitedAccess`.
       [View AmazonBedrockLimitedAccess Policy Details](https://docs.aws.amazon.com/bedrock/latest/userguide/security-iam.html)
 
 #### 1.2 Create or Modify the Policy
 
-To ensure CodeVibe can interact with AWS Bedrock, your IAM user or role needs specific permissions. While the `AmazonBedrockLimitedAccess` managed policy provides comprehensive access, for a more restricted and secure setup adhering to the principle of least privilege, the following minimal permissions are sufficient for CodeVibe's core model invocation functionality:
+Codie needs Bedrock permissions to invoke models. If you want a narrower policy than AWS-managed `AmazonBedrockLimitedAccess`, grant the following actions:
 
 -   `bedrock:InvokeModel`
 -   `bedrock:InvokeModelWithResponseStream`
@@ -50,12 +50,12 @@ You can create a custom IAM policy with these permissions and attach it to your 
     	]
     }
     ```
-3.  Name the policy (e.g., `CodeVibeBedrockInvokeAccess`) and attach it to the IAM user associated with the key you created. The IAM user and the API key have the same prefix.
+3.  Name the policy (e.g., `CodieBedrockInvokeAccess`) and attach it to the IAM user associated with the key you created. The IAM user and the API key have the same prefix.
 
 **Important Considerations:**
 
--   **Model Listing in CodeVibe:** The minimal permissions (`bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream`) are sufficient for CodeVibe to _use_ a model if you specify the model ID directly in CodeVibe's settings. If you rely on CodeVibe to dynamically list available Bedrock models, you might need additional permissions like `bedrock:ListFoundationModels`.
--   **AWS Marketplace Subscriptions:** For third-party models (e.g., Anthropic Claude), the **`AmazonBedrockLimitedAccess`** policy grants you the necessary permissions to subscribe via the AWS Marketplace. There is no explicit access to be enabled. For Anthropic models you are still required to submit a First Time Use (FTU) form via the Console. If you get the following message in the CodeVibe chat `[ERROR] Failed to process response: Model use case details have not been submitted for this account. Fill out the Anthropic use case details form before using the model.` then open the [Playground in the AWS Bedrock Console](https://console.aws.amazon.com/bedrock/home?#/text-generation-playground), select any Anthropic model and fill in the form (you might need to send a prompt first)
+-   **Model Listing in Codie:** The minimal permissions (`bedrock:InvokeModel`, `bedrock:InvokeModelWithResponseStream`) are sufficient for Codie to _use_ a model if you specify the model ID directly in Codie's settings. If you rely on Codie to dynamically list available Bedrock models, you might need additional permissions like `bedrock:ListFoundationModels`.
+-   **Third-Party Model Access:** For third-party models, confirm account access and required provider terms in the AWS Bedrock console. The **`AmazonBedrockLimitedAccess`** policy can grant the permissions needed to request access. If Codie reports that model use-case details are missing, open the [Playground in the AWS Bedrock Console](https://console.aws.amazon.com/bedrock/home?#/text-generation-playground), select the model, and complete the required form.
 
 ---
 
@@ -71,27 +71,27 @@ You can create a custom IAM policy with these permissions and attach it to your 
 
 ---
 
-### Step 3: Configure the CodeVibe VS Code Extension
+### Step 3: Configure the Codie VS Code Extension
 
-#### 3.1 Install and Open CodeVibe
+#### 3.1 Install and Open Codie
 
 1. **Install VS Code:**\
    Download from the [VS Code website](https://code.visualstudio.com/).
-2. **Install the CodeVibe Extension:**
+2. **Install the Codie Extension:**
     - Open VS Code.
-    - Go to the Extensions Marketplace (`Ctrl+Shift+X` or `Cmd+Shift+X`).
-    - Search for **CodeVibe** and install it.
+    - Go to the VS Code Extensions view (`Ctrl+Shift+X` or `Cmd+Shift+X`).
+    - Search for **Codie** and install it.
 
-#### 3.2 Configure CodeVibe Settings
+#### 3.2 Configure Codie Settings
 
-1. **Open CodeVibe Settings:**
-    - Click on the settings ⚙️ to select your API Provider.
-2. **Select AWS Bedrock as the API Provider:**
-    - From the API Provider dropdown, choose **AWS Bedrock**.
+1. **Open Codie Settings:**
+    - Click on the settings ⚙️ to select your model source.
+2. **Select AWS Bedrock as the Model Source:**
+    - From the Model Source dropdown, choose **AWS Bedrock**.
 3. **Enter Your AWS API Key:**
     - Input your **API Key**
     - Specify the correct **AWS Region** (e.g., `us-east-1` or your enterprise-approved region).
-4. **Select a Provider Model:**
+4. **Select a Model:**
 5. **Save and Test:**
     - Click **Done/Save** to apply your settings.
     - Test the integration by sending a simple prompt (e.g., "Generate a Python function to check if a number is prime.").
@@ -109,9 +109,9 @@ You can create a custom IAM policy with these permissions and attach it to your 
     - Enable AWS CloudTrail to log Bedrock API calls.
     - Use CloudWatch to monitor metrics like invocation count, latency, and token usage.
     - Set up alerts for abnormal activity.
-4. **Handle Errors and Manage Costs:**
+4. **Handle Errors and Monitor Usage:**
     - Implement exponential backoff for throttling errors.
-    - Use AWS Cost Explorer and set billing alerts to track usage.\
+    - Use AWS Cost Explorer and set usage and spend alerts to track usage.\
       [AWS Cost Management](https://docs.aws.amazon.com/cost-management/latest/userguide/what-is-aws-cost-management.html)
 5. **Regular Audits and Compliance:**
     - Periodically review IAM roles and CloudTrail logs.

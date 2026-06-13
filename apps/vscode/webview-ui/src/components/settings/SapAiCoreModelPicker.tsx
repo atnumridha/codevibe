@@ -70,13 +70,13 @@ const SapAiCoreModelPicker: React.FC<SapAiCoreModelPickerProps> = ({
 	const categorizedModels = useMemo(() => {
 		const allSupportedModels = Object.keys(sapAiCoreModels)
 
-		// Models that are both deployed AND supported in CodeVibe
+		// Models that are both deployed AND supported in Codie
 		const deployedModelNames = sapAiCoreModelDeployments.map((d) => d.modelName)
 		const deployedAndSupported = deployedModelNames.filter((deployedModel: string) =>
 			allSupportedModels.includes(deployedModel),
 		)
 
-		// Models that are supported in CodeVibe but NOT deployed
+		// Models that are supported in Codie but NOT deployed
 		const supportedButNotDeployed = allSupportedModels.filter(
 			(supportedModel: string) => !deployedModelNames.includes(supportedModel),
 		)

@@ -1,18 +1,18 @@
 ---
 title: "Configure Anthropic Provider (Admin)"
 sidebarTitle: "Configure Anthropic (Admin)"
-description: "This guide explains how administrators configure Anthropic as the organization-wide LLM provider for CodeVibe."
+description: "This guide explains how administrators configure Anthropic as the organization-wide LLM provider for Codie."
 ---
 
 
-As an administrator, you can add Anthropic as the organization-wide LLM provider for all CodeVibe users through the hosted admin console. This centralized approach provides direct access to Anthropic's Claude models, with an optional custom base URL for organizations that route traffic through a proxy.
+As an administrator, you can add Anthropic as the organization-wide LLM provider for all Codie users through the hosted admin console. This centralized approach provides direct access to Anthropic's Claude models, with an optional custom base URL for organizations that route traffic through a proxy.
 
 ## Before You Begin
 
 To get started with setting up Anthropic as your organization's LLM provider, you'll need a few items in place.
 
-**Administrator access to the CodeVibe Admin console**
-You need admin privileges to enforce provider settings across your organization. If you can navigate to **Settings → CodeVibe Settings** in the admin console at [app.cline.bot](https://app.cline.bot), you have the right access level.
+**Administrator access to the Codie Admin console**
+You need admin privileges to enforce provider settings across your organization. If you can navigate to **Settings → Codie Settings** in the admin console at [app.codie.dev](https://app.codie.dev), you have the right access level.
 
 **Anthropic API access**
 Your organization needs an Anthropic account with API access to Claude models. Members will need individual API keys to authenticate.
@@ -24,8 +24,8 @@ If your organization requires routing API traffic through a proxy or custom endp
 ## Configuration Steps
 
 <Steps>
-<Step title="Access CodeVibe Settings">
-Navigate to [app.cline.bot](https://app.cline.bot) and sign in with your administrator account. Go to **Settings → CodeVibe Settings**.
+<Step title="Access Codie Settings">
+Navigate to [app.codie.dev](https://app.codie.dev) and sign in with your administrator account. Go to **Settings → Codie Settings**.
 
 <Info>
 You should see the provider configuration options if you have the correct admin access level.
@@ -45,7 +45,7 @@ The configuration panel includes settings that control how Anthropic works for y
 
 <AccordionGroup>
 <Accordion title="Base URL (optional)">
-By default, CodeVibe connects directly to the Anthropic API (`https://api.anthropic.com`). If your organization routes API traffic through a proxy or custom endpoint, enter the base URL here.
+By default, Codie connects directly to the Anthropic API (`https://api.anthropic.com`). If your organization routes API traffic through a proxy or custom endpoint, enter the base URL here.
 
 Use cases for a custom base URL:
 - Corporate proxy that logs or filters API traffic
@@ -64,10 +64,10 @@ If using a proxy, ensure it correctly forwards requests to the Anthropic API and
 <Step title="Save Configuration">
 After configuring your settings, close the provider configuration panel and click **Save** on the settings page to persist your changes.
 
-Once saved, all organization members signed into the CodeVibe extension will automatically use Anthropic with your configured settings. They won't be able to select other providers or switch to their personal CodeVibe accounts.
+Once saved, all organization members signed into the Codie extension will automatically use Anthropic with your configured settings. They won't be able to select other providers or switch to their personal Codie accounts.
 
 <Warning>
-Members can't switch to personal CodeVibe accounts or join other organizations once remote configuration is enabled. This ensures consistent provider usage across your team.
+Members can't switch to personal Codie accounts or join other organizations once remote configuration is enabled. This ensures consistent provider usage across your team.
 </Warning>
 </Step>
 </Steps>

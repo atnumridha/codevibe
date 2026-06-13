@@ -1,13 +1,13 @@
 ---
 title: "Plugins"
 sidebarTitle: "Plugins"
-description: "Install and manage plugins that extend CodeVibe with custom tools, hooks, and capabilities."
+description: "Install and manage plugins that extend Codie with custom tools, hooks, and capabilities."
 ---
 <Warning>
-  This feature currently only applies to the CodeVibe SDK, CLI, and Kanban. This feature is not applicable on VSCode and JetBrains Extension for now.
+  This feature currently only applies to the Codie SDK, CLI, and Kanban. This feature is not applicable on VSCode and JetBrains Extension for now.
 </Warning>
 
-Plugins extend CodeVibe with custom tools, lifecycle hooks, slash commands, and more. They can be installed globally (available in all sessions) or per-project.
+Plugins extend Codie with custom tools, lifecycle hooks, slash commands, and more. They can be installed globally (available in all sessions) or per-project.
 
 ## Installing Plugins via CLI
 
@@ -74,11 +74,11 @@ Install it with:
 codevibe plugin install https://github.com/owner/typescript-lsp-plugin.git
 ```
 
-Once installed, CodeVibe can call `goto_definition` with a file path and line number to find where symbols are defined, which is much more precise than text search.
+Once installed, Codie can call `goto_definition` with a file path and line number to find where symbols are defined, which is much more precise than text search.
 
 ## Plugin Manifest Format
 
-For a repository or npm package to be installable as a CodeVibe plugin, its `package.json` should include a `cline` compatibility field that declares plugin entry points:
+For a repository or npm package to be installable as a Codie plugin, its `package.json` should include a `cline` compatibility field that declares plugin entry points:
 
 ```json
 {

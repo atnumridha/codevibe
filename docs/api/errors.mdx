@@ -1,10 +1,10 @@
 ---
 title: "Errors"
 sidebarTitle: "Errors"
-description: "Error codes, error formats, mid-stream errors, and retry strategies for the CodeVibe API."
+description: "Error codes, error formats, mid-stream errors, and retry strategies for the Codie API."
 ---
 
-The CodeVibe API returns errors in a consistent JSON format. Understanding these errors helps you build reliable integrations.
+The Codie API returns errors in a consistent JSON format. Understanding these errors helps you build reliable integrations.
 
 ## Error Format
 
@@ -36,7 +36,7 @@ These are returned as the HTTP response status code and in the error body:
 |------|------|-------|------------|
 | `400` | Bad Request | Malformed request body, missing required fields | Check your JSON syntax and required parameters |
 | `401` | Unauthorized | Invalid or missing API key | Verify your API key in the `Authorization` header |
-| `402` | Payment Required | Insufficient credits | Add credits at [app.cline.bot](https://app.cline.bot) |
+| `402` | Payment Required | Insufficient credits | Add credits at [app.codie.dev](https://app.codie.dev) |
 | `403` | Forbidden | Key does not have access to this resource | Check key permissions |
 | `404` | Not Found | Invalid endpoint or model ID | Verify the URL and model ID format |
 | `429` | Too Many Requests | Rate limit exceeded | Wait and retry with exponential backoff |
@@ -88,7 +88,7 @@ import requests
 def call_api_with_retry(payload, max_retries=3):
     for attempt in range(max_retries):
         response = requests.post(
-            "https://api.cline.bot/api/v1/chat/completions",
+            "https://api.codie.dev/api/v1/chat/completions",
             headers={
                 "Authorization": "Bearer YOUR_API_KEY",
                 "Content-Type": "application/json",

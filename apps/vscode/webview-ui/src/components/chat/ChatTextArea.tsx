@@ -1105,7 +1105,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			}
 			switch (selectedProvider) {
 				case "cline":
-					return `CodeVibe:${selectedModelId}`
+					return `Codie:${selectedModelId}`
 				case "openai":
 					return `openai-compat:${selectedModelId}`
 				case "vscode-lm":
@@ -1556,7 +1556,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						</div>
 					</div>
 				</div>
-				<div className="flex justify-between items-center px-3 pb-2 pt-1.5">
+				<div className="mx-3 mt-1.5 flex items-center justify-between gap-2 rounded-[6px] border border-[color-mix(in_srgb,var(--vscode-panel-border)_82%,transparent)] bg-[color-mix(in_srgb,var(--vscode-sideBar-background)_76%,var(--vscode-editor-background)_24%)] px-2 py-1.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--vscode-editor-background)_70%,transparent)]">
 					{/* Always render both components, but control visibility with CSS */}
 					<div className="relative flex-1 min-w-0 h-5">
 						{/* ButtonGroup - always in DOM but visibility controlled */}
@@ -1610,7 +1610,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 										role="button"
 										tabIndex={0}
 										title="Open API Settings">
-										<ModelButtonContent className="text-xs">CodeVibe Agent / {modelDisplayName}</ModelButtonContent>
+										<ModelButtonContent className="text-xs">Command center / {modelDisplayName}</ModelButtonContent>
 									</ModelDisplayButton>
 								</ModelButtonWrapper>
 							</ModelContainer>
@@ -1622,7 +1622,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							className="text-xs px-2 flex flex-col gap-1"
 							hidden={shownTooltipMode === null}
 							side="top">
-							{`In ${shownTooltipMode === "act" ? "Act" : "Plan"}  mode, CodeVibe will ${shownTooltipMode === "act" ? "complete the task immediately" : "gather information to architect a plan"}`}
+							{`In ${shownTooltipMode === "act" ? "Act" : "Plan"} mode, Codie will ${shownTooltipMode === "act" ? "complete the task immediately" : "gather information to architect a plan"}`}
 							<p className="text-description/80 text-xs mb-0">
 								Toggle w/ <kbd className="text-muted-foreground mx-1">{togglePlanActKeys}</kbd>
 							</p>

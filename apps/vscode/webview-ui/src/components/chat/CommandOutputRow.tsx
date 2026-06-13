@@ -3,8 +3,9 @@ import { ClineMessage, type CodeVibeCompatibilityStatus } from "@shared/Extensio
 import { StringRequest } from "@shared/proto/cline/common"
 import { AskResponseRequest } from "@shared/proto/cline/task"
 import {
-	encodeTerminalRunMode,
+	encodeTerminalApprovalPayload,
 	extractTerminalRunModeMarker,
+	getTerminalRunModeLabel,
 	type CodeVibeTerminalRunMode,
 } from "@shared/terminalPolicy"
 import { PlayIcon, ShieldAlertIcon, ShieldCheckIcon, XIcon } from "lucide-react"
@@ -140,15 +141,25 @@ export const CommandOutputRow = memo(
 	}) => {
 		const { compatibilityStatus } = useExtensionState()
 		const sandboxRuntime = compatibilityStatus?.sandboxRuntime
-		const hasActiveSandbox = sandboxRuntime?.status === "loaded" || sandboxRuntime?.status === "invalid"
-		const safeRunMode: CodeVibeTerminalRunMode = hasActiveSandbox ? "sandboxed" : "default"
-		const safeRunLabel = hasActiveSandbox ? "Sandboxed" : "Default"
-		const safeRunAriaLabel = hasActiveSandbox ? "Run command in sandbox" : "Run command with default terminal policy"
-		const safeRunTitle = hasActiveSandbox
-			? "Run constrained by the active .cursor/sandbox.json policy"
-			: "No active .cursor/sandbox.json policy; run with the default terminal permissions"
-		const SafeRunIcon = hasActiveSandbox ? ShieldCheckIcon : PlayIcon
+		const hasLoadedSandbox = sandboxRuntime?.status === "loaded"
+		const hasInvalidSandbox = sandboxRuntime?.status === "invalid"
+		const showsSandboxStatus = hasLoadedSandbox || hasInvalidSandbox
+		const safeRunMode: CodeVibeTerminalRunMode = hasLoadedSandbox ? "sandboxed" : "default"
+		const safeRunLabel = hasInvalidSandbox ? "Fail-closed" : getTerminalRunModeLabel(safeRunMode)
+		const safeRunAriaLabel = hasLoadedSandbox
+			? "Run command in sandbox"
+			: hasInvalidSandbox
+				? "Sandbox config is invalid; sandboxed execution is disabled"
+				: "Run command with default terminal policy"
+		const sandboxConfigLabel = getSandboxConfigLabel(sandboxRuntime)
+		const safeRunTitle = hasLoadedSandbox
+			? `Run with the active ${sandboxConfigLabel}`
+			: hasInvalidSandbox
+				? "Sandbox config is invalid; fix it before running commands in sandbox mode"
+			: "No active Codie sandbox config; run with default terminal permissions"
+		const SafeRunIcon = hasLoadedSandbox ? ShieldCheckIcon : hasInvalidSandbox ? ShieldAlertIcon : PlayIcon
 		const sandboxPolicySummary = getSandboxPolicySummary(sandboxRuntime)
+		const terminalApprovalFooter = getTerminalApprovalFooter(sandboxRuntime)
 		const splitMessage = (text: string) => {
 			const outputIndex = text.indexOf(COMMAND_OUTPUT_STRING)
 			if (outputIndex === -1) {
@@ -179,7 +190,8 @@ export const CommandOutputRow = memo(
 		}
 
 		const { command: rawCommandWithMarker, output } = splitMessage(message.text || "")
-		const { command: rawCommand, terminalRunMode } = extractTerminalRunModeMarker(rawCommandWithMarker)
+		const { command: rawCommand, terminalRunMode, requestedTerminalRunMode, prefixRule } =
+			extractTerminalRunModeMarker(rawCommandWithMarker)
 
 		const requestsApproval = rawCommand.endsWith(COMMAND_REQ_APP_STRING)
 		const command = requestsApproval ? rawCommand.slice(0, -COMMAND_REQ_APP_STRING.length) : rawCommand
@@ -190,7 +202,7 @@ export const CommandOutputRow = memo(
 			await TaskServiceClient.askResponse(
 				AskResponseRequest.create({
 					responseType,
-					text: mode ? encodeTerminalRunMode(mode) : undefined,
+					text: mode ? encodeTerminalApprovalPayload(mode) : undefined,
 					images: [],
 					files: [],
 				}),
@@ -231,6 +243,8 @@ export const CommandOutputRow = memo(
 							</div>
 							<div className="flex items-center gap-2 shrink-0">
 								{terminalRunMode && <TerminalRunModeBadge mode={terminalRunMode} />}
+								{requestedTerminalRunMode && <TerminalRequestedRunModeBadge mode={requestedTerminalRunMode} />}
+								{prefixRule?.length ? <TerminalPrefixRuleBadge prefixRule={prefixRule} /> : null}
 								{showCancelButton && (
 									<Button
 										onClick={(e) => {
@@ -267,23 +281,40 @@ export const CommandOutputRow = memo(
 					)}
 				</div>
 				{canAnswerCommandApproval && (
-					<div className="mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
+					<div
+						className={cn("mt-2 grid gap-2", {
+							"grid-cols-[1fr_1fr_1fr_auto]": showsSandboxStatus,
+							"grid-cols-[1fr_1fr_auto]": !showsSandboxStatus,
+						})}>
 						<Button
 							aria-label={safeRunAriaLabel}
 							className="justify-center"
+							disabled={hasInvalidSandbox}
 							onClick={() => answerCommandApproval("yesButtonClicked", safeRunMode)}
 							size="sm"
 							title={safeRunTitle}
-							variant="success">
+							variant={hasInvalidSandbox ? "secondary" : "success"}>
 							<SafeRunIcon />
 							{safeRunLabel}
 						</Button>
+						{showsSandboxStatus && (
+							<Button
+								aria-label="Run command unelevated"
+								className="justify-center"
+								onClick={() => answerCommandApproval("yesButtonClicked", "default")}
+								size="sm"
+								title="Run in normal terminal mode; configured command permissions and Codie sandbox preflight still apply"
+								variant="secondary">
+								<PlayIcon />
+								{getTerminalRunModeLabel("default")}
+							</Button>
+						)}
 						<Button
 							aria-label="Run command elevated"
 							className="justify-center"
 							onClick={() => answerCommandApproval("yesButtonClicked", "elevated")}
 							size="sm"
-							title="Run as an elevated trusted terminal command"
+							title="Bypass Codie sandbox preflight after explicit approval; configured command permissions may still apply and this does not request OS administrator privileges"
 							variant="secondary">
 							<ShieldAlertIcon />
 							Elevated
@@ -296,15 +327,15 @@ export const CommandOutputRow = memo(
 							variant="danger">
 							<XIcon />
 						</Button>
-						<div className="col-span-3 text-[11px] text-description">
-							{sandboxPolicySummary} Elevated commands require this explicit approval.
+						<div className={cn("text-[11px] text-description", showsSandboxStatus ? "col-span-4" : "col-span-3")}>
+							{sandboxPolicySummary} {terminalApprovalFooter}
 						</div>
 					</div>
 				)}
 				{requestsApproval && (
 					<div className="flex items-center gap-2.5 p-2 text-[12px] text-editor-warning-foreground">
 						<i className="codicon codicon-warning" />
-						<span>The model has determined this command requires explicit approval.</span>
+						<span>Codie needs your approval before running this command.</span>
 					</div>
 				)}
 			</>
@@ -322,11 +353,7 @@ const CommandStatusMap = {
 }
 
 function TerminalRunModeBadge({ mode }: { mode: CodeVibeTerminalRunMode }) {
-	const label = {
-		sandboxed: "Sandboxed",
-		elevated: "Elevated",
-		default: "Default",
-	}[mode]
+	const label = getTerminalRunModeLabel(mode)
 	const Icon = mode === "elevated" ? ShieldAlertIcon : ShieldCheckIcon
 
 	return (
@@ -339,13 +366,34 @@ function TerminalRunModeBadge({ mode }: { mode: CodeVibeTerminalRunMode }) {
 			)}
 			title={
 				mode === "sandboxed"
-					? "Ran with the workspace sandbox policy"
+					? "Ran after Codie sandbox preflight"
 					: mode === "elevated"
-						? "Ran as an elevated trusted terminal command"
+						? "Ran as a trusted terminal command after explicit approval"
 						: "Ran with the default terminal policy"
 			}>
 			<Icon className="size-3.5" />
 			<span>{label}</span>
+		</span>
+	)
+}
+
+function TerminalRequestedRunModeBadge({ mode }: { mode: CodeVibeTerminalRunMode }) {
+	return (
+		<span
+			className="inline-flex h-6 items-center gap-1 rounded-[3px] border border-editor-group-border px-1.5 text-[11px] text-description"
+			title="Terminal mode requested by the model; the approval buttons still choose the final mode">
+			<span>Requested: {getTerminalRunModeLabel(mode)}</span>
+		</span>
+	)
+}
+
+function TerminalPrefixRuleBadge({ prefixRule }: { prefixRule: string[] }) {
+	const label = prefixRule.join(" ")
+	return (
+		<span
+			className="inline-flex h-6 max-w-[220px] items-center gap-1 rounded-[3px] border border-editor-group-border px-1.5 text-[11px] text-description"
+			title={`One-off approval context prefix: ${label}`}>
+			<span className="truncate">Prefix: {label}</span>
 		</span>
 	)
 }
@@ -358,18 +406,55 @@ function getSandboxPolicySummary(runtime: SandboxRuntimeSummary | undefined) {
 	}
 
 	if (runtime.status === "loaded") {
-		return `Sandbox active: ${runtime.effectiveAccess} access, ${runtime.writablePathCount} writable path(s), network ${runtime.networkDefault}.`
+		return `${getSandboxRuntimeLabel(runtime)} active: ${runtime.effectiveAccess} access, ${formatPathCount(
+			runtime.writablePathCount,
+		)}, network ${runtime.networkDefault}.`
 	}
 
 	if (runtime.status === "invalid") {
-		return "Sandbox config is invalid; CodeVibe is failing closed to read-only policy."
+		return `${getSandboxRuntimeLabel(runtime)} config is invalid; sandboxed execution is disabled until it is fixed.`
 	}
 
 	if (runtime.status === "disabled") {
-		return "Sandbox compatibility is disabled; default runs use current terminal permissions."
+		return "Codie sandbox compatibility is disabled; default runs use current terminal permissions."
 	}
 
-	return "No .cursor/sandbox.json is active; default runs use current terminal permissions."
+	return "No Codie sandbox config is active; default runs use current terminal permissions."
+}
+
+function getTerminalApprovalFooter(runtime: SandboxRuntimeSummary | undefined) {
+	if (runtime?.status === "loaded") {
+		return (
+			"Unelevated uses normal terminal mode while configured command permissions and Codie sandbox preflight still apply. " +
+			"Elevated bypasses Codie sandbox preflight after explicit approval here; configured command permissions may still apply, " +
+			"and does not request OS administrator privileges."
+		)
+	}
+
+	if (runtime?.status === "invalid") {
+		return (
+			"Unelevated uses current terminal permissions and configured command permissions because no enforceable sandbox policy is active. " +
+			"Elevated records explicit trust for this command; configured command permissions may still apply, and does not request OS administrator privileges."
+		)
+	}
+
+	return (
+		"Unelevated uses current terminal permissions and configured command permissions. " +
+		"No Codie sandbox preflight is active. Elevated records explicit trust for this command; configured command permissions may still apply, " +
+		"and does not request OS administrator privileges."
+	)
+}
+
+function getSandboxConfigLabel(runtime: SandboxRuntimeSummary | undefined) {
+	return runtime?.configSource === "cursorCompatibility" ? "legacy import-compatible sandbox config" : "Codie sandbox config"
+}
+
+function getSandboxRuntimeLabel(runtime: SandboxRuntimeSummary | undefined) {
+	return runtime?.configSource === "cursorCompatibility" ? "Legacy import-compatible sandbox" : "Codie sandbox"
+}
+
+function formatPathCount(count: number) {
+	return `${count} writable ${count === 1 ? "path" : "paths"}`
 }
 
 function getCommandStatusText(isExecuting: boolean, isPending: boolean, isCompleted: boolean): string {

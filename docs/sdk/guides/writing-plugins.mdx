@@ -211,7 +211,7 @@ await agent.run("List all open bugs and create a summary issue with the count")
 
 ## Distributing as a File Plugin
 
-To load this plugin from a file in ClineCore, pass its path in `pluginPaths`:
+To load this plugin from a file in CodieCore, pass its path in `pluginPaths`:
 
 ```typescript
 // /absolute/path/to/github.ts
@@ -236,11 +236,11 @@ export default plugin
 Then include it in session config:
 
 ```typescript
-import { ClineCore } from "@cline/sdk"
+import { CodieCore } from "@cline/sdk"
 
-const cline = await ClineCore.create({ clientName: "my-app" })
+const codie = await CodieCore.create({ clientName: "my-app" })
 
-await cline.start({
+await codie.start({
   config: {
     systemPrompt: "Use the GitHub plugin",
     // ...model/runtime config
@@ -257,7 +257,7 @@ Single-file plugins can be installed directly from a file URL:
 codevibe plugin install https://github.com/your-org/your-repo/blob/main/plugins/github-plugin.ts
 ```
 
-Single-file plugins can only import Node builtins and `@cline/*`. As soon as you need an npm dependency (`zod`, an HTTP client, etc.) you must ship as a package: a directory with a `package.json` that declares a `cline` field for entry points and your runtime `dependencies`. Dependencies under the `@cline/` scope are provided by the host runtime -- the installer strips these and runs `npm install` for the rest, so declare any `@cline/*` package you import as an optional peer dependency:
+Single-file plugins can only import Node builtins and the stable compatibility packages under `@cline/*`. As soon as you need an npm dependency (`zod`, an HTTP client, etc.) you must ship as a package: a directory with a `package.json` that declares a `cline` field for entry points and your runtime `dependencies`. Dependencies under the `@cline/` scope are provided by the host runtime -- the installer strips these and runs `npm install` for the rest, so declare any `@cline/*` package you import as an optional peer dependency:
 
 ```json
 {
@@ -297,7 +297,7 @@ codevibe-github-plugin/
       SKILL.md
 ```
 
-Each bundled skill follows the same directory format as any other [CodeVibe skill](/customization/skills). When the plugin is installed or loaded through `pluginPaths`, CodeVibe discovers those skills automatically.
+Each bundled skill follows the same directory format as any other [Codie skill](/customization/skills). When the plugin is installed or loaded through `pluginPaths`, Codie discovers those skills automatically.
 
 See [Plugins](/customization/plugins) for the full manifest format, directory layout, and the [typescript-lsp-plugin](https://github.com/cline/typescript-lsp-plugin) for a complete working example.
 

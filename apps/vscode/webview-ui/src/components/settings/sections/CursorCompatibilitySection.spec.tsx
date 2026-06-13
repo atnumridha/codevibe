@@ -23,7 +23,7 @@ const extensionState = vi.hoisted(() => ({
 		},
 		safeBrowserEvaluateEnabled: false,
 		effectiveBrowserEvaluateEnabled: false,
-		openAiCodexAuthSource: "codexHome",
+		openAiCodexAuthSource: "auto",
 		openAiCodexAuthenticated: true,
 	},
 	enableParallelToolCalling: true,
@@ -69,11 +69,13 @@ describe("CursorCompatibilitySection", () => {
 			expect(screen.getByText(`${route.label}: ${route.path}`)).toBeInTheDocument()
 		}
 
-		expect(screen.getAllByText("Codex auth").length).toBeGreaterThan(0)
+			expect(screen.getAllByText("Local sign-in import").length).toBeGreaterThan(0)
 		expect(screen.getByText("Background workstreams")).toBeInTheDocument()
 		expect(screen.getByText("NDJSON ingest")).toBeInTheDocument()
 		expect(screen.getByText("Compatibility on")).toBeInTheDocument()
 		expect(screen.getByText("Retrieval privacy")).toBeInTheDocument()
+		expect(screen.getByText("Import ignore rules gate search/indexing")).toBeInTheDocument()
+		expect(screen.getByText("Validated import-compatible route families")).toBeInTheDocument()
 		expect(screen.getByText("Sandbox policy")).toBeInTheDocument()
 		expect(screen.getByText("Configured prompt; access workspace; writes 1; network deny.")).toBeInTheDocument()
 		expect(screen.getByText("loaded")).toBeInTheDocument()

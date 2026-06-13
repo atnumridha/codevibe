@@ -12,6 +12,10 @@ import { useMount } from "react-use"
 import styled from "styled-components"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { ModelsServiceClient, StateServiceClient } from "@/services/grpc-client"
+import {
+	getCodieHostedModelDisplayName,
+	sanitizeCodieHostedModelDescription,
+} from "@/utils/codieBranding"
 import { highlight } from "../history/HistoryView"
 import { ContextWindowSwitcher } from "./common/ContextWindowSwitcher"
 import { ModelInfoView } from "./common/ModelInfoView"
@@ -56,6 +60,7 @@ export interface CodeVibeModelPickerProps {
 
 interface FeaturedModelCardEntry {
 	id: string
+	displayName: string
 	description: string
 	label: string
 }
@@ -67,7 +72,7 @@ function normalizeModelId(modelId: string): string {
 }
 
 function toFeaturedModelCardEntry(
-	model: Pick<ClineRecommendedModel, "id" | "description" | "tags">,
+	model: Pick<ClineRecommendedModel, "id" | "name" | "description" | "tags">,
 	fallbackLabel: string,
 ): FeaturedModelCardEntry | null {
 	if (!model.id) {
@@ -79,7 +84,8 @@ function toFeaturedModelCardEntry(
 
 	return {
 		id: model.id,
-		description: model.description || (fallbackLabel === "FREE" ? "Free model" : "Recommended model"),
+		displayName: getCodieHostedModelDisplayName(model, fallbackLabel),
+		description: sanitizeCodieHostedModelDescription(model.description, fallbackLabel),
 		label: normalizedLabel || fallbackLabel,
 	}
 }
@@ -143,7 +149,7 @@ const CodeVibeModelPicker: React.FC<CodeVibeModelPickerProps> = ({
 			setClineFreeModels(free)
 			return true
 		} catch (error) {
-			console.error("Failed to refresh CodeVibe recommended models:", error)
+			console.error("Failed to refresh Codie recommended models:", error)
 			return false
 		}
 	}, [])
@@ -406,7 +412,7 @@ const CodeVibeModelPicker: React.FC<CodeVibeModelPickerProps> = ({
 							Recommended
 						</Tab>
 						<Tab active={activeTab === "free"} onClick={() => setActiveTab("free")}>
-							Free
+							Starter
 						</Tab>
 					</TabsContainer>
 
@@ -414,11 +420,12 @@ const CodeVibeModelPicker: React.FC<CodeVibeModelPickerProps> = ({
 					<div style={{ marginBottom: "6px" }}>
 						{activeTab === "recommended" &&
 							recommendedModels.map((model) => (
-								<FeaturedModelCard
-									description={model.description}
-									isSelected={selectedModelId === model.id}
-									key={model.id}
-									label={model.label}
+									<FeaturedModelCard
+										description={model.description}
+										displayName={model.displayName}
+										isSelected={selectedModelId === model.id}
+										key={model.id}
+										label={model.label}
 									modelId={model.id}
 									onClick={() => {
 										handleModelChange(model.id)
@@ -428,11 +435,12 @@ const CodeVibeModelPicker: React.FC<CodeVibeModelPickerProps> = ({
 							))}
 						{activeTab === "free" &&
 							freeModels.map((model) => (
-								<FeaturedModelCard
-									description={model.description}
-									isSelected={selectedModelId === model.id}
-									key={model.id}
-									label={model.label}
+									<FeaturedModelCard
+										description={model.description}
+										displayName={model.displayName}
+										isSelected={selectedModelId === model.id}
+										key={model.id}
+										label={model.label}
 									modelId={model.id}
 									onClick={() => {
 										handleModelChange(model.id)
@@ -578,21 +586,22 @@ const CodeVibeModelPicker: React.FC<CodeVibeModelPickerProps> = ({
 							defaultEffort={showAdaptiveThinkingEffort ? adaptiveThinkingDefaultEffort : "medium"}
 							description={
 								showAdaptiveThinkingEffort
-									? "Use None to disable adaptive thinking. Higher effort increases response detail and token usage."
+									? "Use None to disable adaptive thinking. Higher effort increases response detail and context use."
 									: undefined
 							}
 							label={showAdaptiveThinkingEffort ? "Adaptive Thinking" : undefined}
 						/>
 					)}
 
-					<ModelInfoView
-						isPopup={isPopup}
-						modelInfo={selectedModelInfo}
-						onProviderSortingChange={(value) => handleFieldChange("openRouterProviderSorting", value)}
-						providerSorting={apiConfiguration?.openRouterProviderSorting}
-						selectedModelId={selectedModelId}
-						showProviderRouting={showProviderRouting}
-					/>
+						<ModelInfoView
+							isPopup={isPopup}
+							modelInfo={selectedModelInfo}
+							onProviderSortingChange={(value) => handleFieldChange("openRouterProviderSorting", value)}
+							providerSorting={apiConfiguration?.openRouterProviderSorting}
+							sanitizeHostedModelCopy={true}
+							selectedModelId={selectedModelId}
+							showProviderRouting={showProviderRouting}
+						/>
 				</>
 			) : (
 				<p
@@ -601,8 +610,8 @@ const CodeVibeModelPicker: React.FC<CodeVibeModelPickerProps> = ({
 						marginTop: 0,
 						color: "var(--vscode-descriptionForeground)",
 					}}>
-					The extension automatically fetches the latest CodeVibe model list. If you're unsure which model to choose,
-					start with your Codex default or a high-capability coding model with tool use and strong reasoning.
+					The extension automatically fetches the latest Codie model list. If you're unsure which model to choose,
+					start with your Codie default or a high-capability coding model with tool use and strong reasoning.
 				</p>
 			)}
 		</div>

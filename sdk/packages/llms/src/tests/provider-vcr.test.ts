@@ -40,7 +40,7 @@ interface StoredProviderSettingsLike {
 
 const targets: ProviderVcrTarget[] = [
 	{
-		label: "Cline provider",
+		label: "Codie Cloud provider",
 		providerId: "cline",
 		modelId: "anthropic/claude-sonnet-4.6",
 		playbackConfig: {

@@ -48,7 +48,7 @@ export async function createCliCore(options?: {
 						cwd,
 						workspaceRoot,
 						clientType: "cli",
-						displayName: "CodeVibe CLI",
+						displayName: "Codie CLI",
 					},
 				}
 			: {}),

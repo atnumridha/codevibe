@@ -434,7 +434,7 @@ describe("prepareLocalRuntimeBootstrap", () => {
 		});
 
 		expect(bootstrap.providerConfig.headers).toMatchObject({
-			originator: "cline",
+			originator: "codie",
 			session_id: "sess-codex",
 			"ChatGPT-Account-Id": "acct-123",
 			"x-codex-installation-id": "install_123",
@@ -492,7 +492,7 @@ describe("prepareLocalRuntimeBootstrap", () => {
 		});
 
 		expect(bootstrap.providerConfig.headers).toMatchObject({
-			originator: "cline",
+			originator: "codie",
 			session_id: "sess-codex-invariants",
 			"ChatGPT-Account-Id": "acct-stored",
 			"x-config": "config",
@@ -544,7 +544,7 @@ describe("prepareLocalRuntimeBootstrap", () => {
 		});
 
 		expect(bootstrap.providerConfig.headers).toMatchObject({
-			originator: "cline",
+			originator: "codie",
 			session_id: "sess-codex-derived",
 			"ChatGPT-Account-Id": "acct-derived",
 		});
@@ -611,7 +611,7 @@ describe("prepareLocalRuntimeBootstrap", () => {
 		expect(bootstrap.providerConfig.accessToken).toBe(token);
 		expect(bootstrap.providerConfig.accountId).toBe("acct-home");
 		expect(bootstrap.providerConfig.headers).toMatchObject({
-			originator: "cline",
+			originator: "codie",
 			session_id: "sess-codex-home",
 			"ChatGPT-Account-Id": "acct-home",
 			"x-codex-installation-id": "install_home",

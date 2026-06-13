@@ -1739,6 +1739,59 @@ describe("sdk-gateway", () => {
 		expect(call).not.toHaveProperty("maxOutputTokens");
 	});
 
+	it("normalizes stale generic model ids before ChatGPT OAuth runtime requests", async () => {
+		streamTextSpy.mockReturnValue({
+			fullStream: makeStreamParts([
+				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
+			]),
+		});
+
+		const gateway = createGateway({
+			providerConfigs: [{ providerId: "openai-codex" }],
+		});
+
+		await collect(
+			await gateway.stream({
+				providerId: "openai-codex",
+				modelId: "openai/gpt-5-codex",
+				messages: baseMessages,
+			}),
+		);
+
+		expect(openaiResponsesSpy).toHaveBeenCalledWith("gpt-5.5");
+	});
+
+	it("keeps future ChatGPT OAuth model ids patchable while stripping provider prefixes", async () => {
+		streamTextSpy.mockReturnValue({
+			fullStream: makeStreamParts([
+				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
+				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },
+			]),
+		});
+
+		const gateway = createGateway({
+			providerConfigs: [{ providerId: "openai-codex" }],
+		});
+
+		await collect(
+			await gateway.stream({
+				providerId: "openai-codex",
+				modelId: "openai/gpt-5.5",
+				messages: baseMessages,
+			}),
+		);
+		await collect(
+			await gateway.stream({
+				providerId: "openai-codex",
+				modelId: "gpt-6-codex-preview",
+				messages: baseMessages,
+			}),
+		);
+
+		expect(openaiResponsesSpy).toHaveBeenCalledWith("gpt-5.5");
+		expect(openaiResponsesSpy).toHaveBeenCalledWith("gpt-6-codex-preview");
+	});
+
 	it("passes Codex auth metadata through the OpenAI provider path", async () => {
 		streamTextSpy.mockReturnValue({
 			fullStream: makeStreamParts([
@@ -1775,9 +1828,9 @@ describe("sdk-gateway", () => {
 		expect(openaiFactorySpy).toHaveBeenCalledWith(
 			expect.objectContaining({
 				headers: expect.objectContaining({
-					originator: "cline",
+					originator: "codie",
 					session_id: expect.any(String),
-					"User-Agent": expect.stringMatching(/^CodeVibe\//),
+					"User-Agent": expect.stringMatching(/^Codie\//),
 					"ChatGPT-Account-Id": "acct_123",
 					"x-codex-installation-id": "install_123",
 				}),
@@ -1907,7 +1960,7 @@ describe("sdk-gateway", () => {
 		expect(call?.providerOptions?.openaiCodex).not.toHaveProperty("truncation");
 	});
 
-	it("passes object JSON schemas unchanged to the OpenAI Codex tool adapter", async () => {
+	it("passes object JSON schemas unchanged to the Codie ChatGPT tool adapter", async () => {
 		streamTextSpy.mockReturnValue({
 			fullStream: makeStreamParts([
 				{ type: "finish", usage: { inputTokens: 1, outputTokens: 1 } },

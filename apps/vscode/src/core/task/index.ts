@@ -692,7 +692,7 @@ export class Task {
 	}> {
 		// Allow resume asks even when aborted to enable resume button after cancellation
 		if (this.taskState.abort && type !== "resume_task" && type !== "resume_completed_task") {
-			throw new Error("CodeVibe task aborted")
+			throw new Error("Codie task aborted")
 		}
 		let askTs: number
 		if (partial !== undefined) {
@@ -819,7 +819,7 @@ export class Task {
 			{ interval: 100 },
 		)
 		if (shouldWakeOnAbort && this.taskState.abort) {
-			throw new Error("CodeVibe task aborted")
+			throw new Error("Codie task aborted")
 		}
 		if (this.taskState.lastMessageTs !== askTs) {
 			throw new Error("Current ask promise was ignored") // could happen if we send multiple asks in a row i.e. with command_output. It's important that when we know an ask could fail, it is handled gracefully
@@ -853,7 +853,7 @@ export class Task {
 	): Promise<number | undefined> {
 		// Allow hook messages even when aborted to enable proper cleanup
 		if (this.taskState.abort && type !== "hook_status" && type !== "hook_output_stream") {
-			throw new Error("CodeVibe task aborted")
+			throw new Error("Codie task aborted")
 		}
 
 		const providerInfo = this.getCurrentProviderInfo()
@@ -950,7 +950,7 @@ export class Task {
 	async sayAndCreateMissingParamError(toolName: ClineDefaultTool, paramName: string, relPath?: string) {
 		await this.say(
 			"error",
-			`CodeVibe tried to use ${toolName}${
+			`Codie tried to use ${toolName}${
 				relPath ? ` for '${relPath.toPosix()}'` : ""
 			} without value for required parameter '${paramName}'. Retrying...`,
 		)
@@ -1080,7 +1080,7 @@ export class Task {
 		try {
 			await this.clineIgnoreController.initialize()
 		} catch (error) {
-			Logger.error("Failed to initialize CodeVibe ignore controller:", error)
+			Logger.error("Failed to initialize Codie ignore controller:", error)
 			// Optionally, inform the user or handle the error appropriately
 		}
 		// conversationHistory (for API) and clineMessages (for webview) need to be in sync
@@ -1203,7 +1203,7 @@ export class Task {
 		try {
 			await this.clineIgnoreController.initialize()
 		} catch (error) {
-			Logger.error("Failed to initialize CodeVibe ignore controller:", error)
+			Logger.error("Failed to initialize Codie ignore controller:", error)
 			// Optionally, inform the user or handle the error appropriately
 		}
 
@@ -1488,7 +1488,7 @@ export class Task {
 			}
 			// this.say(
 			// 	"tool",
-			// 	"CodeVibe responded with only text blocks but has not called attempt_completion yet. Forcing the task to continue..."
+			// 	"Codie responded with only text blocks but has not called attempt_completion yet. Forcing the task to continue..."
 			// )
 			nextUserContent = [
 				{
@@ -2110,7 +2110,7 @@ export class Task {
 				const isSpendLimitError = clineError.isErrorType(ClineErrorType.SpendLimit)
 				const quotaExceeded = clineError.isErrorType(ClineErrorType.QuotaExceeded)
 
-				// Check if this is a Cline provider insufficient credits error - don't auto-retry these
+				// Check if this is a Codie Cloud provider insufficient credits error - don't auto-retry these
 				const isClineProviderInsufficientCredits = (() => {
 					if (providerId !== "cline") {
 						return false
@@ -2124,7 +2124,7 @@ export class Task {
 				})()
 
 				let response: ClineAskResponse
-				// Skip auto-retry for Cline provider insufficient credits, auth errors, or spend limit errors
+				// Skip auto-retry for Codie Cloud provider insufficient credits, auth errors, or spend limit errors
 				const shouldRetry =
 					!isClineProviderInsufficientCredits &&
 					!isAuthError &&
@@ -2239,7 +2239,7 @@ export class Task {
 
 	async presentAssistantMessage() {
 		if (this.taskState.abort) {
-			throw new Error("CodeVibe task aborted")
+			throw new Error("Codie task aborted")
 		}
 
 		// If we're locked, mark pending and return
@@ -2422,14 +2422,14 @@ export class Task {
 			if (autoApprovalSettings.enableNotifications) {
 				showSystemNotification({
 					subtitle: "Error",
-					message: "CodeVibe is having trouble. Would you like to continue the task?",
+					message: "Codie is having trouble. Would you like to continue the task?",
 				})
 			}
 			const { response, text, images, files } = await this.ask(
 				"mistake_limit_reached",
 				this.api.getModel().id.includes("claude")
-					? `This may indicate a failure in CodeVibe's thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
-					: "CodeVibe uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, use a high-capability coding model with strong tool-use and long-context performance.",
+					? `This may indicate a failure in Codie's thought process or inability to use a tool properly, which can be mitigated with some user guidance (e.g. "Try breaking down the task into smaller steps").`
+					: "Codie uses complex prompts and iterative task execution that may be challenging for less capable models. For best results, use a high-capability coding model with strong tool-use and long-context performance.",
 			)
 			if (response === "messageResponse") {
 				// Display the user's message in the chat UI
@@ -3120,7 +3120,7 @@ export class Task {
 
 			// need to call here in case the stream was aborted
 			if (this.taskState.abort) {
-				throw new Error("CodeVibe task aborted")
+				throw new Error("Codie task aborted")
 			}
 
 			// Stored the assistant API response immediately after the stream finishes in the same turn
@@ -3265,7 +3265,7 @@ export class Task {
 				})
 
 				const baseErrorMessage =
-					"Invalid API Response: The provider returned an empty or unparsable response. This is a provider-side issue where the model failed to generate valid output or returned tool calls that CodeVibe cannot process. Retrying the request may help resolve this issue."
+					"Invalid API Response: The provider returned an empty or unparsable response. This is a provider-side issue where the model failed to generate valid output or returned tool calls that Codie cannot process. Retrying the request may help resolve this issue."
 				const errorText = reqId ? `${baseErrorMessage} (Request ID: ${reqId})` : baseErrorMessage
 
 				await this.say("error", errorText)

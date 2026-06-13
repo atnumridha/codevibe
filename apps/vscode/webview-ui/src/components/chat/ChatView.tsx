@@ -315,6 +315,10 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 		return focusChainSettings.enabled && !lastProgressMessageText
 	}, [focusChainSettings.enabled, lastProgressMessageText])
 
+	const focusComposer = useCallback(() => {
+		textAreaRef.current?.focus()
+	}, [textAreaRef])
+
 	const groupedMessages = useMemo(() => {
 		return groupLowStakesTools(groupMessages(visibleMessages))
 	}, [visibleMessages])
@@ -323,7 +327,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 	const scrollBehavior = useScrollBehavior(messages, visibleMessages, groupedMessages, expandedRows, setExpandedRows)
 
 	const placeholderText = useMemo(() => {
-		const text = task ? "Message CodeVibe..." : "Start a CodeVibe task..."
+		const text = task ? "Message Codie..." : "Start a Codie task..."
 		return text
 	}, [task])
 
@@ -347,6 +351,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 				) : (
 					<WelcomeSection
 						hideAnnouncement={hideAnnouncement}
+						onFocusComposer={focusComposer}
 						shouldShowStarterWorkflows={shouldShowStarterWorkflows}
 						showAnnouncement={showAnnouncement}
 						showHistoryView={showHistoryView}

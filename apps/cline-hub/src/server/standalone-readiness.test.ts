@@ -18,7 +18,7 @@ const { standaloneReadinessPayload } = (await import(
 test("standalone readiness exposes VS-Code-free Cursor/Codex surfaces", () => {
 	const payload = standaloneReadinessPayload("test-core");
 
-	assert.equal(payload.app, "CodeVibe");
+	assert.equal(payload.app, "Codie");
 	assert.equal(payload.mode, "standalone");
 	assert.equal(payload.vscodeRequired, false);
 	assert.equal(payload.coreVersion, "test-core");

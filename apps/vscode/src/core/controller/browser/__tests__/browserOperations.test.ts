@@ -61,7 +61,7 @@ describe("browserOperations Cursor sandbox network policy", () => {
 					url: "https://blocked.example.com/path",
 				}),
 			),
-			/Network access to blocked\.example\.com is blocked by \.cursor\/sandbox\.json networkPolicy/,
+			/Network access to blocked\.example\.com is blocked by the active Codie sandbox networkPolicy/,
 		)
 
 		sinon.assert.notCalled(browserSession.launchBrowser)
@@ -81,7 +81,7 @@ describe("browserOperations Cursor sandbox network policy", () => {
 					url: "https://blocked.example.com/path",
 				}),
 			),
-			/Network access to blocked\.example\.com is blocked by \.cursor\/sandbox\.json networkPolicy/,
+			/Network access to blocked\.example\.com is blocked by the active Codie sandbox networkPolicy/,
 		)
 
 		sinon.assert.notCalled(browserSession.navigateToUrl)

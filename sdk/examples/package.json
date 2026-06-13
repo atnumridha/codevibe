@@ -1,6 +1,6 @@
 {
 	"name": "examples",
-	"description": "Example apps for the Cline SDK",
+	"description": "Example apps for the Codie SDK",
 	"type": "module",
 	"private": true,
 	"scripts": {

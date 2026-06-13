@@ -1,6 +1,6 @@
 {
 	"name": "@cline/sdk",
-	"description": "CodeVibe SDK - user-facing alias for the core runtime",
+	"description": "Codie SDK - user-facing alias for the core runtime",
 	"version": "0.0.43",
 	"repository": {
 		"type": "git",

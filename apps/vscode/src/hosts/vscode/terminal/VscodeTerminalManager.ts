@@ -9,6 +9,7 @@ import {
 	TerminalProcessResultPromise as ITerminalProcessResultPromise,
 } from "@/integrations/terminal/types"
 import { Logger } from "@/shared/services/Logger"
+import { getCodeVibeTerminalEnvSignature } from "./codevibeTerminalEnv"
 import { mergePromise, VscodeTerminalProcess } from "./VscodeTerminalProcess"
 import { TerminalInfo, TerminalRegistry } from "./VscodeTerminalRegistry"
 
@@ -165,7 +166,7 @@ export class VscodeTerminalManager implements ITerminalManager {
 	runCommand(
 		terminalInfo: ITerminalInfo,
 		command: string,
-		_options?: ICommandExecutionOptions,
+		options?: ICommandExecutionOptions,
 	): ITerminalProcessResultPromise {
 		// Cast to VSCode-specific TerminalInfo for internal use
 		// Using unknown as intermediate cast due to structural differences between ITerminal and vscode.Terminal
@@ -205,7 +206,7 @@ export class VscodeTerminalManager implements ITerminalManager {
 		// if shell integration is already active, run the command immediately
 		if (vscodeTerminalInfo.terminal.shellIntegration) {
 			process.waitForShellIntegration = false
-			process.run(vscodeTerminalInfo.terminal, command)
+			process.run(vscodeTerminalInfo.terminal, command, options)
 		} else {
 			// docs recommend waiting 3s for shell integration to activate
 			Logger.log(
@@ -229,7 +230,7 @@ export class VscodeTerminalManager implements ITerminalManager {
 					const existingProcess = this.processes.get(vscodeTerminalInfo.id)
 					if (existingProcess && existingProcess.waitForShellIntegration) {
 						existingProcess.waitForShellIntegration = false
-						existingProcess.run(vscodeTerminalInfo.terminal, command)
+						existingProcess.run(vscodeTerminalInfo.terminal, command, options)
 					}
 				})
 		}
@@ -237,10 +238,11 @@ export class VscodeTerminalManager implements ITerminalManager {
 		return mergePromise(process, promise)
 	}
 
-	async getOrCreateTerminal(cwd: string): Promise<ITerminalInfo> {
+	async getOrCreateTerminal(cwd: string, options?: ICommandExecutionOptions): Promise<ITerminalInfo> {
 		const terminals = TerminalRegistry.getAllTerminals()
 		const expectedShellPath =
 			this.defaultTerminalProfile !== "default" ? getShellForProfile(this.defaultTerminalProfile) : undefined
+		const expectedEnvSignature = getCodeVibeTerminalEnvSignature(options)
 
 		// Find available terminal from our pool first (created for this task)
 		Logger.log(`[TerminalManager] Looking for terminal in cwd: ${cwd}`)
@@ -253,6 +255,9 @@ export class VscodeTerminalManager implements ITerminalManager {
 			}
 			// Check if shell path matches current configuration
 			if (t.shellPath !== expectedShellPath) {
+				return false
+			}
+			if (t.terminalEnvSignature !== expectedEnvSignature) {
 				return false
 			}
 			const terminalCwd = t.terminal.shellIntegration?.cwd // one of cline's commands could have changed the cwd of the terminal
@@ -273,7 +278,9 @@ export class VscodeTerminalManager implements ITerminalManager {
 
 		// If no non-busy terminal in the current working dir exists and terminal reuse is enabled, try to find any non-busy terminal regardless of CWD
 		if (this.terminalReuseEnabled) {
-			const availableTerminal = terminals.find((t) => !t.busy && t.shellPath === expectedShellPath)
+			const availableTerminal = terminals.find(
+				(t) => !t.busy && t.shellPath === expectedShellPath && t.terminalEnvSignature === expectedEnvSignature,
+			)
 			if (availableTerminal) {
 				// Set up promise and tracking for CWD change
 				const cwdPromise = new Promise<void>((resolve, reject) => {
@@ -320,7 +327,7 @@ export class VscodeTerminalManager implements ITerminalManager {
 		}
 
 		// If all terminals are busy or don't match shell profile, create a new one with the configured shell
-		const newTerminalInfo = TerminalRegistry.createTerminal(cwd, expectedShellPath)
+		const newTerminalInfo = TerminalRegistry.createTerminal(cwd, expectedShellPath, options)
 		this.terminalIds.add(newTerminalInfo.id)
 		// Cast to ITerminalInfo for interface compatibility
 		return newTerminalInfo as unknown as ITerminalInfo

@@ -4,6 +4,11 @@ import CreditLimitError from "@/components/chat/CreditLimitError"
 import SpendLimitError from "@/components/chat/SpendLimitError"
 import { Button } from "@/components/ui/button"
 import { useCodeVibeAuth, useCodeVibeSignIn } from "@/context/CodeVibeAuthContext"
+import {
+	getCodieHostedProviderLabel,
+	isCodieHostedProviderId,
+	sanitizeCodieHostedErrorText,
+} from "@/utils/codieBranding"
 import { ClineError, ClineErrorType } from "../../../../src/services/error/ClineError"
 
 const _errorColor = "var(--vscode-errorForeground)"
@@ -32,8 +37,11 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 					const errorMessage = clineError?._error?.message || clineError?.message || rawApiError
 					const requestId = clineError?._error?.request_id
 					const providerId = clineError?.providerId || clineError?._error?.providerId
-					const providerLabel = providerId === "cline" ? "CodeVibe" : providerId
-					const isClineProvider = providerId === "cline"
+					const providerLabel = getCodieHostedProviderLabel(providerId)
+					const isCodieHostedProvider = isCodieHostedProviderId(providerId)
+					const displayErrorMessage = isCodieHostedProvider
+						? sanitizeCodieHostedErrorText(errorMessage)
+						: errorMessage
 					const errorCode = clineError?._error?.code
 
 					if (clineError?.isErrorType(ClineErrorType.Balance)) {
@@ -64,27 +72,30 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 
 					if (clineError?.isErrorType(ClineErrorType.RateLimit)) {
 						return (
-							<p className="m-0 whitespace-pre-wrap text-error wrap-anywhere">
-								{errorMessage}
+							<div className="m-0 whitespace-pre-wrap text-error wrap-anywhere">
+								{displayErrorMessage}
 								{requestId && <div>Request ID: {requestId}</div>}
-							</p>
+							</div>
 						)
 					}
 
 					if (clineError?.isErrorType(ClineErrorType.QuotaExceeded)) {
 						const detailMessage = clineError?._error?.details?.message || errorMessage
-						return <p className="m-0 whitespace-pre-wrap text-error wrap-anywhere">{detailMessage}</p>
+						const displayDetailMessage = isCodieHostedProvider
+							? sanitizeCodieHostedErrorText(detailMessage)
+							: detailMessage
+						return <p className="m-0 whitespace-pre-wrap text-error wrap-anywhere">{displayDetailMessage}</p>
 					}
 
-					if (clineError?.isErrorType(ClineErrorType.Auth) && isClineProvider) {
+					if (clineError?.isErrorType(ClineErrorType.Auth) && isCodieHostedProvider) {
 						return !codeVibeUser ? (
-							// User is using the CodeVibe-hosted provider and is not logged in
+							// User is using the hosted provider and is not logged in
 							<div className="flex flex-col gap-3">
 								<div className="flex items-center justify-center rounded border border-neutral-500/30 bg-vscode-editor-background p-6 text-center text-vscode-foreground">
 									You are signed out. Sign in to continue.
 								</div>
 								<Button className="w-full" disabled={isLoginLoading} onClick={handleSignIn}>
-									Sign in to CodeVibe
+									Sign in to Codie
 									{isLoginLoading && (
 										<span className="ml-1 animate-spin">
 											<span className="codicon codicon-refresh" />
@@ -101,18 +112,18 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 					}
 
 					return (
-						<p className="m-0 whitespace-pre-wrap text-error wrap-anywhere flex flex-col gap-3">
+						<div className="m-0 whitespace-pre-wrap text-error wrap-anywhere flex flex-col gap-3">
 							{/* Display the well-formatted error extracted from the ClineError instance */}
 
 							<header>
 								{providerLabel && <span className="uppercase">[{providerLabel}] </span>}
 								{errorCode && <span>{errorCode}</span>}
-								{errorMessage}
+								{displayErrorMessage}
 								{requestId && <div>Request ID: {requestId}</div>}
 							</header>
 
 							{/* Windows Powershell Issue */}
-							{errorMessage?.toLowerCase()?.includes("powershell") && (
+							{displayErrorMessage?.toLowerCase()?.includes("powershell") && (
 								<div>
 									It seems like you're having Windows PowerShell issues, please see this{" "}
 									<a
@@ -122,15 +133,15 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 									</a>
 									.
 								</div>
-							)}
+								)}
 
 							{/* Display raw API error if different from parsed error message */}
-							{errorMessage !== rawApiError && <div>{rawApiError}</div>}
+							{!isCodieHostedProvider && errorMessage !== rawApiError && <div>{rawApiError}</div>}
 
 							<div className="mt-4">
 								<span className="text-description">(Click "Retry" below)</span>
 							</div>
-						</p>
+						</div>
 					)
 				}
 
@@ -149,7 +160,7 @@ const ErrorRow = memo(({ message, errorType, apiRequestFailedMessage, apiReqStre
 				return (
 					<div className="flex flex-col p-2 rounded text-xs opacity-80 bg-quote text-foreground">
 						<div>
-							CodeVibe tried to access <code>{message.text}</code>, but it is blocked by your workspace ignore
+							Codie tried to access <code>{message.text}</code>, but it is blocked by your workspace ignore
 							rules.
 						</div>
 					</div>

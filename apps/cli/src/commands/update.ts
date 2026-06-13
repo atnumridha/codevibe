@@ -391,7 +391,7 @@ export async function checkForUpdates(
 	const currentVersion = version;
 	const includeKanban = options.includeKanban ?? true;
 	writeln(
-		`${c.cyan}Checking for updates${includeKanban ? " to CodeVibe CLI and kanban" : ""}…${c.reset}`,
+		`${c.cyan}Checking for updates${includeKanban ? " to Codie CLI and kanban" : ""}…${c.reset}`,
 	);
 
 	const { packageName, updateCommand, packageManager } =
@@ -477,7 +477,7 @@ export async function checkForUpdates(
 		if (cliUpdateAvailable && latestVersion) {
 			if (!updateCommand) {
 				writeln(
-					`${c.dim}Unable to determine CodeVibe update command. Please update manually with your package manager.${c.reset}`,
+					`${c.dim}Unable to determine Codie update command. Please update manually with your package manager.${c.reset}`,
 				);
 				hadFailure = true;
 			} else {
@@ -495,7 +495,7 @@ export async function checkForUpdates(
 						await restartHubServerIfRunning();
 					} else {
 						writeErr(
-							`CodeVibe update failed (exit code ${exitCode}). Try running: ${manualUpdateCommand.command}`,
+							`Codie update failed (exit code ${exitCode}). Try running: ${manualUpdateCommand.command}`,
 						);
 						hadFailure = true;
 					}
@@ -503,7 +503,7 @@ export async function checkForUpdates(
 					const message =
 						error instanceof Error ? error.message : String(error);
 					writeErr(
-						`Failed to run CodeVibe update command ${manualUpdateCommand.command}: ${message}`,
+						`Failed to run Codie update command ${manualUpdateCommand.command}: ${message}`,
 					);
 					hadFailure = true;
 				}

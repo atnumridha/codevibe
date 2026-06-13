@@ -24,7 +24,7 @@ export async function getUserCredits(controller: Controller, _request: EmptyRequ
 
 		// If either call fails (returns undefined), throw an error
 		if (balance === undefined) {
-			throw new Error("Failed to fetch user credits data")
+			throw new Error("Failed to fetch account usage data")
 		}
 
 		return UserCreditsData.create({
@@ -33,7 +33,7 @@ export async function getUserCredits(controller: Controller, _request: EmptyRequ
 			paymentTransactions: paymentTransactions,
 		})
 	} catch (error) {
-		Logger.error(`Failed to fetch user credits data: ${error}`)
+		Logger.error(`Failed to fetch account usage data: ${error}`)
 		throw error
 	}
 }

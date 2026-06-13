@@ -157,7 +157,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			this.dispose()
 
 			throw new Error(
-				`CodeVibe <Language Model API>: Failed to initialize handler: ${error instanceof Error ? error.message : "Unknown error"}`,
+				`Codie <Language Model API>: Failed to initialize handler: ${error instanceof Error ? error.message : "Unknown error"}`,
 			)
 		}
 	}
@@ -207,7 +207,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			}
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : "Unknown error"
-			throw new Error(`CodeVibe <Language Model API>: Failed to select model: ${errorMessage}`)
+			throw new Error(`Codie <Language Model API>: Failed to select model: ${errorMessage}`)
 		}
 	}
 
@@ -289,12 +289,12 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			try {
 				// Use default empty selector if none provided to get all available models
 				const selector = this.options?.vsCodeLmModelSelector || {}
-				Logger.debug("CodeVibe <Language Model API>: Creating client with selector:", selector)
+				Logger.debug("Codie <Language Model API>: Creating client with selector:", selector)
 				this.client = await this.createClient(selector)
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "Unknown error"
-				Logger.error("CodeVibe <Language Model API>: Client creation failed:", message)
-				throw new Error(`CodeVibe <Language Model API>: Failed to create client: ${message}`)
+				Logger.error("Codie <Language Model API>: Client creation failed:", message)
+				throw new Error(`Codie <Language Model API>: Failed to create client: ${message}`)
 			}
 		}
 
@@ -397,7 +397,7 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 		try {
 			// Create the response stream with minimal required options
 			const requestOptions: vscode.LanguageModelChatRequestOptions = {
-				justification: `CodeVibe would like to use '${client.name}' from '${client.vendor}', Click 'Allow' to proceed.`,
+				justification: `Codie would like to use '${client.name}' from '${client.vendor}'. Click 'Allow' to proceed.`,
 			}
 
 			// Note: Tool support is currently provided by the VSCode Language Model API directly
@@ -486,11 +486,11 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			this.ensureCleanState()
 
 			if (error instanceof vscode.CancellationError) {
-				throw new Error("CodeVibe <Language Model API>: Request cancelled by user")
+				throw new Error("Codie <Language Model API>: Request cancelled by user")
 			}
 
 			if (error instanceof Error) {
-				Logger.error("CodeVibe <Language Model API>: Stream error details:", {
+				Logger.error("Codie <Language Model API>: Stream error details:", {
 					message: error.message,
 					stack: error.stack,
 					name: error.name,
@@ -501,13 +501,13 @@ export class VsCodeLmHandler implements ApiHandler, SingleCompletionHandler {
 			} else if (typeof error === "object" && error !== null) {
 				// Handle error-like objects
 				const errorDetails = JSON.stringify(error, null, 2)
-				Logger.error("CodeVibe <Language Model API>: Stream error object:", errorDetails)
-				throw new Error(`CodeVibe <Language Model API>: Response stream error: ${errorDetails}`)
+				Logger.error("Codie <Language Model API>: Stream error object:", errorDetails)
+				throw new Error(`Codie <Language Model API>: Response stream error: ${errorDetails}`)
 			} else {
 				// Fallback for unknown error types
 				const errorMessage = String(error)
-				Logger.error("CodeVibe <Language Model API>: Unknown stream error:", errorMessage)
-				throw new Error(`CodeVibe <Language Model API>: Response stream error: ${errorMessage}`)
+				Logger.error("Codie <Language Model API>: Unknown stream error:", errorMessage)
+				throw new Error(`Codie <Language Model API>: Response stream error: ${errorMessage}`)
 			}
 		}
 	}

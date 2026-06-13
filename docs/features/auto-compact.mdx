@@ -4,11 +4,11 @@ sidebarTitle: "Auto Compact"
 description: "Automatic context summarization to keep working when approaching context limits."
 ---
 
-When your conversation approaches the model's context window limit, CodeVibe automatically summarizes it to free up space and keep working.
+When your conversation approaches the model's context window limit, Codie automatically summarizes it to free up space and keep working.
 
 ## How It Works
 
-CodeVibe monitors token usage during your conversation. When you're getting close to the limit, it:
+Codie monitors token usage during your conversation. When you're getting close to the limit, it:
 
 1. Creates a comprehensive summary of everything that's happened
 2. Preserves all technical details, code changes, and decisions
@@ -24,11 +24,11 @@ Previously, older messages could be truncated when hitting context limits, losin
 Now with summarization:
 - All technical decisions and code patterns are preserved
 - File changes and project context remain intact
-- CodeVibe remembers everything it's done
+- Codie remembers everything it's done
 - You can work on much larger projects without interruption
 
 <Tip>
-Auto Compact works especially well for long-running tasks. Structured task lists can help maintain progress across summarizations so CodeVibe can stay on track across multiple context windows.
+Auto Compact works especially well for long-running tasks. Structured task lists can help maintain progress across summarizations so Codie can stay on track across multiple context windows.
 </Tip>
 
 ## Cost Considerations
@@ -38,7 +38,7 @@ Summarization leverages your existing prompt cache from the conversation, so it 
 Since most input tokens are already cached, you're primarily paying for summary generation (output tokens), making it cost-effective.
 
 <Note>
-With other models, CodeVibe falls back to standard rule-based context truncation, even if Auto Compact is enabled.
+With other models, Codie falls back to standard rule-based context truncation, even if Auto Compact is enabled.
 </Note>
 
 ## Restoring Context

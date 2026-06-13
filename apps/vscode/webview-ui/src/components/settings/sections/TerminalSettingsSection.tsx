@@ -89,6 +89,10 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 	const sandboxPolicy = compatibilityStatus?.sandboxPolicy ?? "prompt"
 	const sandboxRuntime = compatibilityStatus?.sandboxRuntime
 	const sandboxRuntimeStatus = sandboxRuntime?.status ?? "missing"
+	const sandboxConfigLabel =
+		sandboxRuntime?.configSource === "cursorCompatibility"
+			? "legacy import-compatible sandbox config"
+			: "Codie sandbox configuration"
 	const sandboxRuntimeBadge =
 		sandboxRuntimeStatus === "loaded"
 			? "Active"
@@ -99,10 +103,10 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 					: "Missing"
 	const sandboxRuntimeDescription =
 		sandboxRuntimeStatus === "loaded"
-			? "Background execution constrained by .cursor/sandbox.json."
+			? `Codie checks commands against the active ${sandboxConfigLabel} before sandboxed execution.`
 			: sandboxRuntimeStatus === "invalid"
-				? "Invalid sandbox config; CodeVibe falls back to read-only policy."
-				: "No active sandbox policy; default approvals use current terminal permissions."
+				? "The sandbox configuration is invalid, so Codie uses a read-only fail-closed policy until it is fixed."
+				: "No sandbox policy is active. Codie uses the current terminal permissions for approval decisions."
 	const sandboxRuntimeSummary = `Sandbox runtime: ${sandboxRuntimeStatus}; access: ${
 		sandboxRuntime?.effectiveAccess ?? "disabled"
 	}; writable paths: ${sandboxRuntime?.writablePathCount ?? 0}; network: ${sandboxRuntime?.networkDefault ?? "deny"}.`
@@ -114,7 +118,7 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 				<div className="mb-5" id="terminal-settings-section">
 					<div className="mb-4">
 						<label className="font-medium block mb-1" htmlFor="default-terminal-profile">
-							Default Terminal Profile
+							Default terminal profile
 						</label>
 						<VSCodeDropdown
 							className="w-full"
@@ -128,7 +132,7 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 							))}
 						</VSCodeDropdown>
 						<p className="text-xs text-(--vscode-descriptionForeground) mt-1">
-							Select the default terminal CodeVibe will use. 'Default' uses your VSCode global setting.
+							Select the default terminal Codie uses. Default follows your VS Code global setting.
 						</p>
 					</div>
 
@@ -147,7 +151,7 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 							{inputError && <div className="text-(--vscode-errorForeground) text-xs mt-1">{inputError}</div>}
 						</div>
 						<p className="text-xs text-(--vscode-descriptionForeground)">
-							Set how long CodeVibe waits for shell integration to activate before executing commands. Increase this
+							Set how long Codie waits for shell integration to activate before executing commands. Increase this
 							value if you experience terminal connection timeouts.
 						</p>
 					</div>
@@ -161,14 +165,14 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 							</VSCodeCheckbox>
 						</div>
 						<p className="text-xs text-(--vscode-descriptionForeground)">
-							When enabled, CodeVibe will reuse existing terminal windows that aren't in the current working directory.
+							When enabled, Codie will reuse existing terminal windows that aren't in the current working directory.
 							Disable this if you experience issues with task lockout after a terminal command.
 						</p>
 					</div>
 					{isVsCodePlatform && (
 						<div className="mb-4">
 							<label className="font-medium block mb-1" htmlFor="terminal-execution-mode">
-								Terminal Execution Mode
+								Terminal execution mode
 							</label>
 							<VSCodeDropdown
 								className="w-full"
@@ -176,16 +180,16 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 								onChange={(event) => handleExecutionModeChange(event as Event)}
 								value={vscodeTerminalExecutionMode ?? "vscodeTerminal"}>
 								<VSCodeOption value="vscodeTerminal">VS Code Terminal</VSCodeOption>
-								<VSCodeOption value="backgroundExec">Background Exec</VSCodeOption>
+								<VSCodeOption value="backgroundExec">Background execution</VSCodeOption>
 							</VSCodeDropdown>
 							<p className="text-xs text-[var(--vscode-descriptionForeground)] mt-1">
-								Choose whether CodeVibe runs commands in the VS Code terminal or a background process.
+								Choose whether Codie runs commands in the VS Code terminal or a background process.
 							</p>
 						</div>
 					)}
 					<div className="mb-4">
-						<div className="font-medium block mb-2">Terminal Approval Policy</div>
-						<div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+						<div className="font-medium block mb-2">Terminal approval modes</div>
+						<div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
 							<div className="rounded border border-(--vscode-input-border) bg-(--vscode-input-background) p-2">
 								<div className="flex items-center justify-between gap-2">
 									<span className="text-xs font-medium">Sandboxed</span>
@@ -197,18 +201,30 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 							</div>
 							<div className="rounded border border-(--vscode-input-border) bg-(--vscode-input-background) p-2">
 								<div className="flex items-center justify-between gap-2">
+									<span className="text-xs font-medium">Unelevated</span>
+									<span className="rounded-full border border-(--vscode-input-border) px-2 py-0.5 text-[10px] text-(--vscode-descriptionForeground)">
+										Default
+									</span>
+								</div>
+								<div className="mt-1 text-[11px] text-(--vscode-descriptionForeground)">
+									Normal terminal mode with configured command permissions. Sandbox preflight still applies when active.
+								</div>
+							</div>
+							<div className="rounded border border-(--vscode-input-border) bg-(--vscode-input-background) p-2">
+								<div className="flex items-center justify-between gap-2">
 									<span className="text-xs font-medium">Elevated</span>
 									<span className="rounded-full border border-(--vscode-input-border) px-2 py-0.5 text-[10px] text-(--vscode-descriptionForeground)">
 										Explicit
 									</span>
 								</div>
 								<div className="mt-1 text-[11px] text-(--vscode-descriptionForeground)">
-									Trusted terminal command after manual approval.
+									Trusted terminal mode after manual approval. Bypasses Codie sandbox preflight; configured command
+									permissions may still apply. Does not request OS administrator access.
 								</div>
 							</div>
 						</div>
 						<p className="text-xs text-[var(--vscode-descriptionForeground)] mt-2">
-							Current sandbox source: {sandboxPolicy}. {sandboxRuntimeSummary}
+							Configured sandbox setting: {sandboxPolicy}. {sandboxRuntimeSummary}
 						</p>
 						{sandboxRuntime?.status === "invalid" && sandboxRuntime.error && (
 							<p className="text-xs text-[var(--vscode-errorForeground)] mt-1">{sandboxRuntime.error}</p>

@@ -20,6 +20,46 @@ export interface E2ETestConfigs {
 	extensionInstallMode: "development" | "installed"
 }
 
+export interface NativeAgentDiagnosticsResponse {
+	success: boolean
+	ready?: boolean
+	diagnostics?: {
+		extensionId?: string
+		enabledApiProposals?: string[]
+		chatSessionContribution?: {
+			type?: string
+			displayName?: string
+			order?: number
+		}
+		apiAvailability?: Record<string, boolean>
+		registration?: {
+			chatParticipant?: boolean
+			chatParticipantIds?: string[]
+			customAgentProvider?: boolean
+			chatSessionProvider?: boolean
+			chatSessionItemProvider?: boolean
+			chatSessionItemController?: boolean
+			chatSessionProviderTypes?: string[]
+			chatSessionItemProviderTypes?: string[]
+			chatSessionItemControllerTypes?: string[]
+		}
+		failures?: string[]
+	}
+	error?: string
+}
+
+export interface NativeAgentOpenResponse {
+	success: boolean
+	result?: {
+		position?: "sidebar" | "editor"
+		command?: string
+		commandAvailable?: boolean
+		opened?: boolean
+		error?: string
+	}
+	error?: string
+}
+
 export class E2ETestHelper {
 	// Constants
 	public static readonly CODEBASE_ROOT_DIR = path.resolve(__dirname, "..", "..", "..", "..")
@@ -93,7 +133,7 @@ export class E2ETestHelper {
 	public async getChatInput(webview: Frame): Promise<Locator> {
 		return this.firstVisibleLocator([
 			webview.getByTestId("chat-input"),
-			webview.getByPlaceholder(/Start a CodeVibe task|Message CodeVibe/i),
+			webview.getByPlaceholder(/Start a Codie task|Message Codie/i),
 		])
 	}
 
@@ -249,9 +289,9 @@ export class E2ETestHelper {
 	private async isCodeVibeSurface(frame: Frame): Promise<boolean> {
 		return (
 			(await this.isLocatorVisible(frame.getByTestId("chat-input"))) ||
-			(await this.isLocatorVisible(frame.getByPlaceholder(/Start a CodeVibe task|Message CodeVibe/i))) ||
+			(await this.isLocatorVisible(frame.getByPlaceholder(/Start a Codie task|Message Codie/i))) ||
 			(await this.isLocatorVisible(frame.getByText("AGENT CONSOLE"))) ||
-			(await this.isLocatorVisible(frame.getByRole("button", { name: "Login to CodeVibe" }))) ||
+			(await this.isLocatorVisible(frame.getByRole("button", { name: "Sign in to Codie" }))) ||
 			(await this.isLocatorVisible(frame.getByText("Bring my own API key")))
 		)
 	}
@@ -586,7 +626,31 @@ export class E2ETestHelper {
 			} catch {
 				return false
 			}
-		}, E2ETestHelper.SIDEBAR_DISCOVERY_TIMEOUT_MS)
+		}, maxDelay)
+	}
+
+	private static async postTestServerJson<T>(endpointPath: string, body?: unknown): Promise<T> {
+		const response = await fetch(`http://127.0.0.1:9876${endpointPath}`, {
+			method: "POST",
+			headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+			body: body === undefined ? undefined : JSON.stringify(body),
+		})
+		const text = await response.text()
+		const data = text ? JSON.parse(text) : {}
+		if (!response.ok) {
+			throw new Error(`Test server ${endpointPath} failed: ${response.status} ${text}`)
+		}
+		return data as T
+	}
+
+	public static async getNativeAgentDiagnostics(): Promise<NativeAgentDiagnosticsResponse> {
+		return E2ETestHelper.postTestServerJson<NativeAgentDiagnosticsResponse>("/native-agent/diagnostics")
+	}
+
+	public static async openNativeAgentSessionRuntime(
+		position: "sidebar" | "editor" = "sidebar",
+	): Promise<NativeAgentOpenResponse> {
+		return E2ETestHelper.postTestServerJson<NativeAgentOpenResponse>("/native-agent/open", { position })
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {

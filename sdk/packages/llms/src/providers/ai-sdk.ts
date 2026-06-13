@@ -43,6 +43,7 @@ interface GatewayNormalizedUsage {
 	totalCost?: number;
 }
 type ProviderModuleKind = AiSdkProviderOptionsTarget;
+type RuntimeProviderModuleKind = ProviderModuleKind | "openai-codex-cli";
 
 function buildCachedAiSdkMessages(
 	request: GatewayStreamRequest,
@@ -798,7 +799,7 @@ async function* emitAiSdkEvents(
 }
 
 async function createProviderModule(
-	kind: ProviderModuleKind,
+	kind: RuntimeProviderModuleKind,
 	config: GatewayResolvedProviderConfig,
 	context: GatewayProviderContext,
 ): Promise<ProviderFactoryResult> {
@@ -842,6 +843,10 @@ async function createProviderModule(
 			return createClaudeCodeProviderModule(config);
 		}
 		case "openai-codex": {
+			const { createOpenAIProviderModule } = await import("./vendors/openai");
+			return createOpenAIProviderModule(config, context);
+		}
+		case "openai-codex-cli": {
 			const { createOpenAICodexProviderModule } = await import(
 				"./vendors/community"
 			);
@@ -866,7 +871,15 @@ async function createProviderModule(
 	}
 }
 
-function createAiSdkProvider(kind: ProviderModuleKind): GatewayProviderFactory {
+function toProviderOptionsTarget(
+	kind: RuntimeProviderModuleKind,
+): ProviderModuleKind {
+	return kind === "openai-codex-cli" ? "openai-codex" : kind;
+}
+
+function createAiSdkProvider(
+	kind: RuntimeProviderModuleKind,
+): GatewayProviderFactory {
 	return async (config) => ({
 		async *stream(request, context) {
 			const log = context.logger;
@@ -904,7 +917,7 @@ function createAiSdkProvider(kind: ProviderModuleKind): GatewayProviderFactory {
 					providerOptions: composeAiSdkProviderOptions(
 						request,
 						context,
-						kind,
+						toProviderOptionsTarget(kind),
 					) as never,
 					onError: ({ error: streamError }) => {
 						const msg = extractErrorMessage(streamError);
@@ -997,7 +1010,12 @@ export const createVertexProvider = createAiSdkProvider("vertex");
 export const createBedrockProvider = createAiSdkProvider("bedrock");
 export const createMistralProvider = createAiSdkProvider("mistral");
 export const createClaudeCodeProvider = createAiSdkProvider("claude-code");
-export const createOpenAICodexProvider = createAiSdkProvider("openai-codex");
+const createOpenAIChatGPTCodexProvider = createAiSdkProvider("openai-codex");
+const createOpenAICodexCliProvider = createAiSdkProvider("openai-codex-cli");
+export const createOpenAICodexProvider: GatewayProviderFactory = (config) =>
+	config.providerId === "openai-codex"
+		? createOpenAIChatGPTCodexProvider(config)
+		: createOpenAICodexCliProvider(config);
 export const createOpenCodeProvider = createAiSdkProvider("opencode");
 export const createDifyProvider = createAiSdkProvider("dify");
 export const createSapAiCoreProvider = createAiSdkProvider("sapaicore");

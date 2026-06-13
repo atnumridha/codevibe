@@ -3,11 +3,11 @@ title: "Prompt Storage"
 description: "Backup conversation history to S3 or Cloudflare R2 for compliance, audit, and analysis"
 ---
 
-Prompt Storage allows enterprises to automatically back up CodeVibe conversation history to cloud storage (AWS S3 or Cloudflare R2). This provides a centralized repository for compliance, audit trails, and usage analysis while maintaining local storage as the primary source of truth.
+Prompt Storage allows enterprises to automatically back up Codie conversation history to cloud storage (AWS S3 or Cloudflare R2). This provides a centralized repository for compliance, audit trails, and usage analysis while maintaining local storage as the primary source of truth.
 
 ## Overview
 
-Every CodeVibe task conversation is stored locally in `~/.codevibe/data/tasks/<taskId>/api_conversation_history.json` by default. Existing legacy task history can still be imported during migration. When prompt storage is enabled, a background sync worker automatically uploads these conversation files to your configured S3 or R2 bucket.
+Every Codie task conversation is stored locally in `~/.codevibe/data/tasks/<taskId>/api_conversation_history.json` by default. Existing legacy task history can still be imported during migration. When prompt storage is enabled, a background sync worker automatically uploads these conversation files to your configured S3 or R2 bucket.
 
 <CardGroup cols={2}>
   <Card title="Compliance Ready" icon="shield-check">
@@ -31,7 +31,7 @@ Every CodeVibe task conversation is stored locally in `~/.codevibe/data/tasks/<t
 
 ```mermaid
 graph LR
-    A[User] --> B[CodeVibe Extension]
+    A[User] --> B[Codie Extension]
     B --> C[Local Storage<br/>~/.codevibe/data/tasks/]
     C --> D[Background Sync Worker]
     D --> E[S3/R2 Bucket]
@@ -58,7 +58,7 @@ Prompt storage uploads the following files from each task:
 
 Prompt storage **does not** include:
 
-- ❌ Workspace files not accessed by CodeVibe
+- ❌ Workspace files not accessed by Codie
 - ❌ API keys or secrets
 - ❌ User credentials or authentication tokens
 
@@ -144,7 +144,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
 
     <Steps>
       <Step title="Create S3 Bucket">
-        Create a dedicated S3 bucket for CodeVibe conversation storage:
+        Create a dedicated S3 bucket for Codie conversation storage:
 
         ```bash
         aws s3 mb s3://your-codevibe-prompts --region us-east-1
@@ -201,7 +201,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
 
         ```bash
         aws iam create-policy \
-          --policy-name ClinePromptStorage \
+          --policy-name CodiePromptStorage \
           --policy-document file://codevibe-prompt-storage-policy.json
         ```
       </Step>
@@ -214,7 +214,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
 
         aws iam attach-user-policy \
           --user-name codevibe-prompt-uploader \
-          --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/ClinePromptStorage
+          --policy-arn arn:aws:iam::YOUR_ACCOUNT_ID:policy/CodiePromptStorage
 
         aws iam create-access-key --user-name codevibe-prompt-uploader
         ```
@@ -222,8 +222,8 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
         Save the `AccessKeyId` and `SecretAccessKey` from the output.
       </Step>
 
-      <Step title="Configure in CodeVibe Dashboard">
-        In the CodeVibe admin console at [app.codevibe.bot](https://app.codevibe.bot):
+      <Step title="Configure in Codie Dashboard">
+        In the Codie admin console at [app.codevibe.bot](https://app.codevibe.bot):
 
         1. Navigate to **Settings** → **Enterprise Telemetry**
         2. Enable **Prompt Uploading**
@@ -289,7 +289,7 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
         1. In the R2 dashboard, click **Manage R2 API Tokens**
         2. Click **Create API token**
         3. Configure permissions:
-           - **Token name**: CodeVibe Prompt Storage
+           - **Token name**: Codie Prompt Storage
            - **Permissions**: Object Read & Write
            - **Bucket**: Select your bucket or use All buckets
         4. Click **Create API Token**
@@ -307,8 +307,8 @@ Prompt storage is configured through Remote Configuration in the `enterpriseTele
         Find your account ID in the Cloudflare dashboard under R2 overview.
       </Step>
 
-      <Step title="Configure in CodeVibe Dashboard">
-        In the CodeVibe admin console at [app.codevibe.bot](https://app.codevibe.bot):
+      <Step title="Configure in Codie Dashboard">
+        In the Codie admin console at [app.codevibe.bot](https://app.codevibe.bot):
 
         1. Navigate to **Settings** → **Enterprise Telemetry**
         2. Enable **Prompt Uploading**
@@ -367,7 +367,7 @@ When `backfillEnabled` is set to `true`:
 
 - On first startup, scans all existing tasks in `~/.codevibe/data/tasks/` and any imported legacy task history
 - Queues conversation files that haven't been uploaded
-- Useful for enabling prompt storage on an existing CodeVibe deployment
+- Useful for enabling prompt storage on an existing Codie deployment
 - Can generate significant upload volume — monitor queue size
 
 <Warning>
@@ -378,7 +378,7 @@ Enable backfill carefully on large deployments. Consider starting with `backfill
 
 ### Integration with OpenTelemetry
 
-While prompt storage operates independently, it integrates with CodeVibe's observability system:
+While prompt storage operates independently, it integrates with Codie's observability system:
 
 - **Task lifecycle events**: `task.created`, `task.completed` track when conversations are generated
 - **Conversation events**: `task.conversation_turn`, `task.tokens` provide usage metrics
@@ -554,7 +554,7 @@ Implement retention policies based on your compliance requirements:
 Enable debug logging to diagnose sync issues:
 
 1. Check extension developer console (Help → Toggle Developer Tools)
-2. Look for `[ClineBlobStorage]` and `[SyncWorker]` log entries
+2. Look for `[CodieBlobStorage]` and `[SyncWorker]` log entries
 3. Failed uploads log error messages with details
 
 ### Testing Configuration
@@ -657,7 +657,7 @@ Task metadata includes:
   </Card>
 
   <Card title="Telemetry" icon="chart-simple" href="/enterprise-solutions/monitoring/telemetry">
-    Learn about CodeVibe's built-in anonymous usage tracking
+    Learn about Codie's built-in anonymous usage tracking
   </Card>
 
   <Card title="Remote Configuration" icon="gear" href="/enterprise-solutions/configuration/remote-configuration/overview">

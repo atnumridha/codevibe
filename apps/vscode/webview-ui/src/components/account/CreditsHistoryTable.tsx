@@ -1,7 +1,7 @@
 import type { PaymentTransaction, UsageTransaction } from "@shared/ClineAccount"
 import { VSCodeDataGrid, VSCodeDataGridCell, VSCodeDataGridRow } from "@vscode/webview-ui-toolkit/react"
 import { memo, useState } from "react"
-import { formatDollars, formatTimestamp } from "@/utils/format"
+import { formatTimestamp } from "@/utils/format"
 import { TabButton } from "../mcp/configuration/McpConfigurationView"
 
 interface CreditsHistoryTableProps {
@@ -19,11 +19,11 @@ const CreditsHistoryTable = memo(({ isLoading, usageData, paymentsData, showPaym
 			{/* Tabs container */}
 			<div className="flex border-b border-(--vscode-panel-border)">
 				<TabButton isActive={activeTab === "usage"} onClick={() => setActiveTab("usage")}>
-					USAGE HISTORY
+					ACTIVITY
 				</TabButton>
 				{showPayments && (
 					<TabButton isActive={activeTab === "payments"} onClick={() => setActiveTab("payments")}>
-						PAYMENTS HISTORY
+						ACCESS HISTORY
 					</TabButton>
 				)}
 			</div>
@@ -50,7 +50,7 @@ const CreditsHistoryTable = memo(({ isLoading, usageData, paymentsData, showPaym
 												Tokens Used
 											</VSCodeDataGridCell> */}
 										<VSCodeDataGridCell cell-type="columnheader" grid-column="3">
-											Credits Used
+											Capacity used
 										</VSCodeDataGridCell>
 									</VSCodeDataGridRow>
 
@@ -70,13 +70,15 @@ const CreditsHistoryTable = memo(({ isLoading, usageData, paymentsData, showPaym
 															: row.aiModelName}
 											</VSCodeDataGridCell>
 											{/* <VSCodeDataGridCell grid-column="3">{`${row.promptTokens} → ${row.completionTokens}`}</VSCodeDataGridCell> */}
-											<VSCodeDataGridCell grid-column="3">{`$${Number(row.creditsUsed / 1000000).toFixed(4)}`}</VSCodeDataGridCell>
+											<VSCodeDataGridCell grid-column="3">
+												{Number(row.creditsUsed / 1000000).toFixed(4)}
+											</VSCodeDataGridCell>
 										</VSCodeDataGridRow>
 									))}
 								</VSCodeDataGrid>
 							) : (
 								<div className="flex justify-center items-center p-4">
-									<div className="text-(--vscode-descriptionForeground)">No usage history</div>
+									<div className="text-(--vscode-descriptionForeground)">No activity yet</div>
 								</div>
 							))}
 
@@ -89,10 +91,7 @@ const CreditsHistoryTable = memo(({ isLoading, usageData, paymentsData, showPaym
 											Date
 										</VSCodeDataGridCell>
 										<VSCodeDataGridCell cell-type="columnheader" grid-column="2">
-											Total Cost
-										</VSCodeDataGridCell>
-										<VSCodeDataGridCell cell-type="columnheader" grid-column="3">
-											Credits
+											Capacity added
 										</VSCodeDataGridCell>
 									</VSCodeDataGridRow>
 
@@ -100,14 +99,13 @@ const CreditsHistoryTable = memo(({ isLoading, usageData, paymentsData, showPaym
 										// biome-ignore lint/suspicious/noArrayIndexKey: use index as key
 										<VSCodeDataGridRow key={index}>
 											<VSCodeDataGridCell grid-column="1">{formatTimestamp(row.paidAt)}</VSCodeDataGridCell>
-											<VSCodeDataGridCell grid-column="2">{`$${formatDollars(row.amountCents)}`}</VSCodeDataGridCell>
-											<VSCodeDataGridCell grid-column="3">{`${row.credits}`}</VSCodeDataGridCell>
+											<VSCodeDataGridCell grid-column="2">{`+${row.credits}`}</VSCodeDataGridCell>
 										</VSCodeDataGridRow>
 									))}
 								</VSCodeDataGrid>
 							) : (
 								<div className="flex justify-center items-center p-4">
-									<div className="text-(--vscode-descriptionForeground)">No payment history</div>
+									<div className="text-(--vscode-descriptionForeground)">No access history</div>
 								</div>
 							))}
 					</>

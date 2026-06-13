@@ -330,7 +330,7 @@ describe("Controller Marketplace Filtering", () => {
 			catalog!.items[0].tags.should.have.length(0)
 		})
 
-		it("should normalize Cline-branded marketplace display text to CodeVibe", async () => {
+		it("should normalize Cline-branded marketplace display text to Codie", async () => {
 			axiosGetStub.resolves({
 				data: [
 					{
@@ -360,10 +360,10 @@ describe("Controller Marketplace Filtering", () => {
 			const catalog = await controller.refreshMcpMarketplace(false)
 			const item = catalog!.items[0]
 
-			item.name.should.equal("CodeVibe SendGrid")
-			item.description.should.equal("Ask CodeVibe's SendGrid agent to inspect campaigns")
-			item.readmeContent!.should.equal("Install this server in CodeVibe and ask CodeVibe to send a report.")
-			item.llmsInstallationContent!.should.equal("Configure CodeVibe before launch.")
+			item.name.should.equal("Codie SendGrid")
+			item.description.should.equal("Ask Codie's SendGrid agent to inspect campaigns")
+			item.readmeContent!.should.equal("Install this server in Codie and ask Codie to send a report.")
+			item.llmsInstallationContent!.should.equal("Configure Codie before launch.")
 			item.logoUrl.should.equal("https://storage.googleapis.com/cline_public_images/sendgrid.png")
 			item.mcpId.should.equal("github.com/test/sendgrid")
 		})

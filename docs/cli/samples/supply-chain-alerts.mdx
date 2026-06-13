@@ -1,6 +1,6 @@
 ---
 title: "Supply-Chain Scan Alerts"
-description: "Schedule the CodeVibe CLI to scan your machine for compromised packages with Bumblebee and text you on Telegram when it finds one."
+description: "Schedule the Codie CLI to scan your machine for compromised packages with Bumblebee and text you on Telegram when it finds one."
 ---
 
 npm worms like Shai-Hulud spread through install scripts: the moment you run `npm install`, a `preinstall` hook executes and steals your npm, GitHub, AWS, and SSH credentials. New campaigns are reported almost every week.
@@ -8,14 +8,14 @@ npm worms like Shai-Hulud spread through install scripts: the moment you run `np
 This guide wires three pieces together so your machine checks itself automatically and pings your phone only when it matters:
 
 - [Bumblebee](https://github.com/perplexityai/bumblebee), Perplexity's open-source, read-only supply-chain scanner. It maintains catalogs of recent campaigns and checks whether any compromised package or version is present on disk.
-- The CodeVibe CLI scheduler, which runs an agent on a cron schedule.
-- The CodeVibe CLI Telegram connector, which delivers the result to a chat.
+- The Codie CLI scheduler, which runs an agent on a cron schedule.
+- The Codie CLI Telegram connector, which delivers the result to a chat.
 
-The end result: every morning, a CodeVibe agent pulls the latest threat intelligence, runs a read-only scan, and texts you a green check if you are clean or a red alert with details if you are exposed.
+The end result: every morning, a Codie agent pulls the latest threat intelligence, runs a read-only scan, and texts you a green check if you are clean or a red alert with details if you are exposed.
 
 ```mermaid
 flowchart TD
-    cron["codevibe schedule (daily)"] --> agent["CodeVibe agent"]
+    cron["codevibe schedule (daily)"] --> agent["Codie agent"]
     agent --> pull["git pull (latest catalogs)"]
     agent --> scan["bumblebee scan (read-only)"]
     scan --> q{"any findings?"}
@@ -50,12 +50,12 @@ Read the announcement: [Perplexity is open-sourcing Bumblebee](https://www.perpl
 
 ## Prerequisites
 
-- Node.js 22 or newer (for the CodeVibe CLI).
+- Node.js 22 or newer (for the Codie CLI).
 - Go 1.22 or newer (to build Bumblebee).
 - A Telegram account.
-- An AI provider key, or a CodeVibe account.
+- An AI provider key, or a Codie account.
 
-## 1. Install the CodeVibe CLI
+## 1. Install the Codie CLI
 
 ```bash
 npm install -g codevibe
@@ -155,7 +155,7 @@ The bot replies with the new schedule, including its id.
 
 ### Option B: From your terminal
 
-Create the schedule with the CodeVibe CLI on the same machine and pass the delivery method explicitly. The running Telegram connector delivers the result to its chat:
+Create the schedule with the Codie CLI on the same machine and pass the delivery method explicitly. The running Telegram connector delivers the result to its chat:
 
 ```bash
 codevibe schedule create "supply-chain-watch" \

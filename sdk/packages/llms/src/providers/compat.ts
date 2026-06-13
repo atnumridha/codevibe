@@ -118,6 +118,11 @@ function resolveFactory(
 		protocol?: ProviderProtocol;
 	},
 ): GatewayProviderFactory {
+	const normalized = normalizeProviderId(providerId);
+	if (normalized === "openai-codex") {
+		return createOpenAIProvider;
+	}
+
 	if (
 		transport?.client === "openai" ||
 		transport?.protocol === "openai-responses"
@@ -137,7 +142,6 @@ function resolveFactory(
 			return createOpenAICompatibleProvider;
 	}
 
-	const normalized = normalizeProviderId(providerId);
 	switch (normalized) {
 		case "openai-codex":
 		case "openai-native":
@@ -168,13 +172,19 @@ function resolveFactory(
 	}
 }
 
+function resolveRuntimeProviderId(config: ProviderConfig): string {
+	const providerId = normalizeProviderId(config.providerId);
+	if (providerId === "openai-codex") {
+		return providerId;
+	}
+	return normalizeProviderId(resolveRoutingProviderId(config));
+}
+
 async function resolveProviderRegistration(
 	config: ProviderConfig,
 ): Promise<GatewayProviderRegistration | undefined> {
 	const providerId = normalizeProviderId(config.providerId);
-	const routedProviderId = normalizeProviderId(
-		resolveRoutingProviderId(config),
-	);
+	const routedProviderId = resolveRuntimeProviderId(config);
 	const builtin = BUILTIN_PROVIDER_MAP.get(providerId);
 	if (builtin && providerId === routedProviderId) {
 		return undefined;
@@ -238,9 +248,7 @@ function resolveProviderRegistrationSync(
 	config: ProviderConfig,
 ): GatewayProviderRegistration | undefined {
 	const providerId = normalizeProviderId(config.providerId);
-	const routedProviderId = normalizeProviderId(
-		resolveRoutingProviderId(config),
-	);
+	const routedProviderId = resolveRuntimeProviderId(config);
 	const builtin = BUILTIN_PROVIDER_MAP.get(providerId);
 	if (builtin && providerId === routedProviderId) {
 		return undefined;

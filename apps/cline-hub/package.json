@@ -2,7 +2,7 @@
 	"name": "@cline/cline-hub",
 	"version": "0.0.0",
 	"private": true,
-	"description": "Browser dashboard for CodeVibe Hub: live clients, sessions, streaming chat, and hub restart.",
+	"description": "Browser dashboard for Codie Agent Hub: live clients, sessions, streaming chat, and hub restart.",
 	"type": "module",
 	"exports": {
 		".": "./src/server.ts"

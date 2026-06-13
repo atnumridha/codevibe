@@ -24,7 +24,7 @@ const CodeVibeMark = (
 			xmlns="http://www.w3.org/2000/svg"
 			{...svgProps}
 		>
-			<title>CodeVibe</title>
+			<title>Codie</title>
 			<rect
 				height="46"
 				rx="12"

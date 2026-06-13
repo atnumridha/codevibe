@@ -1,7 +1,7 @@
-# Always Use the Best Models
+# Choose Your Model Source
 
-**Connect your keys for Anthropic (Claude), Google (Gemini), OpenAI (GPT), and other leading LLMs.**
+**Use Codie sign-in, your own API keys, local runtimes, or compatible gateways from one model picker.**
 
-CodeVibe puts you at the forefront of AI. Bring your own API keys for leading models like Anthropic (Claude), Google (Gemini), and OpenAI (GPT). Always leverage the most powerful state-of-the-art capabilities, ensuring you control both cost and cutting-edge performance.
+Codie lets you choose the model source that fits each workspace. Use Codie sign-in where available, connect your own model keys, or run local/compatible endpoints while staying clear on privacy and usage.
 
-![CodeVibe models demo](../assets/docs/demo.gif)
+![Codie models demo](../assets/docs/demo.gif)

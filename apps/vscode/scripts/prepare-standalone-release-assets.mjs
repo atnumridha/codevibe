@@ -117,6 +117,21 @@ function hashStandaloneZip() {
 	return createHash("sha256").update(fs.readFileSync(standaloneZipPath)).digest("hex")
 }
 
+function validateStandaloneMetadata(manifest, runtimePackage, issues, label) {
+	if (manifest.product?.name !== "Codie") {
+		issues.push(`${label} product name ${manifest.product?.name ?? "missing"} must be Codie`)
+	}
+	if (manifest.product?.runtimeName !== runtimePackage.name) {
+		issues.push(`${label} runtime name must match package.json name`)
+	}
+	if (manifest.product?.runtimeVersion !== runtimePackage.version) {
+		issues.push(`${label} runtime version must match package.json version`)
+	}
+	if (runtimePackage.description !== "Codie standalone core runtime") {
+		issues.push(`${label} runtime package description must be Codie standalone core runtime`)
+	}
+}
+
 function inspectStandaloneReleaseAssets({ requireChecksum = true } = {}) {
 	const expectedVersion = getSourceVersion()
 	const issues = []
@@ -132,7 +147,9 @@ function inspectStandaloneReleaseAssets({ requireChecksum = true } = {}) {
 				issues.push("standalone.zip contains standalone.zip.sha256")
 			}
 			const zipManifest = readZipJsonEntry(zip, "standalone-manifest.json")
+			const runtimePackage = readZipJsonEntry(zip, "package.json")
 			const extensionPackage = readZipJsonEntry(zip, "extension/package.json")
+			validateStandaloneMetadata(zipManifest, runtimePackage, issues, "standalone.zip")
 			if (zipManifest.package?.debugBuild !== true && zip.entries.has("codevibe-core.js.map")) {
 				issues.push("standalone.zip contains codevibe-core.js.map even though debugBuild is false")
 			}
@@ -155,6 +172,12 @@ function inspectStandaloneReleaseAssets({ requireChecksum = true } = {}) {
 		issues.push("standalone-manifest.json is missing")
 	} else {
 		const manifest = readJsonFile(standaloneManifestPath)
+		const runtimePackagePath = path.join(standaloneDir, "package.json")
+		if (fs.existsSync(runtimePackagePath)) {
+			validateStandaloneMetadata(manifest, readJsonFile(runtimePackagePath), issues, "standalone-manifest.json")
+		} else {
+			issues.push("dist-standalone/package.json is missing")
+		}
 		if (manifest.product?.extensionVersion !== expectedVersion) {
 			issues.push(
 				`standalone-manifest.json version ${manifest.product?.extensionVersion ?? "missing"} does not match ${expectedVersion}`,

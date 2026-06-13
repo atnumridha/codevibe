@@ -41,8 +41,9 @@ import {
 	desktopClient,
 } from "@/lib/desktop-client";
 import {
+	getProviderDisplayLabel,
 	getProviderDisplayName,
-	prioritizeCodeVibeProviders,
+	prioritizeCodieProviders,
 } from "@/lib/provider-display";
 import { cursorSettingsSectionFromPreview } from "@/lib/cursor-settings-intent";
 import type {
@@ -196,7 +197,7 @@ export function SettingsView({
 					typeof next === "function"
 						? (next as (prev: Provider[]) => Provider[])(prev)
 						: next;
-				const ordered = prioritizeCodeVibeProviders(resolved);
+				const ordered = prioritizeCodieProviders(resolved);
 				providerCatalogCache = {
 					providers: ordered,
 					fetchedAt: Date.now(),
@@ -264,7 +265,9 @@ export function SettingsView({
 				});
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
-				window.alert(`Failed to save provider settings for ${id}: ${message}`);
+				window.alert(
+					`Failed to save provider settings for ${getProviderDisplayLabel(id)}: ${message}`,
+				);
 			}
 		},
 		[],
@@ -346,7 +349,7 @@ export function SettingsView({
 	);
 
 	const enabledProviders = useMemo(
-		() => prioritizeCodeVibeProviders(providers.filter((p) => p.enabled)),
+		() => prioritizeCodieProviders(providers.filter((p) => p.enabled)),
 		[providers],
 	);
 	const selectedProvider = selectedProviderId
@@ -379,7 +382,7 @@ export function SettingsView({
 			setSelectedProviderId(id);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			window.alert(`Failed to sign in to ${id}: ${message}`);
+			window.alert(`Failed to sign in to ${getProviderDisplayLabel(id)}: ${message}`);
 		} finally {
 			setOauthSigningProviderId(null);
 		}
@@ -641,7 +644,7 @@ const CURSOR_LINK_ROUTE_PATHS = new Set<string>(
 	CURSOR_LINK_ROUTE_LABELS.map((route) => route.path),
 );
 const CURSOR_LINK_SURFACES = [
-	"Codex auth",
+	"Codie sign-in",
 	"Composer",
 	"MCP install",
 	"Browser",
@@ -669,7 +672,7 @@ const CURSOR_LINK_EXAMPLES = [
 	{
 		label: "NDJSON",
 		uri: `codevibe://automation/ingest?ndjson=${encodeURIComponent(
-			JSON.stringify({ eventId: "evt-1", eventType: "codevibe.demo" }),
+			JSON.stringify({ eventId: "evt-1", eventType: "codie.demo" }),
 		)}`,
 	},
 	{
@@ -856,7 +859,7 @@ function buildCursorUriLocalPreview(input: string): {
 		return {
 			paramKeys: [],
 			redacted: false,
-			text: "Enter a CodeVibe or compatible URI.",
+			text: "Enter a Codie or import-compatible URI.",
 		};
 	}
 
@@ -2163,7 +2166,7 @@ function GeneralSettingsContent({
 						<div>
 							<p className="text-sm font-medium text-foreground">Theme</p>
 							<p className="mt-1 text-xs text-muted-foreground">
-								Use the light or dark CodeVibe Hub interface.
+								Use the light or dark Codie Agent Hub interface.
 							</p>
 						</div>
 						<div className="flex items-center gap-2 max-[720px]:justify-start">
@@ -2191,7 +2194,7 @@ function GeneralSettingsContent({
 						<div>
 							<p className="text-sm font-medium text-foreground">Telemetry</p>
 							<p className="mt-1 text-xs text-muted-foreground">
-								Enable error and usage reports to help us improve CodeVibe.
+								Enable error and usage reports to help us improve Codie.
 							</p>
 							{telemetryError ? (
 								<p className="mt-2 text-xs text-destructive">
@@ -2240,7 +2243,7 @@ function GeneralSettingsContent({
 						</div>
 						<div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
 							<span className="rounded-md border bg-background px-1.5 py-0.5">
-								Host: {browserStatus?.host ?? "codevibe-hub"}
+								Host: {browserStatus?.host ?? "codie-agent-hub"}
 							</span>
 							<span className="rounded-md border bg-background px-1.5 py-0.5">
 								Evaluate:{" "}

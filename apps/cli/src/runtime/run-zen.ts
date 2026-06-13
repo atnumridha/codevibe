@@ -65,7 +65,7 @@ export async function runZen(
 		address: hubUrl,
 		authToken: hubAuthToken,
 		clientType: "cli-zen",
-		displayName: "CodeVibe CLI (zen)",
+		displayName: "Codie CLI (zen)",
 		workspaceRoot,
 		cwd: config.cwd,
 	});

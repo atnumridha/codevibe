@@ -68,10 +68,10 @@ Hooks are defined inside the `hooks` object, not directly on the extension. The 
 
 ## Next Steps
 
-Register with `ClineCore`:
+Register with CodieCore:
 
 ```typescript
-await cline.start({
+await codie.start({
   prompt: "Analyze customer records",
   config: {
     // ...model/runtime config
@@ -82,10 +82,10 @@ await cline.start({
 
 ## File-Based Plugins
 
-`ClineCore` supports plugin module paths via `pluginPaths` in session config:
+CodieCore supports plugin module paths via `pluginPaths` in session config:
 
 ```typescript
-await cline.start({
+await codie.start({
   prompt: "Analyze this project",
   config: {
     // ...model/runtime config

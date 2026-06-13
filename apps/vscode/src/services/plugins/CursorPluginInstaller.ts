@@ -148,7 +148,7 @@ function resolveOfficialPluginsRepo(override: string | undefined): string {
 	const repo = override?.trim() || process.env.CODEVIBE_OFFICIAL_PLUGINS_REPO?.trim();
 	if (!repo) {
 		throw new Error(
-			"Official CodeVibe plugin slugs require an explicit officialPluginsRepo option or CODEVIBE_OFFICIAL_PLUGINS_REPO. Pass a URL, npm package, local path, or git source to install directly.",
+			"Official Codie plugin slugs require an explicit officialPluginsRepo option or CODEVIBE_OFFICIAL_PLUGINS_REPO. Pass a URL, npm package, local path, or git source to install directly.",
 		);
 	}
 	return repo;
@@ -830,7 +830,7 @@ async function installOfficialPlugin(
 	const sourceRoot = join(repoRoot, "plugins", parsed.slug);
 	if (!existsSync(sourceRoot) || !statSync(sourceRoot).isDirectory()) {
 		throw new Error(
-			`Official CodeVibe-compatible plugin "${parsed.slug}" was not found at plugins/${parsed.slug} in ${officialPluginsRepo}`,
+			`Official Codie-compatible plugin "${parsed.slug}" was not found at plugins/${parsed.slug} in ${officialPluginsRepo}`,
 		);
 	}
 

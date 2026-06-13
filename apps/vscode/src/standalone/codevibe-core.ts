@@ -315,14 +315,14 @@ function parseArgs(): CliArgs {
 
 function showHelp() {
 	console.log(`
-CodeVibe Core - Standalone Server
+Codie Core - Standalone Server
 
 Usage: node codevibe-core.js [options]
 
 Options:
   -p, --port <port>              Port for the main gRPC service (default: ${PROTOBUS_PORT})
   --host-bridge-port <port>      Port for the host bridge service (default: ${HOSTBRIDGE_PORT})
-  -c, --config <path>            Directory for CodeVibe data storage (default: ~/.codevibe)
+  -c, --config <path>            Directory for Codie data storage (default: ~/.codevibe)
   -h, --help                     Show this help message
 
 Environment Variables:

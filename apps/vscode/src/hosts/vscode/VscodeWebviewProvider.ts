@@ -68,7 +68,7 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 		await closeCompetingAgentSurfaces(this.webview?.visible)
 
 		const viewColumn = vscode.window.activeTextEditor ? vscode.ViewColumn.Beside : vscode.ViewColumn.One
-		this.panel = vscode.window.createWebviewPanel(ExtensionRegistryInfo.views.Panel, "CodeVibe", viewColumn, {
+		this.panel = vscode.window.createWebviewPanel(ExtensionRegistryInfo.views.Panel, "Codie", viewColumn, {
 			enableScripts: true,
 			retainContextWhenHidden: true,
 			localResourceRoots: [vscode.Uri.file(HostProvider.get().extensionFsPath)],
@@ -214,23 +214,25 @@ export class VscodeWebviewProvider extends WebviewProvider implements vscode.Web
 	}
 
 	private registerCursorSandboxWatcher(disposables: vscode.Disposable[]) {
-		const watcher = vscode.workspace.createFileSystemWatcher("**/.cursor/sandbox.json")
 		const refreshState = async () => {
 			try {
 				await this.controller.postStateToWebview()
 			} catch (error) {
 				Logger.warn(
-					`Failed to refresh CodeVibe sandbox status after .cursor/sandbox.json changed: ${
+					`Failed to refresh Codie sandbox status after sandbox config changed: ${
 						error instanceof Error ? error.message : String(error)
 					}`,
 				)
 			}
 		}
 
-		watcher.onDidCreate(refreshState, null, disposables)
-		watcher.onDidChange(refreshState, null, disposables)
-		watcher.onDidDelete(refreshState, null, disposables)
-		disposables.push(watcher)
+		for (const pattern of ["**/.codie/sandbox.json", "**/.cursor/sandbox.json"]) {
+			const watcher = vscode.workspace.createFileSystemWatcher(pattern)
+			watcher.onDidCreate(refreshState, null, disposables)
+			watcher.onDidChange(refreshState, null, disposables)
+			watcher.onDidDelete(refreshState, null, disposables)
+			disposables.push(watcher)
+		}
 	}
 
 	private setWebviewMessageListener(webview: vscode.Webview, disposables = this.disposables) {

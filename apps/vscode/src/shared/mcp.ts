@@ -172,10 +172,10 @@ export interface McpMarketplaceCatalog {
 
 function normalizeCodeVibeMarketplaceText(value: string | undefined): string | undefined {
 	return value
-		?.replace(/\bCline's\b/g, "CodeVibe's")
-		.replace(/\bcline's\b/g, "CodeVibe's")
-		.replace(/\bCline\b/g, "CodeVibe")
-		.replace(/\bcline\b/g, "CodeVibe")
+		?.replace(/\bCline's\b/g, "Codie's")
+		.replace(/\bcline's\b/g, "Codie's")
+		.replace(/\bCline\b/g, "Codie")
+		.replace(/\bcline\b/g, "Codie")
 }
 
 export function normalizeMcpMarketplaceItem(item: McpMarketplaceItem): McpMarketplaceItem {

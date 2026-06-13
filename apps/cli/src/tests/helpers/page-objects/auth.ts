@@ -3,8 +3,8 @@ import { expectVisible } from "../terminal.js";
 
 export async function waitForAuthScreen(terminal: Terminal): Promise<void> {
 	await expectVisible(terminal, [
-		"Sign in with CodeVibe",
-		"Sign in with ChatGPT",
+		"Sign in with Codie Cloud",
+		"Sign in with Codie",
 		"Bring your own provider",
 	]);
 }

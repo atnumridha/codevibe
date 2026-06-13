@@ -4,7 +4,7 @@ sidebarTitle: "Connectors"
 description: "Connect the CLI to Telegram, Slack, Discord, Google Chat, WhatsApp, etc."
 ---
 <Warning>
-  This feature currently only applies to CodeVibe CLI.
+  This feature currently only applies to Codie CLI.
 </Warning>
 
 Connectors let you chat with your agent from messaging platforms. Each incoming message creates or continues an agent session, and the agent's response is sent back to the conversation.
@@ -34,7 +34,7 @@ codevibe connect
   <Step title="Create a Telegram bot">
     Open Telegram and start a chat with [@BotFather](https://t.me/BotFather). Send `/newbot` and follow the prompts:
 
-    1. Enter a display name (e.g., "CodeVibe")
+    1. Enter a display name (e.g., "Codie")
     2. Enter a username ending in `bot` (e.g., `codevibe_myname_bot`). Must be unique across Telegram.
     3. BotFather responds with your bot token (looks like `7123456789:AAH...`)
   </Step>
@@ -79,7 +79,7 @@ By default, anyone who finds your bot can message it and it will execute tasks o
   </Step>
 </Steps>
 
-Use `--hook-command` only when you need custom access logic. The hook receives each incoming message with sender info via stdin. Your script returns `{"action": "allow"}` or `{"action": "deny", "message": "reason"}`. Without `--allowed-user-id` or `--hook-command`, everything is auto-approved, so restrict Telegram bots that can reach a running CodeVibe instance.
+Use `--hook-command` only when you need custom access logic. The hook receives each incoming message with sender info via stdin. Your script returns `{"action": "allow"}` or `{"action": "deny", "message": "reason"}`. Without `--allowed-user-id` or `--hook-command`, everything is auto-approved, so restrict Telegram bots that can reach a running Codie instance.
 
 ## Slack
 

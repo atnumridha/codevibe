@@ -55,7 +55,7 @@ const HistoryPreview = ({ showHistoryView }: HistoryPreviewProps) => {
 								onClick={() => handleHistorySelect(item.id)}
 								type="button">
 								<span
-									aria-label={item.isFavorited ? "Favorited run" : "CodeVibe run"}
+									aria-label={item.isFavorited ? "Favorited run" : "Codie run"}
 									className={`codicon ${
 										item.isFavorited ? "codicon-star-full" : "codicon-chevron-right"
 									} text-[13px]! text-[var(--vscode-descriptionForeground)]`}

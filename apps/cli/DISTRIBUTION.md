@@ -1,6 +1,6 @@
 # CLI Distribution
 
-CodeVibe CLI is distributed as compiled binaries via npm. Users install `codevibe` and run the `codevibe` command without needing Bun, Zig, or any other runtime installed. The legacy `cline` command and selected `@cline/*` workspace names remain compatibility anchors so new upstream Cline changes can still be patched into CodeVibe cleanly.
+Codie CLI is distributed as compiled binaries via npm. Users install `codevibe` and run the `codevibe` command without needing Bun, Zig, or any other runtime installed. The legacy `cline` command and selected `@cline/*` workspace names remain compatibility anchors so upstream changes can still be patched into Codie cleanly.
 
 ## Why Compiled Binaries?
 
@@ -90,7 +90,7 @@ Resolution order:
 3. `@codevibe/cli-<platform>-<arch>` under `node_modules`
 4. Legacy `@cline/cli-<platform>-<arch>` under `node_modules`
 
-The resolver sets both `CODEVIBE_WRAPPER_PATH` and `CLINE_WRAPPER_PATH` for child processes so CodeVibe code and upstream-compatible SDK code can locate the wrapper.
+The resolver sets both `CODEVIBE_WRAPPER_PATH` and `CLINE_WRAPPER_PATH` for child processes so Codie code and upstream-compatible SDK code can locate the wrapper.
 
 ## Postinstall
 

@@ -13,12 +13,12 @@ interface CodeVibeProviderProps {
 }
 
 /**
- * The CodeVibe provider configuration component
+ * The Codie provider configuration component
  */
 export const CodeVibeProvider = ({ showModelOptions, isPopup, currentMode, initialModelTab }: CodeVibeProviderProps) => {
 	return (
 		<div>
-			{/* CodeVibe Cloud account info */}
+			{/* Codie Cloud account info */}
 			<div style={{ marginBottom: 14, marginTop: 4 }}>
 				<CodeVibeAccountInfoCard />
 			</div>

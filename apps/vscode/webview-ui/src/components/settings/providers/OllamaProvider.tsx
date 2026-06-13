@@ -140,7 +140,7 @@ export const OllamaProvider = ({ showModelOptions, isPopup, currentMode }: Ollam
 					quickstart guide.
 				</VSCodeLink>{" "}
 				<span style={{ color: "var(--vscode-errorForeground)" }}>
-					(<span style={{ fontWeight: 500 }}>Note:</span> CodeVibe uses complex prompts and works best with
+					(<span style={{ fontWeight: 500 }}>Note:</span> Codie uses complex prompts and works best with
 					high-capability coding models. Less capable models may not work as expected.)
 				</span>
 			</p>

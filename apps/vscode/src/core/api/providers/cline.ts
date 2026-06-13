@@ -123,7 +123,7 @@ export class ClineHandler implements ApiHandler {
 					},
 				})
 			} catch (error: any) {
-				throw new Error(`Error creating CodeVibe client: ${error.message}`)
+				throw new Error(`Error creating Codie client: ${error.message}`)
 			}
 		}
 		// Ensure the client is always using the latest auth token
@@ -157,14 +157,14 @@ export class ClineHandler implements ApiHandler {
 			const toolCallProcessor = new ToolCallProcessor()
 
 			for await (const chunk of stream) {
-				Logger.debug("CodeVibeHandler chunk:" + JSON.stringify(chunk))
+				Logger.debug("CodieHandler chunk:" + JSON.stringify(chunk))
 				// openrouter returns an error object instead of the openai sdk throwing an error
 				if ("error" in chunk) {
 					const error = chunk.error as OpenRouterErrorResponse["error"]
-					Logger.error(`CodeVibe API Error: ${error?.code} - ${error?.message}`)
+					Logger.error(`Codie API Error: ${error?.code} - ${error?.message}`)
 					// Include metadata in the error message if available
 					const metadataStr = error.metadata ? `\nMetadata: ${JSON.stringify(error.metadata, null, 2)}` : ""
-					throw new Error(`CodeVibe API Error ${error.code}: ${error.message}${metadataStr}`)
+					throw new Error(`Codie API Error ${error.code}: ${error.message}${metadataStr}`)
 				}
 
 				if (!this.lastGenerationId && chunk.id) {
@@ -178,10 +178,10 @@ export class ClineHandler implements ApiHandler {
 					const choiceWithError = choice as any
 					if (choiceWithError.error) {
 						const error = choiceWithError.error
-						Logger.error(`CodeVibe Mid-Stream Error: ${error.code || error.type || "Unknown"} - ${error.message}`)
-						throw new Error(`CodeVibe Mid-Stream Error: ${error.code || error.type || "Unknown"} - ${error.message}`)
+						Logger.error(`Codie Mid-Stream Error: ${error.code || error.type || "Unknown"} - ${error.message}`)
+						throw new Error(`Codie Mid-Stream Error: ${error.code || error.type || "Unknown"} - ${error.message}`)
 					}
-					throw new Error("CodeVibe Mid-Stream Error: Stream terminated with error status but no error details provided")
+					throw new Error("Codie Mid-Stream Error: Stream terminated with error status but no error details provided")
 				}
 
 				const delta = choice?.delta

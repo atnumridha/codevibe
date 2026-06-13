@@ -12,7 +12,7 @@ export enum FeatureFlag {
 	// Feature flag for DB-backed welcome banners (What's New modal)
 	// When off, hardcoded welcome items are shown instead
 	REMOTE_WELCOME_BANNERS = "remote-welcome-banners",
-	// Rollout flag for Cline provider model sourcing:
+	// Rollout flag for Codie Cloud provider model sourcing:
 	// off => OpenRouter model list, on => Cline endpoint model list.
 	EXTENSION_CLINE_MODELS_ENDPOINT = "extension_cline_models_endpoint",
 	// Use the websocket mode for OpenAI native Responses API format

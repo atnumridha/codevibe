@@ -1,15 +1,15 @@
 ---
 title: "ACP: Editor Integrations"
-description: "Use CodeVibe in JetBrains, Neovim, Zed, and other editors via the Agent Client Protocol"
+description: "Use Codie in JetBrains, Neovim, Zed, and other editors via the Agent Client Protocol"
 ---
 
 
-CodeVibe CLI supports the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/), an open standard that enables AI coding agents to work across different editors and IDEs. This means you can use the full CodeVibe agent—with all its capabilities including Skills, Hooks, and MCP integrations—in your preferred development environment.
+Codie CLI supports the [Agent Client Protocol (ACP)](https://agentclientprotocol.com/), an open standard that enables AI coding agents to work across different editors and IDEs. This means you can use the full Codie agent—with all its capabilities including Skills, Hooks, and MCP integrations—in your preferred development environment.
 
 ## Why ACP?
 
-- **Editor flexibility**: Use CodeVibe in JetBrains, Neovim, Zed, or any ACP-compatible editor
-- **No feature compromises**: Full access to CodeVibe's capabilities regardless of editor
+- **Editor flexibility**: Use Codie in JetBrains, Neovim, Zed, or any ACP-compatible editor
+- **No feature compromises**: Full access to Codie's capabilities regardless of editor
 - **Team consistency**: Same AI assistant across different developer workflows
 - **Open standard**: Built on Zed's open Agent Client Protocol specification
 
@@ -20,12 +20,12 @@ CodeVibe CLI supports the [Agent Client Protocol (ACP)](https://agentclientproto
 <Note>
 **Recommended: Native JetBrains Plugin**
 
-For the best JetBrains experience, install the [native CodeVibe plugin](/getting-started/installing-codevibe#jetbrains-ides) from the JetBrains Marketplace. It provides full IDE integration and the complete CodeVibe experience.
+For the best JetBrains experience, install the [native Codie plugin](/getting-started/installing-codevibe#jetbrains-ides) from the JetBrains Marketplace. It provides full IDE integration and the complete Codie experience.
 
-The ACP setup below is an alternative way to use CodeVibe CLI features in JetBrains IDEs.
+The ACP setup below is an alternative way to use Codie CLI features in JetBrains IDEs.
 </Note>
 
-Alternatively, you can run CodeVibe CLI in IntelliJ IDEA, PyCharm, WebStorm, and all other JetBrains IDEs through their built-in AI Assistant with ACP support.
+Alternatively, you can run Codie CLI in IntelliJ IDEA, PyCharm, WebStorm, and all other JetBrains IDEs through their built-in AI Assistant with ACP support.
 
 <video
   src="https://storage.googleapis.com/cline_public_images/cline-acp-jetbrains.mp4"
@@ -38,12 +38,12 @@ Alternatively, you can run CodeVibe CLI in IntelliJ IDEA, PyCharm, WebStorm, and
 
 ### Setup
 
-1. **Install CodeVibe CLI** (if not already installed):
+1. **Install Codie CLI** (if not already installed):
    ```bash
    npm i -g codevibe
    ```
 
-2. **Authenticate with CodeVibe**:
+2. **Authenticate with Codie**:
    ```bash
    codevibe auth
    ```
@@ -54,11 +54,11 @@ Alternatively, you can run CodeVibe CLI in IntelliJ IDEA, PyCharm, WebStorm, and
    - Click "Add Custom Agent"
    - This opens/creates `~/.jetbrains/acp.json`
 
-4. **Add CodeVibe to `acp.json`**:
+4. **Add Codie to `acp.json`**:
    ```json
    {
      "agent_servers": {
-       "CodeVibe": {
+       "Codie": {
          "command": "codevibe",
          "args": ["--acp"],
          "env": {}
@@ -67,18 +67,18 @@ Alternatively, you can run CodeVibe CLI in IntelliJ IDEA, PyCharm, WebStorm, and
    }
    ```
 
-5. **Use CodeVibe**:
+5. **Use Codie**:
    - Open the AI Chat tool window
-   - Select "CodeVibe" from the agent dropdown
-   - Start coding with CodeVibe in your JetBrains IDE!
+   - Select "Codie" from the agent dropdown
+   - Start coding with Codie in your JetBrains IDE!
 
 <Tip>
-JetBrains AI Assistant can expose its built-in MCP server to CodeVibe, giving CodeVibe access to IDE-specific tools and context.
+JetBrains AI Assistant can expose its built-in MCP server to Codie, giving Codie access to IDE-specific tools and context.
 </Tip>
 
 ## Neovim
 
-[Neovim](https://neovim.io) is a hyperextensible Vim-based text editor loved by developers for its speed and flexibility. Use CodeVibe in Neovim through the [agentic.nvim](https://github.com/carlos-algms/agentic.nvim) or [avante.nvim](https://github.com/yetone/avante.nvim) plugins, which provide ACP integration.
+[Neovim](https://neovim.io) is a hyperextensible Vim-based text editor loved by developers for its speed and flexibility. Use Codie in Neovim through the [agentic.nvim](https://github.com/carlos-algms/agentic.nvim) or [avante.nvim](https://github.com/yetone/avante.nvim) plugins, which provide ACP integration.
 
 <video
   src="https://storage.googleapis.com/cline_public_images/cline-acp-neovim-avante.mp4"
@@ -91,12 +91,12 @@ JetBrains AI Assistant can expose its built-in MCP server to CodeVibe, giving Co
 
 ### Setup with agentic.nvim
 
-1. **Install CodeVibe CLI** (if not already installed):
+1. **Install Codie CLI** (if not already installed):
    ```bash
    npm i -g codevibe
    ```
 
-2. **Authenticate with CodeVibe**:
+2. **Authenticate with Codie**:
    ```bash
    codevibe auth
    ```
@@ -115,14 +115,14 @@ JetBrains AI Assistant can expose its built-in MCP server to CodeVibe, giving Co
        },
      },
      keys = {
-       {"<C-\\>", function() require("agentic").toggle() end, mode={"n","v","i"}, desc="Toggle CodeVibe Chat"},
+       {"<C-\\>", function() require("agentic").toggle() end, mode={"n","v","i"}, desc="Toggle Codie Chat"},
      },
    }
    ```
 
-4. **Use CodeVibe**:
-   - Press `<C-\>` to toggle CodeVibe chat
-   - Start coding with CodeVibe in Neovim!
+4. **Use Codie**:
+   - Press `<C-\>` to toggle Codie chat
+   - Start coding with Codie in Neovim!
 
 ### Setup with avante.nvim
 
@@ -130,27 +130,27 @@ Follow the [avante.nvim documentation](https://github.com/yetone/avante.nvim) fo
 
 ## Zed
 
-[Zed](https://zed.dev) is a high-performance, multiplayer code editor built from the ground up for speed and collaboration. Zed's team created the Agent Client Protocol, making CodeVibe a natural fit for this editor.
+[Zed](https://zed.dev) is a high-performance, multiplayer code editor built from the ground up for speed and collaboration. Zed's team created the Agent Client Protocol, making Codie a natural fit for this editor.
 
 ### Setup
 
-1. **Install CodeVibe CLI** (if not already installed):
+1. **Install Codie CLI** (if not already installed):
    ```bash
    npm i -g codevibe
    ```
 
-2. **Authenticate with CodeVibe**:
+2. **Authenticate with Codie**:
    ```bash
    codevibe auth
    ```
 
 3. **Configure Zed**:
    - Open Zed settings (`Cmd/Ctrl + ,`)
-   - Add CodeVibe to your `settings.json`:
+   - Add Codie to your `settings.json`:
    ```json
    {
      "agent_servers": {
-       "CodeVibe": {
+       "Codie": {
          "type": "custom",
          "command": "codevibe",
          "args": ["--acp"],
@@ -160,14 +160,14 @@ Follow the [avante.nvim documentation](https://github.com/yetone/avante.nvim) fo
    }
    ```
 
-4. **Use CodeVibe**:
+4. **Use Codie**:
    - Open the AI assistant panel
-   - Select "CodeVibe" from the agent dropdown
-   - Start coding with CodeVibe in Zed!
+   - Select "Codie" from the agent dropdown
+   - Start coding with Codie in Zed!
 
 ## Other Editors
 
-Any editor that supports the Agent Client Protocol can run CodeVibe. Check your editor's documentation for ACP configuration instructions, then point it to:
+Any editor that supports the Agent Client Protocol can run Codie. Check your editor's documentation for ACP configuration instructions, then point it to:
 
 ```bash
 codevibe --acp
@@ -177,21 +177,21 @@ codevibe --acp
 
 ### Agent not appearing
 
-- Ensure CodeVibe CLI is installed globally: `npm i -g codevibe`
+- Ensure Codie CLI is installed globally: `npm i -g codevibe`
 - Verify authentication: `codevibe auth`
 - Check that `codevibe --acp` runs without errors
 - Restart your editor after configuration changes
 
 ### Permission errors
 
-If CodeVibe can't access files or run commands:
+If Codie can't access files or run commands:
 - Check that your editor's ACP integration passes the correct working directory
 - Verify file permissions in your project
-- Ensure CodeVibe has approval settings configured correctly
+- Ensure Codie has approval settings configured correctly
 
 ### Connection issues
 
-- Make sure no other CodeVibe instance is using the same configuration directory
+- Make sure no other Codie instance is using the same configuration directory
 - Check editor logs for ACP-related errors
 - Try running `codevibe --acp` manually to test the connection
 
@@ -199,15 +199,15 @@ If CodeVibe can't access files or run commands:
 
 <Columns cols={2}>
   <Card title="CLI Overview" icon="terminal" href="/usage/cli-overview">
-    Learn about CodeVibe CLI's core capabilities and use cases.
+    Learn about Codie CLI's core capabilities and use cases.
   </Card>
   
   <Card title="Headless Mode" icon="robot" href="/usage/cli-overview#headless-mode">
-    Run CodeVibe autonomously in scripts, CI/CD pipelines, and automated workflows.
+    Run Codie autonomously in scripts, CI/CD pipelines, and automated workflows.
   </Card>
   
   <Card title="Skills" icon="graduation-cap" href="/customization/skills">
-    Understand how CodeVibe's Skills work across all editors via ACP.
+    Understand how Codie's Skills work across all editors via ACP.
   </Card>
   
   <Card title="Hooks" icon="link" href="/customization/hooks">

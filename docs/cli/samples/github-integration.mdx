@@ -1,27 +1,27 @@
 ---
 title: "GitHub Actions Integration"
-description: "Automatically respond to GitHub issues by mentioning @codevibe in comments using CodeVibe CLI in GitHub Actions."
+description: "Automatically respond to GitHub issues by mentioning @codevibe in comments using Codie CLI in GitHub Actions."
 ---
 
 Automate GitHub issue analysis with AI. Mention `@codevibe` in any issue comment to trigger an autonomous investigation that reads files, analyzes code, and provides actionable insights - all running automatically in GitHub Actions.
 
 
 <Note>
-**New to CodeVibe CLI?** This sample assumes you understand CodeVibe CLI basics and have completed the [Installation Guide](/getting-started/installing-codevibe). If you're new to CodeVibe CLI, we recommend starting with the [GitHub RCA sample](./github-issue-rca) first, as it's simpler and will help you understand the fundamentals before setting up GitHub Actions.
+**New to Codie CLI?** This sample assumes you understand Codie CLI basics and have completed the [Installation Guide](/getting-started/installing-codevibe). If you're new to Codie CLI, we recommend starting with the [GitHub RCA sample](./github-issue-rca) first, as it's simpler and will help you understand the fundamentals before setting up GitHub Actions.
 </Note>
 
 ## The Workflow
 
-Trigger CodeVibe by mentioning `@codevibe` in any issue comment:
+Trigger Codie by mentioning `@codevibe` in any issue comment:
 
 <Frame>
   <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss0a-comment.png" alt="Issue comment with @codevibe mention" width="600" />
 </Frame>
 
-CodeVibe's automated analysis appears as a new comment, with insights drawn from your actual codebase:
+Codie's automated analysis appears as a new comment, with insights drawn from your actual codebase:
 
 <Frame>
-  <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss0b-final.png" alt="Automated analysis response from CodeVibe" width="600" />
+  <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss0b-final.png" alt="Automated analysis response from Codie" width="600" />
 </Frame>
 
 The entire investigation runs autonomously in GitHub Actions - from file exploration to posting results.
@@ -32,7 +32,7 @@ Let's configure your repository.
 
 Before you begin, you'll need:
 
-- **CodeVibe CLI knowledge** - Completed the [Installation Guide](/getting-started/installing-codevibe) and understand basic usage
+- **Codie CLI knowledge** - Completed the [Installation Guide](/getting-started/installing-codevibe) and understand basic usage
 - **GitHub repository** - With admin access to configure Actions and secrets
 - **GitHub Actions familiarity** - Basic understanding of workflows and CI/CD
 - **API provider account** - OpenRouter, Anthropic, or similar with API key
@@ -55,7 +55,7 @@ Alternatively, you can copy the full workflow file directly into `.github/workfl
 
 <Accordion title="Click to view the complete codevibe-responder.yml workflow">
 ```yaml
-name: CodeVibe Issue Assistant
+name: Codie Issue Assistant
 
 on:
   issue_comment:
@@ -86,18 +86,18 @@ jobs:
         if: steps.detect.outputs.hit == 'true'
         uses: actions/checkout@v4
 
-      # Node v20+ is needed for CodeVibe CLI on GitHub Actions Linux
+      # Node v20+ is needed for Codie CLI on GitHub Actions Linux
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
 
-      - name: Install CodeVibe CLI
+      - name: Install Codie CLI
         if: steps.detect.outputs.hit == 'true'
         run: npm install -g codevibe
 
-      - name: Configure CodeVibe Authentication
+      - name: Configure Codie Authentication
         if: steps.detect.outputs.hit == 'true'
         env:
           CODEVIBE_DATA_DIR: ${{ runner.temp }}/codevibe-data
@@ -168,7 +168,7 @@ This tells the workflow where to download the analysis script from your reposito
 </Warning>
 
 The workflow will look for new or updated issues, check for `@codevibe` mentions, and then
-start up the CodeVibe CLI to dig into the issue, providing feedback as a reply to the issue.
+start up the Codie CLI to dig into the issue, providing feedback as a reply to the issue.
 
 ### 2. Configure API Keys
 
@@ -198,7 +198,7 @@ Add your AI provider API keys as repository secrets:
      <img src="https://raw.githubusercontent.com/atnumridha/codevibe/main/apps/vscode/src/samples/cli/github-integration/readme/ss03-ready.png" alt="API key configured" width="600" />
    </Frame>
 
-Now you're ready to supply CodeVibe with the credentials it needs in a GitHub Action.
+Now you're ready to supply Codie with the credentials it needs in a GitHub Action.
 
 ### 3. Add Analysis Script
 
@@ -227,7 +227,7 @@ nano git-scripts/analyze-issue.sh  # or use vim, code, etc.
 <Accordion title="Click to view the complete analyze-issue.sh script">
 ```bash
 #!/bin/bash
-# Analyze a GitHub issue using CodeVibe CLI
+# Analyze a GitHub issue using Codie CLI
 
 if [ -z "$1" ]; then
     echo "Usage: $0 <github-issue-url> [prompt]"
@@ -240,7 +240,7 @@ fi
 ISSUE_URL="$1"
 PROMPT="${2:-What is the root cause of this issue?}"
 
-# Ask CodeVibe for its analysis, showing only the summary
+# Ask Codie for its analysis, showing only the summary
 codevibe --auto-approve true --json "$PROMPT: $ISSUE_URL" | \
     jq -r 'select(.type == "agent_event" and .event.type == "done") | .event.text' | \
     sed 's/\\n/\n/g'
@@ -252,7 +252,7 @@ chmod +x git-scripts/analyze-issue.sh
 ```
 </Accordion>
 
-This analysis script calls CodeVibe to execute a prompt on a GitHub issue,
+This analysis script calls Codie to execute a prompt on a GitHub issue,
 summarizing the output to populate the reply to the issue.
 
 ### 4. Commit and Push
@@ -260,7 +260,7 @@ summarizing the output to populate the reply to the issue.
 ```bash
 git add .github/workflows/codevibe-responder.yml
 git add git-scripts/analyze-issue.sh
-git commit -m "Add CodeVibe issue assistant workflow"
+git commit -m "Add Codie issue assistant workflow"
 git push
 ```
 
@@ -278,10 +278,10 @@ Once set up, simply mention `@codevibe` in any issue comment:
 
 GitHub Actions will:
 1. Detect the `@codevibe` mention
-2. Start a CodeVibe CLI instance
+2. Start a Codie CLI instance
 3. Download the analysis script
 4. Analyze the issue using Act mode with auto-approval enabled
-5. Post CodeVibe's analysis as a new comment
+5. Post Codie's analysis as a new comment
 
 **Note**: The workflow only triggers on issue comments, not pull request
 comments.
@@ -292,11 +292,11 @@ The workflow (`codevibe-responder.yml`):
 
 1. **Triggers** on issue comments (created or edited)
 2. **Detects** `@codevibe` mentions (case-insensitive)
-3. **Installs** CodeVibe CLI globally using npm
+3. **Installs** Codie CLI globally using npm
 4. **Configures** authentication using `codevibe auth --provider openrouter --apikey ...`
 6. **Downloads** the reusable `analyze-issue.sh` script from the
    `github-issue-rca` sample
-7. **Runs** analysis in CodeVibe CLI
+7. **Runs** analysis in Codie CLI
 8. **Posts** the analysis result as a comment
 
 ## Related Samples

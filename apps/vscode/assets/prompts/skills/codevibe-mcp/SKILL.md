@@ -1,16 +1,16 @@
 ---
 name: codevibe-mcp
-description: Use when configuring, importing, installing, testing, or debugging CodeVibe MCP servers and OAuth callbacks.
+description: Use when configuring, importing, installing, testing, or debugging Codie MCP servers and OAuth callbacks.
 ---
 
-# CodeVibe MCP
+# Codie MCP
 
 Use this skill for Model Context Protocol work.
 
 ## Workflow
 
 1. Identify whether the request is a workspace import, global import, marketplace install, manual config edit, OAuth callback, or runtime server issue.
-2. Prefer existing CodeVibe MCP services and validation schemas.
+2. Prefer existing Codie MCP services and validation schemas.
 3. Treat server commands, environment variables, headers, and tokens as sensitive.
 4. Confirm before installing packages, exposing network listeners, replacing an existing server, or running server commands.
 5. Redact secrets in previews, logs, and final summaries.

@@ -162,7 +162,7 @@ describe("buildUserInputMessage", () => {
 			expect(result.userFiles).toEqual([]);
 			expect(warn).toHaveBeenCalledWith(
 				expect.stringContaining(
-					"outside Cursor sandbox read paths from .cursor/sandbox.json",
+					"outside import-compatible sandbox read paths from .cursor/sandbox.json",
 				),
 			);
 		} finally {

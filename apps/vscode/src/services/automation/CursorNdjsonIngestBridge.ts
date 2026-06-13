@@ -33,6 +33,6 @@ const missingBridge: CursorNdjsonIngestBridge = {
 	stop: async () => ({ ...DEFAULT_STATUS }),
 	reassignPort: async () => ({ ...DEFAULT_STATUS }),
 	buildCurlCommand: async () => {
-		throw new Error("CodeVibe compatibility NDJSON ingest is not available in this host.")
+		throw new Error("Codie compatibility NDJSON ingest is not available in this host.")
 	},
 }

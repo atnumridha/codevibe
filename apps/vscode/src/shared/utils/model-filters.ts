@@ -13,7 +13,7 @@ export function isClineFreeModelException(modelId: string): boolean {
 
 /**
  * Filters OpenRouter model IDs based on provider-specific rules.
- * For Cline provider: excludes :free models (except known exception models)
+ * For Codie Cloud provider: excludes :free models (except known exception models)
  * For OpenRouter/Vercel: excludes cline/ prefixed models
  * @param modelIds Array of model IDs to filter
  * @param provider The current API provider
@@ -27,7 +27,7 @@ export function filterOpenRouterModelIds(
 ): string[] {
 	if (provider === "cline") {
 		const allowedFreeIdSet = new Set(allowedFreeModelIds.map((id) => normalizeModelId(id)))
-		// For Cline provider: exclude :free models, but keep known exception models
+		// For Codie Cloud provider: exclude :free models, but keep known exception models
 		return modelIds.filter((id) => {
 			const normalizedModelId = normalizeModelId(id)
 			if (allowedFreeIdSet.has(normalizedModelId)) {

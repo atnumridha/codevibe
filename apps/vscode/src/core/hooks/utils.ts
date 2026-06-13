@@ -6,7 +6,7 @@ import { HostProvider } from "@/hosts/host-provider"
 import { getCwd, getDesktopDir } from "@/utils/path"
 
 /**
- * All valid hook types that can be created and executed by CodeVibe.
+ * All valid hook types that can be created and executed by Codie.
  * These hooks correspond to specific lifecycle events in the task execution process.
  */
 export const VALID_HOOK_TYPES = [
@@ -66,7 +66,7 @@ export async function resolveHooksDirectories(
 	globalHooksDirOverride?: string,
 ): Promise<string[]> {
 	if (isGlobal) {
-		return [globalHooksDirOverride || path.join(os.homedir(), "Documents", "CodeVibe", "Hooks")]
+		return [globalHooksDirOverride || path.join(os.homedir(), "Documents", "Codie", "Hooks")]
 	}
 
 	const workspaceRoot = await resolveWorkspaceRoot(workspaceName)

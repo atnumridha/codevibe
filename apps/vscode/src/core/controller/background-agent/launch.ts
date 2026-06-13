@@ -175,7 +175,7 @@ export function buildBackgroundAgentTaskPrompt(
 	record: BackgroundAgentTaskRecord,
 ): string {
 	const lines = [
-		"CodeVibe background-agent launch prepared.",
+		"Codie background-agent launch prepared.",
 		"",
 		"Controller launch record:",
 		`- id: ${record.id}`,

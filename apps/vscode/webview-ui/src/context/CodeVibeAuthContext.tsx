@@ -99,7 +99,7 @@ export const CodeVibeAuthProvider: React.FC<{ children: React.ReactNode }> = ({ 
 export const useCodeVibeAuth = () => {
 	const context = useContext(CodeVibeAuthContext)
 	if (context === undefined) {
-		throw new Error("CodeVibe auth context must be used within a CodeVibe auth provider")
+		throw new Error("Codie auth context must be used within a Codie auth provider")
 	}
 	return context
 }

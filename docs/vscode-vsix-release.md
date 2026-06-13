@@ -1,6 +1,6 @@
-# CodeVibe VS Code VSIX Release
+# Codie VS Code VSIX Release
 
-CodeVibe releases are blocked until the Cursor-parity gate passes end to end:
+Codie releases are blocked until the release-readiness gate passes end to end:
 
 - local unit/type/lint checks
 - CI extension tests
@@ -8,7 +8,7 @@ CodeVibe releases are blocked until the Cursor-parity gate passes end to end:
 - VSIX packaging
 - VSIX install smoke test
 - standalone runtime assets and extracted-runtime smoke test
-- manual installed-VS-Code validation of Codex auth, native prompt files/chat skills, Plan/Act, diffs, terminal approvals, MCP, browser automation, background agents, and Cursor-compatible deeplinks
+- manual installed-VS-Code validation of Codie auth, native prompt files/chat skills, Plan/Act, diffs, terminal approvals, MCP, browser automation, background agents, and supported deeplinks
 
 Set `CODEVIBE_ALL_PARITY_VALIDATED=true` only after those checks pass, and provide `CODEVIBE_PARITY_EVIDENCE_URL` as an `https://` URL to the release checklist or validation log. Use `docs/cursor-parity-validation-checklist.md` as the checklist template. The evidence should include the VS Code version, VSIX version, VSIX install smoke output, packaged native prompt files/chat skills, standalone runtime assets (`standalone.zip`, `standalone.zip.sha256`, and `standalone-manifest.json`), extracted runtime smoke command/output proving `standalone.zip` launches from the extracted package using `standalone-manifest.json`, and manual installed-VS-Code parity results.
 
@@ -51,7 +51,7 @@ node apps/vscode/scripts/release-github-vsix.mjs \
   --repo atnumridha/codevibe \
   --tag vX.Y.Z-rc.N \
   --vsix apps/vscode/dist/codevibe-X.Y.Z.vsix \
-  --title "CodeVibe vX.Y.Z RC N" \
+  --title "Codie vX.Y.Z RC N" \
   --notes "Candidate VSIX for installed VS Code validation. Final parity evidence is pending." \
   --prerelease \
   --draft
@@ -68,9 +68,9 @@ GitHub Actions candidate release:
 5. Use `release_stage=candidate`, `prerelease=true`, and `draft=true` until the checklist evidence is complete.
 6. For the final release, set `release_stage=final`, `all_parity_validated=true`, and paste the `https://` checklist or validation-log URL into `parity_evidence_url`.
 
-## Marketplace Release
+## Extension Registry Publish
 
-Use `.github/workflows/ext-vscode-publish-stable.yml` only when both marketplace secrets exist:
+Use `.github/workflows/ext-vscode-publish-stable.yml` only when both extension publishing credentials exist:
 
 - `VSCE_PAT`
 - `OVSX_PAT`

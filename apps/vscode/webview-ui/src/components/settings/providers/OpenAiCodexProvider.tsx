@@ -19,7 +19,7 @@ interface OpenAiCodexProviderProps {
 }
 
 /**
- * OpenAI Codex (ChatGPT Plus/Pro) provider configuration component.
+ * Codie hosted provider configuration component.
  * Uses OAuth authentication instead of API keys.
  */
 export const OpenAiCodexProvider = ({ showModelOptions, isPopup, currentMode }: OpenAiCodexProviderProps) => {
@@ -36,7 +36,7 @@ export const OpenAiCodexProvider = ({ showModelOptions, isPopup, currentMode }: 
 		try {
 			await AccountServiceClient.openAiCodexSignIn({})
 		} catch (error) {
-			console.error("Failed to sign in to OpenAI Codex:", error)
+			console.error("Failed to sign in to Codie:", error)
 		}
 	}
 
@@ -44,7 +44,7 @@ export const OpenAiCodexProvider = ({ showModelOptions, isPopup, currentMode }: 
 		try {
 			await AccountServiceClient.openAiCodexSignOut({})
 		} catch (error) {
-			console.error("Failed to sign out of OpenAI Codex:", error)
+			console.error("Failed to sign out of Codie:", error)
 		}
 	}
 
@@ -53,7 +53,7 @@ export const OpenAiCodexProvider = ({ showModelOptions, isPopup, currentMode }: 
 			<div style={{ marginBottom: "15px" }}>
 				{openAiCodexIsAuthenticated ? (
 					<div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-						<span style={{ color: "var(--vscode-descriptionForeground)" }}>Signed in to OpenAI Codex</span>
+						<span style={{ color: "var(--vscode-descriptionForeground)" }}>Signed in to Codie</span>
 						<VSCodeButton appearance="secondary" onClick={handleSignOut}>
 							Sign Out
 						</VSCodeButton>
@@ -66,9 +66,9 @@ export const OpenAiCodexProvider = ({ showModelOptions, isPopup, currentMode }: 
 								color: "var(--vscode-descriptionForeground)",
 								marginBottom: "10px",
 							}}>
-							Sign in with your ChatGPT Plus or Pro subscription to use GPT-5 models without an API key.
+							Connect Codie to use hosted agent models. Other model sources remain available below.
 						</p>
-						<VSCodeButton onClick={handleSignIn}>Sign in to OpenAI Codex</VSCodeButton>
+						<VSCodeButton onClick={handleSignIn}>Sign in to Codie</VSCodeButton>
 					</div>
 				)}
 			</div>
@@ -89,9 +89,14 @@ export const OpenAiCodexProvider = ({ showModelOptions, isPopup, currentMode }: 
 					/>
 					{showReasoningEffort && <ReasoningEffortSelector currentMode={currentMode} />}
 
-					<ModelInfoView isPopup={isPopup} modelInfo={selectedModelInfo} selectedModelId={selectedModelId} />
-				</>
-			)}
+						<ModelInfoView
+							isPopup={isPopup}
+							modelInfo={selectedModelInfo}
+							sanitizeHostedModelCopy={true}
+							selectedModelId={selectedModelId}
+						/>
+					</>
+				)}
 		</div>
 	)
 }

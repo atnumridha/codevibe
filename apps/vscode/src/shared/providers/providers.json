@@ -2,11 +2,11 @@
 	"list": [
 		{
 			"value": "openai-codex",
-			"label": "CodeVibe Agent"
+			"label": "Codie Agent"
 		},
 		{
 			"value": "cline",
-			"label": "CodeVibe Cloud"
+			"label": "Codie Cloud"
 		},
 		{
 			"value": "gemini",

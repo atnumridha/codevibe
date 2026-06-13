@@ -62,7 +62,7 @@ export class NotebookDiffView {
 			"vscode.diff",
 			uri,
 			this.tempModifiedUri,
-			`${fileName}: Original ↔ CodeVibe's Changes (Notebook)`,
+			`${fileName}: Original ↔ Codie's Changes (Notebook)`,
 		)
 
 		// Brief delay to allow VS Code to render the notebook diff view

@@ -1,10 +1,10 @@
-# CodeVibe
+# Codie
 
-CodeVibe is a Codex-first coding agent for VS Code and standalone workflows. It uses the CodeVibe codebase as the product surface while keeping the shared upstream-compatible agent runtime easy to patch.
+Codie is a Codex-first coding agent for VS Code and standalone workflows. It uses the Codie codebase as the product surface while keeping the shared upstream-compatible agent runtime easy to patch.
 
 ## What It Does
 
-- Runs as a VS Code extension with a single CodeVibe editor panel.
+- Runs as a VS Code extension with a single Codie editor panel.
 - Defaults Plan and Act modes to OpenAI Codex.
 - Reads Codex auth from `~/.codex/auth.json`, `~/.codex/installation_id`, and `~/.codex/models_cache.json`.
 - Supports Plan/Act workflows, terminal approvals, multi-file diffs, checkpoints, rules, skills, hooks, MCP, browser automation, retrieval/indexing privacy gates, background agents, worktrees, and git helpers.
@@ -16,7 +16,7 @@ CodeVibe is a Codex-first coding agent for VS Code and standalone workflows. It 
 | Area | Purpose |
 | --- | --- |
 | `apps/vscode` | VS Code extension, webview UI, packaging, e2e tests, and VSIX release tooling. |
-| Standalone Hub | CodeVibe Hub web UI and server bridge. |
+| Standalone Hub | Codie Hub web UI and server bridge. |
 | `sdk/packages` | Shared agent runtime, LLM providers, tools, auth, MCP, browser, and automation support. |
 | `apps/cli` | CLI runtime built on the same shared agent core. |
 | `walkthrough` | VS Code walkthrough content shown to new extension users. |
@@ -41,7 +41,7 @@ This validates retrieval/indexing privacy, MCP install/OAuth behavior, standalon
 
 ## Patchability
 
-CodeVibe intentionally keeps upstream-compatible package and type boundaries inside the shared runtime. Visible product copy, icons, settings, and release artifacts are CodeVibe-branded; internal package names may remain stable so future upstream runtime changes can be merged without unnecessary churn.
+Codie intentionally keeps upstream-compatible package and type boundaries inside the shared runtime. Visible product copy, icons, settings, and release artifacts are Codie-branded; internal package names may remain stable so future upstream runtime changes can be merged without unnecessary churn.
 
 ## License
 

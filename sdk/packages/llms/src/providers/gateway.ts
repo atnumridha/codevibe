@@ -15,6 +15,7 @@ import type {
 import { estimateTokens } from "@cline/shared";
 import { toAsyncIterable } from "./async";
 import { BUILTIN_PROVIDER_REGISTRATIONS } from "./builtins-runtime";
+import { normalizeOpenAICodexRuntimeModelId } from "./openai-codex-models";
 import { GatewayRegistry } from "./registry";
 
 export type * from "@cline/shared";
@@ -258,9 +259,13 @@ export class DefaultGateway implements Gateway {
 	async stream(
 		request: GatewayStreamRequest,
 	): Promise<AsyncIterable<AgentModelEvent>> {
+		const requestModelId =
+			request.providerId === "openai-codex"
+				? normalizeOpenAICodexRuntimeModelId(request.modelId)
+				: request.modelId;
 		const resolved = this.registry.resolveModel({
 			providerId: request.providerId,
-			modelId: request.modelId || undefined,
+			modelId: requestModelId || undefined,
 		});
 		const providerRecord = await this.registry.createProvider(
 			request.providerId,

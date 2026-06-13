@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// Binary resolver for CodeVibe CLI.
+// Binary resolver for Codie CLI.
 //
 // This script runs with Node.js (available everywhere npm is) and finds the
 // correct platform-specific compiled binary to execute. The compiled binary
@@ -125,7 +125,7 @@ function findBinary(startDir) {
 const resolved = findBinary(scriptDir);
 if (!resolved) {
 	console.error(
-		"Could not find the CodeVibe CLI binary for your platform.\n" +
+		"Could not find the Codie CLI binary for your platform.\n" +
 			"Your platform: " +
 			os.platform() +
 			" " +

@@ -117,7 +117,7 @@ function ToolApprovalResponse(
 
 	return (
 		<Shell
-			title="CodeVibe needs permission"
+			title="Codie needs permission"
 			accent={props.accent}
 			inputBackground={props.inputBackground}
 			inputForeground={props.inputForeground}
@@ -257,7 +257,7 @@ function AskQuestionResponse(
 
 	return (
 		<Shell
-			title="CodeVibe is asking a question"
+			title="Codie is asking a question"
 			accent={props.accent}
 			inputBackground={props.inputBackground}
 			inputForeground={props.inputForeground}

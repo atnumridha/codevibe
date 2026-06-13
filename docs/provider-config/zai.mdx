@@ -1,9 +1,9 @@
 ---
 title: "Z AI (Zhipu AI)"
-description: "Learn how to configure and use Z AI's GLM models with CodeVibe. Experience advanced hybrid reasoning, agentic capabilities, and open-source excellence with regional optimization."
+description: "Configure Z AI model access in Codie."
 ---
 
-Z AI (formerly Zhipu AI) offers the GLM model series, featuring hybrid reasoning capabilities and agentic AI design. These models excel in unified reasoning, coding, and intelligent agent applications while maintaining open-source accessibility under MIT license.
+Codie can connect to Z AI GLM models through the Z AI API.
 
 **Website:** [https://z.ai/model-api](https://z.ai/model-api) (International) | [https://open.bigmodel.cn/](https://open.bigmodel.cn/) (China)
 
@@ -21,39 +21,35 @@ Z AI (formerly Zhipu AI) offers the GLM model series, featuring hybrid reasoning
 3.  **Create a Key:** Generate a new API key for your application.
 4.  **Copy the Key:** Copy the API key immediately and store it securely.
 
-**Note:** Pricing differs between International and China regions. China region pricing is approximately 50% lower.
+**Note:** Pricing and model availability can differ by region. Check the Z AI dashboard for current rates for your selected region.
 
-### Configuration in CodeVibe
+### Configuration in Codie
 
 > See [Authorization & Model Selection](/getting-started/authorization#menu).
 
-1.  **Open CodeVibe Settings:** Click the settings icon (⚙️) in the CodeVibe panel.
-2.  **Select Provider:** Choose "Z AI" from the "API Provider" dropdown.
+1.  **Open Codie Settings:** Click the settings icon (⚙️) in the Codie panel.
+2.  **Select Model Source:** Choose "Z AI" from the "Model Source" dropdown.
 3.  **Select Region:** Choose your region:
     -   "International" for global access
     -   "China" for mainland China access
 4.  **Enter API Key:** Paste your Z AI API key into the "Z AI API Key" field.
 5.  **Select Model:** Choose your desired model from the "Model" dropdown.
 
-### GLM Coding Plans
+### Account-Based GLM Access
 
-Z AI offers subscription plans specifically designed for coding applications. These plans provide cost-effective access to GLM series models through a prompt-based structure rather than traditional API usage billing.
+If your Z AI account requires account-based model access, create an API key for that account and configure it in Codie.
 
-#### Setting up GLM Coding Plans
+#### Configure Account-Based Access
 
-To use the GLM Coding Plans with CodeVibe:
+To use account-based GLM access with Codie:
 
-1. **Subscribe:** Go to [https://z.ai/subscribe](https://z.ai/subscribe) and choose your plan.
+1. **Confirm Access:** Confirm your Z AI account has the required GLM access enabled.
 
-2. **Create API Key:** After subscribing, log into your zAI dashboard and create an API key for your coding plan.
+2. **Create API Key:** Log into your Z AI dashboard and create an API key for that account.
 
-3. **Configure in CodeVibe:** Open CodeVibe settings, select "Z AI" as your provider, and paste your API key into the "Z AI API Key" field.
+3. **Configure in Codie:** Open Codie settings, select "Z AI" as your model source, and paste your API key into the "Z AI API Key" field.
 
-<Frame>
-  <img src="https://storage.googleapis.com/cline_public_images/docs/assets/zAI-provider.png" alt="CodeVibe settings with zAI provider selected and API key field highlighted" />
-</Frame>
-
-The setup connects your subscription directly to CodeVibe, giving you access to GLM-4.5's tool-calling capabilities optimized for coding workflows.
+Codie uses the configured key and region to connect to the GLM models available for that account.
 
 ### Regional Optimization
 

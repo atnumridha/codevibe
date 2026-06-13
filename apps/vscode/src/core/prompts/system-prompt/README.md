@@ -774,7 +774,7 @@ The system supports the following tools (mapped to `ClineDefaultTool` enum):
 
 ### Tool Structure and Anatomy
 
-Each tool in Cline follows a specific structure with variants for different model families. Here's the anatomy of a tool:
+Each tool in CodeVibe follows a specific structure with variants for different model families. Here's the anatomy of a tool:
 
 ```typescript
 // src/core/prompts/system-prompt/tools/my_new_tool.ts

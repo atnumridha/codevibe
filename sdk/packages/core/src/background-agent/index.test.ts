@@ -10,7 +10,7 @@ import {
 const baseRequest: CursorBackgroundAgentLaunchRequest = {
 	prompt: "Fix flaky tests",
 	routePrompt:
-		"A Cursor-compatible background agent deeplink was opened. Validate the request and ask for confirmation.",
+		"A Codie import-compatible background agent deeplink was opened. Validate the request and ask for confirmation.",
 	repository: "owner/repo",
 	requestedBranch: "main",
 };

@@ -39,6 +39,7 @@ import type {
 } from "@cline/shared";
 import { resolveGlobalSettingsPath } from "@cline/shared/storage";
 import { ensureCliHubServer } from "../utils/hub-runtime";
+import { DEFAULT_CLI_MODEL_ID } from "../utils/provider-auth";
 import type { CreateTaskWorktreeResult } from "../utils/worktree";
 import {
 	addServerRecord,
@@ -222,7 +223,7 @@ function writeCursorMcpImportReport(
 		options.io.writeln(JSON.stringify(report));
 	} else if (report.imported) {
 		options.io.writeln(
-			`Imported ${report.importedCount} Cursor MCP server(s) from .cursor/mcp.json.`,
+			`Imported ${report.importedCount} MCP server(s) from .cursor/mcp.json.`,
 		);
 		options.io.writeln(`Settings file: ${report.settingsPath}`);
 		if (report.replacedNames.length > 0) {
@@ -230,7 +231,7 @@ function writeCursorMcpImportReport(
 		}
 	} else {
 		options.io.writeln(
-			`Found ${report.serverNames.length} Cursor MCP server(s) in ${report.sourcePath}.`,
+			`Found ${report.serverNames.length} MCP server(s) in ${report.sourcePath}.`,
 		);
 		options.io.writeln(`Settings file: ${report.settingsPath}`);
 		options.io.writeln("Re-run with --yes to import these MCP servers.");
@@ -533,7 +534,7 @@ async function writeCursorPluginAddRoute(
 		} else {
 			options.io.writeln(request.detail);
 			options.io.writeln(
-				"Review this Cursor plugin deeplink before installing.",
+				"Review this import-compatible plugin deeplink before installing.",
 			);
 		}
 		return 0;
@@ -744,7 +745,7 @@ async function launchCursorBackgroundAgentTask(
 }> {
 	const sourceWorkspaceRoot = resolve(options.cwd ?? process.cwd());
 	const providerId = options.providerId?.trim() || "openai-codex";
-	const modelId = options.modelId?.trim() || "gpt-5.5";
+	const modelId = options.modelId?.trim() || DEFAULT_CLI_MODEL_ID;
 	const ensureHub = options.ensureBackgroundAgentHub ?? ensureCliHubServer;
 	const createClient =
 		options.createBackgroundAgentSessionClient ??
@@ -753,7 +754,7 @@ async function launchCursorBackgroundAgentTask(
 				address: clientOptions.address,
 				authToken: clientOptions.authToken,
 				clientType: "cli-cursor-background-agent",
-				displayName: "CodeVibe CLI (compatible background agent)",
+				displayName: "Codie CLI (import-compatible background agent)",
 				workspaceRoot: clientOptions.workspaceRoot,
 				cwd: clientOptions.cwd,
 			}));
@@ -874,8 +875,8 @@ function writeAgentTaskRoutePreview(
 
 	options.io.writeln(
 		resolved.commandFile
-			? `Cursor command file "${resolved.commandFile.relativePath}" requires an agent task.`
-			: `Cursor ${request.kind} deeplink requires an agent task.`,
+			? `Import-compatible command file "${resolved.commandFile.relativePath}" requires an agent task.`
+			: `Import-compatible ${request.kind} deeplink requires an agent task.`,
 	);
 	options.io.writeln("");
 	options.io.writeln(resolved.taskPrompt);
@@ -936,7 +937,7 @@ async function launchCursorAgentTask(
 			);
 		} else {
 			options.io.writeln(
-				`Started Cursor ${resolved.route} agent session ${launched.record.taskId}`,
+				`Started import-compatible ${resolved.route} agent session ${launched.record.taskId}`,
 			);
 			options.io.writeln(`Workspace: ${launched.workspaceRoot}`);
 			if (launched.record.worktreePath) {
@@ -954,7 +955,7 @@ async function launchCursorAgentTask(
 	const glass = buildCursorGlassRouteMetadata(request);
 	const taskPrompt = resolved.taskPrompt;
 	const providerId = options.providerId?.trim() || "openai-codex";
-	const modelId = options.modelId?.trim() || "gpt-5.5";
+	const modelId = options.modelId?.trim() || DEFAULT_CLI_MODEL_ID;
 	const ensureHub = options.ensureBackgroundAgentHub ?? ensureCliHubServer;
 	const hub = await ensureHub(workspaceRoot);
 	const createClient =
@@ -964,7 +965,7 @@ async function launchCursorAgentTask(
 				address: clientOptions.address,
 				authToken: clientOptions.authToken,
 				clientType: "cli-cursor-agent-task",
-				displayName: "CodeVibe CLI (Cursor agent task)",
+				displayName: "Codie CLI (import-compatible agent task)",
 				workspaceRoot: clientOptions.workspaceRoot,
 				cwd: clientOptions.cwd,
 			}));
@@ -1025,7 +1026,7 @@ async function launchCursorAgentTask(
 			);
 		} else {
 			options.io.writeln(
-				`Started Cursor ${resolved.route} agent session ${started.sessionId}`,
+				`Started import-compatible ${resolved.route} agent session ${started.sessionId}`,
 			);
 			options.io.writeln(`Workspace: ${workspaceRoot}`);
 		}
@@ -1246,12 +1247,12 @@ export async function runCursorUriCommand(
 		return await launchCursorAgentTask(options);
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
-		if (!message.startsWith("Unsupported Cursor agent task route:")) {
+		if (!message.startsWith("Unsupported import-compatible agent task route:")) {
 			return writeUriError(options, message);
 		}
 	}
 
-	const message = `Unsupported Cursor URI route for CLI: ${path}`;
+	const message = `Unsupported import-compatible URI route for CLI: ${path}`;
 	if (options.json) {
 		options.io.writeln(JSON.stringify({ handled: false, error: message }));
 		return 1;

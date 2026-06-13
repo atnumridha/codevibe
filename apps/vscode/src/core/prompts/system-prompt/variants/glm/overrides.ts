@@ -20,12 +20,13 @@ You have access to a set of tools. One tool may be used per message, results wil
 ## TOOLS
 
 **execute_command** — Run terminal commands in {{CWD}} or other directories.  
-Params: command, requires_approval. "requires_approval" should be true if the command is dangerous, otherwise false.
+Params: command, requires_approval, sandbox_permissions (optional), require_escalated (optional), prefix_rule (optional). "requires_approval" should be true if the command is dangerous, otherwise false. Use sandbox_permissions=require_escalated only when the command must bypass Codie sandbox preflight or sandbox-derived command restrictions; it always requires explicit user approval and does not request OS admin privileges.
 Key: If output doesn't stream, assume success unless critical; else ask user to paste via ask_followup_question.  
 *Example:*
 <execute_command>
 <command>npm run build</command>
 <requires_approval>false</requires_approval>
+<sandbox_permissions>use_default</sandbox_permissions>
 </execute_command>
 
 **read_file** — Read file.

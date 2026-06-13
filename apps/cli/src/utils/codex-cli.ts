@@ -4,7 +4,8 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 export const OPENAI_CODEX_CLI_PROVIDER_ID = "openai-codex-cli";
-export const CODEX_CLI_INSTALL_URL = "https://developers.openai.com/codex/cli";
+export const CODEX_CLI_INSTALL_URL =
+	"https://github.com/atnumridha/vibecode/blob/main/GPT_API.md";
 
 export type CodexCliStatus =
 	| {
@@ -40,13 +41,14 @@ export async function checkCodexCliInstalled(): Promise<CodexCliStatus> {
 		if (code === "ENOENT") {
 			return {
 				installed: false,
-				reason: "The codex executable was not found on PATH.",
+				reason:
+					"Local Codie auth is not available on PATH. Sign in with Codie or configure local auth files.",
 			};
 		}
 		const message =
 			typeof details?.message === "string"
 				? details.message
-				: "Could not run codex --version.";
+				: "Could not verify local Codie auth.";
 		return {
 			installed: false,
 			reason: message,

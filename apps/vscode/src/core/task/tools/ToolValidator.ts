@@ -57,7 +57,7 @@ export class ToolValidator {
 		if (allowedPaths.length === 0 || !isPathAllowedByCursorSandbox(input.absolutePath, allowedPaths)) {
 			return {
 				ok: false,
-				error: `Access to path '${displayPath}' is outside Cursor sandbox ${input.accessKind} paths from .cursor/sandbox.json.`,
+				error: `Access to path '${displayPath}' is outside Codie sandbox ${input.accessKind} paths from the active sandbox config.`,
 			}
 		}
 
@@ -82,7 +82,7 @@ export class ToolValidator {
 			return {
 				ok: false,
 				error:
-					"Web search is blocked by .cursor/sandbox.json networkPolicy. Provide allowed_domains constrained to networkPolicy.allow, or allow '*' explicitly.",
+					"Web search is blocked by the active Codie sandbox networkPolicy. Provide allowed_domains constrained to networkPolicy.allow, or allow '*' explicitly.",
 			}
 		}
 
@@ -91,14 +91,14 @@ export class ToolValidator {
 			if (!normalizedDomain) {
 				return {
 					ok: false,
-					error: `Web search domain ${domain} is blocked by .cursor/sandbox.json networkPolicy.`,
+					error: `Web search domain ${domain} is blocked by the active Codie sandbox networkPolicy.`,
 				}
 			}
 			const allowed = policy.networkPolicy.allow.some((entry) => doesNetworkAllowEntryMatch(entry, normalizedDomain))
 			if (!allowed) {
 				return {
 					ok: false,
-					error: `Web search domain ${domain} is blocked by .cursor/sandbox.json networkPolicy.`,
+					error: `Web search domain ${domain} is blocked by the active Codie sandbox networkPolicy.`,
 				}
 			}
 		}
@@ -126,7 +126,7 @@ export function validateCursorSandboxUrl(
 	if (!allowed) {
 		return {
 			ok: false,
-			error: `Network access to ${parsedUrl.hostname} is blocked by .cursor/sandbox.json networkPolicy.`,
+			error: `Network access to ${parsedUrl.hostname} is blocked by the active Codie sandbox networkPolicy.`,
 		}
 	}
 

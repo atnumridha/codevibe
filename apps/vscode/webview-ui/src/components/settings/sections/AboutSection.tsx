@@ -11,16 +11,16 @@ const AboutSection = ({ version, renderSectionHeader }: AboutSectionProps) => {
 			{renderSectionHeader("about")}
 			<Section>
 				<div className="flex px-4 flex-col gap-2">
-					<h2 className="text-lg font-semibold">CodeVibe v{version}</h2>
+					<h2 className="text-lg font-semibold">Codie v{version}</h2>
 					<p>
-						An AI assistant that can use your CLI and editor. CodeVibe can handle complex software development tasks
+						An AI assistant that can use your CLI and editor. Codie can handle complex software development tasks
 						step-by-step with tools that let it create and edit files, explore large projects, use the browser, and
 						execute terminal commands (after you grant permission).
 					</p>
 
 					<h3 className="text-md font-semibold">Community & Support</h3>
 					<p>
-						<VSCodeLink href="https://github.com/atnumridha/codevibe">GitHub</VSCodeLink>
+						<VSCodeLink href="https://github.com/atnumridha/codevibe">Repository</VSCodeLink>
 						{" • "}
 						<VSCodeLink href="https://github.com/atnumridha/codevibe/issues">Issues</VSCodeLink>
 					</p>
@@ -36,7 +36,7 @@ const AboutSection = ({ version, renderSectionHeader }: AboutSectionProps) => {
 					<p>
 						<VSCodeLink href="https://github.com/atnumridha/codevibe#readme">Documentation</VSCodeLink>
 						{" • "}
-						<VSCodeLink href="https://github.com/atnumridha/codevibe">CodeVibe repository</VSCodeLink>
+						<VSCodeLink href="https://github.com/atnumridha/codevibe">Source repository</VSCodeLink>
 					</p>
 				</div>
 			</Section>

@@ -4,7 +4,7 @@ import { Logger } from "@/shared/services/Logger"
 import { Controller } from ".."
 
 /**
- * Signs out of OpenAI Codex by clearing stored credentials
+ * Signs out of Codie by clearing stored credentials.
  */
 export async function openAiCodexSignOut(controller: Controller, _: EmptyRequest): Promise<Empty> {
 	try {

@@ -8,7 +8,7 @@ Tools are functions the model can call during execution. Tools consist of a name
 
 ## Built-In Tools
 
-`ClineCore` can enable the built-in tool suite:
+CodieCore can enable the built-in tool suite:
 
 | Tool | Description |
 |------|-------------|
@@ -78,10 +78,10 @@ For a full tutorial, see [Creating Custom Tools](/sdk/guides/creating-custom-too
 
 ## Registering Tools
 
-With `ClineCore`, custom tools are passed as `extraTools` in session config:
+With CodieCore, custom tools are passed as `extraTools` in session config:
 
 ```typescript
-await cline.start({
+await codie.start({
   prompt: "Analyze customer records",
   config: {
     // ...
@@ -138,4 +138,4 @@ Tool names not listed in `toolPolicies` default to enabled and auto-approved.
 
 ## MCP Tools
 
-Tools work along side MCP. `ClineCore` can load MCP settings through its runtime/config extension path. MCP tools are registered alongside built-in and custom tools when MCP support is enabled for the session.
+Tools work alongside MCP. CodieCore can load MCP settings through its runtime/config extension path. MCP tools are registered alongside built-in and custom tools when MCP support is enabled for the session.

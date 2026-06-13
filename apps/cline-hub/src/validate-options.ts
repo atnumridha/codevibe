@@ -54,4 +54,4 @@ expectThrows(
 	"invalid PUBLIC_URL protocol",
 );
 
-console.log("CodeVibe Hub option validation passed");
+console.log("Codie Agent Hub option validation passed");

@@ -200,7 +200,7 @@ describe("ListCodeDefinitionNamesToolHandler.execute – error recovery", () => 
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
-	it("blocks a disallowed Cursor sandbox directory before tree-sitter parsing", async () => {
+	it("blocks a disallowed Codie sandbox directory before tree-sitter parsing", async () => {
 		const { config, taskState, validator } = createConfig()
 		config.cursorSandboxPolicy = makeCursorSandboxPolicy([tmpDir])
 		const handler = new ListCodeDefinitionNamesToolHandler(validator)
@@ -209,7 +209,7 @@ describe("ListCodeDefinitionNamesToolHandler.execute – error recovery", () => 
 		const result = await handler.execute(config, makeBlock(outsidePath))
 
 		assert.equal(typeof result, "string")
-		assert.ok((result as string).includes("Cursor sandbox"))
+		assert.ok((result as string).includes("Codie sandbox"))
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
@@ -349,7 +349,7 @@ describe("ListFilesToolHandler.execute – error recovery", () => {
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
-	it("blocks a disallowed Cursor sandbox directory before listing files", async () => {
+	it("blocks a disallowed Codie sandbox directory before listing files", async () => {
 		const { config, taskState, validator } = createConfig()
 		config.cursorSandboxPolicy = makeCursorSandboxPolicy([tmpDir])
 		const handler = new ListFilesToolHandler(validator)
@@ -358,7 +358,7 @@ describe("ListFilesToolHandler.execute – error recovery", () => {
 		const result = await handler.execute(config, makeBlock(outsidePath))
 
 		assert.equal(typeof result, "string")
-		assert.ok((result as string).includes("Cursor sandbox"))
+		assert.ok((result as string).includes("Codie sandbox"))
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
@@ -526,7 +526,7 @@ describe("ListFilesToolHandler.execute – error recovery", () => {
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
-	it("reports workspace ignore denials with the CodeVibe-native message type", async () => {
+	it("reports workspace ignore denials with the Codie-native message type", async () => {
 		const { config, callbacks } = createConfig()
 		config.isSubagentExecution = false
 		const blockingValidator = new ToolValidator({ validateAccess: () => false } as any)
@@ -610,7 +610,7 @@ describe("SearchFilesToolHandler.execute – error recovery", () => {
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 
-	it("blocks a disallowed Cursor sandbox search root before ripgrep", async () => {
+	it("blocks a disallowed Codie sandbox search root before ripgrep", async () => {
 		const { config, taskState, validator } = createConfig()
 		config.cursorSandboxPolicy = makeCursorSandboxPolicy([tmpDir])
 		const handler = new SearchFilesToolHandler(validator)
@@ -619,7 +619,7 @@ describe("SearchFilesToolHandler.execute – error recovery", () => {
 		const result = await handler.execute(config, makeBlock(outsidePath, "pattern"))
 
 		assert.equal(typeof result, "string")
-		assert.ok((result as string).includes("Cursor sandbox"))
+		assert.ok((result as string).includes("Codie sandbox"))
 		assert.equal(taskState.consecutiveMistakeCount, 1)
 	})
 

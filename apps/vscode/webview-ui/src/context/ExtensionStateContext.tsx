@@ -93,6 +93,7 @@ export interface ExtensionStateContextType extends ExtensionState {
 	refreshVercelAiGatewayModels: () => void
 	refreshHicapModels: () => void
 	refreshLiteLlmModels: () => Promise<void>
+	refreshLatestState: () => Promise<boolean>
 	setUserInfo: (userInfo?: UserInfo) => void
 
 	// Navigation state setters
@@ -307,7 +308,7 @@ export const ExtensionStateContextProvider: React.FC<{
 			},
 			safeBrowserEvaluateEnabled: false,
 			effectiveBrowserEvaluateEnabled: false,
-			openAiCodexAuthSource: "codexHome",
+			openAiCodexAuthSource: "auto",
 			openAiCodexAuthenticated: false,
 		},
 	})
@@ -370,53 +371,84 @@ export const ExtensionStateContextProvider: React.FC<{
 	}, [])
 	const mcpServersSubscriptionRef = useRef<(() => void) | null>(null)
 
+	const applyStateJson = useCallback((stateJson?: string): boolean => {
+		if (!stateJson) {
+			return false
+		}
+
+		try {
+			const stateData = JSON.parse(stateJson) as ExtensionState
+			const openAiCodexIsAuthenticated = Boolean(
+				stateData.openAiCodexIsAuthenticated || stateData.compatibilityStatus?.openAiCodexAuthenticated,
+			)
+			const normalizedStateData: ExtensionState = {
+				...stateData,
+				openAiCodexIsAuthenticated,
+				welcomeViewCompleted: stateData.welcomeViewCompleted || openAiCodexIsAuthenticated,
+				compatibilityStatus: stateData.compatibilityStatus
+					? {
+							...stateData.compatibilityStatus,
+							openAiCodexAuthenticated: openAiCodexIsAuthenticated,
+						}
+					: stateData.compatibilityStatus,
+			}
+			const hasCompletedWelcome = Boolean(normalizedStateData.welcomeViewCompleted)
+
+			setState((prevState) => {
+				// Versioning logic for autoApprovalSettings
+				const incomingVersion = normalizedStateData.autoApprovalSettings?.version ?? 1
+				const currentVersion = prevState.autoApprovalSettings?.version ?? 1
+				const shouldUpdateAutoApproval = incomingVersion > currentVersion
+				// Preserve clineMessages while the same active task streams updates.
+				// Treat "no task" as a distinct empty state so cleared panels do not
+				// keep stale messages from the previous task.
+				const stateToApply = { ...normalizedStateData }
+				if (stateToApply.currentTaskItem?.id && stateToApply.currentTaskItem.id === prevState.currentTaskItem?.id) {
+					stateToApply.clineMessages = stateToApply.clineMessages?.length
+						? stateToApply.clineMessages
+						: prevState.clineMessages
+				}
+
+				const newState = {
+					...stateToApply,
+					autoApprovalSettings: shouldUpdateAutoApproval
+						? stateToApply.autoApprovalSettings
+						: prevState.autoApprovalSettings,
+				}
+
+				// Update welcome screen state based on API configuration if welcome view not in progress
+				if (!newState.welcomeViewCompleted) {
+					setShowWelcome(true)
+					setOnboardingModels(newState.onboardingModels)
+				} else {
+					setShowWelcome(false)
+					setOnboardingModels(undefined)
+				}
+
+				setDidHydrateState(true)
+
+				return newState
+			})
+
+			return hasCompletedWelcome
+		} catch (error) {
+			console.error("Error parsing state JSON:", error)
+			console.log("[DEBUG] ERR getting state", error)
+			return false
+		}
+	}, [])
+
+	const refreshLatestState = useCallback(async () => {
+		const latestState = await StateServiceClient.getLatestState(EmptyRequest.create({}))
+		return applyStateJson(latestState.stateJson)
+	}, [applyStateJson])
+
 	// Subscribe to state updates and UI events using the gRPC streaming API
 	useEffect(() => {
 		// Set up state subscription
 		stateSubscriptionRef.current = StateServiceClient.subscribeToState(EmptyRequest.create({}), {
 			onResponse: (response) => {
-				if (response.stateJson) {
-					try {
-						const stateData = JSON.parse(response.stateJson) as ExtensionState
-						setState((prevState) => {
-							// Versioning logic for autoApprovalSettings
-							const incomingVersion = stateData.autoApprovalSettings?.version ?? 1
-							const currentVersion = prevState.autoApprovalSettings?.version ?? 1
-							const shouldUpdateAutoApproval = incomingVersion > currentVersion
-							// Preserve clineMessages while the same active task streams updates.
-							// Treat "no task" as a distinct empty state so cleared panels do not
-							// keep stale messages from the previous task.
-							if (stateData.currentTaskItem?.id && stateData.currentTaskItem.id === prevState.currentTaskItem?.id) {
-								stateData.clineMessages = stateData.clineMessages?.length
-									? stateData.clineMessages
-									: prevState.clineMessages
-							}
-
-							const newState = {
-								...stateData,
-								autoApprovalSettings: shouldUpdateAutoApproval
-									? stateData.autoApprovalSettings
-									: prevState.autoApprovalSettings,
-							}
-
-							// Update welcome screen state based on API configuration if welcome view not in progress
-							if (!newState.welcomeViewCompleted && !showWelcome) {
-								setShowWelcome(true)
-								setOnboardingModels(newState.onboardingModels)
-							} else if (newState.welcomeViewCompleted) {
-								setShowWelcome(false)
-								setOnboardingModels(undefined)
-							}
-
-							setDidHydrateState(true)
-
-							return newState
-						})
-					} catch (error) {
-						console.error("Error parsing state JSON:", error)
-						console.log("[DEBUG] ERR getting state", error)
-					}
-				}
+				applyStateJson(response.stateJson)
 				console.log('[DEBUG] ended "got subscribed state"')
 			},
 			onError: (error) => {
@@ -786,17 +818,17 @@ export const ExtensionStateContextProvider: React.FC<{
 		refreshLiteLlmModels,
 	])
 
-	// Refresh CodeVibe models function
+	// Refresh Codie models function
 	const refreshClineModels = useCallback(() => {
 		ModelsServiceClient.refreshClineModelsRpc(EmptyRequest.create({}))
 			.then((response: OpenRouterCompatibleModelInfo) => {
 				const models = fromProtobufModels(response.models)
 				setClineModels((prev) => (Object.keys(models).length > 0 ? models : (prev ?? null)))
 			})
-			.catch((error: Error) => console.error("Failed to refresh CodeVibe models:", error))
+			.catch((error: Error) => console.error("Failed to refresh Codie models:", error))
 	}, [])
 
-	// Auto-refresh CodeVibe models when provider is cline
+	// Auto-refresh Codie models when provider is cline
 	useEffect(() => {
 		const hasClineProvider =
 			state.apiConfiguration?.actModeApiProvider === "cline" || state.apiConfiguration?.planModeApiProvider === "cline"
@@ -938,6 +970,7 @@ export const ExtensionStateContextProvider: React.FC<{
 		refreshVercelAiGatewayModels,
 		refreshHicapModels,
 		refreshLiteLlmModels,
+		refreshLatestState,
 		onRelinquishControl,
 		setUserInfo: (userInfo?: UserInfo) => setState((prevState) => ({ ...prevState, userInfo })),
 		expandTaskHeader,

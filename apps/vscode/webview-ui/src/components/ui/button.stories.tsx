@@ -8,7 +8,7 @@ const meta: Meta<typeof Button> = {
 	parameters: {
 		docs: {
 			description: {
-				component: "Showcases CodeVibe button variants, sizes, and icon composition for webview controls.",
+				component: "Showcases Codie button variants, sizes, and icon composition for webview controls.",
 			},
 		},
 	},

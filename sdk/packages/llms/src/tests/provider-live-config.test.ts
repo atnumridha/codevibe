@@ -21,7 +21,7 @@ describe("toLiveProviderConfig", () => {
 				apiKeyEnv: "LIVE_PROVIDER_API_KEY",
 				baseUrlEnv: "LIVE_PROVIDER_BASE_URL",
 				headers: {
-					originator: "cline-live-test",
+					originator: "codie-live-test",
 				},
 				headersEnv: {
 					"ChatGPT-Account-Id": "LIVE_PROVIDER_ACCOUNT_ID",
@@ -36,7 +36,7 @@ describe("toLiveProviderConfig", () => {
 			apiKey: "oauth-token",
 			baseUrl: "https://example.test/v1",
 			headers: {
-				originator: "cline-live-test",
+				originator: "codie-live-test",
 				"ChatGPT-Account-Id": "acct-123",
 			},
 			reasoningEffort: "high",
@@ -82,7 +82,7 @@ describe("toLiveProviderConfig", () => {
 				provider: "openai-codex",
 				model: "gpt-5.4",
 				headers: {
-					originator: "cline-live-test",
+					originator: "codie-live-test",
 				},
 			}),
 		).toMatchObject({
@@ -90,7 +90,7 @@ describe("toLiveProviderConfig", () => {
 			modelId: "gpt-5.4",
 			apiKey: "saved-access-token",
 			headers: {
-				originator: "cline-live-test",
+				originator: "codie-live-test",
 				"ChatGPT-Account-Id": "saved-account-id",
 			},
 		});

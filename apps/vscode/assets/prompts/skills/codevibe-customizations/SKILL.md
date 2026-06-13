@@ -1,9 +1,9 @@
 ---
 name: codevibe-customizations
-description: Use when creating, reviewing, or fixing CodeVibe instructions, prompt files, agent files, hooks, rules, or skills.
+description: Use when creating, reviewing, or fixing Codie instructions, prompt files, agent files, hooks, rules, or skills.
 ---
 
-# CodeVibe Customizations
+# Codie Customizations
 
 Use this skill when the task involves customization files for the coding agent.
 
@@ -17,7 +17,7 @@ Use this skill when the task involves customization files for the coding agent.
 - `.agents/skills/*/SKILL.md`
 - `.cursor/rules/*`
 - `.cursorrules`
-- CodeVibe compatibility rules and workflow files
+- Codie compatibility rules and workflow files
 
 ## Workflow
 

@@ -57,7 +57,7 @@ import { readModelSelectionStorageFromWindow } from "@/lib/model-selection";
 import {
 	getProviderDisplayLabel,
 	isCopilotProviderId,
-	prioritizeCodeVibeProviderIds,
+	prioritizeCodieProviderIds,
 } from "@/lib/provider-display";
 import { normalizeProviderId } from "@/lib/provider-id";
 import {
@@ -65,9 +65,13 @@ import {
 	loadProviderModels,
 } from "@/lib/provider-model-catalog";
 import { cn } from "@/lib/utils";
+import {
+	DEFAULT_HUB_MODEL_ID,
+	DEFAULT_HUB_PROVIDER_ID,
+} from "../../../../../webview-protocol";
 
-const DEFAULT_ROUTINE_PROVIDER_ID = "openai-codex";
-const DEFAULT_ROUTINE_MODEL_ID = "gpt-5.5";
+const DEFAULT_ROUTINE_PROVIDER_ID = DEFAULT_HUB_PROVIDER_ID;
+const DEFAULT_ROUTINE_MODEL_ID = DEFAULT_HUB_MODEL_ID;
 
 type DateTimeValue = number | string;
 
@@ -371,7 +375,7 @@ export function RoutineSchedulesContent() {
 		Record<string, string[]>
 	>(FALLBACK_PROVIDER_MODELS);
 	const [enabledProviderIds, setEnabledProviderIds] = useState<string[]>(() =>
-		prioritizeCodeVibeProviderIds(Object.keys(FALLBACK_PROVIDER_MODELS)),
+		prioritizeCodieProviderIds(Object.keys(FALLBACK_PROVIDER_MODELS)),
 	);
 	const [lastModelSelection] = useState(() =>
 		readModelSelectionStorageFromWindow(),
@@ -413,7 +417,7 @@ export function RoutineSchedulesContent() {
 	}, [enabledProviderIds, providerModels]);
 
 	const availableProviders = useMemo(
-		() => prioritizeCodeVibeProviderIds(Object.keys(visibleProviderModels)),
+		() => prioritizeCodieProviderIds(Object.keys(visibleProviderModels)),
 		[visibleProviderModels],
 	);
 
@@ -459,7 +463,7 @@ export function RoutineSchedulesContent() {
 							nextProviderIds.add(providerId);
 						}
 					}
-					return prioritizeCodeVibeProviderIds(Array.from(nextProviderIds));
+					return prioritizeCodieProviderIds(Array.from(nextProviderIds));
 				});
 			} catch {
 				// Keep fallback values if provider catalog is unavailable.
@@ -496,7 +500,7 @@ export function RoutineSchedulesContent() {
 				setEnabledProviderIds((current) =>
 					current.includes(normalizedProvider)
 						? current
-						: prioritizeCodeVibeProviderIds([...current, normalizedProvider]),
+						: prioritizeCodieProviderIds([...current, normalizedProvider]),
 				);
 			} catch {
 				// Keep existing values when provider-specific model loading fails.
@@ -891,7 +895,7 @@ export function RoutineSchedulesContent() {
 							Schedules
 						</h2>
 						<span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted-foreground">
-							CodeVibe schedules
+							Codie schedules
 						</span>
 					</div>
 					<div className="flex items-center gap-2">

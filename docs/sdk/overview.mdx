@@ -1,12 +1,12 @@
 ---
-title: "CodeVibe SDK"
+title: "Codie SDK"
 sidebarTitle: "Overview"
-description: "TypeScript packages for embedding CodeVibe's agent runtime in your own applications."
+description: "TypeScript packages for embedding Codie's agent runtime in your own applications."
 ---
 
-The CodeVibe SDK is an open source framework for building agentic applications, and is the same harness used in the CodeVibe IDE extensions and CLI. It uses a plugin architecture that makes it easy to customize and comes with all the features you expect from agents like checkpoints, web fetch, MCPs, cron jobs, subagents, and more.
+The Codie SDK is an open source framework for building agentic applications, and is the same harness used in the Codie IDE extensions and CLI. It uses a plugin architecture that makes it easy to customize and comes with all the features you expect from agents like checkpoints, web fetch, MCPs, cron jobs, subagents, and more.
 
-Use the CodeVibe SDK to run agents from CI/CD pipelines, create automations for end-to-end workflows, or embed agents directly inside your products.
+Use the Codie SDK to run agents from CI/CD pipelines, create automations for end-to-end workflows, or embed agents directly inside your products.
 
 ## Install
 
@@ -14,13 +14,13 @@ Use the CodeVibe SDK to run agents from CI/CD pipelines, create automations for 
 npm install @cline/sdk
 ```
 
-`@cline/sdk` exports all SDK packages: `@cline/core` for the full agent harness, `@cline/agents` for the stateless agent loop, `@cline/llms` for control over the model gateway, and `@cline/shared` for common utilities.
+The published packages currently use the stable compatibility scope `@cline/*`. `@cline/sdk` exports `CodieCore` from `@cline/core` for the full runtime harness, `Agent` from `@cline/agents` for the stateless agent loop, `@cline/llms` for control over the model gateway, and `@cline/shared` for common utilities. `ClineCore` and `@cline/*` remain supported compatibility names. Do not use `@codie/*` package names unless those aliases are explicitly published.
 
 Requires Node.js 22 or later.
 
 ## SDK Skill
 
-If you use a coding agent (Claude Code, Codex, CodeVibe, etc.), use the bundled CodeVibe SDK skill in this repository to give your agent context on the SDK's APIs and best practices.
+If you use a coding agent (Claude Code, Codex, Codie, etc.), use the bundled Codie SDK skill in this repository to give your agent context on the SDK's APIs and best practices.
 
 ```bash
 npx skills add atnumridha/codevibe/.agents/skills/cline-sdk
@@ -74,7 +74,7 @@ See [Packages](/sdk/architecture/overview) for package boundaries and exports.
     Browse complete, runnable SDK examples.
   </Card>
   <Card title="Plugins" icon="diagram-project" href="/sdk/plugins">
-    Extend CodeVibe's functionality.
+    Extend Codie's functionality.
   </Card>
   <Card title="Tools" icon="wrench" href="/sdk/tools">
     Add actions the model can call.

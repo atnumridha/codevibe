@@ -20,23 +20,23 @@ interface CursorCompatibilitySectionProps {
 const EXAMPLES = [
 	{
 		label: "Chat",
-		uri: "codevibe://createchat?prompt=Review%20the%20current%20diff",
+		uri: "codie://createchat?prompt=Review%20the%20current%20diff",
 	},
 	{
 		label: "MCP",
-		uri: "codevibe://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
+		uri: "codie://mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com",
 	},
 	{
 		label: "Background",
-		uri: "codevibe://background-agent?prompt=Investigate%20flaky%20tests&repo=owner%2Frepo",
+		uri: "codie://background-agent?prompt=Investigate%20flaky%20tests&repo=owner%2Frepo",
 	},
 	{
 		label: "Plugin",
-		uri: "codevibe://plugin/add?id=docs-helper&replace=true",
+		uri: "codie://plugin/add?id=docs-helper&replace=true",
 	},
 	{
 		label: "Git",
-		uri: "codevibe://git/checkout?branch=feature%2Fdemo",
+		uri: "codie://git/checkout?branch=feature%2Fdemo",
 	},
 ] as const
 
@@ -126,7 +126,7 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 		},
 		safeBrowserEvaluateEnabled: false,
 		effectiveBrowserEvaluateEnabled: !!browserSettings.allowBrowserEvaluate,
-		openAiCodexAuthSource: "codexHome" as const,
+		openAiCodexAuthSource: "auto" as const,
 		openAiCodexAuthenticated: !!openAiCodexIsAuthenticated,
 	}
 
@@ -178,7 +178,7 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 	const launchUri = useCallback(async () => {
 		const trimmedUri = uri.trim()
 		if (!trimmedUri) {
-			setStatus({ kind: "error", message: "Enter a CodeVibe or compatible URI." })
+			setStatus({ kind: "error", message: "Enter a Codie or import-compatible URI." })
 			return
 		}
 
@@ -222,8 +222,8 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 				</div>
 				<div className="grid grid-cols-2 gap-2">
 					{renderStatusTile(
-						"Codex auth",
-						`${dashboard.openAiCodexAuthSource} provider source`,
+								"Local sign-in import",
+							`${dashboard.openAiCodexAuthSource} credential source`,
 						{
 							label: dashboard.openAiCodexAuthenticated || openAiCodexIsAuthenticated ? "Ready" : "Needs sign-in",
 							variant: dashboard.openAiCodexAuthenticated || openAiCodexIsAuthenticated ? "success" : "warning",
@@ -231,12 +231,12 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 					)}
 					{renderStatusTile(
 						"Deep links",
-						"Validated Cursor-style route families",
+						"Validated import-compatible route families",
 						yesNoBadge(dashboard.deepLinksEnabled),
 					)}
 					{renderStatusTile(
 						"Retrieval privacy",
-						".cursorignore and .cursorindexingignore gate search/indexing",
+						"Import ignore rules gate search/indexing",
 						yesNoBadge(dashboard.retrievalIndexingPrivacyGate),
 					)}
 					{renderStatusTile(
@@ -365,7 +365,7 @@ const CursorCompatibilitySection = ({ renderSectionHeader }: CursorCompatibility
 								setUri((event.target as HTMLTextAreaElement).value)
 								setStatus(null)
 							}}
-							placeholder="codevibe://createchat?prompt=..."
+							placeholder="codie://createchat?prompt=..."
 							rows={4}
 							value={uri}
 						/>

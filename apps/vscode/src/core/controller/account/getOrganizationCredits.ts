@@ -25,7 +25,7 @@ export async function getOrganizationCredits(
 
 		// If balance call fails (returns undefined), throw an error
 		if (!balanceData) {
-			throw new Error("Failed to fetch organization credits data")
+			throw new Error("Failed to fetch organization usage data")
 		}
 
 		return OrganizationCreditsData.create({
@@ -51,7 +51,7 @@ export async function getOrganizationCredits(
 				) || [],
 		})
 	} catch (error) {
-		Logger.error(`Failed to fetch organization credits data: ${error}`)
+		Logger.error(`Failed to fetch organization usage data: ${error}`)
 		throw error
 	}
 }

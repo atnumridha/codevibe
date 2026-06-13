@@ -411,14 +411,14 @@ const OpenRouterModelPicker: React.FC<OpenRouterModelPickerProps> = ({ isPopup, 
 					<VSCodeLink href="https://openrouter.ai/models" style={{ display: "inline", fontSize: "inherit" }}>
 						OpenRouter.
 					</VSCodeLink>
-					If you're unsure which model to choose, start with your Codex default or a high-capability coding model with
-					tool use and strong reasoning. A popular fallback on OpenRouter is{" "}
+					If you're unsure which model to choose, start with your Codie default or a high-capability coding model with
+					tool use and strong reasoning. A strong fallback is{" "}
 					<VSCodeLink
 						onClick={() => handleModelChange("anthropic/claude-sonnet-4.6")}
 						style={{ display: "inline", fontSize: "inherit" }}>
 						anthropic/claude-sonnet-4.6.
 					</VSCodeLink>
-					You can also try searching "free" for no-cost options currently available.
+					You can also try searching for included options currently available.
 				</p>
 			)}
 		</div>

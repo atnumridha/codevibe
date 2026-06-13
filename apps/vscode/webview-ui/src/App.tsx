@@ -12,9 +12,14 @@ import { useExtensionState } from "./context/ExtensionStateContext"
 import { Providers } from "./Providers"
 import { UiServiceClient } from "./services/grpc-client"
 
+const AUTH_STATE_POLL_INTERVAL_MS = 1_500
+
 const AppContent = () => {
 	const {
 		didHydrateState,
+		welcomeViewCompleted,
+		openAiCodexIsAuthenticated,
+		compatibilityStatus,
 		showWelcome,
 		shouldShowAnnouncement,
 		showMcp,
@@ -27,6 +32,8 @@ const AppContent = () => {
 		showAnnouncement,
 		setShowAnnouncement,
 		setShouldShowAnnouncement,
+		setShowWelcome,
+		refreshLatestState,
 		closeMcpView,
 		navigateToHistory,
 		hideSettings,
@@ -37,6 +44,9 @@ const AppContent = () => {
 	} = useExtensionState()
 
 	const { codeVibeUser, organizations, activeOrganization } = useCodeVibeAuth()
+	const hasCompletedAuth = !!(
+		welcomeViewCompleted || openAiCodexIsAuthenticated || compatibilityStatus?.openAiCodexAuthenticated
+	)
 
 	const showUpdateAnnouncementModal = useCallback(() => {
 		setShowAnnouncement(true)
@@ -55,6 +65,36 @@ const AppContent = () => {
 		}
 		showUpdateAnnouncementModal()
 	}, [didHydrateState, showWelcome, shouldShowAnnouncement, showAnnouncement, showUpdateAnnouncementModal])
+
+	useEffect(() => {
+		if (!didHydrateState || !showWelcome) {
+			return
+		}
+
+		if (hasCompletedAuth) {
+			setShowWelcome(false)
+			return
+		}
+
+		let disposed = false
+		const closeWelcomeIfAuthenticated = async () => {
+			try {
+				if (!disposed && (await refreshLatestState())) {
+					setShowWelcome(false)
+				}
+			} catch (error) {
+				console.error("Failed to refresh Codie sign-in state:", error)
+			}
+		}
+
+		void closeWelcomeIfAuthenticated()
+		const interval = window.setInterval(() => void closeWelcomeIfAuthenticated(), AUTH_STATE_POLL_INTERVAL_MS)
+
+		return () => {
+			disposed = true
+			window.clearInterval(interval)
+		}
+	}, [didHydrateState, hasCompletedAuth, refreshLatestState, setShowWelcome, showWelcome])
 
 	if (!didHydrateState) {
 		return null

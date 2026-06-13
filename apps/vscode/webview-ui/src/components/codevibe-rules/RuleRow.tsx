@@ -44,7 +44,7 @@ const CodeVibeRuleRow: React.FC<{
 	// For remote rules, the rulePath is already the display name
 	const finalDisplayName = isRemote ? rulePath : ruleType === "skill" ? skillDisplayName : displayName
 	const isDisabled = isRemote && alwaysEnabled
-	const ruleTypeLabel = ruleType === "cline" ? "rule" : ruleType
+	const ruleTypeLabel = ruleType === "cline" ? "rule" : ruleType === "cursor" ? "imported rule" : ruleType
 
 	const getRuleTypeIcon = () => {
 		switch (ruleType) {

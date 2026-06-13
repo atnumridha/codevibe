@@ -61,7 +61,7 @@ echo "✓ Validated endpoints.json"
 validate_codevibe_manifest() {
     local package_json="$1"
 
-    if ! jq -e '.name == "codevibe" and .publisher == "atnumridha" and .displayName == "CodeVibe"' "$package_json" > /dev/null 2>&1; then
+    if ! jq -e '.name == "codevibe" and .publisher == "atnumridha" and .displayName == "Codie"' "$package_json" > /dev/null 2>&1; then
         echo "Error: VSIX package manifest is not the CodeVibe Cursor-parity manifest"
         exit 1
     fi

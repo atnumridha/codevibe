@@ -13,26 +13,26 @@ The SDK supports running agents on cron schedules. Scheduled agents persist acro
 3. At each trigger time a new session is created and the agent is run
 4. Results are stored and can be routed to connectors (Slack, email, etc.)
 
-Scheduled agents rely on the [hub-spoke architecture](/sdk/architecture/hub-spoke) that is part of `ClineCore`. The hub runs as a background process on your machine. It starts automatically when needed and persists schedules across restarts.
+Scheduled agents rely on the [hub-spoke architecture](/sdk/architecture/hub-spoke) that is part of CodieCore. The hub runs as a background process on your machine. It starts automatically when needed and persists schedules across restarts.
 
-## Creating Schedules Programmatically with CodeVibe SDK
+## Creating Schedules Programmatically with Codie SDK
 
 ```typescript
-import { ClineCore } from "@cline/sdk"
+import { CodieCore } from "@cline/sdk"
 
-const cline = await ClineCore.create({
+const codie = await CodieCore.create({
   clientName: "scheduler",
   automation: true,
 })
 
-await cline.automation.start()
+await codie.automation.start()
 
-// Use cline.automation to reconcile specs, ingest events, and list runs.
+// Use codie.automation to reconcile specs, ingest events, and list runs.
 ```
 
-## Schedule Wizard with CodeVibe CLI
+## Schedule Wizard with Codie CLI
 
-The easiest way to schedule tasks is to use the CodeVibe CLI, if you've already installed it with `npm i -g codevibe`.
+The easiest way to schedule tasks is to use the Codie CLI, if you've already installed it with `npm i -g codevibe`.
 
 Run `codevibe schedule` to open an interactive menu for creating and managing schedules, browsing execution history, and viewing performance statistics.
 

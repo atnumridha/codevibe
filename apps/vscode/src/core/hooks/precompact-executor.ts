@@ -128,7 +128,7 @@ export interface PreCompactHookParams {
 	apiConversationHistory: ClineStorageMessage[]
 	/** Current deleted range (if any) */
 	conversationHistoryDeletedRange?: [number, number]
-		/** CodeVibe messages for extracting token usage */
+		/** Codie messages for extracting token usage */
 	clineMessages: ClineMessage[]
 
 	// Services

@@ -1,9 +1,9 @@
 ---
 title: "OpenRouter"
-description: "Learn how to use OpenRouter with CodeVibe to access a wide variety of language provider through a single API."
+description: "Configure OpenRouter access in Codie."
 ---
 
-OpenRouter is an AI platform that provides access to a wide variety of language models from different providers, all through a single API. This can simplify setup and allow you to easily experiment with different models.
+Codie can connect to OpenRouter through its OpenAI-compatible API.
 
 **Website:** [https://openrouter.ai/](https://openrouter.ai/)
 
@@ -13,19 +13,19 @@ OpenRouter is an AI platform that provides access to a wide variety of language 
 2.  **Get an API Key:** Go to the [keys page](https://openrouter.ai/keys). You should see an API key listed. If not, create a new key.
 3.  **Copy the Key:** Copy the API key.
 
-### Configuration in CodeVibe
+### Configuration in Codie
 
 > See [Authorization & Model Selection](/getting-started/authorization#menu).
 
-1.  **Open CodeVibe Settings:** Click the settings icon (⚙️) in the CodeVibe panel.
-2.  **Select Provider:** Choose "OpenRouter" from the "API Provider" dropdown.
+1.  **Open Codie Settings:** Click the settings icon (⚙️) in the Codie panel.
+2.  **Select Model Source:** Choose "OpenRouter" from the "Model Source" dropdown.
 3.  **Enter API Key:** Paste your OpenRouter API key into the "OpenRouter API Key" field.
-4.  **Select Provider Model:** Choose your desired model from the "Model" dropdown.
+4.  **Select Model:** Choose your desired model from the "Model" dropdown.
 5.  **(Optional) Custom Base URL:** If you need to use a custom base URL for the OpenRouter API, check "Use custom base URL" and enter the URL. Leave this blank for most users.
 
 ### Tips and Notes
 
--   **Pricing:** OpenRouter charges based on the underlying model's pricing. See the [OpenRouter Models page](https://openrouter.ai/models) for details.
+-   **Usage:** OpenRouter usage depends on the underlying model route. See the [OpenRouter Models page](https://openrouter.ai/models) for details.
     -   OpenRouter passes caching requests to underlying models that support it. Check the [OpenRouter Models page](https://openrouter.ai/models) to see which models offer caching.
     -   For most models, caching should activate automatically if supported by the model itself (similar to how Requesty works).
     -   **Exception for Gemini Models via OpenRouter:** Due to potential response delays sometimes observed with Google's caching mechanism when accessed via OpenRouter, a manual activation step is required _specifically for Gemini models_.

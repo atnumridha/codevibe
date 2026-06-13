@@ -29,6 +29,23 @@ describe("ErrorBlockTitle", () => {
 		expect(title).toBeDefined()
 	})
 
+	it("uses product-neutral usage copy for balance and spend limits", () => {
+		const [, balanceTitle] = ErrorBlockTitle({
+			apiRequestFailedMessage: JSON.stringify({
+				code: "insufficient_credits",
+				details: { current_balance: 0 },
+			}),
+		})
+		const [, spendTitle] = ErrorBlockTitle({
+			apiRequestFailedMessage: JSON.stringify({
+				code: "SPEND_LIMIT_EXCEEDED",
+			}),
+		})
+
+		expect(balanceTitle.props.children).toBe("Usage limit reached")
+		expect(spendTitle.props.children).toBe("Usage limit reached")
+	})
+
 	it("should return icon and title for retry status", () => {
 		const [icon, title] = ErrorBlockTitle({
 			retryStatus: {

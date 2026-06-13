@@ -30,7 +30,7 @@ EOF
 
 Where [YOUR_PATCH] is the actual content of your patch, specified in the following V4A diff format.
 
-Use apply_patch with Cursor-style edit discipline:
+Use apply_patch with Codie-compatible edit discipline:
 - Patch only after you have inspected the current file contents or have received them from the user.
 - Keep hunks minimal and scoped to the user's request. Do not rewrite unrelated code, reformat untouched sections, or include broad cleanup in the same patch.
 - Prefer one coherent patch per file when several nearby edits are part of the same change. Split patches when edits are logically unrelated or when a smaller patch would be safer.

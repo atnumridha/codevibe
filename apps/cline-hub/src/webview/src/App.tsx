@@ -371,7 +371,7 @@ function Shell({
 							onClick={() => onNavigate("home")}
 							type="button"
 						>
-							CodeVibe Hub
+							Codie Agent Hub
 						</button>
 					</h1>
 				</div>
@@ -538,7 +538,7 @@ function HomeView({
 						disabled={!hubState.connected || restartPending}
 						onClick={() => setRestartDialogOpen(true)}
 						size="sm"
-						title="Restart CodeVibe Hub"
+						title="Restart Codie Agent Hub"
 						type="button"
 						variant="outline"
 					>
@@ -559,7 +559,7 @@ function HomeView({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Restart CodeVibe Hub</AlertDialogTitle>
+						<AlertDialogTitle>Restart Codie Agent Hub</AlertDialogTitle>
 						<AlertDialogDescription>
 							This will shut down the current hub process and start it again.
 							Connected clients and active sessions may disconnect while the hub
@@ -1177,7 +1177,7 @@ function RecentSessionRow({
 							Delete Session {currentSessionId}
 						</AlertDialogTitle>
 						<AlertDialogDescription>
-							This will permanently delete this CodeVibe session across clients:
+							This will permanently delete this Codie session across clients:
 							<br />
 							{currentTitle}
 						</AlertDialogDescription>

@@ -228,7 +228,7 @@ export function AddProviderContent({
 						<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 							<div>
 								<Label className="mb-2 block text-xs font-medium text-muted-foreground">
-									Provider ID
+									Provider handle
 								</Label>
 								<input
 									type="text"
@@ -240,11 +240,11 @@ export function AddProviderContent({
 									className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 outline-none focus:ring-1 focus:ring-ring"
 								/>
 								<p className="mt-1.5 text-xs text-muted-foreground">
-									Lowercase ID used in provider registry.
+									Used to save this custom provider.
 								</p>
 								{duplicateProviderId ? (
 									<p className="mt-1 text-xs text-destructive">
-										This provider ID already exists.
+										This provider handle already exists.
 									</p>
 								) : null}
 							</div>

@@ -296,6 +296,27 @@ export function toolSpecFunctionDeclarations(tool: ClineToolSpec, context: Syste
 				}
 			}
 
+			// Preserve additional top-level JSON Schema fields such as enum,
+			// format, minimum, and maximum. Without this, Gemini/native tool
+			// declarations silently lose constrained parameter values.
+			const reservedKeys = new Set([
+				"name",
+				"required",
+				"instruction",
+				"usage",
+				"dependencies",
+				"description",
+				"contextRequirements",
+				"type",
+				"items",
+				"properties",
+			])
+			for (const key in param) {
+				if (!reservedKeys.has(key) && param[key] !== undefined) {
+					paramSchema[key] = param[key]
+				}
+			}
+
 			properties[param.name] = paramSchema
 		}
 	}

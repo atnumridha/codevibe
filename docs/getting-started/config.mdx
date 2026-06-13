@@ -1,17 +1,17 @@
 ---
 title: "Config"
 sidebarTitle: "Config"
-description: "Understand where CodeVibe stores configuration and how global and project config work together."
+description: "Understand where Codie stores configuration and how global and project config work together."
 ---
 
-CodeVibe configuration lives in two scopes:
+Codie configuration lives in two scopes:
 
-- **Global configuration** in `~/.codevibe/` (applies globally across CodeVibe applications, including IDE, CLI, and SDK)
+- **Global configuration** in `~/.codevibe/` (applies globally across Codie applications, including IDE, CLI, and SDK)
 - **Project configuration** in `.codevibe/` (applies only to the current workspace)
 
 ## Configuration Directory Layout
 
-CodeVibe stores shared configuration across a few well-known locations. The primary root is `~/.codevibe/`, with structured app state under `~/.codevibe/data/`:
+Codie stores shared configuration across a few well-known locations. The primary root is `~/.codevibe/`, with structured app state under `~/.codevibe/data/`:
 
 ```text
 ~/.codevibe/
@@ -57,13 +57,13 @@ Project-level configuration lives in `.codevibe/` at your repository root:
 Notes:
 
 - Global provider settings, global settings, and MCP settings are stored under `~/.codevibe/data/settings/`.
-- Global workflows resolve from `~/.codevibe/data/workflows/` or the configured CodeVibe data directory.
+- Global workflows resolve from `~/.codevibe/data/workflows/` or the configured Codie data directory.
 - Global rules, hooks, skills, agents, plugins, and cron specs resolve directly under `~/.codevibe/`.
 - Legacy `~/.cline/` and `~/Documents/Cline/` locations may still be discovered for compatibility.
 
 ## What Goes Where?
 
-- Use **global (`~/.codevibe/`)** for defaults shared across all CodeVibe applications (IDE, CLI, SDK) on your machine.
+- Use **global (`~/.codevibe/`)** for defaults shared across all Codie applications (IDE, CLI, SDK) on your machine.
 - Use **project (`.codevibe/`)** for team-shared behavior that should travel with the repo.
 
 Commit `.codevibe/` files you want to share with your team. Keep secrets out of the repo. Legacy `.cline/` files remain supported for compatibility.
@@ -127,7 +127,7 @@ codevibe "your task"
 
 ### CODEVIBE_COMMAND_PERMISSIONS
 
-Restrict which shell commands CodeVibe can execute:
+Restrict which shell commands Codie can execute:
 
 ```bash
 export CODEVIBE_COMMAND_PERMISSIONS='{"allow": ["npm *", "git *"], "deny": ["rm -rf *"]}'

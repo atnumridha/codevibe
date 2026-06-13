@@ -535,7 +535,9 @@ export async function launchCursorUri(
 	const input = readCursorUriPreviewRequest(args);
 	const preview = await ctx.uiClient.previewCursorUri(input);
 	if (!preview.handled) {
-		throw new Error("Cursor URI was not handled by the preview route");
+		throw new Error(
+			"Import-compatible URI was not handled by the preview route",
+		);
 	}
 	const taskPrompt = resolveCursorPreviewTaskPrompt(preview, input.uri);
 	const route = getCursorPreviewString(preview, "route") ?? "unknown";
@@ -544,7 +546,7 @@ export async function launchCursorUri(
 		!taskPrompt
 	) {
 		throw new Error(
-			`Cursor URI route "${route}" can be previewed but is not launchable from Hub yet`,
+			`Import-compatible URI route "${route}" can be previewed but is not launchable from Hub yet`,
 		);
 	}
 
@@ -669,7 +671,7 @@ export async function launchCursorUri(
 			liveSession.updatedAt = record.updatedAt;
 		}
 		ctx.pushEvent(
-			"Cursor URI launched",
+			"Import-compatible URI launched",
 			`${route} queued in session ${finalSessionId}`,
 			"success",
 		);
@@ -734,7 +736,7 @@ export async function launchCursorUri(
 		...(launchOptions.timeoutMs ? { timeoutMs: launchOptions.timeoutMs } : {}),
 	});
 	ctx.pushEvent(
-		"Cursor URI launched",
+		"Import-compatible URI launched",
 		`${route} ${launchOptions.delivery === "queue" ? "queued" : "steered"} in session ${sessionId}`,
 		"success",
 	);

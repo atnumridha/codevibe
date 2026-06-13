@@ -42,7 +42,7 @@ async function makeAuthenticatedRequest<T>(endpoint: string, organizationId: str
 	// Get authentication token
 	const authToken = await authService.getAuthToken()
 	if (!authToken) {
-		throw new Error("No CodeVibe account auth token found")
+		throw new Error("Codie sign-in is required.")
 	}
 
 	// Construct URL by replacing {id} placeholder with organizationId

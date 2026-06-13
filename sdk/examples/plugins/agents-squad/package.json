@@ -2,7 +2,7 @@
 	"name": "cline-agent-squad-plugin",
 	"version": "0.1.0",
 	"private": true,
-	"description": "Background Subagents Plugin for Cline",
+	"description": "Background Subagents Plugin for Codie",
 	"type": "module",
 	"scripts": {
 		"typecheck": "tsc --noEmit",

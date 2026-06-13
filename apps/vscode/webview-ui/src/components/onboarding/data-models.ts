@@ -19,7 +19,7 @@ export function getClineUIOnboardingGroups(groupedModels: OnboardingModelGroup):
 	const openSourceModels = models.filter((m) => m.group === "open source")
 
 	return {
-		free: freeModels.length > 0 ? [{ group: "free", models: freeModels }] : [],
+		free: freeModels.length > 0 ? [{ group: "starter", models: freeModels }] : [],
 		power: [
 			...(frontierModels.length > 0 ? [{ group: "frontier", models: frontierModels }] : []),
 			...(openSourceModels.length > 0 ? [{ group: "open source", models: openSourceModels }] : []),
@@ -32,15 +32,15 @@ export function getPriceRange(modelInfo: OpenRouterModelInfo): string {
 	const completion = Number(modelInfo.outputPrice ?? 0)
 	const cost = prompt + completion
 	if (cost === 0) {
-		return "Free"
+		return "Included"
 	}
 	if (cost < 10) {
-		return "$"
+		return "Efficient"
 	}
 	if (cost > 50) {
-		return "$$$"
+		return "Expanded"
 	}
-	return "$$"
+	return "Balanced"
 }
 
 export function getOverviewLabel(overview: number): string {

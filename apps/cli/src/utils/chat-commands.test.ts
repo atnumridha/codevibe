@@ -31,7 +31,7 @@ describe("chat commands", () => {
 
 			expect(handled).toBe(true);
 			expect(reply).toHaveBeenCalledWith(
-				expect.stringContaining("CodeVibe connector commands:"),
+				expect.stringContaining("Codie connector commands:"),
 			);
 			expect(reply).toHaveBeenCalledWith(
 				expect.stringContaining("Current state: tools=on, yolo=off"),
@@ -90,7 +90,7 @@ describe("chat commands", () => {
 
 		expect(await maybeHandleChatCommand("/help@clinebot", context)).toBe(true);
 		expect(reply).toHaveBeenCalledWith(
-			expect.stringContaining("CodeVibe connector commands:"),
+			expect.stringContaining("Codie connector commands:"),
 		);
 	});
 

@@ -6,7 +6,12 @@ import { processFilesIntoText } from "@integrations/misc/extract-text"
 import { showApprovalNotification, showSystemNotification } from "@integrations/notifications"
 import { COMMAND_REQ_APP_STRING } from "@shared/combineCommandSequences"
 import { ClineAsk } from "@shared/ExtensionMessage"
-import { appendTerminalRunModeMarker, decodeTerminalRunMode, type CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
+import {
+	appendTerminalRequestMarker,
+	appendTerminalRunModeMarker,
+	type CodeVibeTerminalRunMode,
+	decodeTerminalApprovalPayload,
+} from "@shared/terminalPolicy"
 import { arePathsEqual } from "@utils/path"
 import { telemetryService } from "@/services/telemetry"
 import { ClineDefaultTool } from "@/shared/tools"
@@ -37,6 +42,22 @@ const LONG_RUNNING_COMMAND_PATTERNS: RegExp[] = [
 	/\bpython(?:\d+(?:\.\d+)?)?\s+.*\b(train|finetune)\b/i,
 ]
 
+type InlineTerminalRequest = {
+	requestedTerminalRunMode?: CodeVibeTerminalRunMode
+	prefixRule?: string[]
+	requiresManualApproval: boolean
+}
+
+type InlineTerminalRequestResult =
+	| {
+			ok: true
+			request: InlineTerminalRequest
+	  }
+	| {
+			ok: false
+			error: string
+	  }
+
 export function isLikelyLongRunningCommand(command: string): boolean {
 	const normalized = command.trim().replace(/\s+/g, " ")
 	return LONG_RUNNING_COMMAND_PATTERNS.some((pattern) => pattern.test(normalized))
@@ -61,6 +82,130 @@ export function resolveCommandTimeoutSeconds(
 
 export function getDefaultTerminalRunMode(hasSandboxPolicy: boolean): CodeVibeTerminalRunMode {
 	return hasSandboxPolicy ? "sandboxed" : "default"
+}
+
+export function resolveInlineTerminalRequest(
+	command: string,
+	options: {
+		sandboxPermissionsRaw?: string
+		requireEscalatedRaw?: string
+		prefixRuleRaw?: string
+	},
+): InlineTerminalRequestResult {
+	const requireEscalated = parseOptionalBoolean(options.requireEscalatedRaw)
+	if (requireEscalated === "invalid") {
+		return {
+			ok: false,
+			error: "Invalid execute_command require_escalated value. Use true or false.",
+		}
+	}
+
+	const sandboxPermission = parseSandboxPermissions(options.sandboxPermissionsRaw)
+	if (sandboxPermission === "invalid") {
+		return {
+			ok: false,
+			error: "Invalid execute_command sandbox_permissions value. Use one of: use_default, sandboxed, unelevated, require_escalated.",
+		}
+	}
+
+	const prefixRule = parsePrefixRule(options.prefixRuleRaw)
+	if (prefixRule === "invalid") {
+		return {
+			ok: false,
+			error: 'Invalid execute_command prefix_rule value. Use a JSON array of strings such as ["npm","run","dev"].',
+		}
+	}
+	if (prefixRule && !commandStartsWithPrefixRule(command, prefixRule)) {
+		return {
+			ok: false,
+			error: `execute_command prefix_rule [${prefixRule.map((part) => JSON.stringify(part)).join(", ")}] does not match the command prefix.`,
+		}
+	}
+
+	const requestedTerminalRunMode =
+		requireEscalated === true
+			? "elevated"
+			: sandboxPermission === "sandboxed"
+				? "sandboxed"
+				: sandboxPermission === "unelevated"
+					? "default"
+					: sandboxPermission === "require_escalated"
+						? "elevated"
+						: undefined
+
+	return {
+		ok: true,
+		request: {
+			...(requestedTerminalRunMode ? { requestedTerminalRunMode } : {}),
+			...(prefixRule ? { prefixRule } : {}),
+			requiresManualApproval: requestedTerminalRunMode === "elevated",
+		},
+	}
+}
+
+function parseOptionalBoolean(value: string | undefined): boolean | "invalid" | undefined {
+	const normalized = value?.trim().toLowerCase()
+	if (!normalized) {
+		return undefined
+	}
+	if (["true", "1", "yes"].includes(normalized)) {
+		return true
+	}
+	if (["false", "0", "no"].includes(normalized)) {
+		return false
+	}
+	return "invalid"
+}
+
+function parseSandboxPermissions(
+	value: string | undefined,
+): "use_default" | "sandboxed" | "unelevated" | "require_escalated" | "invalid" | undefined {
+	const normalized = value?.trim().toLowerCase().replace(/-/g, "_")
+	if (!normalized) {
+		return undefined
+	}
+	if (["use_default", "default"].includes(normalized)) {
+		return "use_default"
+	}
+	if (["sandbox", "sandboxed"].includes(normalized)) {
+		return "sandboxed"
+	}
+	if (["unelevated", "non_elevated"].includes(normalized)) {
+		return "unelevated"
+	}
+	if (["require_escalated", "elevated"].includes(normalized)) {
+		return "require_escalated"
+	}
+	return "invalid"
+}
+
+function parsePrefixRule(value: string | undefined): string[] | "invalid" | undefined {
+	const trimmed = value?.trim()
+	if (!trimmed) {
+		return undefined
+	}
+
+	if (trimmed.startsWith("[")) {
+		try {
+			const parsed = JSON.parse(trimmed)
+			if (!Array.isArray(parsed)) {
+				return "invalid"
+			}
+			const parts = parsed.map((part) => (typeof part === "string" ? part.trim() : "")).filter(Boolean)
+			return parts.length > 0 ? parts : "invalid"
+		} catch {
+			return "invalid"
+		}
+	}
+
+	const parts = trimmed.split(/\s+/).filter(Boolean)
+	return parts.length > 0 ? parts : "invalid"
+}
+
+function commandStartsWithPrefixRule(command: string, prefixRule: string[]): boolean {
+	const normalizedCommand = command.trim().replace(/\s+/g, " ")
+	const normalizedPrefix = prefixRule.join(" ").trim().replace(/\s+/g, " ")
+	return normalizedCommand === normalizedPrefix || normalizedCommand.startsWith(`${normalizedPrefix} `)
 }
 
 export class ExecuteCommandToolHandler implements IFullyManagedTool {
@@ -97,6 +242,9 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 		const requiresApprovalRaw: string | undefined = block.params.requires_approval
 		const requiresApprovalPerLLM = requiresApprovalRaw?.toLowerCase() === "true"
 		const timeoutParam: string | undefined = block.params.timeout
+		const sandboxPermissionsRaw: string | undefined = block.params.sandbox_permissions
+		const requireEscalatedRaw: string | undefined = block.params.require_escalated
+		const prefixRuleRaw: string | undefined = block.params.prefix_rule
 		let timeoutSeconds: number | undefined
 
 		// Extract provider using the proven pattern from ReportBugHandler
@@ -109,7 +257,7 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			config.taskState.consecutiveMistakeCount++
 			await config.callbacks.say(
 				"error",
-				"CodeVibe tried to use execute_command without value for required parameter 'command'. Retrying...",
+				"Codie tried to use execute_command without value for required parameter 'command'. Retrying...",
 			)
 			return formatResponse.toolError(formatResponse.executeCommandMissingCommandError())
 		}
@@ -166,6 +314,31 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			// If no hint, use primary workspace (cwd)
 		}
 
+		const inlineTerminalRequestResult = resolveInlineTerminalRequest(actualCommand, {
+			sandboxPermissionsRaw,
+			requireEscalatedRaw,
+			prefixRuleRaw,
+		})
+		if (!inlineTerminalRequestResult.ok) {
+			config.taskState.consecutiveMistakeCount++
+			return formatResponse.toolError(inlineTerminalRequestResult.error)
+		}
+		const inlineTerminalRequest = inlineTerminalRequestResult.request
+		if (config.isSubagentExecution && inlineTerminalRequest.requestedTerminalRunMode === "elevated") {
+			return formatResponse.toolError(
+				"execute_command requested elevated terminal mode, but elevated commands require direct user approval and cannot run from a subagent.",
+			)
+		}
+		if (
+			config.isSubagentExecution &&
+			config.cursorSandboxPolicy &&
+			inlineTerminalRequest.requestedTerminalRunMode === "default"
+		) {
+			return formatResponse.toolError(
+				"execute_command requested unelevated terminal mode, but subagents must run sandboxed while a Codie sandbox policy is active. Omit sandbox_permissions or use sandboxed.",
+			)
+		}
+
 		// Check workspace ignore validation for command.
 		const ignoredFileAttemptedToAccess = config.services.clineIgnoreController.validateCommand(actualCommand)
 		if (ignoredFileAttemptedToAccess) {
@@ -176,7 +349,8 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 		}
 
 		let didAutoApprove = false
-		let terminalRunMode: CodeVibeTerminalRunMode = getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
+		let terminalRunMode: CodeVibeTerminalRunMode =
+			inlineTerminalRequest.requestedTerminalRunMode ?? getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
 
 		// If the model says this command is safe and auto approval for safe commands is true, execute the command
 		// If the model says the command is risky, but *BOTH* auto approve settings are true, execute the command
@@ -208,17 +382,22 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 		}
 
 		if (
-			config.isSubagentExecution ||
-			(!requiresApprovalPerLLM && autoApproveSafe) ||
-			(requiresApprovalPerLLM && autoApproveSafe && autoApproveAll)
+			!inlineTerminalRequest.requiresManualApproval &&
+			(config.isSubagentExecution ||
+				(!requiresApprovalPerLLM && autoApproveSafe) ||
+				(requiresApprovalPerLLM && autoApproveSafe && autoApproveAll))
 		) {
 			// Auto-approve flow
-			terminalRunMode = getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
+			terminalRunMode =
+				inlineTerminalRequest.requestedTerminalRunMode ?? getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
 			if (!config.isSubagentExecution) {
 				await config.callbacks.removeLastPartialMessageIfExistsWithType("ask", "command")
 				await config.callbacks.say(
 					"command",
-					appendTerminalRunModeMarker(actualCommand, terminalRunMode),
+					appendTerminalRunModeMarker(
+						appendTerminalRequestMarker(actualCommand, inlineTerminalRequest),
+						terminalRunMode,
+					),
 					undefined,
 					undefined,
 					false,
@@ -243,7 +422,10 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 			)
 
 			const approval = await askCommandApprovalAndResolveRunMode(
-				actualCommand + `${autoApproveSafe && requiresApprovalPerLLM ? COMMAND_REQ_APP_STRING : ""}`,
+				appendTerminalRequestMarker(
+					actualCommand + `${autoApproveSafe && requiresApprovalPerLLM ? COMMAND_REQ_APP_STRING : ""}`,
+					inlineTerminalRequest,
+				),
 				config,
 			)
 			if (!approval.didApprove) {
@@ -259,8 +441,11 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 				)
 				return formatResponse.toolDenied()
 			}
-			terminalRunMode = approval.terminalRunMode ?? getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
-			await annotateLatestCommandMessageWithRunMode(config, actualCommand, terminalRunMode)
+			terminalRunMode =
+				approval.terminalRunMode ??
+				inlineTerminalRequest.requestedTerminalRunMode ??
+				getDefaultTerminalRunMode(Boolean(config.cursorSandboxPolicy))
+			await annotateLatestCommandMessageWithRunMode(config, actualCommand, terminalRunMode, inlineTerminalRequest)
 			telemetryService.captureToolUsage(
 				config.ulid,
 				block.name,
@@ -318,6 +503,7 @@ export class ExecuteCommandToolHandler implements IFullyManagedTool {
 		const [userRejected, result] = await config.callbacks.executeCommandTool(finalCommand, timeoutSeconds, {
 			terminalRunMode,
 			useBackgroundExecution: terminalRunMode === "sandboxed",
+			cursorSandboxPolicy: config.cursorSandboxPolicy,
 		})
 
 		if (timeoutId) {
@@ -346,6 +532,7 @@ async function annotateLatestCommandMessageWithRunMode(
 	config: TaskConfig,
 	actualCommand: string,
 	terminalRunMode: CodeVibeTerminalRunMode,
+	inlineTerminalRequest: InlineTerminalRequest,
 ): Promise<void> {
 	const clineMessages = config.messageState.getClineMessages()
 	for (let index = clineMessages.length - 1; index >= 0; index--) {
@@ -354,7 +541,7 @@ async function annotateLatestCommandMessageWithRunMode(
 			continue
 		}
 		await config.messageState.updateClineMessage(index, {
-			text: appendTerminalRunModeMarker(actualCommand, terminalRunMode),
+			text: appendTerminalRunModeMarker(appendTerminalRequestMarker(actualCommand, inlineTerminalRequest), terminalRunMode),
 		})
 		return
 	}
@@ -369,10 +556,10 @@ async function askCommandApprovalAndResolveRunMode(
 	}
 
 	const { response, text, images, files } = await config.callbacks.ask("command", completeMessage, false)
-	const terminalRunMode = decodeTerminalRunMode(text)
-	const hasPolicyMarker = Boolean(terminalRunMode)
+	const terminalRunMode = decodeTerminalApprovalPayload(text)
+	const hasRunModeApprovalPayload = Boolean(terminalRunMode)
 
-	if (!hasPolicyMarker && (text || (images && images.length > 0) || (files && files.length > 0))) {
+	if (!hasRunModeApprovalPayload && (text || (images && images.length > 0) || (files && files.length > 0))) {
 		let fileContentString = ""
 		if (files && files.length > 0) {
 			fileContentString = await processFilesIntoText(files)
@@ -408,9 +595,7 @@ async function validateCommandPermissionForRunMode(
 			`Command "${actualCommand}" was denied by configured command permissions. ` +
 			`Segment "${permissionResult.failedSegment}" ${permissionResult.reason}.`
 	} else {
-		const matchedPattern = permissionResult.matchedPattern
-			? ` (matched pattern: ${permissionResult.matchedPattern})`
-			: ""
+		const matchedPattern = permissionResult.matchedPattern ? ` (matched pattern: ${permissionResult.matchedPattern})` : ""
 		errorMessage =
 			`Command "${actualCommand}" was denied by configured command permissions. ` +
 			`Reason: ${permissionResult.reason}${matchedPattern}`

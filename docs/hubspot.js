@@ -1,4 +1,4 @@
-// HubSpot Tracking Code for CodeVibe Documentation
+// HubSpot Tracking Code for Codie Documentation
 ;(() => {
 	// Check if HubSpot script is already loaded to prevent duplicates
 	if (!document.getElementById("hs-script-loader")) {

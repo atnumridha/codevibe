@@ -93,7 +93,7 @@ export class AccessMcpResourceHandler implements IFullyManagedTool {
 			)
 		} else {
 			// Manual approval flow
-			const notificationMessage = `CodeVibe wants to access ${uri || "unknown resource"} on ${server_name || "unknown server"}`
+			const notificationMessage = `Codie wants to access ${uri || "unknown resource"} on ${server_name || "unknown server"}`
 
 			// Show notification
 			showNotificationForApproval(notificationMessage, config.autoApprovalSettings.enableNotifications)

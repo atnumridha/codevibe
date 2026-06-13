@@ -56,11 +56,11 @@ export class WebSearchToolHandler implements IFullyManagedTool {
 			const currentMode = config.services.stateManager.getGlobalSettingsKey("mode")
 			const provider = (currentMode === "plan" ? apiConfig.planModeApiProvider : apiConfig.actModeApiProvider) as string
 
-			// Check if CodeVibe web tools are enabled (both user setting and feature flag)
+			// Check if Codie web tools are enabled (both user setting and feature flag)
 			const clineWebToolsEnabled = config.services.stateManager.getGlobalSettingsKey("clineWebToolsEnabled")
 			const featureFlagEnabled = featureFlagsService.getWebtoolsEnabled()
 			if (provider !== "cline" || !clineWebToolsEnabled || !featureFlagEnabled) {
-				return formatResponse.toolError("CodeVibe web tools are currently disabled.")
+				return formatResponse.toolError("Codie web tools are currently disabled.")
 			}
 
 			// Validate required parameters
@@ -114,7 +114,7 @@ export class WebSearchToolHandler implements IFullyManagedTool {
 			} else {
 				// Manual approval flow
 				showNotificationForApproval(
-					`CodeVibe wants to search for: ${query}`,
+					`Codie wants to search for: ${query}`,
 					config.autoApprovalSettings.enableNotifications,
 				)
 				await config.callbacks.removeLastPartialMessageIfExistsWithType("say", "tool")

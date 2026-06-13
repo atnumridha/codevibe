@@ -1,15 +1,15 @@
 ---
 title: "Enterprise Provider Configuration"
 sidebarTitle: "Overview"
-description: "Configure inference providers through the CodeVibe hosted admin console for centralized organization management"
+description: "Configure inference providers through the Codie hosted admin console for centralized organization management"
 ---
 
 
-Remote Provider Configuration allows administrators to centrally configure inference providers for their entire organization through the CodeVibe hosted admin console. This approach ensures consistent provider access, security policies, and cost management across all team members without requiring individual developer setup or infrastructure deployment.
+Remote Provider Configuration allows administrators to centrally configure inference providers for their entire organization through the Codie hosted admin console. This approach ensures consistent provider access, security policies, and cost management across all team members without requiring individual developer setup or infrastructure deployment.
 
 ## How Remote Configuration Works
 
-Remote configuration operates through CodeVibe's hosted service at [app.cline.bot](https://app.cline.bot), where administrators can:
+Remote configuration operates through Codie's hosted service at [app.codie.dev](https://app.codie.dev), where administrators can:
 
 <CardGroup cols={2}>
   <Card title="Centralized Setup" icon="gear">
@@ -31,11 +31,11 @@ Remote configuration operates through CodeVibe's hosted service at [app.cline.bo
 
 ## Supported Providers
 
-CodeVibe supports remote configuration for the following inference providers:
+Codie supports remote configuration for the following inference providers:
 
 | Provider | Use Case | Configuration | Member Setup |
 |----------|----------|---------------|--------------|
-| **CodeVibe** | Organizations using CodeVibe's native provider with centralized API key management | API provider selection, model access | No individual API keys needed — fully managed by organization |
+| **Codie** | Organizations using Codie's native provider with centralized API key management | API provider selection, model access | No individual API keys needed — fully managed by organization |
 | **Amazon Bedrock** | Organizations using AWS infrastructure | Region selection, VPC endpoints, cross-region inference, global inference, prompt caching | AWS credential configuration (API key, CLI profile, or credential chain) |
 | **Google Vertex AI** | Organizations using Google Cloud Platform | Project ID, region selection, model access | Google Cloud credential configuration (service account, SDK, or ADC) |
 | **Azure Foundry** | Organizations using Azure OpenAI or Azure AI services | Base URL, Azure API version, Azure identity authentication, custom headers | API key configuration in the extension |
@@ -53,19 +53,19 @@ The typical remote configuration process follows these steps:
 
 <Steps>
 <Step title="Administrator Setup">
-Access the CodeVibe admin console and configure the desired inference provider with organization-wide settings.
+Access the Codie admin console and configure the desired inference provider with organization-wide settings.
 </Step>
 
 <Step title="Automatic Distribution">
-Provider configuration is automatically distributed to all organization members signed into CodeVibe.
+Provider configuration is automatically distributed to all organization members signed into Codie.
 </Step>
 
 <Step title="Member Credential Setup">
-Team members add their individual credentials (API keys, AWS profiles, etc.) to connect to the configured provider. For some providers like CodeVibe and LiteLLM (with Master Key), no individual credentials are needed.
+Team members add their individual credentials (API keys, AWS profiles, etc.) to connect to the configured provider. For some providers like Codie and LiteLLM (with Master Key), no individual credentials are needed.
 </Step>
 
 <Step title="Immediate Access">
-Once credentials are configured, members can immediately start using the inference provider through CodeVibe.
+Once credentials are configured, members can immediately start using the inference provider through Codie.
 </Step>
 </Steps>
 
@@ -89,7 +89,7 @@ To get started with provider remote configuration:
 1. **Choose Your Provider**: Select the inference provider that best fits your organization's needs and existing infrastructure
 2. **Admin Configuration**: Follow the provider-specific admin configuration guide
 3. **Member Onboarding**: Have team members complete the provider-specific member configuration
-4. **Start Developing**: Begin using CodeVibe with centrally managed inference provider access
+4. **Start Developing**: Begin using Codie with centrally managed inference provider access
 
 Select your provider below to begin the configuration process:
 

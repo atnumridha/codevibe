@@ -1,6 +1,5 @@
-import { HistoryIcon, PlusIcon, SettingsIcon, UserCircleIcon } from "lucide-react"
+import { BotIcon, HistoryIcon, PlusIcon, SettingsIcon, UserCircleIcon } from "lucide-react"
 import { useMemo } from "react"
-import CodeVibeMark from "@/assets/CodeVibeMark"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { TaskServiceClient } from "@/services/grpc-client"
@@ -15,8 +14,7 @@ const McpServerIcon = ({ className, size }: { className?: string; size?: number 
 )
 
 export const Navbar = () => {
-	const { environment, navigateToHistory, navigateToSettings, navigateToAccount, navigateToMcp, navigateToChat } =
-		useExtensionState()
+	const { navigateToHistory, navigateToSettings, navigateToAccount, navigateToMcp, navigateToChat } = useExtensionState()
 
 	const SETTINGS_TABS = useMemo(
 		() => [
@@ -72,10 +70,10 @@ export const Navbar = () => {
 			id="codevibe-agent-navbar">
 			<div className="flex min-w-0 items-center gap-2">
 				<div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)]">
-					<CodeVibeMark className="size-4.5" environment={environment} />
+					<BotIcon className="size-4.5" />
 				</div>
 				<div className="min-w-0 leading-tight">
-					<div className="truncate text-[12px] font-semibold text-[var(--vscode-foreground)]">CodeVibe</div>
+					<div className="truncate text-[12px] font-semibold text-[var(--vscode-foreground)]">Codie</div>
 					<div className="truncate text-[10px] uppercase text-[var(--vscode-descriptionForeground)]">Agent</div>
 				</div>
 			</div>

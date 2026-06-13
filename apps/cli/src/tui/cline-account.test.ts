@@ -39,7 +39,7 @@ vi.mock("@cline/core", () => {
 			MODEL_COLLECTIONS_BY_PROVIDER_ID: {
 				"openai-codex": {
 					provider: {
-						defaultModelId: "gpt-5.5",
+						defaultModelId: "gpt-5.5-pro",
 					},
 				},
 			},
@@ -143,7 +143,7 @@ describe("createClineAccountService", () => {
 		await expect(
 			createClineAccountService({ config: makeConfig() }),
 		).rejects.toThrow(
-			"CodeVibe account requires re-authentication. Run codevibe auth openai-codex.",
+			"Codie account requires re-authentication. Run codevibe auth openai-codex.",
 		);
 	});
 });

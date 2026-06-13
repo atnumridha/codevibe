@@ -1,21 +1,21 @@
 ---
 title: "Getting Started"
 sidebarTitle: "Getting Started"
-description: "Create an API key and make your first request to the CodeVibe API in under a minute."
+description: "Create an API key and make your first request to the Codie API in under a minute."
 ---
 
 This guide walks you through creating an API key and making your first Chat Completions request.
 
 ## Prerequisites
 
-- A CodeVibe account at the current [app.cline.bot compatibility account console](https://app.cline.bot)
+- A Codie account at the [Codie account console](https://app.codie.dev)
 - `curl` or any HTTP client (Python, Node.js, etc.)
 
 ## Create an API Key
 
 <Steps>
-  <Step title="Sign in to CodeVibe">
-    Go to the [app.cline.bot compatibility account console](https://app.cline.bot) and sign in with your account.
+  <Step title="Sign in to Codie">
+    Go to the [Codie account console](https://app.codie.dev) and sign in with your account.
   </Step>
   <Step title="Navigate to API Keys">
     Open **Settings** and select **API Keys**.
@@ -34,7 +34,7 @@ This guide walks you through creating an API key and making your first Chat Comp
 Replace `YOUR_API_KEY` with the key you just created:
 
 ```bash
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -78,7 +78,7 @@ The `choices[0].message.content` field contains the model's reply. The `usage` f
 For real-time output, set `stream: true`. The response arrives as Server-Sent Events:
 
 ```bash
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -97,7 +97,7 @@ Each chunk arrives as a `data:` line. The stream ends with `data: [DONE]`.
 To test without spending credits, use one of the [free models](/api/models#free-models):
 
 ```bash
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -114,9 +114,9 @@ curl -X POST https://api.cline.bot/api/v1/chat/completions \
 | Problem | Solution |
 |---------|----------|
 | `401 Unauthorized` | Check that your API key is correct and included in the `Authorization` header |
-| `402 Payment Required` | Your account has insufficient credits. Add credits at [app.cline.bot](https://app.cline.bot) |
+| `402 Payment Required` | Your account has insufficient credits. Add credits at [app.codie.dev](https://app.codie.dev) |
 | Empty response | Make sure `messages` is a non-empty array with at least one user message |
-| Connection timeout | Verify your network can reach `api.cline.bot`. Check proxy settings if on a corporate network |
+| Connection timeout | Verify your network can reach `api.codie.dev`. Check proxy settings if on a corporate network |
 
 ## Next Steps
 
@@ -131,6 +131,6 @@ curl -X POST https://api.cline.bot/api/v1/chat/completions \
     Browse available models and find the right one for your use case.
   </Card>
   <Card title="SDK Examples" icon="code" href="/api/sdk-examples">
-    Use the API from Python, Node.js, or the CodeVibe CLI.
+    Use the API from Python, Node.js, or the Codie CLI.
   </Card>
 </CardGroup>

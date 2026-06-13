@@ -68,7 +68,7 @@ describe("ErrorRow", () => {
 		const workspaceIgnoreMessage = { ...mockMessage, text: "/path/to/file.txt" }
 		render(<ErrorRow errorType="workspace_ignore_error" message={workspaceIgnoreMessage} />)
 
-		expect(screen.getByText(/CodeVibe tried to access/)).toBeInTheDocument()
+		expect(screen.getByText(/Codie tried to access/)).toBeInTheDocument()
 		expect(screen.getByText("/path/to/file.txt")).toBeInTheDocument()
 	})
 
@@ -76,7 +76,7 @@ describe("ErrorRow", () => {
 		const legacyIgnoreMessage = { ...mockMessage, text: "/path/to/file.txt" }
 		render(<ErrorRow errorType="clineignore_error" message={legacyIgnoreMessage} />)
 
-		expect(screen.getByText(/CodeVibe tried to access/)).toBeInTheDocument()
+		expect(screen.getByText(/Codie tried to access/)).toBeInTheDocument()
 		expect(screen.getByText("/path/to/file.txt")).toBeInTheDocument()
 	})
 
@@ -151,7 +151,50 @@ describe("ErrorRow", () => {
 
 			expect(screen.queryByText("Authentication failed")).not.toBeInTheDocument()
 			expect(screen.getByText("You are signed out. Sign in to continue.")).toBeInTheDocument()
-			expect(screen.getByText("Sign in to CodeVibe")).toBeInTheDocument()
+			expect(screen.getByText("Sign in to Codie")).toBeInTheDocument()
+		})
+
+		it("uses Codie auth recovery for hosted openai-codex errors", async () => {
+			const mockClineError = {
+				message: "openai-codex authentication failed",
+				isErrorType: vi.fn((type) => type === "auth"),
+				providerId: "openai-codex",
+				_error: {},
+			}
+
+			const { ClineError } = await import("../../../../src/services/error/ClineError")
+			vi.mocked(ClineError.parse).mockReturnValue(mockClineError as any)
+
+			render(<ErrorRow apiRequestFailedMessage="openai-codex authentication failed" errorType="error" message={mockMessage} />)
+
+			expect(screen.queryByText(/openai-codex/)).not.toBeInTheDocument()
+			expect(screen.getByText("You are signed out. Sign in to continue.")).toBeInTheDocument()
+			expect(screen.getByText("Sign in to Codie")).toBeInTheDocument()
+		})
+
+		it("sanitizes hosted provider copy and suppresses raw hosted payloads", async () => {
+			const mockClineError = {
+				message: "openai-codex requires ChatGPT Pro subscription credits",
+				isErrorType: vi.fn(() => false),
+				providerId: "openai-codex",
+				_error: {},
+			}
+
+			const { ClineError } = await import("../../../../src/services/error/ClineError")
+			vi.mocked(ClineError.parse).mockReturnValue(mockClineError as any)
+
+			const { container } = render(
+				<ErrorRow
+					apiRequestFailedMessage="raw backend openai-codex ChatGPT Pro credits"
+					errorType="error"
+					message={mockMessage}
+				/>,
+			)
+
+			expect(container).toHaveTextContent("[Codie] Codie requires Codie access capacity")
+			expect(screen.queryByText(/raw backend/)).not.toBeInTheDocument()
+			expect(screen.queryByText(/openai-codex/)).not.toBeInTheDocument()
+			expect(screen.queryByText(/ChatGPT/)).not.toBeInTheDocument()
 		})
 
 		it("renders PowerShell troubleshooting link when error mentions PowerShell", async () => {
@@ -201,7 +244,7 @@ describe("ErrorRow", () => {
 
 			render(<ErrorRow apiRequestFailedMessage="Some API error" errorType="error" message={mockMessage} />)
 
-			// When ClineError.parse returns null, we display the raw error message for non-Cline providers
+			// When ClineError.parse returns null, we display the raw error message for non-Codie Cloud providers
 			// Since clineError is undefined, isClineProvider is false, so we show the raw apiRequestFailedMessage
 			expect(screen.getByText("Some API error")).toBeInTheDocument()
 		})

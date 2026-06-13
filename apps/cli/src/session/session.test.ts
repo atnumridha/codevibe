@@ -86,7 +86,7 @@ describe("createCliCore", () => {
 			expect.objectContaining({
 				hub: expect.objectContaining({
 					clientType: "cli",
-					displayName: "CodeVibe CLI",
+					displayName: "Codie CLI",
 				}),
 			}),
 		);
@@ -99,7 +99,7 @@ describe("createCliCore", () => {
 			expect.objectContaining({
 				hub: expect.objectContaining({
 					clientType: "cli",
-					displayName: "CodeVibe CLI",
+					displayName: "Codie CLI",
 				}),
 			}),
 		);
@@ -128,7 +128,7 @@ describe("createCliCore", () => {
 				backendMode: "hub",
 				hub: expect.objectContaining({
 					clientType: "cli",
-					displayName: "CodeVibe CLI",
+					displayName: "Codie CLI",
 				}),
 			}),
 		);
@@ -167,7 +167,7 @@ describe("createCliCore", () => {
 				}),
 				hub: expect.objectContaining({
 					clientType: "cli",
-					displayName: "CodeVibe CLI",
+					displayName: "Codie CLI",
 				}),
 			}),
 		);

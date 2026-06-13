@@ -4,7 +4,7 @@ import { isOAuthProviderId } from "@cline/shared";
 export const DEFAULT_CLI_PROVIDER_ID = Llms.BUILT_IN_PROVIDER.OPENAI_CODEX;
 export const DEFAULT_CLI_MODEL_ID =
 	Llms.MODEL_COLLECTIONS_BY_PROVIDER_ID[DEFAULT_CLI_PROVIDER_ID]?.provider
-		.defaultModelId ?? "gpt-5.5";
+		.defaultModelId ?? "gpt-5.5-pro";
 
 export type OAuthCredentials = {
 	access: string;
@@ -21,10 +21,34 @@ export function normalizeProviderId(providerId: string): string {
 
 export function normalizeAuthProviderId(providerId: string): string {
 	const normalized = providerId.trim().toLowerCase();
-	if (normalized === "codex" || normalized === "openai-codex") {
+	if (
+		normalized === "codex" ||
+		normalized === "codie" ||
+		normalized === "openai-codex"
+	) {
 		return "openai-codex";
 	}
+	if (normalized === "codie-cloud" || normalized === "codevibe-cloud") {
+		return "cline";
+	}
 	return normalizeProviderId(normalized);
+}
+
+export function getAuthProviderDisplayName(
+	providerId: string,
+	fallbackName?: string,
+): string {
+	const normalized = normalizeAuthProviderId(providerId);
+	if (normalized === "openai-codex") {
+		return "Codie";
+	}
+	if (normalized === "cline") {
+		return "Codie Cloud";
+	}
+	if (normalized === "oca") {
+		return "OCA";
+	}
+	return fallbackName?.trim() || providerId;
 }
 
 /**
@@ -38,7 +62,7 @@ export function toProviderApiKey(
 	providerId: string,
 	credentials: Pick<OAuthCredentials, "access">,
 ): string {
-	if (providerId === "cline") {
+	if (normalizeAuthProviderId(providerId) === "cline") {
 		return credentials.access.startsWith("workos:")
 			? credentials.access
 			: `workos:${credentials.access}`;
@@ -81,10 +105,11 @@ export function isProviderConfigured(
 	settings: ProviderSettings | undefined,
 ): boolean {
 	if (!settings) return false;
-	if (isOAuthProviderId(providerId)) {
+	const normalizedProviderId = normalizeAuthProviderId(providerId);
+	if (isOAuthProviderId(normalizedProviderId)) {
 		return Boolean(settings.auth?.accessToken?.trim());
 	}
-	if (getPersistedProviderApiKey(providerId, settings)) return true;
+	if (getPersistedProviderApiKey(normalizedProviderId, settings)) return true;
 	if (settings.baseUrl?.trim()) return true;
 	if (settings.model?.trim()) return true;
 	return false;

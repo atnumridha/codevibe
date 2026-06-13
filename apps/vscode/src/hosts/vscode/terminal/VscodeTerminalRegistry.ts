@@ -1,5 +1,6 @@
 import * as vscode from "vscode"
-import { createCodeVibeTerminalOptions } from "./codevibeTerminalEnv"
+import type { CommandExecutionOptions } from "@/integrations/terminal/types"
+import { createCodeVibeTerminalOptions, getCodeVibeTerminalEnvSignature } from "./codevibeTerminalEnv"
 
 export interface TerminalInfo {
 	terminal: vscode.Terminal
@@ -7,6 +8,7 @@ export interface TerminalInfo {
 	lastCommand: string
 	id: number
 	shellPath?: string
+	terminalEnvSignature: string
 	lastActive: number
 	pendingCwdChange?: string
 	cwdResolved?: {
@@ -21,8 +23,13 @@ export class TerminalRegistry {
 	private static terminals: TerminalInfo[] = []
 	private static nextTerminalId = 1
 
-	static createTerminal(cwd?: string | vscode.Uri | undefined, shellPath?: string): TerminalInfo {
-		const terminalOptions = createCodeVibeTerminalOptions({ cwd, shellPath })
+	static createTerminal(
+		cwd?: string | vscode.Uri | undefined,
+		shellPath?: string,
+		executionOptions?: CommandExecutionOptions,
+	): TerminalInfo {
+		const terminalOptions = createCodeVibeTerminalOptions({ cwd, shellPath, executionOptions })
+		const terminalEnvSignature = getCodeVibeTerminalEnvSignature(executionOptions)
 
 		const terminal = vscode.window.createTerminal(terminalOptions)
 		TerminalRegistry.nextTerminalId++
@@ -32,6 +39,7 @@ export class TerminalRegistry {
 			lastCommand: "",
 			id: TerminalRegistry.nextTerminalId,
 			shellPath,
+			terminalEnvSignature,
 			lastActive: Date.now(),
 		}
 		TerminalRegistry.terminals.push(newInfo)

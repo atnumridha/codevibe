@@ -63,7 +63,7 @@ test("browser defaults stay on OpenAI Codex when last-used provider differs", ()
 	const defaults = resolveBrowserDefaults(new HubContext());
 
 	assert.equal(defaults.provider, "openai-codex");
-	assert.equal(defaults.model, "gpt-5.5");
+	assert.equal(defaults.model, "gpt-5.5-pro");
 });
 
 test("launch context stays on OpenAI Codex when last-used provider differs", () => {
@@ -79,7 +79,7 @@ test("launch context stays on OpenAI Codex when last-used provider differs", () 
 	const launchContext = resolveLaunchContext(new HubContext());
 
 	assert.equal(launchContext.providerId, "openai-codex");
-	assert.equal(launchContext.modelId, "gpt-5.5");
+	assert.equal(launchContext.modelId, "gpt-5.5-pro");
 });
 
 test("explicit launch provider can reuse its matching last-used model", () => {

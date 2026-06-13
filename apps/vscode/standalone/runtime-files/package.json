@@ -1,7 +1,7 @@
 {
 	"name": "codevibe-core",
 	"version": "0.0.1",
-	"description": "CodeVibe standalone core runtime",
+	"description": "Codie standalone core runtime",
 	"main": "codevibe-core.js",
 	"dependencies": {
 		"@grpc/grpc-js": "^1.13.3",

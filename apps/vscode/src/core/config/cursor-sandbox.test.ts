@@ -7,7 +7,10 @@ import {
 	CursorSandboxConfigError,
 	isPathAllowedByCursorSandbox,
 	parseCursorSandboxConfig,
+	resolveCodieSandboxConfigPath,
+	resolveCursorSandboxConfigPath,
 	resolveCursorSandboxPolicy,
+	resolveLegacyCursorSandboxConfigPath,
 } from "./cursor-sandbox"
 import { CommandPermissionController } from "@core/permissions"
 
@@ -23,12 +26,30 @@ describe("cursor-sandbox config", () => {
 	})
 
 	async function writeSandboxConfig(value: unknown): Promise<string> {
+		return writeCodieSandboxConfig(value)
+	}
+
+	async function writeCodieSandboxConfig(value: unknown): Promise<string> {
+		const codieDir = path.join(tempDir, ".codie")
+		await fs.mkdir(codieDir, { recursive: true })
+		const configPath = path.join(codieDir, "sandbox.json")
+		await fs.writeFile(configPath, JSON.stringify(value), "utf8")
+		return configPath
+	}
+
+	async function writeLegacyCursorSandboxConfig(value: unknown): Promise<string> {
 		const cursorDir = path.join(tempDir, ".cursor")
 		await fs.mkdir(cursorDir, { recursive: true })
 		const configPath = path.join(cursorDir, "sandbox.json")
 		await fs.writeFile(configPath, JSON.stringify(value), "utf8")
 		return configPath
 	}
+
+	it("uses Codie sandbox config path as the preferred location", () => {
+		resolveCodieSandboxConfigPath(tempDir).should.equal(path.join(tempDir, ".codie", "sandbox.json"))
+		resolveCursorSandboxConfigPath(tempDir).should.equal(resolveCodieSandboxConfigPath(tempDir))
+		resolveLegacyCursorSandboxConfigPath(tempDir).should.equal(path.join(tempDir, ".cursor", "sandbox.json"))
+	})
 
 	it("parses Cursor sandbox defaults conservatively", () => {
 		const config = parseCursorSandboxConfig({})
@@ -104,6 +125,91 @@ describe("cursor-sandbox config", () => {
 		policy!.allowNetworkAutoApprove.should.equal(false)
 		policy!.writablePaths.should.eql([])
 		isPathAllowedByCursorSandbox(path.join(tempDir, "src/index.ts"), policy!.readablePaths).should.equal(true)
+	})
+
+	it("prefers .codie/sandbox.json over legacy .cursor/sandbox.json", async () => {
+		await writeLegacyCursorSandboxConfig({
+			type: "workspace_readonly",
+			networkPolicy: { default: "deny" },
+		})
+		await writeCodieSandboxConfig({
+			type: "workspace_readwrite",
+			networkPolicy: { default: "allow" },
+		})
+
+		const policy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			enabled: true,
+			policySetting: "workspace",
+		})
+
+		should(policy).be.ok()
+		policy!.source.should.equal("cursor-sandbox")
+		policy!.configSource!.should.equal("codie")
+		policy!.configPath.should.equal(path.join(tempDir, ".codie", "sandbox.json"))
+		policy!.effectiveAccess.should.equal("workspace")
+		policy!.allowTerminalAutoApprove.should.equal(true)
+	})
+
+	it("falls back to legacy .cursor/sandbox.json when no Codie sandbox config exists", async () => {
+		await writeLegacyCursorSandboxConfig({
+			type: "workspace_readwrite",
+			networkPolicy: { default: "allow" },
+		})
+
+		const policy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			enabled: true,
+			policySetting: "workspace",
+		})
+
+		should(policy).be.ok()
+		policy!.source.should.equal("cursor-sandbox")
+		policy!.configSource!.should.equal("cursorCompatibility")
+		policy!.configPath.should.equal(path.join(tempDir, ".cursor", "sandbox.json"))
+		policy!.allowTerminalAutoApprove.should.equal(true)
+	})
+
+	it("classifies explicit configPath as Codie unless it is the legacy Cursor sandbox path", async () => {
+		const customConfigPath = path.join(tempDir, "custom", "sandbox.json")
+		await fs.mkdir(path.dirname(customConfigPath), { recursive: true })
+		await fs.writeFile(
+			customConfigPath,
+			JSON.stringify({
+				type: "workspace_readwrite",
+				networkPolicy: { default: "allow" },
+			}),
+			"utf8",
+		)
+
+		const customPolicy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			enabled: true,
+			policySetting: "workspace",
+			configPath: customConfigPath,
+		})
+
+		should(customPolicy).be.ok()
+		customPolicy!.source.should.equal("cursor-sandbox")
+		customPolicy!.configSource!.should.equal("codie")
+		customPolicy!.configPath.should.equal(customConfigPath)
+
+		const legacyConfigPath = await writeLegacyCursorSandboxConfig({
+			type: "workspace_readwrite",
+			networkPolicy: { default: "allow" },
+		})
+
+		const legacyPolicy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			enabled: true,
+			policySetting: "workspace",
+			configPath: legacyConfigPath,
+		})
+
+		should(legacyPolicy).be.ok()
+		legacyPolicy!.source.should.equal("cursor-sandbox")
+		legacyPolicy!.configSource!.should.equal("cursorCompatibility")
+		legacyPolicy!.configPath.should.equal(legacyConfigPath)
 	})
 
 	it("workspace policy maps readwrite config to writable sandbox paths", async () => {
@@ -191,5 +297,27 @@ describe("cursor-sandbox config", () => {
 		policy!.networkPolicy.should.eql({ default: "deny", allow: [] })
 		policy!.blockGitWrites.should.equal(true)
 		warnings.length.should.equal(1)
+	})
+
+	it("invalid preferred Codie config fails closed instead of falling back to legacy Cursor config", async () => {
+		await writeLegacyCursorSandboxConfig({
+			type: "workspace_readwrite",
+			networkPolicy: { default: "allow" },
+		})
+		await writeCodieSandboxConfig({ type: "workspace_readwrite", disableTmpWrite: "nope" })
+
+		const policy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			enabled: true,
+			policySetting: "workspace",
+		})
+
+		should(policy).be.ok()
+		policy!.status.should.equal("invalid")
+		policy!.configSource!.should.equal("codie")
+		policy!.configPath.should.equal(path.join(tempDir, ".codie", "sandbox.json"))
+		policy!.effectiveAccess.should.equal("readOnly")
+		policy!.allowTerminalAutoApprove.should.equal(false)
+		policy!.networkPolicy.should.eql({ default: "deny", allow: [] })
 	})
 })

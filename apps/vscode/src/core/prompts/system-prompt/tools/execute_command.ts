@@ -2,6 +2,34 @@ import { ModelFamily } from "@/shared/prompts"
 import { ClineDefaultTool } from "@/shared/tools"
 import type { ClineToolSpec } from "../spec"
 
+const TERMINAL_POLICY_PARAMETERS: NonNullable<ClineToolSpec["parameters"]> = [
+	{
+		name: "sandbox_permissions",
+		required: false,
+		type: "string",
+		enum: ["use_default", "sandboxed", "unelevated", "require_escalated"],
+		instruction:
+			"Optional Codie terminal run-mode request. Use 'use_default' or omit to let Codie choose; use 'sandboxed' to prefer Codie sandbox execution; use 'unelevated' for normal terminal mode while configured command permissions and sandbox preflight still apply; use 'require_escalated' only when the command must bypass Codie sandbox preflight or sandbox-derived command restrictions. 'require_escalated' always requires explicit user approval and does not request OS administrator privileges.",
+		usage: "use_default",
+	},
+	{
+		name: "require_escalated",
+		required: false,
+		type: "boolean",
+		instruction:
+			"Optional boolean alias for sandbox_permissions=require_escalated. Set true only when the command must bypass Codie sandbox preflight or sandbox-derived command restrictions. This forces explicit user approval and does not request OS administrator privileges.",
+		usage: "false",
+	},
+	{
+		name: "prefix_rule",
+		required: false,
+		type: "string",
+		instruction:
+			"Optional approval context for elevated commands. Provide a JSON array of leading command tokens that exactly match the command prefix, such as [\"npm\",\"run\",\"dev\"]. Codie shows this with the one-off approval but does not persist a new auto-approval rule.",
+		usage: '["npm","run","dev"]',
+	},
+]
+
 const GENERIC: ClineToolSpec = {
 	variant: ModelFamily.GENERIC,
 	id: ClineDefaultTool.BASH,
@@ -18,10 +46,11 @@ const GENERIC: ClineToolSpec = {
 			name: "requires_approval",
 			required: true,
 			instruction:
-				"A boolean indicating whether this command requires explicit user approval before execution in case the user has auto-approve mode enabled. Set to 'true' for potentially impactful operations like installing/uninstalling packages, deleting/overwriting files, system configuration changes, network operations, or any commands that could have unintended side effects. Set to 'false' for safe operations like reading files/directories, running development servers, building projects, and other non-destructive operations.",
+				"A boolean indicating whether this command requires explicit user approval before execution in case the user has auto-approve mode enabled. Set to 'true' for potentially impactful operations like installing/uninstalling packages, deleting/overwriting files, system configuration changes, network operations, long-running services, builds/tests that write artifacts, or any command that uses sandbox_permissions=require_escalated or require_escalated=true. Set to 'false' only for safe read-only commands and clearly non-mutating status checks.",
 			usage: "true or false",
 			type: "boolean",
 		},
+		...TERMINAL_POLICY_PARAMETERS,
 		{
 			name: "timeout",
 			required: false,
@@ -51,9 +80,10 @@ const NATIVE_GPT_5: ClineToolSpec = {
 			name: "requires_approval",
 			required: true,
 			instruction:
-				"To indicate whether this command requires explicit user approval or interaction before it should be executed. For system/file altering operations like installing/uninstalling packages, removing/overwriting files, system configuration changes, network operations, or any commands that are considered potentially dangerous must be set to true. False for safe operations like running development servers, building projects, and other non-destructive operations.",
+				"To indicate whether this command requires explicit user approval or interaction before it should be executed. System/file altering operations like installing/uninstalling packages, removing/overwriting files, system configuration changes, network operations, long-running services, builds/tests that write artifacts, or any command that uses sandbox_permissions=require_escalated or require_escalated=true must be set to true. False is only for safe read-only commands and clearly non-mutating status checks.",
 			type: "boolean",
 		},
+		...TERMINAL_POLICY_PARAMETERS,
 	],
 }
 
@@ -79,9 +109,10 @@ const GEMINI_3: ClineToolSpec = {
 			name: "requires_approval",
 			required: true,
 			instruction:
-				"To indicate whether this command requires explicit user approval or interaction before it should be executed. For system/file altering operations like installing/uninstalling packages, removing/overwriting files, system configuration changes, network operations, or any commands that are considered potentially dangerous must be set to true. False for safe operations like running development servers, building projects, and other non-destructive operations.",
+				"To indicate whether this command requires explicit user approval or interaction before it should be executed. System/file altering operations like installing/uninstalling packages, removing/overwriting files, system configuration changes, network operations, long-running services, builds/tests that write artifacts, or any command that uses sandbox_permissions=require_escalated or require_escalated=true must be set to true. False is only for safe read-only commands and clearly non-mutating status checks.",
 			type: "boolean",
 		},
+		...TERMINAL_POLICY_PARAMETERS,
 	],
 }
 

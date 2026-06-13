@@ -424,7 +424,7 @@ describe("Cursor MCP install command", () => {
 		});
 	});
 
-	it("dispatches native CodeVibe route-host deeplinks through the CLI", async () => {
+	it("dispatches native Codie route-host deeplinks through the CLI", async () => {
 		const settingsPath = await useTempSettingsPath();
 		const install = createIo();
 
@@ -616,7 +616,7 @@ describe("Cursor MCP install command", () => {
 			"session-bg",
 			expect.objectContaining({
 				prompt: expect.stringContaining(
-					"Cursor-compatible background-agent launch prepared.",
+					"Codie import-compatible background-agent launch prepared.",
 				),
 				delivery: "queue",
 				config: expect.objectContaining({ mode: "plan" }),
@@ -897,7 +897,7 @@ describe("Cursor MCP install command", () => {
 		).resolves.toBe(1);
 		expect(JSON.parse(unsupported.out[0] ?? "{}")).toMatchObject({
 			handled: false,
-			error: "Unsupported Cursor URI route for CLI: /unknown",
+			error: "Unsupported import-compatible URI route for CLI: /unknown",
 		});
 	});
 

@@ -254,11 +254,11 @@ export async function startClineHubDashboardServer(): Promise<ClineHubDashboardS
 export function printClineHubDashboardServerInfo(
 	server: ClineHubDashboardServer,
 ): void {
-	console.log(`CodeVibe Hub dashboard listening: ${server.listenUrl}`);
-	console.log(`CodeVibe Hub public URL: ${server.publicUrl}`);
+	console.log(`Codie Agent Hub dashboard listening: ${server.listenUrl}`);
+	console.log(`Codie Agent Hub public URL: ${server.publicUrl}`);
 	console.log(`hub endpoint: ${server.hubUrl}`);
 	if (server.inviteRequired) {
-		console.log(`CodeVibe Hub invite URL: ${server.inviteUrl}`);
+		console.log(`Codie Agent Hub invite URL: ${server.inviteUrl}`);
 	} else if (isNonLocalBindHost(server.bindHost)) {
 		console.warn("WARNING: non-local bind without ROOM_SECRET is not allowed.");
 	} else {

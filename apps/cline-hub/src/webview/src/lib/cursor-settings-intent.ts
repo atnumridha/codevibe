@@ -1,4 +1,4 @@
-export type CodeVibeSettingsSection =
+export type CodieSettingsSection =
 	| "General"
 	| "Providers"
 	| "Customizations"
@@ -31,7 +31,7 @@ const CURSOR_LINK_INTENT_PATHS = new Set([
 	"/git/commit",
 ]);
 
-const EXACT_SECTION_SLUGS = new Map<string, CodeVibeSettingsSection>([
+const EXACT_SECTION_SLUGS = new Map<string, CodieSettingsSection>([
 	["account", "Account"],
 	["accounts", "Account"],
 	["automation-ingest", "Compatibility"],
@@ -136,7 +136,7 @@ export function isCursorLinkPreviewIntentPath(
 export function cursorSettingsSectionFromValues(values: {
 	query?: string;
 	sourceParam?: string;
-}): CodeVibeSettingsSection {
+}): CodieSettingsSection {
 	const sourceParam = normalizeLabel(values.sourceParam ?? "");
 	const query = normalizeLabel(values.query ?? "");
 	const exact =
@@ -186,7 +186,7 @@ export function cursorSettingsSectionFromValues(values: {
 
 export function cursorSettingsSectionFromSearch(
 	search: string | URLSearchParams,
-): CodeVibeSettingsSection {
+): CodieSettingsSection {
 	const params = searchParamsFrom(search);
 	for (const key of ["section", "tab", "query", "config"]) {
 		const value = params.get(key)?.trim();
@@ -202,7 +202,7 @@ export function cursorSettingsSectionFromSearch(
 
 export function cursorSettingsSectionFromPreview(
 	previewRecord: Record<string, unknown> | undefined,
-): CodeVibeSettingsSection {
+): CodieSettingsSection {
 	return cursorSettingsSectionFromValues({
 		query: recordString(previewRecord, "query"),
 		sourceParam: recordString(previewRecord, "sourceParam"),

@@ -54,7 +54,7 @@ const standaloneManifestFile = "standalone-manifest.json"
 const childProcesses: ChildProcess[] = []
 
 async function main(): Promise<void> {
-	console.log("Starting Simple CodeVibe gRPC Server...")
+	console.log("Starting simple Codie gRPC server...")
 	console.log(`Project Root: ${projectRoot}`)
 	console.log(`Workspace: ${WORKSPACE_DIR}`)
 	console.log(`ProtoBus Port: ${PROTOBUS_PORT}`)
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
 
 	try {
 		await CodeVibeApiServerMock.startGlobalServer()
-		console.log("CodeVibe API Server started in-process")
+		console.log("Codie API server started in-process")
 	} catch (error) {
 		console.error("Failed to start CodeVibe API Server:", error)
 		process.exit(1)
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
 
 	const spawnArgs = USE_C8 ? ["c8", "--report-dir", covDir, "node", ...baseArgs] : ["node", ...baseArgs]
 
-	console.log(`Starting CodeVibe Core Service... (useC8=${USE_C8})`)
+	console.log(`Starting Codie core service... (useC8=${USE_C8})`)
 
 	const coreService: ChildProcess = spawn("npx", spawnArgs, {
 		cwd: projectRoot,
@@ -178,13 +178,13 @@ async function main(): Promise<void> {
 		shutdown()
 	})
 
-	console.log(`CodeVibe gRPC Server is running on 127.0.0.1:${PROTOBUS_PORT}`)
+	console.log(`Codie gRPC server is running on 127.0.0.1:${PROTOBUS_PORT}`)
 	console.log("Press Ctrl+C to stop")
 }
 
 if (require.main === module) {
 	main().catch((err) => {
-		console.error("Failed to start simple CodeVibe server:", err)
+		console.error("Failed to start simple Codie server:", err)
 		process.exit(1)
 	})
 }
@@ -226,7 +226,7 @@ function validateStandaloneManifest(manifestPath: string): void {
 	}
 
 	expectEqual(manifest.schemaVersion, 1, "schemaVersion")
-	expectEqual(manifest.product?.name, "CodeVibe", "product.name")
+	expectEqual(manifest.product?.name, "Codie", "product.name")
 	expectEqual(manifest.product?.runtimeName, "codevibe-core", "product.runtimeName")
 	expectEqual(manifest.package?.coreEntry, codeVibeCoreFile, "package.coreEntry")
 	expectEqual(manifest.package?.extensionDirectory, "extension", "package.extensionDirectory")
@@ -247,7 +247,7 @@ function validateStandaloneManifest(manifestPath: string): void {
 	expectEqual(manifest.launch?.environment?.CODEVIBE_DATA_DIR, "~/.codevibe/data", "launch.environment.CODEVIBE_DATA_DIR")
 
 	if (!Array.isArray(manifest.launch?.args) || !manifest.launch.args.includes(codeVibeCoreFile)) {
-		failures.push("launch.args must include the CodeVibe core entrypoint")
+		failures.push("launch.args must include the Codie core entrypoint")
 	}
 
 	if (!Array.isArray(manifest.targets) || manifest.targets.length < 5) {

@@ -231,11 +231,12 @@ describe("resolveProviderConfig", () => {
 		);
 	});
 
-	it("derives ChatGPT subscription models from the generated OpenAI catalog", async () => {
+	it("derives Codie hosted models from the generated OpenAI catalog", async () => {
 		const resolved = await resolveProviderConfig("openai-codex");
 		const openAiResolved = await resolveProviderConfig("openai-native");
 		const modelIds = Object.keys(resolved?.knownModels ?? {});
 
+		expect(resolved?.modelId).toBe("gpt-5.5-pro");
 		expect(modelIds).toEqual(
 			expect.arrayContaining([
 				"gpt-5.5",
@@ -259,9 +260,16 @@ describe("resolveProviderConfig", () => {
 				contextWindow: 400_000,
 			}),
 		);
+		expect(resolved?.knownModels?.["gpt-5.5-pro"]).toEqual(
+			expect.objectContaining({
+				...openAiResolved?.knownModels?.["gpt-5.5-pro"],
+				name: "GPT-5.5 Pro",
+				contextWindow: 1_050_000,
+			}),
+		);
 	});
 
-	it("resolves ChatGPT OAuth models from the filtered catalog", async () => {
+	it("resolves Codie hosted OAuth models from the filtered catalog", async () => {
 		const resolved = await resolveProviderConfig(
 			"openai-codex",
 			{ cacheTtlMs: 1, loadPrivateOnAuth: false },
@@ -281,6 +289,7 @@ describe("resolveProviderConfig", () => {
 				"gpt-5.4",
 				"gpt-5.4-mini",
 				"gpt-5.5",
+				"gpt-5.5-pro",
 			]),
 		);
 		expect(resolved?.knownModels?.["gpt-5.4-mini"]).toEqual(
@@ -346,7 +355,7 @@ describe("resolveProviderConfig", () => {
 					Authorization: "Bearer oauth-token",
 					"ChatGPT-Account-Id": "acct_123",
 					"x-codex-installation-id": "install_123",
-					originator: "cline",
+					originator: "codie",
 					session_id: expect.any(String),
 					"User-Agent": expect.stringMatching(/^CodeVibe\//),
 				}),
@@ -539,7 +548,7 @@ describe("resolveProviderConfig", () => {
 						Authorization: expect.stringMatching(/^Bearer /),
 						"ChatGPT-Account-Id": "acct_home",
 						"x-codex-installation-id": "install_home",
-						originator: "cline",
+						originator: "codie",
 						session_id: expect.any(String),
 						"User-Agent": expect.stringMatching(/^CodeVibe\//),
 					}),

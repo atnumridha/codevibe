@@ -415,7 +415,7 @@ export function registerScheduleCommands(
 		.description("Validate automation event inputs");
 	const validateEventCmd = eventCmd
 		.command("validate")
-		.description("Validate Cursor-compatible automation event NDJSON")
+		.description("Validate import-compatible automation event NDJSON")
 		.argument("[source]", "NDJSON file path, or - for stdin", "-")
 		.option("--default-source <source>", "Default source for source-less events", "cursor")
 		.option("--allowed-sources <list>", "Comma-separated allowed event sources")

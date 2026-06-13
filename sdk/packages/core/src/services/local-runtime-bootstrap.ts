@@ -139,7 +139,7 @@ function buildOpenAICodexHeaders(input: {
 	};
 	const resolvedAccountId =
 		input.accountId?.trim() || deriveOpenAICodexAccountId(input.accessToken);
-	headers.originator = "cline";
+	headers.originator = "codie";
 	headers.session_id = input.sessionId;
 	headers["User-Agent"] = `CodeVibe/${process.env.npm_package_version || "1.0.0"}`;
 	if (resolvedAccountId) {

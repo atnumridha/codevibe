@@ -9,7 +9,7 @@ import * as path from "path"
 import * as vscode from "vscode"
 import { HostProvider } from "@/hosts/host-provider"
 import { Logger } from "@/shared/services/Logger"
-import { createTestServer, shutdownTestServer } from "./TestServer"
+import { createTestServer, shutdownTestServer, type TestServerHooks } from "./TestServer"
 
 // State variable
 let isTestMode = false
@@ -53,7 +53,7 @@ async function checkForTestMode(): Promise<boolean> {
  * Initialize test mode detection and setup file watchers
  * @param webviewProvider The webview provider instance
  */
-export async function initializeTestMode(webviewProvider?: any): Promise<vscode.Disposable[]> {
+export async function initializeTestMode(webviewProvider?: any, hooks: TestServerHooks = {}): Promise<vscode.Disposable[]> {
 	const disposables: vscode.Disposable[] = []
 	const controller = webviewProvider?.controller ?? webviewProvider
 
@@ -68,7 +68,7 @@ export async function initializeTestMode(webviewProvider?: any): Promise<vscode.
 		vscode.commands.executeCommand("setContext", "codevibe.isTestMode", true)
 
 		// Set up test server if in test mode
-		createTestServer(controller)
+		createTestServer(controller, hooks)
 	}
 
 	// Watch for evals.env files being added or removed
@@ -80,7 +80,7 @@ export async function initializeTestMode(webviewProvider?: any): Promise<vscode.
 		if (!isInTestMode()) {
 			setTestMode(true)
 			vscode.commands.executeCommand("setContext", "codevibe.isTestMode", true)
-			createTestServer(controller)
+			createTestServer(controller, hooks)
 		}
 	})
 

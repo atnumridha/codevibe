@@ -26,16 +26,16 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 	constructor(extensionUri?: vscode.Uri) {
 		super()
 		this.codeVibeAuthor = {
-			name: "CodeVibe",
+			name: "Codie",
 			...(extensionUri ? { iconPath: vscode.Uri.joinPath(extensionUri, "assets", "icons", "icon.png") } : {}),
 		}
 		// Create the comment controller
-		this.commentController = vscode.comments.createCommentController("codevibe-ai-review", "CodeVibe Review")
+		this.commentController = vscode.comments.createCommentController("codevibe-ai-review", "Codie Review")
 
 		// Configure options for the reply input
 		this.commentController.options = {
 			placeHolder: "Ask a question about this code...",
-			prompt: "Reply to CodeVibe",
+			prompt: "Reply to Codie",
 		}
 
 		// Configure the commenting range provider (optional - allows commenting on any line)
@@ -54,7 +54,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 			}),
 		)
 
-		// Register add to chat command - sends the conversation to CodeVibe's main chat
+		// Register add to chat command - sends the conversation to Codie's main chat
 		this.disposables.push(
 			vscode.commands.registerCommand("codevibe.reviewComment.addToChat", async (thread: vscode.CommentThread) => {
 				await this.handleAddToChat(thread)
@@ -362,7 +362,7 @@ export class VscodeCommentReviewController extends CommentReviewController imple
 	}
 
 	/**
-	 * Handle adding the thread conversation to CodeVibe's main chat
+	 * Handle adding the thread conversation to Codie's main chat
 	 */
 	private async handleAddToChat(thread: vscode.CommentThread): Promise<void> {
 		const filePath = this.threadFilePaths.get(thread) || thread.uri.fsPath
@@ -397,7 +397,7 @@ Please continue helping the user with their question about this code.`
 	}
 
 	/**
-	 * Close all tabs that use CodeVibe diff URI schemes (both diff views and regular text documents).
+	 * Close all tabs that use Codie diff URI schemes (both diff views and regular text documents).
 	 */
 	async closeDiffViews(): Promise<void> {
 		const tabs = vscode.window.tabGroups.all

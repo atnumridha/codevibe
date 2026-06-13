@@ -1,96 +1,107 @@
-import type { Anthropic } from "@anthropic-ai/sdk"
-import { buildApiHandler } from "@core/api"
+import type { Anthropic } from "@anthropic-ai/sdk";
+import { buildApiHandler } from "@core/api";
 import {
 	resolveCursorSandboxConfigPath,
 	resolveCursorSandboxPolicy,
 	type CursorSandboxRuntimePolicy,
-} from "@core/config/cursor-sandbox"
-import { getHooksEnabledSafe } from "@core/hooks/hooks-utils"
-import { tryAcquireTaskLockWithRetry } from "@core/task/TaskLockUtils"
-import { detectWorkspaceRoots } from "@core/workspace/detection"
-import { setupWorkspaceManager } from "@core/workspace/setup"
-import type { WorkspaceRootManager } from "@core/workspace/WorkspaceRootManager"
-import { cleanupLegacyCheckpoints } from "@integrations/checkpoints/CheckpointMigration"
-import { ClineAccountService } from "@services/account/ClineAccountService"
-import { McpHub } from "@services/mcp/McpHub"
+} from "@core/config/cursor-sandbox";
+import { getHooksEnabledSafe } from "@core/hooks/hooks-utils";
+import { tryAcquireTaskLockWithRetry } from "@core/task/TaskLockUtils";
+import { detectWorkspaceRoots } from "@core/workspace/detection";
+import { setupWorkspaceManager } from "@core/workspace/setup";
+import type { WorkspaceRootManager } from "@core/workspace/WorkspaceRootManager";
+import { cleanupLegacyCheckpoints } from "@integrations/checkpoints/CheckpointMigration";
+import { ClineAccountService } from "@services/account/ClineAccountService";
+import { McpHub } from "@services/mcp/McpHub";
 import {
 	DEFAULT_API_PROVIDER,
 	type ApiProvider,
 	type ModelInfo,
-} from "@shared/api"
-import { getEffectiveBrowserSettings } from "@shared/BrowserSettings"
-import type { ChatContent } from "@shared/ChatContent"
-import type { CodeVibeCompatibilityStatus, ExtensionState, Platform } from "@shared/ExtensionMessage"
-import type { HistoryItem } from "@shared/HistoryItem"
-import { normalizeMcpMarketplaceCatalog, type McpMarketplaceCatalog, type McpMarketplaceItem } from "@shared/mcp"
-import { type Settings } from "@shared/storage/state-keys"
-import type { Mode } from "@shared/storage/types"
-import type { TelemetrySetting } from "@shared/TelemetrySetting"
-import type { UserInfo } from "@shared/UserInfo"
-import { fileExistsAtPath } from "@utils/fs"
-import axios from "axios"
-import fs from "fs/promises"
-import open from "open"
-import pWaitFor from "p-wait-for"
-import * as path from "path"
-import { ClineEnv } from "@/config"
-import type { FolderLockWithRetryResult } from "@/core/locks/types"
-import { HostProvider } from "@/hosts/host-provider"
-import { mergeOpenAiCodexBackendModels } from "@/integrations/openai-codex/models"
-import { ExtensionRegistryInfo } from "@/registry"
-import { AuthService } from "@/services/auth/AuthService"
-import { OcaAuthService } from "@/services/auth/oca/OcaAuthService"
-import { LogoutReason } from "@/services/auth/types"
+} from "@shared/api";
+import { getEffectiveBrowserSettings } from "@shared/BrowserSettings";
+import type { ChatContent } from "@shared/ChatContent";
+import type {
+	CodeVibeCompatibilityStatus,
+	ExtensionState,
+	Platform,
+} from "@shared/ExtensionMessage";
+import type { HistoryItem } from "@shared/HistoryItem";
+import {
+	normalizeMcpMarketplaceCatalog,
+	type McpMarketplaceCatalog,
+	type McpMarketplaceItem,
+} from "@shared/mcp";
+import { type Settings } from "@shared/storage/state-keys";
+import type { Mode } from "@shared/storage/types";
+import type { TelemetrySetting } from "@shared/TelemetrySetting";
+import type { UserInfo } from "@shared/UserInfo";
+import { fileExistsAtPath } from "@utils/fs";
+import axios from "axios";
+import fs from "fs/promises";
+import open from "open";
+import pWaitFor from "p-wait-for";
+import * as path from "path";
+import { ClineEnv } from "@/config";
+import type { FolderLockWithRetryResult } from "@/core/locks/types";
+import { HostProvider } from "@/hosts/host-provider";
+import { mergeOpenAiCodexBackendModels } from "@/integrations/openai-codex/models";
+import { ExtensionRegistryInfo } from "@/registry";
+import { AuthService } from "@/services/auth/AuthService";
+import { OcaAuthService } from "@/services/auth/oca/OcaAuthService";
+import { LogoutReason } from "@/services/auth/types";
 import {
 	ingestCursorAutomationEvents,
 	type CursorAutomationIngestResult,
-} from "@/services/automation/CursorAutomationIngestStore"
-import { BannerService } from "@/services/banner/BannerService"
-import { buildExternalBasicHeaders } from "@/services/EnvUtils"
-import { featureFlagsService } from "@/services/feature-flags"
-import { getDistinctId } from "@/services/logging/distinctId"
+} from "@/services/automation/CursorAutomationIngestStore";
+import { BannerService } from "@/services/banner/BannerService";
+import { buildExternalBasicHeaders } from "@/services/EnvUtils";
+import { featureFlagsService } from "@/services/feature-flags";
+import { getDistinctId } from "@/services/logging/distinctId";
 import {
 	installPlugin,
 	type PluginInstallResult,
-} from "@/services/plugins/CursorPluginInstaller"
-import { telemetryService } from "@/services/telemetry"
-import type { CursorCompatibleAutomationIngestRequest } from "@/services/uri/CursorUriRoutes"
-import { ClineExtensionContext } from "@/shared/cline"
-import { getAxiosSettings } from "@/shared/net"
-import { ShowMessageType } from "@/shared/proto/host/window"
-import { Logger } from "@/shared/services/Logger"
-import { Session } from "@/shared/services/Session"
-import { getLatestAnnouncementId } from "@/utils/announcements"
-import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config"
-import { createWorktree as createWorktreeUtil } from "@/utils/git-worktree"
-import { getCwd, getDesktopDir } from "@/utils/path"
-import { PromptRegistry } from "../prompts/system-prompt"
+} from "@/services/plugins/CursorPluginInstaller";
+import { telemetryService } from "@/services/telemetry";
+import type { CursorCompatibleAutomationIngestRequest } from "@/services/uri/CursorUriRoutes";
+import { ClineExtensionContext } from "@/shared/cline";
+import { getAxiosSettings } from "@/shared/net";
+import { ShowMessageType } from "@/shared/proto/host/window";
+import { Logger } from "@/shared/services/Logger";
+import { Session } from "@/shared/services/Session";
+import { getLatestAnnouncementId } from "@/utils/announcements";
+import { getCodeVibeConfigurationValue } from "@/utils/codevibe-config";
+import { createWorktree as createWorktreeUtil } from "@/utils/git-worktree";
+import { getCwd, getDesktopDir } from "@/utils/path";
+import { PromptRegistry } from "../prompts/system-prompt";
 import {
 	ensureCacheDirectoryExists,
 	ensureMcpServersDirectoryExists,
 	ensureSettingsDirectoryExists,
 	GlobalFileNames,
 	writeMcpMarketplaceCatalogToCache,
-} from "../storage/disk"
-import { fetchRemoteConfig } from "../storage/remote-config/fetch"
-import { clearRemoteConfig } from "../storage/remote-config/utils"
-import { type PersistenceErrorEvent, StateManager } from "../storage/StateManager"
-import { Task } from "../task"
+} from "../storage/disk";
+import { fetchRemoteConfig } from "../storage/remote-config/fetch";
+import { clearRemoteConfig } from "../storage/remote-config/utils";
+import {
+	type PersistenceErrorEvent,
+	StateManager,
+} from "../storage/StateManager";
+import { Task } from "../task";
 import {
 	type BackgroundAgentTaskRecord,
 	type CursorBackgroundAgentLaunchRequest,
 	launchCursorBackgroundAgent,
-} from "./background-agent/launch"
+} from "./background-agent/launch";
 import {
 	normalizeBackgroundAgentTaskRecords,
 	upsertBackgroundAgentTaskRecord,
-} from "./background-agent/persistence"
-import { sendMcpMarketplaceCatalogEvent } from "./mcp/subscribeToMcpMarketplaceCatalog"
-import { getClineOnboardingModels } from "./models/getClineOnboardingModels"
-import { appendClineStealthModels } from "./models/refreshOpenRouterModels"
-import { checkCliInstallation } from "./state/checkCliInstallation"
-import { sendStateUpdate } from "./state/subscribeToState"
-import { sendChatButtonClickedEvent } from "./ui/subscribeToChatButtonClicked"
+} from "./background-agent/persistence";
+import { sendMcpMarketplaceCatalogEvent } from "./mcp/subscribeToMcpMarketplaceCatalog";
+import { getClineOnboardingModels } from "./models/getClineOnboardingModels";
+import { appendClineStealthModels } from "./models/refreshOpenRouterModels";
+import { checkCliInstallation } from "./state/checkCliInstallation";
+import { sendStateUpdate } from "./state/subscribeToState";
+import { sendChatButtonClickedEvent } from "./ui/subscribeToChatButtonClicked";
 
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -98,15 +109,25 @@ https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default
 https://github.com/KumarVariable/vscode-extension-sidebar-html/blob/master/src/customSidebarViewProvider.ts
 */
 
-const OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS = 5 * 60 * 1000
-const OPENAI_CODEX_BACKEND_MODELS_AUTH_FAILURE_RETRY_MS = 15 * 1000
+const OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS = 5 * 60 * 1000;
+const OPENAI_CODEX_BACKEND_MODELS_AUTH_FAILURE_RETRY_MS = 15 * 1000;
 
-type CodeVibeSandboxRuntimeSummary = CodeVibeCompatibilityStatus["sandboxRuntime"]
+type PostStateToWebviewOptions = {
+	skipOpenAiCodexBackendModelsRefresh?: boolean;
+};
 
-function summarizeCursorSandboxRuntimePolicy(policy: CursorSandboxRuntimePolicy): CodeVibeSandboxRuntimeSummary {
+type CodeVibeSandboxRuntimeSummary =
+	CodeVibeCompatibilityStatus["sandboxRuntime"];
+
+function summarizeCursorSandboxRuntimePolicy(
+	policy: CursorSandboxRuntimePolicy,
+): CodeVibeSandboxRuntimeSummary {
 	return {
 		status: policy.status,
 		effectiveAccess: policy.effectiveAccess,
+		configSource:
+			policy.configSource ??
+			(policy.source === "cursor-sandbox" ? "cursorCompatibility" : "codie"),
 		configPath: policy.configPath,
 		workspaceRoot: policy.workspaceRoot,
 		error: policy.error,
@@ -116,17 +137,18 @@ function summarizeCursorSandboxRuntimePolicy(policy: CursorSandboxRuntimePolicy)
 		networkAllowCount: policy.networkPolicy.allow.length,
 		blockGitWrites: policy.blockGitWrites,
 		allowTerminalAutoApprove: policy.allowTerminalAutoApprove,
-	}
+	};
 }
 
 function createInactiveSandboxRuntimeSummary(options: {
-	status: "missing" | "disabled"
-	configPath?: string
-	workspaceRoot?: string
+	status: "missing" | "disabled";
+	configPath?: string;
+	workspaceRoot?: string;
 }): CodeVibeSandboxRuntimeSummary {
 	return {
 		status: options.status,
 		effectiveAccess: "disabled",
+		configSource: "none",
 		configPath: options.configPath,
 		workspaceRoot: options.workspaceRoot,
 		readablePathCount: 0,
@@ -135,34 +157,37 @@ function createInactiveSandboxRuntimeSummary(options: {
 		networkAllowCount: 0,
 		blockGitWrites: false,
 		allowTerminalAutoApprove: false,
-	}
+	};
 }
 
 export class Controller {
-	task?: Task
+	task?: Task;
 
-	mcpHub: McpHub
-	accountService: ClineAccountService
-	authService: AuthService
-	ocaAuthService: OcaAuthService
-	readonly stateManager: StateManager
+	mcpHub: McpHub;
+	accountService: ClineAccountService;
+	authService: AuthService;
+	ocaAuthService: OcaAuthService;
+	readonly stateManager: StateManager;
 
 	// NEW: Add workspace manager (optional initially)
-	private workspaceManager?: WorkspaceRootManager
-	private backgroundCommandRunning = false
-	private backgroundCommandTaskId?: string
-	private backgroundAgentTaskRecords = new Map<string, BackgroundAgentTaskRecord>()
+	private workspaceManager?: WorkspaceRootManager;
+	private backgroundCommandRunning = false;
+	private backgroundCommandTaskId?: string;
+	private backgroundAgentTaskRecords = new Map<
+		string,
+		BackgroundAgentTaskRecord
+	>();
 	private openAiCodexBackendModelsCache?: {
-		expiresAt: number
-		models: Record<string, ModelInfo>
-	}
-	private openAiCodexBackendModelsPromise?: Promise<Record<string, ModelInfo>>
+		expiresAt: number;
+		models: Record<string, ModelInfo>;
+	};
+	private openAiCodexBackendModelsPromise?: Promise<Record<string, ModelInfo>>;
 
 	// Flag to prevent duplicate cancellations from spam clicking
-	private cancelInProgress = false
+	private cancelInProgress = false;
 
 	// Timer for periodic remote config fetching
-	private remoteConfigTimer?: NodeJS.Timeout
+	private remoteConfigTimer?: NodeJS.Timeout;
 
 	// Public getter for workspace manager with lazy initialization - To get workspaces when task isn't initialized (Used by file mentions)
 	async ensureWorkspaceManager(): Promise<WorkspaceRootManager | undefined> {
@@ -171,17 +196,20 @@ export class Controller {
 				this.workspaceManager = await setupWorkspaceManager({
 					stateManager: this.stateManager,
 					detectRoots: detectWorkspaceRoots,
-				})
+				});
 			} catch (error) {
-				Logger.error("[Controller] Failed to initialize workspace manager:", error)
+				Logger.error(
+					"[Controller] Failed to initialize workspace manager:",
+					error,
+				);
 			}
 		}
-		return this.workspaceManager
+		return this.workspaceManager;
 	}
 
 	// Synchronous getter for workspace manager
 	getWorkspaceManager(): WorkspaceRootManager | undefined {
-		return this.workspaceManager
+		return this.workspaceManager;
 	}
 
 	/**
@@ -190,53 +218,62 @@ export class Controller {
 	 */
 	private startRemoteConfigTimer() {
 		// Initial fetch
-		fetchRemoteConfig(this)
+		fetchRemoteConfig(this);
 		// Set up 1-hour interval
-		this.remoteConfigTimer = setInterval(() => fetchRemoteConfig(this), 3600000) // 1 hour
+		this.remoteConfigTimer = setInterval(
+			() => fetchRemoteConfig(this),
+			3600000,
+		); // 1 hour
 	}
 
 	constructor(readonly context: ClineExtensionContext) {
-		Session.reset() // Reset session on controller initialization
-		PromptRegistry.getInstance() // Ensure prompts and tools are registered
-		this.stateManager = StateManager.get()
-		this.hydrateBackgroundAgentTaskRecords()
+		Session.reset(); // Reset session on controller initialization
+		PromptRegistry.getInstance(); // Ensure prompts and tools are registered
+		this.stateManager = StateManager.get();
+		this.hydrateBackgroundAgentTaskRecords();
 		StateManager.get().registerCallbacks({
 			onPersistenceError: async ({ error }: PersistenceErrorEvent) => {
 				// Just log - don't call reInitialize() (that sets isInitialized=false which
 				// breaks running tasks) and don't show a warning (data is safe in memory
 				// and will be retried automatically on the next debounced persistence).
-				Logger.error("[Controller] Storage persistence failed (will retry):", error)
+				Logger.error(
+					"[Controller] Storage persistence failed (will retry):",
+					error,
+				);
 			},
 			onSyncExternalChange: async () => {
-				await this.postStateToWebview()
+				await this.postStateToWebview();
 			},
-		})
-		this.authService = AuthService.getInstance(this)
-		this.ocaAuthService = OcaAuthService.initialize(this)
-		this.accountService = ClineAccountService.getInstance()
-		BannerService.initialize(this)
+		});
+		this.authService = AuthService.getInstance(this);
+		this.ocaAuthService = OcaAuthService.initialize(this);
+		this.accountService = ClineAccountService.getInstance();
+		BannerService.initialize(this);
 
 		this.authService.restoreRefreshTokenAndRetrieveAuthInfo().then(() => {
-			this.startRemoteConfigTimer()
-		})
+			this.startRemoteConfigTimer();
+		});
 
 		this.mcpHub = new McpHub(
 			() => ensureMcpServersDirectoryExists(),
 			() => ensureSettingsDirectoryExists(),
 			ExtensionRegistryInfo.version,
 			telemetryService,
-			async () => (await this.ensureWorkspaceManager())?.getRoots().map((root) => root.path) ?? [],
-		)
+			async () =>
+				(await this.ensureWorkspaceManager())
+					?.getRoots()
+					.map((root) => root.path) ?? [],
+		);
 
 		// Clean up legacy checkpoints
 		cleanupLegacyCheckpoints().catch((error) => {
-			Logger.error("Failed to cleanup legacy checkpoints:", error)
-		})
+			Logger.error("Failed to cleanup legacy checkpoints:", error);
+		});
 
 		// Check CLI installation status once on startup
-		checkCliInstallation(this)
+		checkCliInstallation(this);
 
-		Logger.log("[Controller] CodeVibe provider instantiated")
+		Logger.log("[Controller] CodeVibe provider instantiated");
 	}
 
 	/*
@@ -247,64 +284,64 @@ export class Controller {
 	async dispose() {
 		// Clear the remote config timer
 		if (this.remoteConfigTimer) {
-			clearInterval(this.remoteConfigTimer)
-			this.remoteConfigTimer = undefined
+			clearInterval(this.remoteConfigTimer);
+			this.remoteConfigTimer = undefined;
 		}
 
-		await this.clearTask()
-		this.mcpHub.dispose()
+		await this.clearTask();
+		this.mcpHub.dispose();
 
-		Logger.error("Controller disposed")
+		Logger.error("Controller disposed");
 	}
 
 	// Auth methods
 	async handleSignOut() {
 		try {
 			// AuthService now handles its own storage cleanup in handleDeauth()
-			this.stateManager.setGlobalState("userInfo", undefined)
-			clearRemoteConfig()
+			this.stateManager.setGlobalState("userInfo", undefined);
+			clearRemoteConfig();
 
 			// Update API providers through cache service
-			const apiConfiguration = this.stateManager.getApiConfiguration()
+			const apiConfiguration = this.stateManager.getApiConfiguration();
 			const updatedConfig = {
 				...apiConfiguration,
 				planModeApiProvider: DEFAULT_API_PROVIDER as ApiProvider,
 				actModeApiProvider: DEFAULT_API_PROVIDER as ApiProvider,
-			}
-			this.stateManager.setApiConfiguration(updatedConfig)
+			};
+			this.stateManager.setApiConfiguration(updatedConfig);
 
-			await this.postStateToWebview()
+			await this.postStateToWebview();
 			HostProvider.window.showMessage({
 				type: ShowMessageType.INFORMATION,
-				message: "Successfully logged out of CodeVibe",
-			})
+				message: "Successfully logged out of Codie",
+			});
 		} catch (_error) {
 			HostProvider.window.showMessage({
 				type: ShowMessageType.INFORMATION,
 				message: "Logout failed",
-			})
+			});
 		}
 	}
 
 	// Oca Auth methods
 	async handleOcaSignOut() {
 		try {
-			await this.ocaAuthService.handleDeauth(LogoutReason.USER_INITIATED)
-			await this.postStateToWebview()
+			await this.ocaAuthService.handleDeauth(LogoutReason.USER_INITIATED);
+			await this.postStateToWebview();
 			HostProvider.window.showMessage({
 				type: ShowMessageType.INFORMATION,
 				message: "Successfully logged out of OCA",
-			})
+			});
 		} catch (_error) {
 			HostProvider.window.showMessage({
 				type: ShowMessageType.INFORMATION,
 				message: "OCA Logout failed",
-			})
+			});
 		}
 	}
 
 	async setUserInfo(info?: UserInfo) {
-		this.stateManager.setGlobalState("userInfo", info)
+		this.stateManager.setGlobalState("userInfo", info);
 	}
 
 	async initTask(
@@ -315,15 +352,15 @@ export class Controller {
 		taskSettings?: Partial<Settings>,
 	) {
 		if (process.env.E2E_TEST === "true") {
-			const apiConfiguration = this.stateManager.getApiConfiguration()
-			const testProvider: ApiProvider = "cline"
+			const apiConfiguration = this.stateManager.getApiConfiguration();
+			const testProvider: ApiProvider = "cline";
 			this.stateManager.setApiConfiguration({
 				...apiConfiguration,
 				planModeApiProvider: testProvider,
 				actModeApiProvider: testProvider,
-			})
-			this.stateManager.setSessionOverride("planModeApiProvider", testProvider)
-			this.stateManager.setSessionOverride("actModeApiProvider", testProvider)
+			});
+			this.stateManager.setSessionOverride("planModeApiProvider", testProvider);
+			this.stateManager.setSessionOverride("actModeApiProvider", testProvider);
 		}
 
 		// Fire-and-forget: We intentionally don't await fetchRemoteConfig here.
@@ -333,92 +370,133 @@ export class Controller {
 		// getGlobalSettingsKey() reads from remoteConfigCache on each call, so any updates
 		// will apply as soon as this fetch completes. The function also calls postStateToWebview()
 		// when done and catches all errors internally.
-		fetchRemoteConfig(this)
+		fetchRemoteConfig(this);
 
-		await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
+		await this.clearTask(); // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
 
-		const autoApprovalSettings = this.stateManager.getGlobalSettingsKey("autoApprovalSettings")
-		const shellIntegrationTimeout = this.stateManager.getGlobalSettingsKey("shellIntegrationTimeout")
-		const terminalReuseEnabled = this.stateManager.getGlobalStateKey("terminalReuseEnabled")
-		const vscodeTerminalExecutionMode = this.stateManager.getGlobalStateKey("vscodeTerminalExecutionMode")
-		const terminalOutputLineLimit = this.stateManager.getGlobalSettingsKey("terminalOutputLineLimit")
-		const defaultTerminalProfile = this.stateManager.getGlobalSettingsKey("defaultTerminalProfile")
-		const isNewUser = this.stateManager.getGlobalStateKey("isNewUser")
-		const taskHistory = this.stateManager.getGlobalStateKey("taskHistory")
+		const autoApprovalSettings = this.stateManager.getGlobalSettingsKey(
+			"autoApprovalSettings",
+		);
+		const shellIntegrationTimeout = this.stateManager.getGlobalSettingsKey(
+			"shellIntegrationTimeout",
+		);
+		const terminalReuseEnabled = this.stateManager.getGlobalStateKey(
+			"terminalReuseEnabled",
+		);
+		const vscodeTerminalExecutionMode = this.stateManager.getGlobalStateKey(
+			"vscodeTerminalExecutionMode",
+		);
+		const terminalOutputLineLimit = this.stateManager.getGlobalSettingsKey(
+			"terminalOutputLineLimit",
+		);
+		const defaultTerminalProfile = this.stateManager.getGlobalSettingsKey(
+			"defaultTerminalProfile",
+		);
+		const isNewUser = this.stateManager.getGlobalStateKey("isNewUser");
+		const taskHistory = this.stateManager.getGlobalStateKey("taskHistory");
 
-		const NEW_USER_TASK_COUNT_THRESHOLD = 10
+		const NEW_USER_TASK_COUNT_THRESHOLD = 10;
 
 		// Check if the user has completed enough tasks to no longer be considered a "new user"
-		if (isNewUser && !historyItem && taskHistory && taskHistory.length >= NEW_USER_TASK_COUNT_THRESHOLD) {
-			this.stateManager.setGlobalState("isNewUser", false)
-			await this.postStateToWebview()
+		if (
+			isNewUser &&
+			!historyItem &&
+			taskHistory &&
+			taskHistory.length >= NEW_USER_TASK_COUNT_THRESHOLD
+		) {
+			this.stateManager.setGlobalState("isNewUser", false);
+			await this.postStateToWebview();
 		}
 
 		if (autoApprovalSettings) {
 			const updatedAutoApprovalSettings = {
 				...autoApprovalSettings,
 				version: (autoApprovalSettings.version ?? 1) + 1,
-			}
-			this.stateManager.setGlobalState("autoApprovalSettings", updatedAutoApprovalSettings)
+			};
+			this.stateManager.setGlobalState(
+				"autoApprovalSettings",
+				updatedAutoApprovalSettings,
+			);
 		}
 
 		// Initialize and persist the workspace manager (multi-root or single-root) with telemetry + fallback
 		this.workspaceManager = await setupWorkspaceManager({
 			stateManager: this.stateManager,
 			detectRoots: detectWorkspaceRoots,
-		})
+		});
 
-		const cwd = this.workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
-		const cursorCompatibilityEnabled = getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true)
+		const cwd =
+			this.workspaceManager?.getPrimaryRoot()?.path ||
+			(await getCwd(getDesktopDir()));
+		const cursorCompatibilityEnabled = getCodeVibeConfigurationValue<boolean>(
+			"cursorCompatibility.enabled",
+			true,
+		);
 		const getCursorSafeBrowserEvaluateEnabled = () => {
 			return (
-				getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true) &&
-				getCodeVibeConfigurationValue<boolean>("cursorCompatibility.safeBrowserEvaluate.enabled", false)
-			)
-		}
+				getCodeVibeConfigurationValue<boolean>(
+					"cursorCompatibility.enabled",
+					true,
+				) &&
+				getCodeVibeConfigurationValue<boolean>(
+					"cursorCompatibility.safeBrowserEvaluate.enabled",
+					false,
+				)
+			);
+		};
 		const getCursorRetrievalIndexingPrivacyGate = () => {
 			return (
-				getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true) &&
-				getCodeVibeConfigurationValue<boolean>("cursorCompatibility.retrievalIndexing.privacyGate", true)
-			)
-		}
+				getCodeVibeConfigurationValue<boolean>(
+					"cursorCompatibility.enabled",
+					true,
+				) &&
+				getCodeVibeConfigurationValue<boolean>(
+					"cursorCompatibility.retrievalIndexing.privacyGate",
+					true,
+				)
+			);
+		};
 		const cursorSandboxPolicy = await resolveCursorSandboxPolicy({
 			workspaceRoot: cwd,
 			enabled: cursorCompatibilityEnabled,
-			policySetting: getCodeVibeConfigurationValue<string>("cursorCompatibility.sandboxPolicy", "prompt"),
+			policySetting: getCodeVibeConfigurationValue<string>(
+				"cursorCompatibility.sandboxPolicy",
+				"prompt",
+			),
 			logger: { warn: (message) => Logger.warn(message) },
-		})
+		});
 
-		const taskId = historyItem?.id || Date.now().toString()
+		const taskId = historyItem?.id || Date.now().toString();
 
 		// Acquire task lock
-		let taskLockAcquired = false
-		const lockResult: FolderLockWithRetryResult = await tryAcquireTaskLockWithRetry(taskId)
+		let taskLockAcquired = false;
+		const lockResult: FolderLockWithRetryResult =
+			await tryAcquireTaskLockWithRetry(taskId);
 
 		if (!lockResult.acquired && !lockResult.skipped) {
 			const errorMessage = lockResult.conflictingLock
 				? `Task locked by instance (${lockResult.conflictingLock.held_by})`
-				: "Failed to acquire task lock"
-			throw new Error(errorMessage) // Prevents task initialization
+				: "Failed to acquire task lock";
+			throw new Error(errorMessage); // Prevents task initialization
 		}
 
-		taskLockAcquired = lockResult.acquired
+		taskLockAcquired = lockResult.acquired;
 		if (lockResult.acquired) {
-			Logger.debug(`[Task ${taskId}] Task lock acquired`)
+			Logger.debug(`[Task ${taskId}] Task lock acquired`);
 		} else {
-			Logger.debug(`[Task ${taskId}] Task lock skipped (VS Code)`)
+			Logger.debug(`[Task ${taskId}] Task lock skipped (VS Code)`);
 		}
 
-		await this.stateManager.loadTaskSettings(taskId)
+		await this.stateManager.loadTaskSettings(taskId);
 		if (taskSettings) {
-			this.stateManager.setTaskSettingsBatch(taskId, taskSettings)
+			this.stateManager.setTaskSettingsBatch(taskId, taskSettings);
 		}
 		if (process.env.E2E_TEST === "true") {
-			const testProvider: ApiProvider = "cline"
+			const testProvider: ApiProvider = "cline";
 			this.stateManager.setTaskSettingsBatch(taskId, {
 				planModeApiProvider: testProvider,
 				actModeApiProvider: testProvider,
-			})
+			});
 		}
 
 		this.task = new Task({
@@ -426,7 +504,8 @@ export class Controller {
 			mcpHub: this.mcpHub,
 			updateTaskHistory: (historyItem) => this.updateTaskHistory(historyItem),
 			postStateToWebview: () => this.postStateToWebview(),
-			reinitExistingTaskFromId: (taskId) => this.reinitExistingTaskFromId(taskId),
+			reinitExistingTaskFromId: (taskId) =>
+				this.reinitExistingTaskFromId(taskId),
 			cancelTask: () => this.cancelTask(),
 			shellIntegrationTimeout,
 			terminalReuseEnabled: terminalReuseEnabled ?? true,
@@ -445,125 +524,137 @@ export class Controller {
 			historyItem,
 			taskId,
 			taskLockAcquired,
-		})
+		});
 
 		if (historyItem) {
-			this.task.resumeTaskFromHistory()
+			this.task.resumeTaskFromHistory();
 		} else if (task || images || files) {
-			this.task.startTask(task, images, files)
+			this.task.startTask(task, images, files);
 		}
 
-		return this.task.taskId
+		return this.task.taskId;
 	}
 
 	async reinitExistingTaskFromId(taskId: string) {
-		const history = await this.getTaskWithId(taskId)
+		const history = await this.getTaskWithId(taskId);
 		if (history) {
-			await this.initTask(undefined, undefined, undefined, history.historyItem)
+			await this.initTask(undefined, undefined, undefined, history.historyItem);
 		}
 	}
 
 	async updateTelemetrySetting(telemetrySetting: TelemetrySetting) {
 		// Get previous setting to detect state changes
-		const previousSetting = this.stateManager.getGlobalSettingsKey("telemetrySetting")
-		const wasOptedIn = previousSetting !== "disabled"
-		const isOptedIn = telemetrySetting !== "disabled"
+		const previousSetting =
+			this.stateManager.getGlobalSettingsKey("telemetrySetting");
+		const wasOptedIn = previousSetting !== "disabled";
+		const isOptedIn = telemetrySetting !== "disabled";
 
 		// Capture opt-out event BEFORE updating (so it gets sent while telemetry is still enabled)
 		if (wasOptedIn && !isOptedIn) {
-			telemetryService.captureUserOptOut()
+			telemetryService.captureUserOptOut();
 		}
 
-		this.stateManager.setGlobalState("telemetrySetting", telemetrySetting)
-		telemetryService.updateTelemetryState(isOptedIn)
+		this.stateManager.setGlobalState("telemetrySetting", telemetrySetting);
+		telemetryService.updateTelemetryState(isOptedIn);
 
 		// Capture opt-in event AFTER updating (so telemetry is enabled to receive it)
 		if (!wasOptedIn && isOptedIn) {
-			telemetryService.captureUserOptIn()
+			telemetryService.captureUserOptIn();
 		}
 
-		await this.postStateToWebview()
+		await this.postStateToWebview();
 	}
 
 	async toggleActModeForYoloMode(): Promise<boolean> {
-		const modeToSwitchTo: Mode = "act"
+		const modeToSwitchTo: Mode = "act";
 
 		// Switch to act mode
-		this.stateManager.setGlobalState("mode", modeToSwitchTo)
+		this.stateManager.setGlobalState("mode", modeToSwitchTo);
 
 		// Update API handler with new mode (buildApiHandler now selects provider based on mode)
 		if (this.task) {
-			const apiConfiguration = this.stateManager.getApiConfiguration()
-			this.task.api = buildApiHandler({ ...apiConfiguration, ulid: this.task.ulid }, modeToSwitchTo)
+			const apiConfiguration = this.stateManager.getApiConfiguration();
+			this.task.api = buildApiHandler(
+				{ ...apiConfiguration, ulid: this.task.ulid },
+				modeToSwitchTo,
+			);
 		}
 
-		await this.postStateToWebview()
+		await this.postStateToWebview();
 
 		// Additional safety
 		if (this.task) {
-			return true
+			return true;
 		}
-		return false
+		return false;
 	}
 
-	async togglePlanActMode(modeToSwitchTo: Mode, chatContent?: ChatContent): Promise<boolean> {
-		const didSwitchToActMode = modeToSwitchTo === "act"
+	async togglePlanActMode(
+		modeToSwitchTo: Mode,
+		chatContent?: ChatContent,
+	): Promise<boolean> {
+		const didSwitchToActMode = modeToSwitchTo === "act";
 
 		// Store mode to global state
-		this.stateManager.setGlobalState("mode", modeToSwitchTo)
+		this.stateManager.setGlobalState("mode", modeToSwitchTo);
 
 		// Capture mode switch telemetry | Capture regardless of if we know the taskId
-		telemetryService.captureModeSwitch(this.task?.ulid ?? "0", modeToSwitchTo)
+		telemetryService.captureModeSwitch(this.task?.ulid ?? "0", modeToSwitchTo);
 
 		// Update API handler with new mode (buildApiHandler now selects provider based on mode)
 		if (this.task) {
-			const apiConfiguration = this.stateManager.getApiConfiguration()
-			this.task.api = buildApiHandler({ ...apiConfiguration, ulid: this.task.ulid }, modeToSwitchTo)
+			const apiConfiguration = this.stateManager.getApiConfiguration();
+			this.task.api = buildApiHandler(
+				{ ...apiConfiguration, ulid: this.task.ulid },
+				modeToSwitchTo,
+			);
 		}
 
-		await this.postStateToWebview()
+		await this.postStateToWebview();
 
 		if (this.task) {
 			if (this.task.taskState.isAwaitingPlanResponse && didSwitchToActMode) {
-				this.task.taskState.didRespondToPlanAskBySwitchingMode = true
+				this.task.taskState.didRespondToPlanAskBySwitchingMode = true;
 				// Use chatContent if provided, otherwise use default message
 				await this.task.handleWebviewAskResponse(
 					"messageResponse",
 					chatContent?.message || "PLAN_MODE_TOGGLE_RESPONSE",
 					chatContent?.images || [],
 					chatContent?.files || [],
-				)
+				);
 
-				return true
+				return true;
 			}
-			this.cancelTask()
-			return false
+			this.cancelTask();
+			return false;
 		}
 
-		return false
+		return false;
 	}
 
 	async cancelTask() {
 		// Prevent duplicate cancellations from spam clicking
 		if (this.cancelInProgress) {
-			Logger.log(`[Controller.cancelTask] Cancellation already in progress, ignoring duplicate request`)
-			return
+			Logger.log(
+				`[Controller.cancelTask] Cancellation already in progress, ignoring duplicate request`,
+			);
+			return;
 		}
 
 		if (!this.task) {
-			return
+			return;
 		}
 
 		// Set flag to prevent concurrent cancellations
-		this.cancelInProgress = true
+		this.cancelInProgress = true;
 
 		try {
-			this.updateBackgroundCommandState(false)
+			this.updateBackgroundCommandState(false);
 
 			try {
-				await this.task.abortTask()
+				await this.task.abortTask();
 			} catch (error) {
-				Logger.error("Failed to abort task", error)
+				Logger.error("Failed to abort task", error);
 			}
 
 			await pWaitFor(
@@ -576,108 +667,129 @@ export class Controller {
 					timeout: 3_000,
 				},
 			).catch(() => {
-				Logger.error("Failed to abort task")
-			})
+				Logger.error("Failed to abort task");
+			});
 
 			if (this.task) {
 				// 'abandoned' will prevent this cline instance from affecting future cline instance gui. this may happen if its hanging on a streaming request
-				this.task.taskState.abandoned = true
+				this.task.taskState.abandoned = true;
 			}
 
 			// Small delay to ensure state manager has persisted the history update
 			//await new Promise((resolve) => setTimeout(resolve, 100))
 
 			// NOW try to get history after abort has finished (hook may have saved messages)
-			let historyItem: HistoryItem | undefined
+			let historyItem: HistoryItem | undefined;
 			try {
-				const result = await this.getTaskWithId(this.task.taskId)
-				historyItem = result.historyItem
+				const result = await this.getTaskWithId(this.task.taskId);
+				historyItem = result.historyItem;
 			} catch (error) {
 				// Task not in history yet (new task with no messages); catch the
 				// error to enable the agent to continue making progress.
-				Logger.log(`[Controller.cancelTask] Task not found in history: ${error}`)
+				Logger.log(
+					`[Controller.cancelTask] Task not found in history: ${error}`,
+				);
 			}
 
 			// Only re-initialize if we found a history item, otherwise just clear
 			if (historyItem) {
 				// Re-initialize task to keep it visible in UI with resume button
-				await this.initTask(undefined, undefined, undefined, historyItem, undefined)
+				await this.initTask(
+					undefined,
+					undefined,
+					undefined,
+					historyItem,
+					undefined,
+				);
 			} else {
-				await this.clearTask()
+				await this.clearTask();
 			}
 
-			await this.postStateToWebview()
+			await this.postStateToWebview();
 		} finally {
 			// Always clear the flag, even if cancellation fails
-			this.cancelInProgress = false
+			this.cancelInProgress = false;
 		}
 	}
 
 	updateBackgroundCommandState(running: boolean, taskId?: string) {
-		const nextTaskId = running ? taskId : undefined
-		if (this.backgroundCommandRunning === running && this.backgroundCommandTaskId === nextTaskId) {
-			return
+		const nextTaskId = running ? taskId : undefined;
+		if (
+			this.backgroundCommandRunning === running &&
+			this.backgroundCommandTaskId === nextTaskId
+		) {
+			return;
 		}
-		this.backgroundCommandRunning = running
-		this.backgroundCommandTaskId = nextTaskId
-		void this.postStateToWebview()
+		this.backgroundCommandRunning = running;
+		this.backgroundCommandTaskId = nextTaskId;
+		void this.postStateToWebview();
 	}
 
 	async cancelBackgroundCommand(): Promise<void> {
-		const didCancel = await this.task?.cancelBackgroundCommand()
+		const didCancel = await this.task?.cancelBackgroundCommand();
 		if (!didCancel) {
-			this.updateBackgroundCommandState(false)
+			this.updateBackgroundCommandState(false);
 		}
 	}
 
-	async handleAuthCallback(customToken: string, provider: string | null = null) {
+	async handleAuthCallback(
+		customToken: string,
+		provider: string | null = null,
+	) {
 		try {
-			await this.authService.handleAuthCallback(customToken, provider ? provider : "google")
+			await this.authService.handleAuthCallback(
+				customToken,
+				provider ? provider : "google",
+			);
 
-			const clineProvider: ApiProvider = "cline"
+			const clineProvider: ApiProvider = "cline";
 
 			// Get current settings to determine how to update providers
-			const planActSeparateModelsSetting = this.stateManager.getGlobalSettingsKey("planActSeparateModelsSetting")
+			const planActSeparateModelsSetting =
+				this.stateManager.getGlobalSettingsKey("planActSeparateModelsSetting");
 
-			const currentMode = this.stateManager.getGlobalSettingsKey("mode")
+			const currentMode = this.stateManager.getGlobalSettingsKey("mode");
 
 			// Get current API configuration from cache
-			const currentApiConfiguration = this.stateManager.getApiConfiguration()
+			const currentApiConfiguration = this.stateManager.getApiConfiguration();
 
-			const updatedConfig = { ...currentApiConfiguration }
+			const updatedConfig = { ...currentApiConfiguration };
 
 			if (planActSeparateModelsSetting) {
 				// Only update the current mode's provider
 				if (currentMode === "plan") {
-					updatedConfig.planModeApiProvider = clineProvider
+					updatedConfig.planModeApiProvider = clineProvider;
 				} else {
-					updatedConfig.actModeApiProvider = clineProvider
+					updatedConfig.actModeApiProvider = clineProvider;
 				}
 			} else {
 				// Update both modes to keep them in sync
-				updatedConfig.planModeApiProvider = clineProvider
-				updatedConfig.actModeApiProvider = clineProvider
+				updatedConfig.planModeApiProvider = clineProvider;
+				updatedConfig.actModeApiProvider = clineProvider;
 			}
 
 			// Update the API configuration through cache service
-			this.stateManager.setApiConfiguration(updatedConfig)
+			this.stateManager.setApiConfiguration(updatedConfig);
 
 			// Mark welcome view as completed since user has successfully logged in
-			this.stateManager.setGlobalState("welcomeViewCompleted", true)
+			this.stateManager.setGlobalState("welcomeViewCompleted", true);
 
-			await fetchRemoteConfig(this)
+			await fetchRemoteConfig(this);
 
 			if (this.task) {
-				this.task.api = buildApiHandler({ ...updatedConfig, ulid: this.task.ulid }, currentMode)
+				this.task.api = buildApiHandler(
+					{ ...updatedConfig, ulid: this.task.ulid },
+					currentMode,
+				);
 			}
 
-			await this.postStateToWebview()
+			await this.postStateToWebview();
 		} catch (error) {
-			Logger.error("Failed to handle auth callback:", error)
+			Logger.error("Failed to handle auth callback:", error);
 			HostProvider.window.showMessage({
 				type: ShowMessageType.ERROR,
-				message: "Failed to log in to CodeVibe",
-			})
+				message: "Failed to sign in to Codie",
+			});
 			// Even on login failure, we preserve any existing tokens
 			// Only clear tokens on explicit logout
 		}
@@ -685,240 +797,293 @@ export class Controller {
 
 	async handleOcaAuthCallback(code: string, state: string) {
 		try {
-			await this.ocaAuthService.handleAuthCallback(code, state)
+			await this.ocaAuthService.handleAuthCallback(code, state);
 
-			const ocaProvider: ApiProvider = "oca"
+			const ocaProvider: ApiProvider = "oca";
 
 			// Get current settings to determine how to update providers
-			const planActSeparateModelsSetting = this.stateManager.getGlobalSettingsKey("planActSeparateModelsSetting")
+			const planActSeparateModelsSetting =
+				this.stateManager.getGlobalSettingsKey("planActSeparateModelsSetting");
 
-			const currentMode = this.stateManager.getGlobalSettingsKey("mode")
+			const currentMode = this.stateManager.getGlobalSettingsKey("mode");
 
 			// Get current API configuration from cache
-			const currentApiConfiguration = this.stateManager.getApiConfiguration()
+			const currentApiConfiguration = this.stateManager.getApiConfiguration();
 
-			const updatedConfig = { ...currentApiConfiguration }
+			const updatedConfig = { ...currentApiConfiguration };
 
 			if (planActSeparateModelsSetting) {
 				// Only update the current mode's provider
 				if (currentMode === "plan") {
-					updatedConfig.planModeApiProvider = ocaProvider
+					updatedConfig.planModeApiProvider = ocaProvider;
 				} else {
-					updatedConfig.actModeApiProvider = ocaProvider
+					updatedConfig.actModeApiProvider = ocaProvider;
 				}
 			} else {
 				// Update both modes to keep them in sync
-				updatedConfig.planModeApiProvider = ocaProvider
-				updatedConfig.actModeApiProvider = ocaProvider
+				updatedConfig.planModeApiProvider = ocaProvider;
+				updatedConfig.actModeApiProvider = ocaProvider;
 			}
 
 			// Update the API configuration through cache service
-			this.stateManager.setApiConfiguration(updatedConfig)
+			this.stateManager.setApiConfiguration(updatedConfig);
 
 			// Mark welcome view as completed since user has successfully logged in
-			this.stateManager.setGlobalState("welcomeViewCompleted", true)
+			this.stateManager.setGlobalState("welcomeViewCompleted", true);
 
 			if (this.task) {
-				this.task.api = buildApiHandler({ ...updatedConfig, ulid: this.task.ulid }, currentMode)
+				this.task.api = buildApiHandler(
+					{ ...updatedConfig, ulid: this.task.ulid },
+					currentMode,
+				);
 			}
 
-			await this.postStateToWebview()
+			await this.postStateToWebview();
 		} catch (error) {
-			Logger.error("Failed to handle auth callback:", error)
+			Logger.error("Failed to handle auth callback:", error);
 			HostProvider.window.showMessage({
 				type: ShowMessageType.ERROR,
 				message: "Failed to log in to OCA",
-			})
+			});
 			// Even on login failure, we preserve any existing tokens
 			// Only clear tokens on explicit logout
 		}
 	}
 
-	async handleMcpOAuthCallback(serverHash: string, code: string, state: string) {
+	async handleMcpOAuthCallback(
+		serverHash: string,
+		code: string,
+		state: string,
+	) {
 		try {
-			await this.mcpHub.completeOAuth(serverHash, code, state)
-			await this.postStateToWebview()
+			await this.mcpHub.completeOAuth(serverHash, code, state);
+			await this.postStateToWebview();
 			HostProvider.window.showMessage({
 				type: ShowMessageType.INFORMATION,
 				message: `Successfully authenticated MCP server`,
-			})
+			});
 		} catch (error) {
-			Logger.error("Failed to complete MCP OAuth:", error)
+			Logger.error("Failed to complete MCP OAuth:", error);
 			HostProvider.window.showMessage({
 				type: ShowMessageType.ERROR,
 				message: `Failed to authenticate MCP server`,
-			})
+			});
 		}
 	}
 
 	async handleTaskCreation(prompt: string) {
-		await sendChatButtonClickedEvent()
-		await this.initTask(prompt)
+		await sendChatButtonClickedEvent();
+		await this.initTask(prompt);
 	}
 
 	async handleCursorAutomationIngest(
 		request: CursorCompatibleAutomationIngestRequest,
 	): Promise<CursorAutomationIngestResult> {
-		const result = await ingestCursorAutomationEvents(this.context.globalStorageUri.fsPath, request)
+		const result = await ingestCursorAutomationEvents(
+			this.context.globalStorageUri.fsPath,
+			request,
+		);
 		const message = result.strictFailed
 			? `Automation ingest blocked: ${result.rejected} rejected line(s) in strict mode.`
-			: `Ingested ${result.stored} automation event(s).`
+			: `Ingested ${result.stored} automation event(s).`;
 		await HostProvider.window.showMessage({
-			type: result.strictFailed ? ShowMessageType.WARNING : ShowMessageType.INFORMATION,
+			type: result.strictFailed
+				? ShowMessageType.WARNING
+				: ShowMessageType.INFORMATION,
 			message,
-		})
-		return result
+		});
+		return result;
 	}
 
 	async handleCursorPluginAdd(request: {
-		source: string
-		sourceParam: "id" | "name" | "url" | "config"
-		sourceConfigKey?: "source" | "id" | "name" | "url"
-		force?: boolean
-		detail: string
+		source: string;
+		sourceParam: "id" | "name" | "url" | "config";
+		sourceConfigKey?: "source" | "id" | "name" | "url";
+		force?: boolean;
+		detail: string;
 	}): Promise<PluginInstallResult> {
 		try {
-			const workspaceManager = await this.ensureWorkspaceManager()
-			const cwd = workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
+			const workspaceManager = await this.ensureWorkspaceManager();
+			const cwd =
+				workspaceManager?.getPrimaryRoot()?.path ||
+				(await getCwd(getDesktopDir()));
 			const result = await installPlugin({
 				source: request.source,
 				cwd,
 				...(request.force ? { force: true } : {}),
 				io: {
-					writeln: (message = "") => Logger.info(`Cursor plugin install: ${message}`),
-					writeErr: (message) => Logger.warn(`Cursor plugin install: ${message}`),
+					writeln: (message = "") =>
+						Logger.info(`Codie plugin install: ${message}`),
+					writeErr: (message) =>
+						Logger.warn(`Codie plugin install: ${message}`),
 				},
-			})
+			});
 			await HostProvider.window.showMessage({
 				type: ShowMessageType.INFORMATION,
-				message: `Installed CodeVibe plugin from ${result.source}.`,
+				message: `Installed Codie plugin from ${result.source}.`,
 				options: {
 					items: [],
-					detail: [`Path: ${result.installPath}`, `Entries: ${result.entryPaths.length}`].join("\n"),
+					detail: [
+						`Path: ${result.installPath}`,
+						`Entries: ${result.entryPaths.length}`,
+					].join("\n"),
 				},
-			})
-			return result
+			});
+			return result;
 		} catch (error) {
-			const message = error instanceof Error ? error.message : String(error)
-			Logger.error("Failed to install CodeVibe plugin:", error)
+			const message = error instanceof Error ? error.message : String(error);
+			Logger.error("Failed to install Codie plugin:", error);
 			await HostProvider.window.showMessage({
 				type: ShowMessageType.ERROR,
-				message: `Failed to install CodeVibe plugin: ${message}`,
-			})
-			throw error
+				message: `Failed to install Codie plugin: ${message}`,
+			});
+			throw error;
 		}
 	}
 
 	getBackgroundAgentTaskRecords(): BackgroundAgentTaskRecord[] {
-		return normalizeBackgroundAgentTaskRecords([...this.backgroundAgentTaskRecords.values()])
+		return normalizeBackgroundAgentTaskRecords([
+			...this.backgroundAgentTaskRecords.values(),
+		]);
 	}
 
 	private hydrateBackgroundAgentTaskRecords() {
 		const records = normalizeBackgroundAgentTaskRecords(
 			this.stateManager.getGlobalStateKey("backgroundAgentTaskRecords"),
-		)
-		this.backgroundAgentTaskRecords = new Map(records.map((record) => [record.id, record]))
+		);
+		this.backgroundAgentTaskRecords = new Map(
+			records.map((record) => [record.id, record]),
+		);
 	}
 
 	private updateBackgroundAgentTaskRecord(record: BackgroundAgentTaskRecord) {
-		const records = upsertBackgroundAgentTaskRecord(this.backgroundAgentTaskRecords.values(), record)
-		this.backgroundAgentTaskRecords = new Map(records.map((item) => [item.id, item]))
-		this.stateManager.setGlobalState("backgroundAgentTaskRecords", records)
+		const records = upsertBackgroundAgentTaskRecord(
+			this.backgroundAgentTaskRecords.values(),
+			record,
+		);
+		this.backgroundAgentTaskRecords = new Map(
+			records.map((item) => [item.id, item]),
+		);
+		this.stateManager.setGlobalState("backgroundAgentTaskRecords", records);
 	}
 
-	async handleCursorBackgroundAgentLaunch(request: CursorBackgroundAgentLaunchRequest) {
-		await sendChatButtonClickedEvent()
+	async handleCursorBackgroundAgentLaunch(
+		request: CursorBackgroundAgentLaunchRequest,
+	) {
+		await sendChatButtonClickedEvent();
 		return launchCursorBackgroundAgent(request, {
 			getWorkspaceRoot: async () => {
-				const workspaceManager = await this.ensureWorkspaceManager()
-				return workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
+				const workspaceManager = await this.ensureWorkspaceManager();
+				return (
+					workspaceManager?.getPrimaryRoot()?.path ||
+					(await getCwd(getDesktopDir()))
+				);
 			},
 			areWorktreesEnabled: () =>
 				Boolean(this.stateManager.getGlobalSettingsKey("worktreesEnabled")) &&
 				featureFlagsService.getWorktreesEnabled(),
-			createWorktree: (cwd, worktreePath, options) => createWorktreeUtil(cwd, worktreePath, options),
-			startTask: (prompt, taskSettings) => this.initTask(prompt, undefined, undefined, undefined, taskSettings),
+			createWorktree: (cwd, worktreePath, options) =>
+				createWorktreeUtil(cwd, worktreePath, options),
+			startTask: (prompt, taskSettings) =>
+				this.initTask(prompt, undefined, undefined, undefined, taskSettings),
 			onRecordChange: (record) => this.updateBackgroundAgentTaskRecord(record),
-		})
+		});
 	}
 
 	// MCP Marketplace
 	private async fetchMcpMarketplaceFromApi(): Promise<McpMarketplaceCatalog> {
-		const response = await axios.get(`${ClineEnv.config().mcpBaseUrl}/marketplace`, {
-			headers: {
-				...buildExternalBasicHeaders(),
-				"Content-Type": "application/json",
+		const response = await axios.get(
+			`${ClineEnv.config().mcpBaseUrl}/marketplace`,
+			{
+				headers: {
+					...buildExternalBasicHeaders(),
+					"Content-Type": "application/json",
+				},
+				...getAxiosSettings(),
 			},
-			...getAxiosSettings(),
-		})
+		);
 
 		if (!response.data) {
-			throw new Error("Invalid response from MCP marketplace API")
+			throw new Error("Invalid response from MCP marketplace API");
 		}
 
 		// Get allowlist from remote config
-		const allowedMCPServers = this.stateManager.getRemoteConfigSettings().allowedMCPServers
+		const allowedMCPServers =
+			this.stateManager.getRemoteConfigSettings().allowedMCPServers;
 
-		let items: McpMarketplaceItem[] = normalizeMcpMarketplaceCatalog({ items: response.data || [] }).items
+		let items: McpMarketplaceItem[] = normalizeMcpMarketplaceCatalog({
+			items: response.data || [],
+		}).items;
 
 		// Filter by allowlist if configured
 		if (allowedMCPServers) {
-			const allowedIds = new Set(allowedMCPServers.map((server) => server.id))
-			items = items.filter((item: McpMarketplaceItem) => allowedIds.has(item.mcpId))
+			const allowedIds = new Set(allowedMCPServers.map((server) => server.id));
+			items = items.filter((item: McpMarketplaceItem) =>
+				allowedIds.has(item.mcpId),
+			);
 		}
 
-		const catalog: McpMarketplaceCatalog = { items }
+		const catalog: McpMarketplaceCatalog = { items };
 
 		// Store in cache file
-		await writeMcpMarketplaceCatalogToCache(catalog)
-		return catalog
+		await writeMcpMarketplaceCatalogToCache(catalog);
+		return catalog;
 	}
 
-	async refreshMcpMarketplace(sendCatalogEvent: boolean): Promise<McpMarketplaceCatalog | undefined> {
+	async refreshMcpMarketplace(
+		sendCatalogEvent: boolean,
+	): Promise<McpMarketplaceCatalog | undefined> {
 		try {
-			const catalog = await this.fetchMcpMarketplaceFromApi()
+			const catalog = await this.fetchMcpMarketplaceFromApi();
 			if (catalog && sendCatalogEvent) {
-				await sendMcpMarketplaceCatalogEvent(catalog)
+				await sendMcpMarketplaceCatalogEvent(catalog);
 			}
-			return catalog
+			return catalog;
 		} catch (error) {
-			Logger.error("Failed to refresh MCP marketplace:", error)
-			return undefined
+			Logger.error("Failed to refresh MCP marketplace:", error);
+			return undefined;
 		}
 	}
 
 	// OpenRouter
 
 	async handleOpenRouterCallback(code: string) {
-		let apiKey: string
+		let apiKey: string;
 		try {
-			const response = await axios.post("https://openrouter.ai/api/v1/auth/keys", { code }, getAxiosSettings())
+			const response = await axios.post(
+				"https://openrouter.ai/api/v1/auth/keys",
+				{ code },
+				getAxiosSettings(),
+			);
 			if (response.data && response.data.key) {
-				apiKey = response.data.key
+				apiKey = response.data.key;
 			} else {
-				throw new Error("Invalid response from OpenRouter API")
+				throw new Error("Invalid response from OpenRouter API");
 			}
 		} catch (error) {
-			Logger.error("Error exchanging code for API key:", error)
-			throw error
+			Logger.error("Error exchanging code for API key:", error);
+			throw error;
 		}
 
-		const openrouter: ApiProvider = "openrouter"
-		const currentMode = this.stateManager.getGlobalSettingsKey("mode")
+		const openrouter: ApiProvider = "openrouter";
+		const currentMode = this.stateManager.getGlobalSettingsKey("mode");
 
 		// Update API configuration through cache service
-		const currentApiConfiguration = this.stateManager.getApiConfiguration()
+		const currentApiConfiguration = this.stateManager.getApiConfiguration();
 		const updatedConfig = {
 			...currentApiConfiguration,
 			planModeApiProvider: openrouter,
 			actModeApiProvider: openrouter,
 			openRouterApiKey: apiKey,
-		}
-		this.stateManager.setApiConfiguration(updatedConfig)
+		};
+		this.stateManager.setApiConfiguration(updatedConfig);
 
-		await this.postStateToWebview()
+		await this.postStateToWebview();
 		if (this.task) {
-			this.task.api = buildApiHandler({ ...updatedConfig, ulid: this.task.ulid }, currentMode)
+			this.task.api = buildApiHandler(
+				{ ...updatedConfig, ulid: this.task.ulid },
+				currentMode,
+			);
 		}
 		// Dont send settingsButtonClicked because its bad ux if user is on welcome
 	}
@@ -926,84 +1091,114 @@ export class Controller {
 	// Requesty
 
 	async handleRequestyCallback(code: string) {
-		const requesty: ApiProvider = "requesty"
-		const currentMode = this.stateManager.getGlobalSettingsKey("mode")
-		const currentApiConfiguration = this.stateManager.getApiConfiguration()
+		const requesty: ApiProvider = "requesty";
+		const currentMode = this.stateManager.getGlobalSettingsKey("mode");
+		const currentApiConfiguration = this.stateManager.getApiConfiguration();
 		const updatedConfig = {
 			...currentApiConfiguration,
 			planModeApiProvider: requesty,
 			actModeApiProvider: requesty,
 			requestyApiKey: code,
-		}
-		this.stateManager.setApiConfiguration(updatedConfig)
-		await this.postStateToWebview()
+		};
+		this.stateManager.setApiConfiguration(updatedConfig);
+		await this.postStateToWebview();
 		if (this.task) {
-			this.task.api = buildApiHandler({ ...updatedConfig, ulid: this.task.ulid }, currentMode)
+			this.task.api = buildApiHandler(
+				{ ...updatedConfig, ulid: this.task.ulid },
+				currentMode,
+			);
 		}
 	}
 
 	// Read OpenRouter models from disk cache
 	async readOpenRouterModels(): Promise<Record<string, ModelInfo> | undefined> {
-		const openRouterModelsFilePath = path.join(await ensureCacheDirectoryExists(), GlobalFileNames.openRouterModels)
+		const openRouterModelsFilePath = path.join(
+			await ensureCacheDirectoryExists(),
+			GlobalFileNames.openRouterModels,
+		);
 		try {
 			if (await fileExistsAtPath(openRouterModelsFilePath)) {
-				const fileContents = await fs.readFile(openRouterModelsFilePath, "utf8")
-				const models = JSON.parse(fileContents)
+				const fileContents = await fs.readFile(
+					openRouterModelsFilePath,
+					"utf8",
+				);
+				const models = JSON.parse(fileContents);
 				// Append stealth models
-				return appendClineStealthModels(models)
+				return appendClineStealthModels(models);
 			}
 		} catch (error) {
-			Logger.error("Error reading cached OpenRouter models:", error)
+			Logger.error("Error reading cached OpenRouter models:", error);
 		}
-		return undefined
+		return undefined;
 	}
 
 	// Hicap
 	async handleHicapCallback(code: string) {
-		const apiKey: string = code
+		const apiKey: string = code;
 
-		const hicap: ApiProvider = "hicap"
-		const currentMode = this.stateManager.getGlobalSettingsKey("mode")
+		const hicap: ApiProvider = "hicap";
+		const currentMode = this.stateManager.getGlobalSettingsKey("mode");
 
 		// Update API configuration through cache service
-		const currentApiConfiguration = this.stateManager.getApiConfiguration()
+		const currentApiConfiguration = this.stateManager.getApiConfiguration();
 		const updatedConfig = {
 			...currentApiConfiguration,
 			planModeApiProvider: hicap,
 			actModeApiProvider: hicap,
 			hicapApiKey: apiKey,
-		}
-		this.stateManager.setApiConfiguration(updatedConfig)
+		};
+		this.stateManager.setApiConfiguration(updatedConfig);
 
-		await this.postStateToWebview()
-		this.accountService
+		await this.postStateToWebview();
+		this.accountService;
 		if (this.task) {
-			this.task.api = buildApiHandler({ ...updatedConfig, ulid: this.task.ulid }, currentMode)
+			this.task.api = buildApiHandler(
+				{ ...updatedConfig, ulid: this.task.ulid },
+				currentMode,
+			);
 		}
 	}
 
 	// Task history
 
 	async getTaskWithId(id: string): Promise<{
-		historyItem: HistoryItem
-		taskDirPath: string
-		apiConversationHistoryFilePath: string
-		uiMessagesFilePath: string
-		contextHistoryFilePath: string
-		taskMetadataFilePath: string
-		apiConversationHistory: Anthropic.MessageParam[]
+		historyItem: HistoryItem;
+		taskDirPath: string;
+		apiConversationHistoryFilePath: string;
+		uiMessagesFilePath: string;
+		contextHistoryFilePath: string;
+		taskMetadataFilePath: string;
+		apiConversationHistory: Anthropic.MessageParam[];
 	}> {
-		const history = this.stateManager.getGlobalStateKey("taskHistory")
-		const historyItem = history.find((item) => item.id === id)
+		const history = this.stateManager.getGlobalStateKey("taskHistory");
+		const historyItem = history.find((item) => item.id === id);
 		if (historyItem) {
-			const taskDirPath = path.join(HostProvider.get().globalStorageFsPath, "tasks", id)
-			const apiConversationHistoryFilePath = path.join(taskDirPath, GlobalFileNames.apiConversationHistory)
-			const uiMessagesFilePath = path.join(taskDirPath, GlobalFileNames.uiMessages)
-			const contextHistoryFilePath = path.join(taskDirPath, GlobalFileNames.contextHistory)
-			const taskMetadataFilePath = path.join(taskDirPath, GlobalFileNames.taskMetadata)
-			const fileExists = await fileExistsAtPath(apiConversationHistoryFilePath)
+			const taskDirPath = path.join(
+				HostProvider.get().globalStorageFsPath,
+				"tasks",
+				id,
+			);
+			const apiConversationHistoryFilePath = path.join(
+				taskDirPath,
+				GlobalFileNames.apiConversationHistory,
+			);
+			const uiMessagesFilePath = path.join(
+				taskDirPath,
+				GlobalFileNames.uiMessages,
+			);
+			const contextHistoryFilePath = path.join(
+				taskDirPath,
+				GlobalFileNames.contextHistory,
+			);
+			const taskMetadataFilePath = path.join(
+				taskDirPath,
+				GlobalFileNames.taskMetadata,
+			);
+			const fileExists = await fileExistsAtPath(apiConversationHistoryFilePath);
 			if (fileExists) {
-				const apiConversationHistory = JSON.parse(await fs.readFile(apiConversationHistoryFilePath, "utf8"))
+				const apiConversationHistory = JSON.parse(
+					await fs.readFile(apiConversationHistoryFilePath, "utf8"),
+				);
 				return {
 					historyItem,
 					taskDirPath,
@@ -1012,76 +1207,83 @@ export class Controller {
 					contextHistoryFilePath,
 					taskMetadataFilePath,
 					apiConversationHistory,
-				}
+				};
 			}
 		}
 		// if we tried to get a task that doesn't exist, remove it from state
 		// FIXME: this seems to happen sometimes when the json file doesn't save to disk for some reason
-		await this.deleteTaskFromState(id)
-		throw new Error("Task not found")
+		await this.deleteTaskFromState(id);
+		throw new Error("Task not found");
 	}
 
 	async exportTaskWithId(id: string) {
-		const { taskDirPath } = await this.getTaskWithId(id)
-		Logger.log(`[EXPORT] Opening task directory: ${taskDirPath}`)
-		await open(taskDirPath)
+		const { taskDirPath } = await this.getTaskWithId(id);
+		Logger.log(`[EXPORT] Opening task directory: ${taskDirPath}`);
+		await open(taskDirPath);
 	}
 
 	async deleteTaskFromState(id: string) {
 		// Remove the task from history
-		const taskHistory = this.stateManager.getGlobalStateKey("taskHistory")
-		const updatedTaskHistory = taskHistory.filter((task) => task.id !== id)
-		this.stateManager.setGlobalState("taskHistory", updatedTaskHistory)
+		const taskHistory = this.stateManager.getGlobalStateKey("taskHistory");
+		const updatedTaskHistory = taskHistory.filter((task) => task.id !== id);
+		this.stateManager.setGlobalState("taskHistory", updatedTaskHistory);
 
 		// Notify the webview that the task has been deleted
-		await this.postStateToWebview()
+		await this.postStateToWebview();
 
-		return updatedTaskHistory
+		return updatedTaskHistory;
 	}
 
-	async postStateToWebview() {
-		const state = await this.getStateToPostToWebview()
-		await sendStateUpdate(state)
+	async postStateToWebview(options: PostStateToWebviewOptions = {}) {
+		const state = await this.getStateToPostToWebview(options);
+		await sendStateUpdate(state);
 	}
 
 	private async getOpenAiCodexBackendModelsForState(
 		isAuthenticated: boolean,
+		options: PostStateToWebviewOptions = {},
 	): Promise<Record<string, ModelInfo> | undefined> {
 		if (!isAuthenticated) {
-			this.openAiCodexBackendModelsCache = undefined
-			this.openAiCodexBackendModelsPromise = undefined
-			return undefined
+			this.openAiCodexBackendModelsCache = undefined;
+			this.openAiCodexBackendModelsPromise = undefined;
+			return undefined;
 		}
 
-		const now = Date.now()
+		const now = Date.now();
 		if (
 			this.openAiCodexBackendModelsCache &&
 			this.openAiCodexBackendModelsCache.expiresAt > now
 		) {
 			return Object.keys(this.openAiCodexBackendModelsCache.models).length > 0
 				? this.openAiCodexBackendModelsCache.models
-				: undefined
+				: undefined;
 		}
 
-		if (!this.openAiCodexBackendModelsPromise) {
+		if (
+			!options.skipOpenAiCodexBackendModelsRefresh &&
+			!this.openAiCodexBackendModelsPromise
+		) {
 			this.openAiCodexBackendModelsPromise = (async () => {
 				const { openAiCodexOAuthManager } = await import(
 					"@/integrations/openai-codex/oauth"
-				)
-				const backendModels = await openAiCodexOAuthManager.listBackendModels()
-				const models = mergeOpenAiCodexBackendModels(backendModels)
+				);
+				const backendModels = await openAiCodexOAuthManager.listBackendModels();
+				const models = mergeOpenAiCodexBackendModels(backendModels);
 				this.openAiCodexBackendModelsCache = {
 					expiresAt: Date.now() + OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS,
 					models,
-				}
-				return models
+				};
+				return models;
 			})()
 				.catch(async (error) => {
-					const { isOpenAiCodexAuthFailure, safeOpenAiCodexErrorSummary } = await import(
-						"@/integrations/openai-codex/oauth"
-					)
-					Logger.error(`[OpenAI Codex] Failed to list backend models: ${safeOpenAiCodexErrorSummary(error)}`)
-					const models = this.openAiCodexBackendModelsCache?.models ?? mergeOpenAiCodexBackendModels([])
+					const { isOpenAiCodexAuthFailure, safeOpenAiCodexErrorSummary } =
+						await import("@/integrations/openai-codex/oauth");
+					Logger.error(
+						`[Codie hosted models] Failed to list backend models: ${safeOpenAiCodexErrorSummary(error)}`,
+					);
+					const models =
+						this.openAiCodexBackendModelsCache?.models ??
+						mergeOpenAiCodexBackendModels([]);
 					this.openAiCodexBackendModelsCache = {
 						expiresAt:
 							Date.now() +
@@ -1089,103 +1291,207 @@ export class Controller {
 								? OPENAI_CODEX_BACKEND_MODELS_AUTH_FAILURE_RETRY_MS
 								: OPENAI_CODEX_BACKEND_MODELS_CACHE_TTL_MS),
 						models,
-					}
-					return models
+					};
+					return models;
 				})
 				.finally(() => {
-					this.openAiCodexBackendModelsPromise = undefined
-				})
+					this.openAiCodexBackendModelsPromise = undefined;
+				});
+
+			void this.openAiCodexBackendModelsPromise
+				.then(() =>
+					this.postStateToWebview({
+						skipOpenAiCodexBackendModelsRefresh: true,
+					}),
+				)
+				.catch((error) => {
+					Logger.error(
+						`[Codie hosted models] Failed to post backend model refresh state: ${
+							error instanceof Error ? error.message : String(error)
+						}`,
+					);
+				});
 		}
 
-		const models = await this.openAiCodexBackendModelsPromise
-		return Object.keys(models).length > 0 ? models : undefined
+		const models = this.openAiCodexBackendModelsCache?.models;
+		return models && Object.keys(models).length > 0 ? models : undefined;
 	}
 
-	async getStateToPostToWebview(): Promise<ExtensionState> {
+	async getStateToPostToWebview(
+		options: PostStateToWebviewOptions = {},
+	): Promise<ExtensionState> {
 		// Get API configuration from cache for immediate access
-		const onboardingModels = getClineOnboardingModels()
-		const apiConfiguration = this.stateManager.getApiConfiguration()
-		const lastShownAnnouncementId = this.stateManager.getGlobalStateKey("lastShownAnnouncementId")
-		const taskHistory = this.stateManager.getGlobalStateKey("taskHistory")
-		const autoApprovalSettings = this.stateManager.getGlobalSettingsKey("autoApprovalSettings")
-		const browserSettings = this.stateManager.getGlobalSettingsKey("browserSettings")
-		const focusChainSettings = this.stateManager.getGlobalSettingsKey("focusChainSettings")
-		const preferredLanguage = this.stateManager.getGlobalSettingsKey("preferredLanguage")
-		const mode = this.stateManager.getGlobalSettingsKey("mode")
-		const strictPlanModeEnabled = this.stateManager.getGlobalSettingsKey("strictPlanModeEnabled")
-		const yoloModeToggled = this.stateManager.getGlobalSettingsKey("yoloModeToggled")
-		const useAutoCondense = this.stateManager.getGlobalSettingsKey("useAutoCondense")
-		const subagentsEnabled = this.stateManager.getGlobalSettingsKey("subagentsEnabled")
-		const userInfo = this.stateManager.getGlobalStateKey("userInfo")
-		const mcpMarketplaceEnabled = this.stateManager.getGlobalStateKey("mcpMarketplaceEnabled")
-		const mcpDisplayMode = this.stateManager.getGlobalStateKey("mcpDisplayMode")
-		const telemetrySetting = this.stateManager.getGlobalSettingsKey("telemetrySetting")
-		const planActSeparateModelsSetting = this.stateManager.getGlobalSettingsKey("planActSeparateModelsSetting")
-		const enableCheckpointsSetting = this.stateManager.getGlobalSettingsKey("enableCheckpointsSetting")
-		const globalClineRulesToggles = this.stateManager.getGlobalSettingsKey("globalClineRulesToggles")
-		const globalWorkflowToggles = this.stateManager.getGlobalSettingsKey("globalWorkflowToggles")
-		const globalSkillsToggles = this.stateManager.getGlobalSettingsKey("globalSkillsToggles")
-		const localSkillsToggles = this.stateManager.getWorkspaceStateKey("localSkillsToggles")
-		const remoteRulesToggles = this.stateManager.getGlobalStateKey("remoteRulesToggles")
-		const remoteWorkflowToggles = this.stateManager.getGlobalStateKey("remoteWorkflowToggles")
-		const shellIntegrationTimeout = this.stateManager.getGlobalSettingsKey("shellIntegrationTimeout")
-		const terminalReuseEnabled = this.stateManager.getGlobalStateKey("terminalReuseEnabled")
-		const vscodeTerminalExecutionMode = this.stateManager.getGlobalStateKey("vscodeTerminalExecutionMode")
-		const defaultTerminalProfile = this.stateManager.getGlobalSettingsKey("defaultTerminalProfile")
-		const isNewUser = this.stateManager.getGlobalStateKey("isNewUser")
+		const onboardingModels = getClineOnboardingModels();
+		const apiConfiguration = this.stateManager.getApiConfiguration();
+		const lastShownAnnouncementId = this.stateManager.getGlobalStateKey(
+			"lastShownAnnouncementId",
+		);
+		const taskHistory = this.stateManager.getGlobalStateKey("taskHistory");
+		const autoApprovalSettings = this.stateManager.getGlobalSettingsKey(
+			"autoApprovalSettings",
+		);
+		const browserSettings =
+			this.stateManager.getGlobalSettingsKey("browserSettings");
+		const focusChainSettings =
+			this.stateManager.getGlobalSettingsKey("focusChainSettings");
+		const preferredLanguage =
+			this.stateManager.getGlobalSettingsKey("preferredLanguage");
+		const mode = this.stateManager.getGlobalSettingsKey("mode");
+		const strictPlanModeEnabled = this.stateManager.getGlobalSettingsKey(
+			"strictPlanModeEnabled",
+		);
+		const yoloModeToggled =
+			this.stateManager.getGlobalSettingsKey("yoloModeToggled");
+		const useAutoCondense =
+			this.stateManager.getGlobalSettingsKey("useAutoCondense");
+		const subagentsEnabled =
+			this.stateManager.getGlobalSettingsKey("subagentsEnabled");
+		const userInfo = this.stateManager.getGlobalStateKey("userInfo");
+		const mcpMarketplaceEnabled = this.stateManager.getGlobalStateKey(
+			"mcpMarketplaceEnabled",
+		);
+		const mcpDisplayMode =
+			this.stateManager.getGlobalStateKey("mcpDisplayMode");
+		const telemetrySetting =
+			this.stateManager.getGlobalSettingsKey("telemetrySetting");
+		const planActSeparateModelsSetting = this.stateManager.getGlobalSettingsKey(
+			"planActSeparateModelsSetting",
+		);
+		const enableCheckpointsSetting = this.stateManager.getGlobalSettingsKey(
+			"enableCheckpointsSetting",
+		);
+		const globalClineRulesToggles = this.stateManager.getGlobalSettingsKey(
+			"globalClineRulesToggles",
+		);
+		const globalWorkflowToggles = this.stateManager.getGlobalSettingsKey(
+			"globalWorkflowToggles",
+		);
+		const globalSkillsToggles = this.stateManager.getGlobalSettingsKey(
+			"globalSkillsToggles",
+		);
+		const localSkillsToggles =
+			this.stateManager.getWorkspaceStateKey("localSkillsToggles");
+		const remoteRulesToggles =
+			this.stateManager.getGlobalStateKey("remoteRulesToggles");
+		const remoteWorkflowToggles = this.stateManager.getGlobalStateKey(
+			"remoteWorkflowToggles",
+		);
+		const shellIntegrationTimeout = this.stateManager.getGlobalSettingsKey(
+			"shellIntegrationTimeout",
+		);
+		const terminalReuseEnabled = this.stateManager.getGlobalStateKey(
+			"terminalReuseEnabled",
+		);
+		const vscodeTerminalExecutionMode = this.stateManager.getGlobalStateKey(
+			"vscodeTerminalExecutionMode",
+		);
+		const defaultTerminalProfile = this.stateManager.getGlobalSettingsKey(
+			"defaultTerminalProfile",
+		);
+		const isNewUser = this.stateManager.getGlobalStateKey("isNewUser");
 		// Can be undefined but is set to either true or false by the migration that runs on extension launch in extension.ts
-		const welcomeViewCompleted = !!this.stateManager.getGlobalStateKey("welcomeViewCompleted")
+		let welcomeViewCompleted = !!this.stateManager.getGlobalStateKey(
+			"welcomeViewCompleted",
+		);
 
-		const customPrompt = this.stateManager.getGlobalSettingsKey("customPrompt")
-		const mcpResponsesCollapsed = this.stateManager.getGlobalStateKey("mcpResponsesCollapsed")
-		const terminalOutputLineLimit = this.stateManager.getGlobalSettingsKey("terminalOutputLineLimit")
-		const maxConsecutiveMistakes = this.stateManager.getGlobalSettingsKey("maxConsecutiveMistakes")
-		const favoritedModelIds = this.stateManager.getGlobalStateKey("favoritedModelIds")
-		const lastDismissedInfoBannerVersion = this.stateManager.getGlobalStateKey("lastDismissedInfoBannerVersion") || 0
-		const lastDismissedModelBannerVersion = this.stateManager.getGlobalStateKey("lastDismissedModelBannerVersion") || 0
-		const lastDismissedCliBannerVersion = this.stateManager.getGlobalStateKey("lastDismissedCliBannerVersion") || 0
-		const dismissedBanners = this.stateManager.getGlobalStateKey("dismissedBanners")
-		const doubleCheckCompletionEnabled = this.stateManager.getGlobalSettingsKey("doubleCheckCompletionEnabled")
-		const lazyTeammateModeEnabled = this.stateManager.getGlobalSettingsKey("lazyTeammateModeEnabled")
-		const showFeatureTips = this.stateManager.getGlobalSettingsKey("showFeatureTips")
+		const customPrompt = this.stateManager.getGlobalSettingsKey("customPrompt");
+		const mcpResponsesCollapsed = this.stateManager.getGlobalStateKey(
+			"mcpResponsesCollapsed",
+		);
+		const terminalOutputLineLimit = this.stateManager.getGlobalSettingsKey(
+			"terminalOutputLineLimit",
+		);
+		const maxConsecutiveMistakes = this.stateManager.getGlobalSettingsKey(
+			"maxConsecutiveMistakes",
+		);
+		const favoritedModelIds =
+			this.stateManager.getGlobalStateKey("favoritedModelIds");
+		const lastDismissedInfoBannerVersion =
+			this.stateManager.getGlobalStateKey("lastDismissedInfoBannerVersion") ||
+			0;
+		const lastDismissedModelBannerVersion =
+			this.stateManager.getGlobalStateKey("lastDismissedModelBannerVersion") ||
+			0;
+		const lastDismissedCliBannerVersion =
+			this.stateManager.getGlobalStateKey("lastDismissedCliBannerVersion") || 0;
+		const dismissedBanners =
+			this.stateManager.getGlobalStateKey("dismissedBanners");
+		const doubleCheckCompletionEnabled = this.stateManager.getGlobalSettingsKey(
+			"doubleCheckCompletionEnabled",
+		);
+		const lazyTeammateModeEnabled = this.stateManager.getGlobalSettingsKey(
+			"lazyTeammateModeEnabled",
+		);
+		const showFeatureTips =
+			this.stateManager.getGlobalSettingsKey("showFeatureTips");
 
-		const localClineRulesToggles = this.stateManager.getWorkspaceStateKey("localClineRulesToggles")
-		const localWindsurfRulesToggles = this.stateManager.getWorkspaceStateKey("localWindsurfRulesToggles")
-		const localCursorRulesToggles = this.stateManager.getWorkspaceStateKey("localCursorRulesToggles")
-		const localAgentsRulesToggles = this.stateManager.getWorkspaceStateKey("localAgentsRulesToggles")
-		const workflowToggles = this.stateManager.getWorkspaceStateKey("workflowToggles")
+		const localClineRulesToggles = this.stateManager.getWorkspaceStateKey(
+			"localClineRulesToggles",
+		);
+		const localWindsurfRulesToggles = this.stateManager.getWorkspaceStateKey(
+			"localWindsurfRulesToggles",
+		);
+		const localCursorRulesToggles = this.stateManager.getWorkspaceStateKey(
+			"localCursorRulesToggles",
+		);
+		const localAgentsRulesToggles = this.stateManager.getWorkspaceStateKey(
+			"localAgentsRulesToggles",
+		);
+		const workflowToggles =
+			this.stateManager.getWorkspaceStateKey("workflowToggles");
 
-		const currentTaskItem = this.task?.taskId ? (taskHistory || []).find((item) => item.id === this.task?.taskId) : undefined
+		const currentTaskItem = this.task?.taskId
+			? (taskHistory || []).find((item) => item.id === this.task?.taskId)
+			: undefined;
 		// Spread to create new array reference - React needs this to detect changes in useEffect dependencies
-		const clineMessages = [...(this.task?.messageStateHandler.getClineMessages() || [])]
-		const checkpointManagerErrorMessage = this.task?.taskState.checkpointManagerErrorMessage
+		const clineMessages = [
+			...(this.task?.messageStateHandler.getClineMessages() || []),
+		];
+		const checkpointManagerErrorMessage =
+			this.task?.taskState.checkpointManagerErrorMessage;
 
 		const processedTaskHistory = (taskHistory || [])
 			.filter((item) => item.ts && item.task)
 			.sort((a, b) => b.ts - a.ts)
-			.slice(0, 100) // for now we're only getting the latest 100 tasks, but a better solution here is to only pass in 3 for recent task history, and then get the full task history on demand when going to the task history view (maybe with pagination?)
+			.slice(0, 100); // for now we're only getting the latest 100 tasks, but a better solution here is to only pass in 3 for recent task history, and then get the full task history on demand when going to the task history view (maybe with pagination?)
 
-		const latestAnnouncementId = getLatestAnnouncementId()
-		const shouldShowAnnouncement = lastShownAnnouncementId !== latestAnnouncementId
-		const platform = process.platform as Platform
-		const distinctId = getDistinctId()
-		const version = ExtensionRegistryInfo.version
-		const clineConfig = ClineEnv.config()
-		const environment = clineConfig.environment
-		const banners = BannerService.get().getActiveBanners() ?? []
-		const welcomeBanners = BannerService.get().getWelcomeBanners() ?? []
+		const latestAnnouncementId = getLatestAnnouncementId();
+		const shouldShowAnnouncement =
+			lastShownAnnouncementId !== latestAnnouncementId;
+		const platform = process.platform as Platform;
+		const distinctId = getDistinctId();
+		const version = ExtensionRegistryInfo.version;
+		const clineConfig = ClineEnv.config();
+		const environment = clineConfig.environment;
+		const banners = BannerService.get().getActiveBanners() ?? [];
+		const welcomeBanners = BannerService.get().getWelcomeBanners() ?? [];
 
-		// Check OpenAI Codex authentication status
-		const { openAiCodexOAuthManager } = await import("@/integrations/openai-codex/oauth")
-		const openAiCodexIsAuthenticated = await openAiCodexOAuthManager.isAuthenticated()
+		// Check Codie authentication status.
+		const { openAiCodexOAuthManager } = await import(
+			"@/integrations/openai-codex/oauth"
+		);
+		const openAiCodexIsAuthenticated =
+			await openAiCodexOAuthManager.hasUsableCredentials();
+		if (openAiCodexIsAuthenticated && !welcomeViewCompleted) {
+			this.stateManager.setGlobalState("welcomeViewCompleted", true);
+			await this.stateManager.flushPendingState();
+			welcomeViewCompleted = true;
+		}
 		const openAiCodexBackendModels =
-			await this.getOpenAiCodexBackendModelsForState(openAiCodexIsAuthenticated)
-		const compatibilityEnabled = getCodeVibeConfigurationValue<boolean>("cursorCompatibility.enabled", true)
-		const compatibilitySandboxPolicy = getCodeVibeConfigurationValue<"prompt" | "workspace" | "readOnly" | "disabled">(
-			"cursorCompatibility.sandboxPolicy",
-			"prompt",
-		)
-		const sandboxWorkspaceRoot = this.workspaceManager?.getPrimaryRoot()?.path || (await getCwd(getDesktopDir()))
+			await this.getOpenAiCodexBackendModelsForState(
+				openAiCodexIsAuthenticated,
+				options,
+			);
+		const compatibilityEnabled = getCodeVibeConfigurationValue<boolean>(
+			"cursorCompatibility.enabled",
+			true,
+		);
+		const compatibilitySandboxPolicy = getCodeVibeConfigurationValue<
+			"prompt" | "workspace" | "readOnly" | "disabled"
+		>("cursorCompatibility.sandboxPolicy", "prompt");
+		const sandboxWorkspaceRoot =
+			this.workspaceManager?.getPrimaryRoot()?.path ||
+			(await getCwd(getDesktopDir()));
 		const sandboxRuntime =
 			compatibilityEnabled && compatibilitySandboxPolicy !== "disabled"
 				? await resolveCursorSandboxPolicy({
@@ -1194,24 +1500,37 @@ export class Controller {
 						policySetting: compatibilitySandboxPolicy,
 						logger: { warn: (message) => Logger.warn(message) },
 					})
-				: undefined
+				: undefined;
 		const sandboxRuntimeSummary = sandboxRuntime
 			? summarizeCursorSandboxRuntimePolicy(sandboxRuntime)
 			: createInactiveSandboxRuntimeSummary({
-					status: compatibilityEnabled && compatibilitySandboxPolicy !== "disabled" ? "missing" : "disabled",
-					configPath: sandboxWorkspaceRoot ? resolveCursorSandboxConfigPath(sandboxWorkspaceRoot) : undefined,
+					status:
+						compatibilityEnabled && compatibilitySandboxPolicy !== "disabled"
+							? "missing"
+							: "disabled",
+					configPath: sandboxWorkspaceRoot
+						? resolveCursorSandboxConfigPath(sandboxWorkspaceRoot)
+						: undefined,
 					workspaceRoot: sandboxWorkspaceRoot,
-				})
-		const compatibilitySafeBrowserEvaluateEnabled = getCodeVibeConfigurationValue<boolean>(
-			"cursorCompatibility.safeBrowserEvaluate.enabled",
-			false,
-		)
-		const effectiveBrowserSettings = getEffectiveBrowserSettings(browserSettings, {
-			cursorCompatibilitySafeBrowserEvaluateEnabled: compatibilitySafeBrowserEvaluateEnabled,
-		})
+				});
+		const compatibilitySafeBrowserEvaluateEnabled =
+			getCodeVibeConfigurationValue<boolean>(
+				"cursorCompatibility.safeBrowserEvaluate.enabled",
+				false,
+			);
+		const effectiveBrowserSettings = getEffectiveBrowserSettings(
+			browserSettings,
+			{
+				cursorCompatibilitySafeBrowserEvaluateEnabled:
+					compatibilitySafeBrowserEvaluateEnabled,
+			},
+		);
 		const compatibilityStatus: ExtensionState["compatibilityStatus"] = {
 			enabled: compatibilityEnabled,
-			deepLinksEnabled: getCodeVibeConfigurationValue<boolean>("cursorCompatibility.deepLinks.enabled", true),
+			deepLinksEnabled: getCodeVibeConfigurationValue<boolean>(
+				"cursorCompatibility.deepLinks.enabled",
+				true,
+			),
 			retrievalIndexingPrivacyGate: getCodeVibeConfigurationValue<boolean>(
 				"cursorCompatibility.retrievalIndexing.privacyGate",
 				true,
@@ -1219,20 +1538,21 @@ export class Controller {
 			sandboxPolicy: compatibilitySandboxPolicy,
 			sandboxRuntime: sandboxRuntimeSummary,
 			safeBrowserEvaluateEnabled: compatibilitySafeBrowserEvaluateEnabled,
-			effectiveBrowserEvaluateEnabled: effectiveBrowserSettings.allowBrowserEvaluate,
-			openAiCodexAuthSource: getCodeVibeConfigurationValue<"codexHome" | "vscodeSecret" | "auto">(
-				"openAiCodex.authSource",
-				"codexHome",
-			),
+			effectiveBrowserEvaluateEnabled:
+				effectiveBrowserSettings.allowBrowserEvaluate,
+			openAiCodexAuthSource: getCodeVibeConfigurationValue<
+				"codexHome" | "vscodeSecret" | "auto"
+			>("openAiCodex.authSource", "auto"),
 			openAiCodexAuthenticated: openAiCodexIsAuthenticated,
-		}
+		};
 
 		return {
 			version,
 			apiConfiguration,
 			currentTaskItem,
 			clineMessages,
-			currentFocusChainChecklist: this.task?.taskState.currentFocusChainChecklist || null,
+			currentFocusChainChecklist:
+				this.task?.taskState.currentFocusChainChecklist || null,
 			checkpointManagerErrorMessage,
 			autoApprovalSettings,
 			browserSettings,
@@ -1295,34 +1615,46 @@ export class Controller {
 				user: this.stateManager.getGlobalSettingsKey("worktreesEnabled"),
 				featureFlag: featureFlagsService.getWorktreesEnabled(),
 			},
-			hooksEnabled: getHooksEnabledSafe(this.stateManager.getGlobalSettingsKey("hooksEnabled")),
+			hooksEnabled: getHooksEnabledSafe(
+				this.stateManager.getGlobalSettingsKey("hooksEnabled"),
+			),
 			lastDismissedInfoBannerVersion,
 			lastDismissedModelBannerVersion,
 			remoteConfigSettings: this.stateManager.getRemoteConfigSettings(),
 			lastDismissedCliBannerVersion,
 			dismissedBanners,
-			nativeToolCallSetting: this.stateManager.getGlobalStateKey("nativeToolCallEnabled"),
-			enableParallelToolCalling: this.stateManager.getGlobalSettingsKey("enableParallelToolCalling"),
-			backgroundEditEnabled: this.stateManager.getGlobalSettingsKey("backgroundEditEnabled"),
-			optOutOfRemoteConfig: this.stateManager.getGlobalSettingsKey("optOutOfRemoteConfig"),
+			nativeToolCallSetting: this.stateManager.getGlobalStateKey(
+				"nativeToolCallEnabled",
+			),
+			enableParallelToolCalling: this.stateManager.getGlobalSettingsKey(
+				"enableParallelToolCalling",
+			),
+			backgroundEditEnabled: this.stateManager.getGlobalSettingsKey(
+				"backgroundEditEnabled",
+			),
+			optOutOfRemoteConfig: this.stateManager.getGlobalSettingsKey(
+				"optOutOfRemoteConfig",
+			),
 			doubleCheckCompletionEnabled,
 			lazyTeammateModeEnabled,
 			showFeatureTips,
 			banners,
 			welcomeBanners,
 			openAiCodexIsAuthenticated,
-			...(openAiCodexBackendModels ? { openAiCodexModels: openAiCodexBackendModels } : {}),
+			...(openAiCodexBackendModels
+				? { openAiCodexModels: openAiCodexBackendModels }
+				: {}),
 			compatibilityStatus,
-		}
+		};
 	}
 
 	async clearTask() {
 		if (this.task) {
 			// Clear task settings cache when task ends
-			await this.stateManager.clearTaskSettings()
+			await this.stateManager.clearTaskSettings();
 		}
-		await this.task?.abortTask()
-		this.task = undefined // removes reference to it, so once promises end it will be garbage collected
+		await this.task?.abortTask();
+		this.task = undefined; // removes reference to it, so once promises end it will be garbage collected
 	}
 
 	// Caching mechanism to keep track of webview messages + API conversation history per provider instance
@@ -1344,14 +1676,14 @@ export class Controller {
 	*/
 
 	async updateTaskHistory(item: HistoryItem): Promise<HistoryItem[]> {
-		const history = this.stateManager.getGlobalStateKey("taskHistory")
-		const existingItemIndex = history.findIndex((h) => h.id === item.id)
+		const history = this.stateManager.getGlobalStateKey("taskHistory");
+		const existingItemIndex = history.findIndex((h) => h.id === item.id);
 		if (existingItemIndex !== -1) {
-			history[existingItemIndex] = item
+			history[existingItemIndex] = item;
 		} else {
-			history.push(item)
+			history.push(item);
 		}
-		this.stateManager.setGlobalState("taskHistory", history)
-		return history
+		this.stateManager.setGlobalState("taskHistory", history);
+		return history;
 	}
 }

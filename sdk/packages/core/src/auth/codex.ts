@@ -46,7 +46,7 @@ export const OPENAI_CODEX_OAUTH_CONFIG = {
 	httpTimeoutMs: 30 * 1000,
 } as const;
 
-export const OPENAI_CODEX_ORIGINATOR = "cline";
+export const OPENAI_CODEX_ORIGINATOR = "codie";
 
 type CodexTokenSuccess = {
 	type: "success";
@@ -695,7 +695,7 @@ export function normalizeOpenAICodexCredentials(
 
 export const openaiCodexOAuthProvider: OAuthProviderInterface = {
 	id: "openai-codex",
-	name: "ChatGPT Plus/Pro (ChatGPT Subscription)",
+	name: "Codie",
 	usesCallbackServer: true,
 
 	async login(callbacks: OAuthLoginCallbacks): Promise<OAuthCredentials> {

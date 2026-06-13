@@ -677,7 +677,7 @@ UPDATE_SNAPSHOTS=true npm run test:unit
 **For live testing with real models**, run CodeVibe in debug mode to verify your variant works correctly:
 
 1. **Enable Debug Mode:**
-   - See the main [CONTRIBUTING.md](../../../../CONTRIBUTING.md) for instructions on running Cline in debug mode
+   - See the main [CONTRIBUTING.md](../../../../CONTRIBUTING.md) for instructions on running CodeVibe in debug mode
    - Debug mode enables additional features for testing and verification
 
 2. **Run a Task with Your Model:**

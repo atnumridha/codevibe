@@ -35,7 +35,7 @@ test.describe("cline auth (interactive screen)", () => {
 		await waitForAuthScreen(terminal);
 		terminal.keyDown();
 		terminal.keyUp();
-		await expectVisible(terminal, "Sign in with CodeVibe");
+		await expectVisible(terminal, "Sign in with Codie Cloud");
 	});
 });
 

@@ -16,7 +16,7 @@ export const CURSOR_COMPATIBLE_ROUTE_LABELS = [
 ] as const
 
 export const CURSOR_COMPATIBILITY_SURFACES = [
-	"Codex auth",
+	"Local sign-in import",
 	"Task creation",
 	"MCP install",
 	"Browser",
@@ -30,6 +30,8 @@ export const CURSOR_COMPATIBILITY_SURFACES = [
 ] as const
 
 const ROUTE_PATHS = new Set(CURSOR_COMPATIBLE_ROUTE_LABELS.map((route) => route.path))
+const SUPPORTED_IMPORT_SCHEMES = new Set(["codie", "codevibe", "cursor", "vscode", "vscode-insiders"])
+const ROUTE_HOST_PATH_SCHEMES = new Set(["codie", "codevibe", "cursor"])
 const SECRET_KEY_PATTERN =
 	/(authorization|api[-_]?key|cookie|credential|id[-_]?token|jwt|password|refresh[-_]?token|secret|session|token)/i
 const BEARER_SECRET_PATTERN = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi
@@ -143,18 +145,21 @@ function redactParamValue(key: string, value: string): { value: string; redacted
 }
 
 function inferRoute(parsed: URL): string {
+	const scheme = parsed.protocol.replace(/:$/, "").toLowerCase()
 	const directPath = parsed.pathname || "/"
 	if (ROUTE_PATHS.has(directPath as (typeof CURSOR_COMPATIBLE_ROUTE_LABELS)[number]["path"])) {
 		return directPath
 	}
 
-	const hostPath = parsed.hostname ? `/${parsed.hostname}${directPath === "/" ? "" : directPath}` : directPath
-	if (ROUTE_PATHS.has(hostPath as (typeof CURSOR_COMPATIBLE_ROUTE_LABELS)[number]["path"])) {
-		return hostPath
-	}
+	if (ROUTE_HOST_PATH_SCHEMES.has(scheme)) {
+		const hostPath = parsed.hostname ? `/${parsed.hostname}${directPath === "/" ? "" : directPath}` : directPath
+		if (ROUTE_PATHS.has(hostPath as (typeof CURSOR_COMPATIBLE_ROUTE_LABELS)[number]["path"])) {
+			return hostPath
+		}
 
-	if (parsed.hostname === "anysphere.cursor-mcp" && directPath === "/install") {
-		return "/mcp/install"
+		if (parsed.hostname === "anysphere.cursor-mcp" && directPath === "/install") {
+			return "/mcp/install"
+		}
 	}
 
 	return directPath
@@ -167,7 +172,7 @@ export function buildCursorUriPreview(input: string): CursorUriPreview {
 			ok: false,
 			paramKeys: [],
 			redacted: false,
-			text: "Enter a CodeVibe or compatible URI.",
+			text: "Enter a Codie or import-compatible URI.",
 			error: "URI is empty",
 		}
 	}
@@ -185,11 +190,33 @@ export function buildCursorUriPreview(input: string): CursorUriPreview {
 		}
 	}
 
+	const scheme = parsed.protocol.replace(/:$/, "").toLowerCase()
+	if (!SUPPORTED_IMPORT_SCHEMES.has(scheme)) {
+		return {
+			ok: false,
+			paramKeys: [],
+			redacted: false,
+			text: "Unsupported URI scheme. Use codie://, codevibe://, or vscode:// import links.",
+			error: `Unsupported URI scheme: ${scheme || "(none)"}`,
+		}
+	}
+
 	const route = inferRoute(parsed)
 	const paramKeys = [...new Set([...parsed.searchParams.keys()])].sort()
+	if (!ROUTE_PATHS.has(route as (typeof CURSOR_COMPATIBLE_ROUTE_LABELS)[number]["path"])) {
+		return {
+			ok: false,
+			route,
+			paramKeys,
+			redacted: false,
+			text: `Unsupported import route: ${route}`,
+			error: `Unsupported import route: ${route}`,
+		}
+	}
+
 	let redacted = false
 	const lines = [
-		`scheme: ${parsed.protocol.replace(/:$/, "")}`,
+		`scheme: ${scheme}`,
 		`host: ${parsed.hostname || "(none)"}`,
 		`route: ${route}`,
 	]

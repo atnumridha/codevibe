@@ -17,7 +17,7 @@ export type ClineHeaderName = (typeof ClineHeaders)[keyof typeof ClineHeaders]
 
 export function buildExternalBasicHeaders(): Record<string, string> {
 	return {
-		"User-Agent": `CodeVibe/${ExtensionRegistryInfo.version}`,
+		"User-Agent": `Codie/${ExtensionRegistryInfo.version}`,
 	}
 }
 

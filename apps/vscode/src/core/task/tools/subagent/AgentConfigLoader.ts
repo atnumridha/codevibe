@@ -8,7 +8,7 @@ import * as path from "path"
 import { z } from "zod"
 import { buildSubagentToolName } from "./SubagentToolName"
 
-/** Default directory for agent configurations: ~/Documents/CodeVibe/Agents */
+/** Default directory for agent configurations: ~/Documents/Codie/Agents */
 export const AGENTS_CONFIG_DIRECTORY_NAME = "Agents"
 const SUBAGENT_DYNAMIC_TOOL_NAMESPACE = "subagent"
 
@@ -43,7 +43,7 @@ function normalizeToolName(toolName: string): ClineDefaultTool {
 	}
 
 	throw new Error(
-		`Unknown tool '${trimmed}'. Expected a CodeVibe tool value (for example: read_file, list_files, search_files).`,
+		`Unknown tool '${trimmed}'. Expected a Codie tool value (for example: read_file, list_files, search_files).`,
 	)
 }
 
@@ -103,7 +103,7 @@ export function parseAgentConfigFromYaml(content: string): AgentBaseConfig {
 }
 
 export function getAgentsConfigPath(homeDir = os.homedir()): string {
-	return path.join(homeDir, "Documents", "CodeVibe", AGENTS_CONFIG_DIRECTORY_NAME)
+	return path.join(homeDir, "Documents", "Codie", AGENTS_CONFIG_DIRECTORY_NAME)
 }
 
 function normalizeAgentName(name: string): string {

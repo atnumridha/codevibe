@@ -11,8 +11,8 @@ export interface QuickWinTask {
 export const quickWinTasks: QuickWinTask[] = [
 	{
 		id: "review_current_diff",
-		title: "Review current diff",
-		description: "Find regressions, edge cases, and missing checks",
+		title: "Review diff",
+		description: "Bugs, regressions, missing checks",
 		icon: "ReviewIcon",
 		meta: "Review",
 		prompt:
@@ -20,8 +20,8 @@ export const quickWinTasks: QuickWinTask[] = [
 	},
 	{
 		id: "find_entry_points",
-		title: "Find the entry points",
-		description: "Map the files and flows before editing",
+		title: "Map entry points",
+		description: "Files, flows, ownership",
 		icon: "SearchIcon",
 		meta: "Explore",
 		prompt:
@@ -29,8 +29,8 @@ export const quickWinTasks: QuickWinTask[] = [
 	},
 	{
 		id: "draft_patch_plan",
-		title: "Map a Mermaid plan",
-		description: "Draw the change graph before editing",
+		title: "Plan the patch",
+		description: "Edit sequence and checks",
 		icon: "DiagramIcon",
 		meta: "Plan",
 		prompt:
@@ -38,8 +38,8 @@ export const quickWinTasks: QuickWinTask[] = [
 	},
 	{
 		id: "spawn_parallel_agents",
-		title: "Spawn parallel agents",
-		description: "Split research across focused subagents",
+		title: "Open focus lanes",
+		description: "Split research across agents",
 		icon: "AgentsIcon",
 		meta: "Agents",
 		prompt:
@@ -47,8 +47,8 @@ export const quickWinTasks: QuickWinTask[] = [
 	},
 	{
 		id: "sandbox_terminal_plan",
-		title: "Plan terminal safety",
-		description: "Separate sandboxed and elevated commands",
+		title: "Check terminal safety",
+		description: "Classify commands before running",
 		icon: "TerminalIcon",
 		meta: "Sandbox",
 		prompt:
@@ -56,17 +56,17 @@ export const quickWinTasks: QuickWinTask[] = [
 	},
 	{
 		id: "openai_skills_bootstrap",
-		title: "Use OpenAI skills",
-		description: "Load skills before making changes",
+		title: "Load skills",
+		description: "Use relevant instructions",
 		icon: "SkillIcon",
 		meta: "Skills",
 		prompt:
-			"Inspect this workspace for available OpenAI/Codex skills and project skills. Select the smallest relevant skill set for the current task, explain why each applies, then use those instructions while planning and implementing the next safe change.",
+			"Inspect this workspace for available Codie skills and project skills. Select the smallest relevant skill set for the current task, explain why each applies, then use those instructions while planning and implementing the next safe change.",
 	},
 	{
 		id: "focused_smoke",
-		title: "Verify the slice",
-		description: "Pick the smallest useful test or typecheck",
+		title: "Verify slice",
+		description: "Run the smallest useful check",
 		icon: "VerifyIcon",
 		meta: "Verify",
 		prompt:
@@ -74,11 +74,11 @@ export const quickWinTasks: QuickWinTask[] = [
 	},
 	{
 		id: "codex_auth_probe",
-		title: "Check Codex auth",
-		description: "Validate .codex/auth.json provider wiring",
+		title: "Check Codie sign-in",
+		description: "Auth wiring and redaction",
 		icon: "KeyIcon",
-		meta: "Codex",
+		meta: "Codie",
 		prompt:
-			"Inspect the CodeVibe Codex auth path for this workspace. Verify provider defaults, .codex/auth.json import behavior, token redaction, model loading, and backend headers. Report evidence and patch any small safe regression you find.",
+			"Inspect the Codie sign-in path for this workspace. Verify provider defaults, local auth import behavior, token redaction, model loading, and backend headers. Report evidence and patch any small safe regression you find.",
 	},
 ];

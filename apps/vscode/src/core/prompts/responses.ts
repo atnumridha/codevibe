@@ -324,7 +324,7 @@ Otherwise, if you have not completed the task and do not need additional informa
 	},
 
 	clineRulesGlobalDirectoryInstructions: (globalClineRulesFilePath: string, content: string) =>
-		`# CodeVibe global rules\n\nThe following is provided by a global CodeVibe rules directory, located at ${globalClineRulesFilePath.toPosix()}, where the user has specified instructions for all working directories:\n\n${content}`,
+		`# Codie global rules\n\nThe following is provided by a global Codie rules directory, located at ${globalClineRulesFilePath.toPosix()}, where the user has specified instructions for all working directories:\n\n${content}`,
 
 	clineRulesLocalDirectoryInstructions: (cwd: string, content: string, displayPath = ".clinerules") =>
 		`# ${displayPath}/\n\nThe following is provided by a root-level ${displayPath}/ directory where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${content}`,

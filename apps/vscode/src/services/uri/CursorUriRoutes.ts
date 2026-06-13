@@ -387,7 +387,7 @@ function isCursorCompatibleUriHostAlias(host: string): host is CursorCompatibleU
 
 function supportsRouteHostPath(url: URL): boolean {
 	const protocol = url.protocol.toLowerCase()
-	return protocol === "cursor:" || protocol === "codevibe:"
+	return protocol === "cursor:" || protocol === "codevibe:" || protocol === "codie:"
 }
 
 function getCursorHostPathAlias(url: URL): CursorCompatibleUriPath | undefined {
@@ -672,7 +672,7 @@ function buildCursorPrReviewTaskPrompt(route: CursorCompatibleUriRoute): string 
 	const title = `PR review: ${request.displayTarget}`
 
 	return [
-		`A compatible pull request review deeplink was opened for ${request.displayTarget}. Use CodeVibe's review workflow instead of treating it as a generic chat task.`,
+		`A compatible pull request review deeplink was opened for ${request.displayTarget}. Use Codie's review workflow instead of treating it as a generic chat task.`,
 		"",
 		"Review target:",
 		`- pull request: ${request.displayTarget}`,

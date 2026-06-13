@@ -1,17 +1,19 @@
 ---
-title: "ClineCore"
-sidebarTitle: "ClineCore"
-description: "API reference for ClineCore from @cline/core."
+title: "CodieCore"
+sidebarTitle: "CodieCore"
+description: "API reference for CodieCore, exported from @cline/sdk and @cline/core."
 ---
 
+CodieCore is the product name and preferred export for the full Codie runtime harness. The compatibility API `ClineCore` remains available from `@cline/sdk` / `@cline/core` for existing imports and upstream-compatible package names.
+
 ```typescript
-import { ClineCore } from "@cline/sdk"
+import { CodieCore } from "@cline/sdk"
 ```
 
-## `ClineCore.create(options)`
+## `CodieCore.create(options)`
 
 ```typescript
-const cline = await ClineCore.create({
+const codie = await CodieCore.create({
   clientName: "my-app",
   backendMode: "auto",
 })
@@ -28,13 +30,13 @@ Common options:
 | `remote` | `RemoteOptions` | Remote hub options |
 | `capabilities` | `RuntimeCapabilities` | Client-owned tool executors and approval callbacks |
 | `toolPolicies` | `Record<string, ToolPolicy>` | Default tool approval policies |
-| `automation` | `boolean \| ClineCoreAutomationOptions` | Enable automation APIs |
+| `automation` | `boolean \| CodieCoreAutomationOptions` | Enable automation APIs |
 | `fetch` | `typeof fetch` | Custom fetch for local provider calls |
 
 ## `start(input)`
 
 ```typescript
-const session = await cline.start({
+const session = await codie.start({
   prompt: "Summarize this repo",
   config: {
     providerId: "anthropic",
@@ -50,7 +52,7 @@ const session = await cline.start({
 })
 ```
 
-### ClineCoreStartInput
+### `CodieCoreStartInput`
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -78,7 +80,7 @@ interface StartSessionResult {
 ## `send(input)`
 
 ```typescript
-const result = await cline.send({
+const result = await codie.send({
   sessionId,
   prompt: "Continue with tests",
 })
@@ -105,4 +107,4 @@ Returns `AgentResult | undefined`.
 
 ## Automation API
 
-When `automation` is enabled, use `cline.automation` to start/stop automation services, reconcile specs, ingest events, and list events/specs/runs.
+When `automation` is enabled, use `codie.automation` to start/stop automation services, reconcile specs, ingest events, and list events/specs/runs.

@@ -43,6 +43,16 @@ function createTaskCompletionTracker(): Promise<void> {
 let testServer: http.Server | undefined
 let messageCatcherDisposable: vscode.Disposable | undefined
 
+export type TestServerNativeAgentDiagnostics = {
+	ready?: boolean
+	diagnostics: unknown
+}
+
+export type TestServerHooks = {
+	getNativeAgentDiagnostics?: () => TestServerNativeAgentDiagnostics
+	openNativeAgentSession?: (position: "sidebar" | "editor") => Promise<unknown>
+}
+
 const E2E_CLINE_TEST_API_KEY = "test-personal-token"
 const E2E_CLINE_TEST_ACCOUNT_ID = "test-member-789"
 const E2E_CLINE_TEST_MODEL_ID = "z-ai/glm-5"
@@ -120,7 +130,7 @@ async function updateAutoApprovalSettings(controller?: Controller) {
  * @param webviewProvider The webview provider instance to use for message catching
  * @returns The created HTTP server instance
  */
-export async function createTestServer(controller: Controller): Promise<http.Server> {
+export async function createTestServer(controller: Controller, hooks: TestServerHooks = {}): Promise<http.Server> {
 	Logger.log("[createTestServer] Opening CodeVibe surface...")
 	vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview)
 
@@ -266,6 +276,57 @@ export async function createTestServer(controller: Controller): Promise<http.Ser
 				.catch((error) => {
 					res.writeHead(500)
 					res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
+				})
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/native-agent/diagnostics") {
+			try {
+				if (!hooks.getNativeAgentDiagnostics) {
+					res.writeHead(404, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: "Native agent diagnostics hook is not registered" }))
+					return
+				}
+
+				const diagnosticsResult = hooks.getNativeAgentDiagnostics()
+				const diagnosticsPayload =
+					diagnosticsResult &&
+					typeof diagnosticsResult === "object" &&
+					"diagnostics" in diagnosticsResult
+						? diagnosticsResult
+						: { diagnostics: diagnosticsResult }
+				res.writeHead(200, { "Content-Type": "application/json" })
+				res.end(JSON.stringify({ success: true, ...diagnosticsPayload }))
+			} catch (error) {
+				res.writeHead(500, { "Content-Type": "application/json" })
+				res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+			}
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/native-agent/open") {
+			readRequestBody()
+				.then(async (body) => {
+					try {
+						if (!hooks.openNativeAgentSession) {
+							res.writeHead(404, { "Content-Type": "application/json" })
+							res.end(JSON.stringify({ success: false, error: "Native agent open hook is not registered" }))
+							return
+						}
+
+						const parsed = body ? JSON.parse(body) : {}
+						const position = parsed.position === "editor" ? "editor" : "sidebar"
+						const result = await hooks.openNativeAgentSession(position)
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: true, result }))
+					} catch (error) {
+						res.writeHead(500, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+					}
+				})
+				.catch((error) => {
+					res.writeHead(400, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
 				})
 			return
 		}

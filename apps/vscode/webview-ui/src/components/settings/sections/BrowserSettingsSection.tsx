@@ -175,7 +175,7 @@ export const BrowserSettingsSection: React.FC<BrowserSettingsSectionProps> = ({ 
 								color: "var(--vscode-descriptionForeground)",
 								margin: "4px 0 0 0px",
 							}}>
-							Prevent CodeVibe from using browser actions (e.g. launch, click, type).
+							Prevent Codie from using browser actions (e.g. launch, click, type).
 						</p>
 					</div>
 
@@ -246,7 +246,7 @@ export const BrowserSettingsSection: React.FC<BrowserSettingsSectionProps> = ({ 
 									color: "var(--vscode-descriptionForeground)",
 									margin: "0 0 6px 0px",
 								}}>
-								Enable CodeVibe to use your Chrome
+								Enable Codie to use your Chrome
 								{isBundled
 									? "(not detected on your machine)"
 									: detectedChromePath
@@ -377,7 +377,7 @@ export const BrowserSettingsSection: React.FC<BrowserSettingsSectionProps> = ({ 
 										color: "var(--vscode-descriptionForeground)",
 										margin: "4px 0 0 0",
 									}}>
-									Enable CodeVibe to run JavaScript in the active browser page. Evaluation output and console logs are
+									Enable Codie to run JavaScript in the active browser page. Evaluation output and console logs are
 									redacted before they are returned. Compatible browser flows use the same setting.
 								</p>
 							</div>

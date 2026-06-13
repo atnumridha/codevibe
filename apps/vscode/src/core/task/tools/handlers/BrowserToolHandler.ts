@@ -230,7 +230,7 @@ export class BrowserToolHandler implements IFullyManagedTool {
 				} else {
 					// Show notification for approval if enabled
 					showNotificationForApproval(
-						`CodeVibe wants to use a browser and launch ${displayUrl}`,
+						`Codie wants to use a browser and launch ${displayUrl}`,
 						config.autoApprovalSettings.enableNotifications,
 					)
 					await config.callbacks.removeLastPartialMessageIfExistsWithType("say", "browser_action_launch")

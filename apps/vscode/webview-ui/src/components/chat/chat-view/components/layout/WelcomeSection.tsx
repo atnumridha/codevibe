@@ -31,6 +31,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 	version,
 	taskHistory,
 	shouldShowStarterWorkflows,
+	onFocusComposer,
 }) => {
 	const { lastDismissedInfoBannerVersion, lastDismissedCliBannerVersion, lastDismissedModelBannerVersion, dismissedBanners } =
 		useExtensionState()
@@ -253,7 +254,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 				welcomeBanners={welcomeBanners}
 			/>
 			<div className="overflow-y-auto flex flex-col pb-2.5">
-				<HomeHeader shouldShowStarterWorkflows={shouldShowStarterWorkflows} />
+				<HomeHeader onFocusComposer={onFocusComposer} shouldShowStarterWorkflows={shouldShowStarterWorkflows} />
 				{!showWhatsNewModal && (
 					<>
 						<BannerCarousel banners={activeBanners} />
@@ -264,7 +265,6 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 						{/* Quick launch worktree button */}
 						{isGitRepo && worktreesEnabled?.featureFlag && worktreesEnabled?.user && (
 							<div className="flex flex-col items-center gap-3 mt-2 mb-4 px-5">
-								{/* TODO: Re-enable once worktree creation is stable
 								<Tooltip>
 									<TooltipTrigger asChild>
 										<button
@@ -277,10 +277,9 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 									</TooltipTrigger>
 									<TooltipContent side="top">
 										Create a new git worktree and open it in a separate window. Great for running parallel
-										CodeVibe tasks.
+										Codie tasks.
 									</TooltipContent>
 								</Tooltip>
-								*/}
 								{currentWorktree && (
 									<Tooltip>
 										<TooltipTrigger asChild>
@@ -301,7 +300,7 @@ export const WelcomeSection: React.FC<WelcomeSectionProps> = ({
 											</button>
 										</TooltipTrigger>
 										<TooltipContent side="bottom">
-											View and manage git worktrees. Great for running parallel CodeVibe tasks.
+											View and manage git worktrees. Great for running parallel Codie tasks.
 										</TooltipContent>
 									</Tooltip>
 								)}

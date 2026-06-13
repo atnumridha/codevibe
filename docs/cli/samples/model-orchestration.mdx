@@ -3,7 +3,7 @@ title: "Model Orchestration"
 description: "Use multiple AI models strategically: optimize costs, reduce bias, and leverage model-specific strengths in your workflows"
 ---
 
-CodeVibe CLI's `--config` and `--thinking` flags enable sophisticated multi-model workflows. Instead of using a single model for all tasks, you can route different work to different models based on cost, capability, and specialization.
+Codie CLI's `--config` and `--thinking` flags enable sophisticated multi-model workflows. Instead of using a single model for all tasks, you can route different work to different models based on cost, capability, and specialization.
 
 ## Why Orchestrate Multiple Models?
 
@@ -21,7 +21,7 @@ Certain models excel in specific domains: Codex and DeepSeek are strong at code 
 
 ## Pattern 1: CI/CD Code Review
 
-See our production GitHub Actions workflow that uses CodeVibe CLI for automated PR reviews: [codevibe-pr-review.yml](https://github.com/atnumridha/codevibe/blob/main/.github/workflows/codevibe-pr-review.yml)
+See our production GitHub Actions workflow that uses Codie CLI for automated PR reviews: [codevibe-pr-review.yml](https://github.com/atnumridha/codevibe/blob/main/.github/workflows/codevibe-pr-review.yml)
 
 **Key capabilities demonstrated:**
 - **Automated inline suggestions**: Creates GitHub suggestion blocks that authors can commit with one click
@@ -142,12 +142,12 @@ cat *-review.md | codevibe --auto-approve true "create consensus review"
 ```
 
 <Note>
-Parallel execution requires managing multiple CodeVibe instances. See [Multi-instance workflows](/usage/cli-overview#automation-patterns) for details.
+Parallel execution requires managing multiple Codie instances. See [Multi-instance workflows](/usage/cli-overview#automation-patterns) for details.
 </Note>
 
 ## Extended Thinking for Complex Tasks
 
-Use the `--thinking` flag when CodeVibe needs to analyze multiple approaches:
+Use the `--thinking` flag when Codie needs to analyze multiple approaches:
 
 ```bash
 # Without thinking: Fast but may miss nuances
@@ -209,14 +209,14 @@ cat *-sec.md | codevibe --auto-approve true "find security issues all 3 reviews 
   </Card>
 
   <Card title="Headless Mode" icon="robot" href="/usage/cli-overview#headless-mode">
-    Run CodeVibe autonomously in scripts, CI/CD pipelines, and automated workflows.
+    Run Codie autonomously in scripts, CI/CD pipelines, and automated workflows.
   </Card>
 
-  <Card title="CodeVibe provider" icon="brain" href="/getting-started/codevibe-provider">
+  <Card title="Codie provider" icon="brain" href="/getting-started/codevibe-provider">
     Fastest built-in model access setup and account workflow
   </Card>
 
   <Card title="CI/CD Integration" icon="github" href="/cli/samples/github-integration">
-    Automate GitHub workflows with CodeVibe CLI
+    Automate GitHub workflows with Codie CLI
   </Card>
 </Columns>

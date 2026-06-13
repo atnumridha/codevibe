@@ -29,6 +29,26 @@ describe("parseAssistantMessageV2", () => {
 		expect(blocks[1]).to.have.nested.property("params.include_logs", "0")
 	})
 
+	it("parses execute_command sandbox escalation parameters", () => {
+		const blocks = parseAssistantMessageV2(`<execute_command>
+	<command>npm run dev</command>
+	<requires_approval>true</requires_approval>
+	<sandbox_permissions>require_escalated</sandbox_permissions>
+	<prefix_rule>["npm","run","dev"]</prefix_rule>
+	</execute_command>`)
+
+		expect(blocks).to.have.length(1)
+		expect(blocks[0]).to.include({
+			type: "tool_use",
+			name: ClineDefaultTool.BASH,
+			partial: false,
+		})
+		expect(blocks[0]).to.have.nested.property("params.command", "npm run dev")
+		expect(blocks[0]).to.have.nested.property("params.requires_approval", "true")
+		expect(blocks[0]).to.have.nested.property("params.sandbox_permissions", "require_escalated")
+		expect(blocks[0]).to.have.nested.property("params.prefix_rule", '["npm","run","dev"]')
+	})
+
 	it("keeps an unfinished browser_snapshot call partial", () => {
 		const blocks = parseAssistantMessageV2(`<browser_snapshot><include_screenshot>true</include_screenshot>`)
 

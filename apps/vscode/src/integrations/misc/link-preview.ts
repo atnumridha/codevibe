@@ -23,7 +23,7 @@ export async function fetchOpenGraphData(url: string): Promise<OpenGraphData> {
 			url: url,
 			timeout: 5000,
 			headers: {
-				"user-agent": "Mozilla/5.0 (compatible; CodeVibe/1.0; +https://github.com/atnumridha/codevibe)",
+				"user-agent": "Mozilla/5.0 (compatible; Codie/1.0; +https://github.com/atnumridha/codevibe)",
 			},
 			onlyGetOpenGraphInfo: false, // Get all metadata, not just Open Graph
 			fetchOptions: {
@@ -94,7 +94,7 @@ export async function detectImageUrl(url: string): Promise<boolean> {
 	try {
 		const response = await axios.head(url, {
 			headers: {
-				"User-Agent": "Mozilla/5.0 (compatible; CodeVibe/1.0; +https://github.com/atnumridha/codevibe)",
+				"User-Agent": "Mozilla/5.0 (compatible; Codie/1.0; +https://github.com/atnumridha/codevibe)",
 			},
 			timeout: 3000,
 			...getAxiosSettings(),

@@ -164,7 +164,7 @@ export const LMStudioProvider = ({ currentMode }: LMStudioProviderProps) => {
 				</VSCodeLink>{" "}
 				feature with <code>lms server start</code> to use it with this extension.{" "}
 				<div className="text-error">
-					<span className="font-semibold">Note:</span> CodeVibe uses complex prompts and works best with high-capability
+					<span className="font-semibold">Note:</span> Codie uses complex prompts and works best with high-capability
 					coding models. Less capable models may not work as expected.
 				</div>
 			</div>

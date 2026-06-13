@@ -80,7 +80,7 @@ async function fetchAndCacheModels(controller: Controller): Promise<Record<strin
 				headers: {
 					Authorization: `Bearer ${cleanApiKey}`,
 					"Content-Type": "application/json",
-					"User-Agent": "CodeVibe-VSCode-Extension",
+					"User-Agent": "Codie-VSCode-Extension",
 				},
 				timeout: 10000, // 10 second timeout
 				...getAxiosSettings(),

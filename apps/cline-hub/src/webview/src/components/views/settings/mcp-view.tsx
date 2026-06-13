@@ -595,7 +595,7 @@ export function McpServersContent() {
 				</div>
 				<p className="mb-6 text-xs text-muted-foreground">
 					{hasSettingsFile
-						? "Editing this list updates the CodeVibe MCP settings file."
+						? "Editing this list updates the Codie MCP settings file."
 						: "No MCP settings file found yet. Add a server to create it."}
 				</p>
 
@@ -786,7 +786,7 @@ export function McpServersContent() {
 						<DialogDescription>
 							Update the MCP server stored in{" "}
 							<code className="font-mono">
-								{settingsPath || "the CodeVibe MCP settings file"}
+								{settingsPath || "the Codie MCP settings file"}
 							</code>
 							.
 						</DialogDescription>

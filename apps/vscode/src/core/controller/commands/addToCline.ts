@@ -6,7 +6,7 @@ import { Logger } from "@/shared/services/Logger"
 import { Controller } from "../index"
 import { sendAddToInputEvent } from "../ui/subscribeToAddToInput"
 
-// 'Add to CodeVibe' context menu in editor and code action.
+// 'Add to Codie' context menu in editor and code action.
 export async function addToCodeVibe(controller: Controller, request: CommandContext, notebookContext?: string): Promise<Empty> {
 	if (!request.selectedText?.trim() && !notebookContext) {
 		Logger.log("❌ No text selected and no notebook context - returning early")

@@ -7,7 +7,7 @@ import {
 	isCursorSettingsIntentPath,
 } from "../src/lib/cursor-settings-intent.ts";
 
-test("maps Cursor settings query params to CodeVibe Hub sections", () => {
+test("maps Cursor settings query params to Codie Agent Hub sections", () => {
 	assert.equal(
 		cursorSettingsSectionFromSearch("?section=Providers"),
 		"Providers",

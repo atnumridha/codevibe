@@ -1,7 +1,7 @@
 "use client";
 
 import { desktopClient } from "@/lib/desktop-client";
-import { prioritizeCodeVibeProviderIds } from "@/lib/provider-display";
+import { prioritizeCodieProviderIds } from "@/lib/provider-display";
 import type {
 	Provider,
 	ProviderCatalogResponse,
@@ -31,7 +31,7 @@ export function buildProviderModelCatalog(
 ): ProviderModelCatalog {
 	return {
 		providers,
-		enabledProviderIds: prioritizeCodeVibeProviderIds(
+		enabledProviderIds: prioritizeCodieProviderIds(
 			providers
 				.filter((provider) => provider.enabled)
 				.map((provider) => provider.id),

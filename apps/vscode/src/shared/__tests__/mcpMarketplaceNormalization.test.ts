@@ -3,7 +3,7 @@ import { describe, it } from "mocha"
 import { normalizeMcpMarketplaceCatalog } from "../mcp"
 
 describe("MCP marketplace normalization", () => {
-	it("keeps compatibility identifiers while branding visible text for CodeVibe", () => {
+	it("keeps compatibility identifiers while branding visible text for Codie", () => {
 		const catalog = normalizeMcpMarketplaceCatalog({
 			items: [
 				{
@@ -34,18 +34,18 @@ describe("MCP marketplace normalization", () => {
 			catalog.items[0].logoUrl,
 			"https://storage.googleapis.com/cline_public_images/sendgrid.png",
 		)
-		assert.equal(catalog.items[0].name, "CodeVibe SendGrid")
+		assert.equal(catalog.items[0].name, "Codie SendGrid")
 		assert.equal(
 			catalog.items[0].description,
-			"Ask CodeVibe's SendGrid agent to inspect campaigns",
+			"Ask Codie's SendGrid agent to inspect campaigns",
 		)
 		assert.equal(
 			catalog.items[0].readmeContent,
-			"Install this server in CodeVibe and ask CodeVibe to send a report.",
+			"Install this server in Codie and ask Codie to send a report.",
 		)
 		assert.equal(
 			catalog.items[0].llmsInstallationContent,
-			"Configure CodeVibe before launch.",
+			"Configure Codie before launch.",
 		)
 		assert.equal(catalog.items[0].githubStars, 0)
 		assert.equal(catalog.items[0].downloadCount, 0)

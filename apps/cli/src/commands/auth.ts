@@ -15,6 +15,7 @@ import { disableOpenTuiGraphicsProbe } from "../tui/opentui-env";
 import {
 	DEFAULT_CLI_MODEL_ID,
 	DEFAULT_CLI_PROVIDER_ID,
+	getAuthProviderDisplayName,
 	getPersistedProviderApiKey,
 	isOAuthProvider,
 	normalizeAuthProviderId,
@@ -306,7 +307,7 @@ async function loginWithOAuthProvider(
 	}
 
 	throw new Error(
-		`Provider "${providerId}" does not support CLI OAuth flow (supported: cline, openai-codex, oca)`,
+		`Provider "${getAuthProviderDisplayName(providerId)}" does not support CLI OAuth flow (supported: Codie, Codie Cloud, OCA)`,
 	);
 }
 
@@ -514,7 +515,7 @@ export async function runAuthCommand(input: AuthCommandInput): Promise<number> {
 			);
 		}
 		input.io.writeErr(
-			`provider "${providerId}" requires API key setup (use subcommand: auth --provider ${providerId} --apikey <key> --modelid <id>)`,
+			`provider "${getAuthProviderDisplayName(providerId)}" requires API key setup (use subcommand: auth --provider ${providerId} --apikey <key> --modelid <id>)`,
 		);
 		return 1;
 	}
@@ -529,7 +530,7 @@ export async function runAuthProviderCommand(
 ): Promise<number> {
 	if (!isOAuthProvider(providerId)) {
 		io.writeErr(
-			`provider "${providerId}" does not support OAuth login (supported: cline, openai-codex, oca)`,
+			`provider "${getAuthProviderDisplayName(providerId)}" does not support OAuth login (supported: Codie, Codie Cloud, OCA)`,
 		);
 		return 1;
 	}
@@ -543,7 +544,7 @@ export async function runAuthProviderCommand(
 			credentials,
 		);
 		io.writeln(
-			`${c.green}You are now logged in to ${c.cyan}${providerId}${c.reset}`,
+			`${c.green}You are now logged in to ${c.cyan}${getAuthProviderDisplayName(providerId)}${c.reset}`,
 		);
 		return 0;
 	} catch (error) {

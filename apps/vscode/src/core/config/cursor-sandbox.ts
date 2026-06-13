@@ -3,7 +3,9 @@ import path from "path"
 import { z } from "zod"
 import type { CommandPermissionConfig } from "@core/permissions"
 
+export const CODIE_SANDBOX_RELATIVE_PATH = path.join(".codie", "sandbox.json")
 export const CURSOR_SANDBOX_RELATIVE_PATH = path.join(".cursor", "sandbox.json")
+export type CursorSandboxConfigSource = "codie" | "cursorCompatibility"
 
 export const CURSOR_SANDBOX_POLICY_SETTINGS = ["prompt", "workspace", "readOnly", "disabled"] as const
 export type CursorSandboxPolicySetting = (typeof CURSOR_SANDBOX_POLICY_SETTINGS)[number]
@@ -32,6 +34,7 @@ export type CursorSandboxRuntimeStatus = "loaded" | "invalid"
 
 export interface CursorSandboxRuntimePolicy {
 	source: "cursor-sandbox"
+	configSource?: CursorSandboxConfigSource
 	status: CursorSandboxRuntimeStatus
 	configPath: string
 	workspaceRoot: string
@@ -232,6 +235,18 @@ export function normalizeCursorSandboxPolicySetting(value: unknown): CursorSandb
 }
 
 export function resolveCursorSandboxConfigPath(workspaceRoot: string): string {
+	return resolveCodieSandboxConfigPath(workspaceRoot)
+}
+
+export function resolveCodieSandboxConfigPath(workspaceRoot: string): string {
+	const root = workspaceRoot.trim()
+	if (!root) {
+		throw new Error("Workspace root is required to resolve .codie/sandbox.json.")
+	}
+	return path.join(root, CODIE_SANDBOX_RELATIVE_PATH)
+}
+
+export function resolveLegacyCursorSandboxConfigPath(workspaceRoot: string): string {
 	const root = workspaceRoot.trim()
 	if (!root) {
 		throw new Error("Workspace root is required to resolve .cursor/sandbox.json.")
@@ -243,7 +258,7 @@ export function parseCursorSandboxConfig(value: unknown): CursorSandboxConfig {
 	const result = CursorSandboxConfigSchema.safeParse(value)
 	if (!result.success) {
 		const issues = formatZodIssues(result.error)
-		throw new CursorSandboxConfigError(`Invalid .cursor/sandbox.json: ${issues.join("; ")}`, issues)
+		throw new CursorSandboxConfigError(`Invalid sandbox config: ${issues.join("; ")}`, issues)
 	}
 	return result.data
 }
@@ -254,7 +269,7 @@ export async function loadCursorSandboxConfigFile(filePath: string): Promise<Cur
 		parsed = JSON.parse(await fs.readFile(filePath, "utf8"))
 	} catch (error) {
 		if (error instanceof SyntaxError) {
-			throw new CursorSandboxConfigError(`Invalid JSON in .cursor/sandbox.json: ${error.message}`)
+			throw new CursorSandboxConfigError(`Invalid JSON in sandbox config: ${error.message}`)
 		}
 		throw error
 	}
@@ -273,7 +288,11 @@ export async function resolveCursorSandboxPolicy(
 		return undefined
 	}
 
-	const configPath = options.configPath ?? resolveCursorSandboxConfigPath(options.workspaceRoot)
+	const configCandidate = await resolveSandboxConfigCandidate(options)
+	if (!configCandidate) {
+		return undefined
+	}
+	const { configPath, configSource } = configCandidate
 	let config: CursorSandboxConfig
 	try {
 		config = await loadCursorSandboxConfigFile(configPath)
@@ -283,9 +302,10 @@ export async function resolveCursorSandboxPolicy(
 		}
 
 		const message = error instanceof Error ? error.message : String(error)
-		options.logger?.warn(`[Cursor Sandbox] ${message}`)
+		options.logger?.warn(`[Codie Sandbox] ${message}`)
 		return createRuntimePolicy({
 			configPath,
+			configSource,
 			workspaceRoot: options.workspaceRoot,
 			status: "invalid",
 			error: message,
@@ -304,6 +324,7 @@ export async function resolveCursorSandboxPolicy(
 
 	return createRuntimePolicy({
 		configPath,
+		configSource,
 		workspaceRoot: options.workspaceRoot,
 		status: "loaded",
 		config,
@@ -320,6 +341,7 @@ export function isPathAllowedByCursorSandbox(
 
 function createRuntimePolicy(options: {
 	configPath: string
+	configSource: CursorSandboxConfigSource
 	workspaceRoot: string
 	status: CursorSandboxRuntimeStatus
 	config: CursorSandboxConfig
@@ -351,6 +373,7 @@ function createRuntimePolicy(options: {
 
 	return {
 		source: "cursor-sandbox",
+		configSource: options.configSource,
 		status: options.status,
 		configPath: options.configPath,
 		workspaceRoot,
@@ -369,6 +392,50 @@ function createRuntimePolicy(options: {
 		allowNetworkAutoApprove,
 		commandPermissions: createCommandPermissions(effectiveAccess, options.config.blockGitWrites),
 	}
+}
+
+async function resolveSandboxConfigCandidate(options: ResolveCursorSandboxPolicyOptions): Promise<
+	| {
+			configPath: string
+			configSource: CursorSandboxConfigSource
+	  }
+	| undefined
+> {
+	if (options.configPath) {
+		return {
+			configPath: options.configPath,
+			configSource: isLegacyCursorSandboxConfigPath(options.configPath) ? "cursorCompatibility" : "codie",
+		}
+	}
+
+	const codiePath = resolveCodieSandboxConfigPath(options.workspaceRoot)
+	if (await pathExists(codiePath)) {
+		return { configPath: codiePath, configSource: "codie" }
+	}
+
+	const cursorPath = resolveLegacyCursorSandboxConfigPath(options.workspaceRoot)
+	if (await pathExists(cursorPath)) {
+		return { configPath: cursorPath, configSource: "cursorCompatibility" }
+	}
+
+	return undefined
+}
+
+async function pathExists(filePath: string): Promise<boolean> {
+	try {
+		await fs.access(filePath)
+		return true
+	} catch (error) {
+		if (isMissingFileError(error)) {
+			return false
+		}
+		throw error
+	}
+}
+
+function isLegacyCursorSandboxConfigPath(filePath: string): boolean {
+	const normalized = filePath.split(/[\\/]+/).join("/")
+	return normalized.endsWith("/.cursor/sandbox.json") || normalized === ".cursor/sandbox.json"
 }
 
 function createCommandPermissions(

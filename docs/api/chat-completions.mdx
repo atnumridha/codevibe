@@ -6,12 +6,12 @@ description: "Full reference for the POST /chat/completions endpoint including a
 
 The Chat Completions endpoint generates model responses from a conversation. It follows the [OpenAI Chat Completions](https://platform.openai.com/docs/api-reference/chat/create) format.
 
-The public endpoint currently uses the `api.cline.bot` compatibility host while CodeVibe-branded service URLs are rolled forward.
+Use the Codie API base URL for OpenAI-compatible chat completion requests.
 
 ## Endpoint
 
 ```
-POST https://api.cline.bot/api/v1/chat/completions
+POST https://api.codie.dev/api/v1/chat/completions
 ```
 
 ## Request Headers
@@ -229,7 +229,7 @@ Reasoning tokens are separate from the main content and appear in the `delta.rea
 ## Complete Example
 
 ```bash
-curl -X POST https://api.cline.bot/api/v1/chat/completions \
+curl -X POST https://api.codie.dev/api/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
