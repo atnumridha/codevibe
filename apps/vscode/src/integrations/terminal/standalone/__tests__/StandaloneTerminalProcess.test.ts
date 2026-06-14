@@ -132,7 +132,7 @@ describe("StandaloneTerminalProcess sandbox runtime enforcement", () => {
 				buildMacOsSandboxProfile({
 					cursorSandboxPolicy: makeSandboxPolicy({ networkPolicy: { default: "deny", allow: ["example.com"] } }),
 				}),
-			/host-specific network allow lists/i,
+			/host-specific network allow or deny lists/i,
 		)
 	})
 

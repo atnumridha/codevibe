@@ -88,7 +88,7 @@ describe("TerminalSettingsSection", () => {
 		).toBeInTheDocument()
 		expect(
 			screen.getByText(
-				"Configured sandbox setting: prompt. Sandbox runtime: loaded; access: workspace; writable paths: 1; network: deny.",
+				"Configured sandbox setting: prompt. Sandbox runtime: loaded; access: workspace; writable paths: 1; network: deny; allow: 1; deny: 0.",
 			),
 		).toBeInTheDocument()
 	})
@@ -120,7 +120,7 @@ describe("TerminalSettingsSection", () => {
 		).toBeInTheDocument()
 		expect(
 			screen.getByText(
-				"Configured sandbox setting: workspace. Sandbox runtime: invalid; access: readOnly; writable paths: 0; network: deny.",
+				"Configured sandbox setting: workspace. Sandbox runtime: invalid; access: readOnly; writable paths: 0; network: deny; allow: 0; deny: 0.",
 			),
 		).toBeInTheDocument()
 		expect(screen.getByText("sandbox.json is invalid")).toBeInTheDocument()

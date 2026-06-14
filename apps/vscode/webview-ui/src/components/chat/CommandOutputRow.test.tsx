@@ -84,7 +84,7 @@ describe("CommandOutputRow", () => {
 		expect(screen.getByRole("button", { name: "Run command elevated" })).toHaveTextContent("Elevated")
 		expect(
 			screen.getByText(
-				"Codie sandbox active: workspace access, 1 writable path, network deny. Unelevated uses normal terminal mode while configured command permissions and Codie sandbox preflight still apply. Elevated bypasses Codie sandbox preflight after explicit approval here; configured command permissions may still apply, and does not request OS administrator privileges.",
+				"Codie sandbox active: workspace access, 1 writable path, network deny, allow 1, deny 0. Unelevated uses normal terminal mode while configured command permissions and Codie sandbox preflight still apply. Elevated bypasses Codie sandbox preflight after explicit approval here; configured command permissions may still apply, and does not request OS administrator privileges.",
 			),
 		).toBeInTheDocument()
 		expect(screen.getByText("Codie needs your approval before running this command.")).toBeInTheDocument()

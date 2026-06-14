@@ -354,7 +354,7 @@ function validateSegmentNetworkAccess(
 	segment: readonly SegmentToken[],
 	policy: CursorSandboxRuntimePolicy,
 ): string | undefined {
-	if (policy.networkPolicy.default !== "deny") {
+	if (policy.networkPolicy.default === "allow" && (policy.networkPolicy.deny ?? []).length === 0) {
 		return undefined
 	}
 	for (const token of segment) {
