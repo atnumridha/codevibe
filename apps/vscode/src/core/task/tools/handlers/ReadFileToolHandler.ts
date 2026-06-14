@@ -2,7 +2,7 @@ import path from "node:path"
 import type { ToolUse } from "@core/assistant-message"
 import { formatResponse } from "@core/prompts/responses"
 import { getWorkspaceBasename, resolveWorkspacePath } from "@core/workspace"
-import { extractFileContent, type FileContentResult } from "@integrations/misc/extract-file-content"
+import { extractFileContent, extractPlainTextLineWindow, type FileContentResult } from "@integrations/misc/extract-file-content"
 import { arePathsEqual, getReadablePath, isLocatedInWorkspace } from "@utils/path"
 import { telemetryService } from "@/services/telemetry"
 import { ClineSayTool } from "@/shared/ExtensionMessage"
@@ -71,6 +71,9 @@ export function getReadToolDisplayedLineRange(
 	if (fileContent.imageBlock) {
 		return undefined
 	}
+	if (fileContent.lineWindow && fileContent.lineWindow.totalLines > 0) {
+		return { start: fileContent.lineWindow.start, end: fileContent.lineWindow.end }
+	}
 	const { startLine, endLine } = parseRequestedLineRange(block)
 	const slice = getDisplayedLineSlice(fileContent.text, startLine, endLine, maxLines)
 	if (!slice || slice.totalLines === 0) {
@@ -114,6 +117,20 @@ export function formatFileContentWithLineNumbers(
 	return labeled + suffix
 }
 
+function formatLineWindowWithLineNumbers(lineWindow: NonNullable<FileContentResult["lineWindow"]>): string {
+	if (lineWindow.totalLines === 0) {
+		return ""
+	}
+
+	const labeled = lineWindow.lines.map((line, i) => `${lineWindow.start + i} | ${line}`).join("\n")
+	const suffix =
+		lineWindow.end < lineWindow.totalLines
+			? `\n\n(Showing lines ${lineWindow.start}-${lineWindow.end} of ${lineWindow.totalLines} total. Use start_line=${lineWindow.end + 1} to continue reading.)`
+			: `\n\n(File has ${lineWindow.totalLines} lines total.)`
+
+	return labeled + suffix
+}
+
 function parseRequestedLineRange(block: ToolUse): { startLine?: number; endLine?: number } {
 	const startLine = block.params.start_line ? Number.parseInt(block.params.start_line, 10) : undefined
 	const endLine = block.params.end_line ? Number.parseInt(block.params.end_line, 10) : undefined
@@ -140,6 +157,13 @@ function getPlanModeCompactReadPrefix(config: TaskConfig, block: ToolUse, fileCo
 	if (maxLines === DEFAULT_MAX_LINES) {
 		return undefined
 	}
+	if (fileContent.lineWindow) {
+		const slice = fileContent.lineWindow
+		if (slice.end >= slice.totalLines) {
+			return undefined
+		}
+		return `[PLAN MODE COMPACT READ] Showing lines ${slice.start}-${slice.end} of ${slice.totalLines}. Use search_files or indexed workspace search to rank matches, then call read_file with start_line/end_line for the exact slices you need instead of loading the whole file.`
+	}
 	const { startLine, endLine } = parseRequestedLineRange(block)
 	const slice = getDisplayedLineSlice(fileContent.text, startLine, endLine, maxLines)
 	if (!slice || slice.end >= slice.totalLines) {
@@ -155,9 +179,32 @@ function buildReadResponse(config: TaskConfig, block: ToolUse, fileContent: File
 	const prefixes = [prefix, compactPrefix].filter(Boolean)
 	const text = fileContent.imageBlock
 		? fileContent.text
+		: fileContent.lineWindow
+			? formatLineWindowWithLineNumbers(fileContent.lineWindow)
 		: formatFileContentWithLineNumbers(fileContent.text, startLine, endLine, maxLines)
 
 	return prefixes.length ? `${prefixes.join("\n")}\n${text}` : text
+}
+
+async function extractFileContentForReadTool(
+	config: TaskConfig,
+	block: ToolUse,
+	absolutePath: string,
+	supportsImages: boolean,
+): Promise<FileContentResult> {
+	const { startLine, endLine } = parseRequestedLineRange(block)
+	const shouldUseLineWindow = config.mode === "plan" || startLine !== undefined || endLine !== undefined
+	if (shouldUseLineWindow) {
+		const lineWindow = await extractPlainTextLineWindow(absolutePath, {
+			startLine,
+			endLine,
+			maxLines: getPlanModeReadLimit(config, block, { text: "" }),
+		})
+		if (lineWindow) {
+			return lineWindow
+		}
+	}
+	return extractFileContent(absolutePath, supportsImages)
 }
 
 async function emitReadFileToolUiComplete(
@@ -376,7 +423,7 @@ export class ReadFileToolHandler implements IFullyManagedTool {
 			const supportsImages = config.api.getModel().info.supportsImages ?? false
 			let fileContent: FileContentResult
 			try {
-				fileContent = await extractFileContent(absolutePath, supportsImages)
+				fileContent = await extractFileContentForReadTool(config, block, absolutePath, supportsImages)
 			} catch (error) {
 				config.taskState.consecutiveMistakeCount++
 				const errorMessage = error instanceof Error ? error.message : String(error)
@@ -409,7 +456,7 @@ export class ReadFileToolHandler implements IFullyManagedTool {
 		const supportsImages = config.api.getModel().info.supportsImages ?? false
 		let fileContent: FileContentResult
 		try {
-			fileContent = await extractFileContent(absolutePath, supportsImages)
+			fileContent = await extractFileContentForReadTool(config, block, absolutePath, supportsImages)
 		} catch (error) {
 			// Return a graceful tool error instead of crashing. This allows the
 			// model to see the error (e.g. "File not found") and recover by

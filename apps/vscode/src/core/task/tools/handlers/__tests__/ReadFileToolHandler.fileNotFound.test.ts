@@ -216,4 +216,27 @@ describe("ReadFileToolHandler.execute – file not found", () => {
 			"[File already read] The file 'real-file.txt' was already read earlier in this conversation. Returning content:\n2 | beta\n\n(Showing lines 2-2 of 3 total. Use start_line=3 to continue reading.)",
 		)
 	})
+
+	it("streams explicit line ranges for text files too large for full extraction", async () => {
+		const { config, validator } = createConfig()
+		const handler = new ReadFileToolHandler(validator)
+
+		const largeFile = "large-file.txt"
+		const lineCount = 190_000
+		const lines = Array.from({ length: lineCount }, (_, index) => `row-${String(index + 1).padStart(6, "0")}-${"x".repeat(110)}`)
+		await fs.writeFile(path.join(tmpDir, largeFile), lines.join("\n"), "utf8")
+
+		const result = await handler.execute(config, makeBlockWithRange(largeFile, "189990", "189992"))
+
+		assert.equal(
+			result,
+			[
+				`189990 | row-189990-${"x".repeat(110)}`,
+				`189991 | row-189991-${"x".repeat(110)}`,
+				`189992 | row-189992-${"x".repeat(110)}`,
+				"",
+				`(Showing lines 189990-189992 of ${lineCount} total. Use start_line=189993 to continue reading.)`,
+			].join("\n"),
+		)
+	})
 })
