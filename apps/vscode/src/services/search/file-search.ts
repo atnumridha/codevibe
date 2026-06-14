@@ -28,6 +28,10 @@ export type FileSearchPrivacyOptions = {
 export type SpawnFunction = typeof childProcess.spawn
 export const getSpawnFunction = (): SpawnFunction => childProcess.spawn
 
+// Wrapper function for childProcess.execFile
+export type ExecFileFunction = typeof childProcess.execFile
+export const getExecFileFunction = (): ExecFileFunction => childProcess.execFile
+
 /** Thrown when ripgrep fails to spawn or exits non-zero. */
 export class RipgrepError extends Error {
 	public readonly stderr: string
@@ -205,6 +209,19 @@ async function getActiveFiles(): Promise<Set<string>> {
 // Maximum number of candidates to ask the host for. The result is filtered &
 // ranked by fzf in core, so we want a comfortably wider net than `limit`.
 const HOST_INDEX_CANDIDATE_LIMIT = 5000
+const GIT_CHANGED_CANDIDATE_LIMIT = 200
+const GIT_CHANGED_CACHE_TTL_MS = 2_000
+
+type RetrievalBoost = "active" | "git_changed"
+type RankedWorkspaceSearchItem = WorkspaceSearchItem & { retrievalBoost?: RetrievalBoost }
+
+type GitChangedCacheEntry = {
+	items: WorkspaceSearchItem[]
+	queriedAt: number
+	pending?: Promise<WorkspaceSearchItem[]>
+}
+
+const gitChangedCache = new Map<string, GitChangedCacheEntry>()
 
 // gRPC status code 12 — the standalone host returns this when the RPC isn't
 // registered (the in-process VS Code stub throws a plain Error, matched on
@@ -289,6 +306,143 @@ async function executeHostIndexForFiles(
 	}
 }
 
+function parseGitStatusPorcelainZ(output: string): string[] {
+	const fields = output.split("\0").filter(Boolean)
+	const changedPaths: string[] = []
+
+	for (let index = 0; index < fields.length; index++) {
+		const field = fields[index]
+		if (field.length < 4) {
+			continue
+		}
+
+		const status = field.slice(0, 2)
+		const filePath = field.startsWith(`${status} `) ? field.slice(3) : field.slice(2).trimStart()
+		if (!filePath || status.includes("D")) {
+			continue
+		}
+
+		changedPaths.push(filePath)
+
+		if ((status[0] === "R" || status[0] === "C" || status[1] === "R" || status[1] === "C") && index + 1 < fields.length) {
+			index++
+		}
+	}
+
+	return changedPaths
+}
+
+function normalizeGitChangedPath(workspacePath: string, gitPath: string): string | undefined {
+	const relativePath = path.isAbsolute(gitPath) ? path.relative(workspacePath, gitPath) : gitPath
+	const absolutePath = path.resolve(workspacePath, relativePath)
+	const relativeToWorkspace = path.relative(path.resolve(workspacePath), absolutePath)
+
+	if (!relativeToWorkspace || relativeToWorkspace.startsWith("..") || path.isAbsolute(relativeToWorkspace)) {
+		return undefined
+	}
+
+	return relativeToWorkspace.replace(/\\/g, "/")
+}
+
+async function readGitChangedFiles(workspacePath: string): Promise<WorkspaceSearchItem[]> {
+	const output = await new Promise<string>((resolve, reject) => {
+		const execFile = getExecFileFunction()
+		execFile(
+			"git",
+			["status", "--porcelain", "-z", "--untracked-files=all"],
+			{ cwd: workspacePath, encoding: "utf8", maxBuffer: 1024 * 1024, timeout: 2_000 },
+			(error, stdout) => {
+				if (error) {
+					reject(error)
+					return
+				}
+				resolve(stdout)
+			},
+		)
+	})
+
+	const seen = new Set<string>()
+	const items: WorkspaceSearchItem[] = []
+	for (const gitPath of parseGitStatusPorcelainZ(output)) {
+		if (items.length >= GIT_CHANGED_CANDIDATE_LIMIT) {
+			break
+		}
+
+		const normalizedPath = normalizeGitChangedPath(workspacePath, gitPath)
+		if (!normalizedPath || seen.has(normalizedPath)) {
+			continue
+		}
+
+		seen.add(normalizedPath)
+		items.push({
+			path: normalizedPath,
+			type: "file",
+			label: path.basename(normalizedPath),
+		})
+	}
+
+	return items
+}
+
+async function getGitChangedFiles(
+	workspacePath: string,
+	selectedType?: "file" | "folder",
+): Promise<WorkspaceSearchItem[]> {
+	if (selectedType === "folder") {
+		return []
+	}
+
+	const now = Date.now()
+	const cached = gitChangedCache.get(workspacePath)
+	if (cached?.pending) {
+		return cached.pending
+	}
+	if (cached && now - cached.queriedAt < GIT_CHANGED_CACHE_TTL_MS) {
+		return cached.items
+	}
+
+	const pending = readGitChangedFiles(workspacePath)
+		.catch((error) => {
+			const message = error instanceof Error ? error.message : String(error)
+			Logger.debug(`[file-search] git changed candidates unavailable: ${message}`)
+			return []
+		})
+		.then((items) => {
+			gitChangedCache.set(workspacePath, { items, queriedAt: Date.now() })
+			return items
+		})
+
+	gitChangedCache.set(workspacePath, { items: cached?.items ?? [], queriedAt: cached?.queriedAt ?? 0, pending })
+	return pending
+}
+
+function withRetrievalBoost(items: WorkspaceSearchItem[], retrievalBoost: RetrievalBoost): RankedWorkspaceSearchItem[] {
+	return items.map((item) => ({ ...item, retrievalBoost }))
+}
+
+function addUniqueCandidate(
+	items: RankedWorkspaceSearchItem[],
+	seenPaths: Set<string>,
+	item: RankedWorkspaceSearchItem,
+): void {
+	if (seenPaths.has(item.path)) {
+		return
+	}
+	seenPaths.add(item.path)
+	items.push(item)
+}
+
+function toSearchResultItem(item: RankedWorkspaceSearchItem, workspaceName?: string): SearchWorkspaceFilesResult["items"][number] {
+	const { retrievalBoost: _retrievalBoost, ...searchItem } = item
+	return workspaceName ? { ...searchItem, workspaceName } : searchItem
+}
+
+function getFzfSelector(item: { label?: string; path: string; retrievalBoost?: RetrievalBoost }): string {
+	const label = item.label || ""
+	const boost = item.retrievalBoost ? `${label} ${item.path}` : ""
+	return `${label} ${label} ${boost} ${item.path}`
+}
+
 export type SearchWorkspaceFilesResult = {
 	items: { path: string; type: "file" | "folder"; label?: string; workspaceName?: string }[]
 	source: FileSearchSource
@@ -325,20 +479,26 @@ export async function searchWorkspaceFiles(
 			? await filterWorkspaceItemsForPrivacy(workspacePath, hostItems, options)
 			: await executeRipgrepForFiles(workspacePath, 5000, options)
 		const source: FileSearchSource = hostItems ? "host_index" : "ripgrep"
-		const allowedActiveFiles = await filterWorkspaceItemsForPrivacy(workspacePath, activeFiles, options)
+		const [allowedActiveFiles, allowedGitChangedFiles] = await Promise.all([
+			filterWorkspaceItemsForPrivacy(workspacePath, activeFiles, options),
+			getGitChangedFiles(workspacePath, selectedType).then((items) => filterWorkspaceItemsForPrivacy(workspacePath, items, options)),
+		])
 
-		// Combine active files with all items, removing duplicates (like the old WorkspaceTracker)
-		const combinedItems = [...allowedActiveFiles]
-		for (const item of allItems) {
-			if (!allowedActiveFiles.some((activeFile) => activeFile.path === item.path)) {
-				combinedItems.push(item)
-			}
+		// Combine high-signal retrieval candidates before broad index results,
+		// removing duplicates like the old WorkspaceTracker path cache.
+		const combinedItems: RankedWorkspaceSearchItem[] = []
+		const seenPaths = new Set<string>()
+		for (const item of [
+			...withRetrievalBoost(allowedActiveFiles, "active"),
+			...withRetrievalBoost(allowedGitChangedFiles, "git_changed"),
+			...allItems,
+		]) {
+			addUniqueCandidate(combinedItems, seenPaths, item)
 		}
 
 		// If no query, return the combined items
 		if (!query.trim()) {
-			const addWorkspaceName = (items: typeof combinedItems) =>
-				workspaceName ? items.map((item) => ({ ...item, workspaceName })) : items
+			const addWorkspaceName = (items: typeof combinedItems) => items.map((item) => toSearchResultItem(item, workspaceName))
 
 			let items: SearchWorkspaceFilesResult["items"]
 			if (selectedType === "file") {
@@ -356,7 +516,7 @@ export async function searchWorkspaceFiles(
 		// Get more (2x) results than needed for filtering, we pick the top half after sorting
 		const fzfModule = await import("fzf")
 		const fzf = new fzfModule.Fzf(combinedItems, {
-			selector: (item: { label?: string; path: string }) => `${item.label || ""} ${item.label || ""} ${item.path}`,
+			selector: getFzfSelector,
 			tiebreakers: [OrderbyMatchScore, fzfModule.byLengthAsc],
 			limit: limit * 2,
 		})
@@ -376,7 +536,7 @@ export async function searchWorkspaceFiles(
 					// Keep original type if path doesn't exist
 				}
 
-				return workspaceName ? { ...item, type, workspaceName } : { ...item, type }
+				return toSearchResultItem({ ...item, type }, workspaceName)
 			},
 		)
 

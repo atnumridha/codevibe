@@ -40,6 +40,14 @@ describe("File Search", () => {
 		sandbox.restore()
 	})
 
+	function stubGitStatus(stdout: string): void {
+		const execFileStub = sandbox.stub().callsFake((_command, _args, _options, callback) => {
+			setImmediate(() => callback(null, stdout, ""))
+			return {} as childProcess.ChildProcess
+		})
+		sandbox.stub(fileSearch, "getExecFileFunction").returns(execFileStub as unknown as fileSearch.ExecFileFunction)
+	}
+
 	describe("executeRipgrepForFiles", () => {
 		it("should correctly process and return file and folder results", async () => {
 			const mockFiles = ["file1.txt", "folder1/file2.js", "folder1/subfolder/file3.py"]
@@ -354,6 +362,55 @@ describe("File Search", () => {
 				should(searchWorkspaceItemsStub.firstCall!.args[0]!.includeIgnored).equal(true)
 				result.items.map((item) => item.path).should.containEql("src/main.ts")
 				result.items.map((item) => item.path).should.containEql("private/secret.ts")
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
+		})
+
+		it("places git-changed files before broad host-index candidates", async () => {
+			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-git-priority-"))
+			try {
+				await fs.promises.mkdir(path.join(workspace, "src"), { recursive: true })
+				await fs.promises.writeFile(path.join(workspace, "src", "changed.ts"), "changed\n")
+
+				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+					SearchWorkspaceItemsResponse.create({
+						items: [
+							{ path: "src/index.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "index.ts" },
+							{ path: "src/changed.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "changed.ts" },
+						],
+					}),
+				)
+				stubGitStatus(" M src/changed.ts\0")
+
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 1)
+
+				should(result.source).equal("host_index")
+				should(result.items).deepEqual([{ path: "src/changed.ts", type: "file", label: "changed.ts" }])
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
+		})
+
+		it("filters git-changed candidates through Cursor privacy ignore rules", async () => {
+			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-git-ignore-"))
+			try {
+				await fs.promises.mkdir(path.join(workspace, "private"), { recursive: true })
+				await fs.promises.mkdir(path.join(workspace, "src"), { recursive: true })
+				await fs.promises.writeFile(path.join(workspace, ".cursorignore"), "private/\n")
+				await fs.promises.writeFile(path.join(workspace, "private", "secret.ts"), "secret\n")
+				await fs.promises.writeFile(path.join(workspace, "src", "main.ts"), "main\n")
+
+				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(SearchWorkspaceItemsResponse.create({ items: [] }))
+				stubGitStatus(" M private/secret.ts\0 M src/main.ts\0")
+
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 20)
+				const resultPaths = result.items.map((item) => item.path)
+
+				resultPaths.should.containEql("src/main.ts")
+				resultPaths.should.not.containEql("private/secret.ts")
 			} finally {
 				await fs.promises.rm(workspace, { recursive: true, force: true })
 			}
