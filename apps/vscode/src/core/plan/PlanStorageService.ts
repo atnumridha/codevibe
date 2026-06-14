@@ -32,8 +32,15 @@ const REGISTRY_FILE_NAME = "composer.planRegistry.json"
 const PLAN_EXTENSION = ".plan.md"
 
 type PlanOpenHandler = (input: { planId?: string; planPath: string; workspacePath?: string }) => Promise<void>
+export type PlanChangeEvent = {
+	kind: "created" | "updated" | "deleted"
+	planId?: string
+	planPath?: string
+}
+type PlanChangeHandler = (event: PlanChangeEvent) => void
 
 let planOpenHandler: PlanOpenHandler | undefined
+const planChangeHandlers = new Set<PlanChangeHandler>()
 
 export function registerPlanOpenHandler(handler: PlanOpenHandler): { dispose: () => void } {
 	planOpenHandler = handler
@@ -43,6 +50,25 @@ export function registerPlanOpenHandler(handler: PlanOpenHandler): { dispose: ()
 				planOpenHandler = undefined
 			}
 		},
+	}
+}
+
+export function registerPlanChangeHandler(handler: PlanChangeHandler): { dispose: () => void } {
+	planChangeHandlers.add(handler)
+	return {
+		dispose: () => {
+			planChangeHandlers.delete(handler)
+		},
+	}
+}
+
+function emitPlanChange(event: PlanChangeEvent): void {
+	for (const handler of planChangeHandlers) {
+		try {
+			handler(event)
+		} catch (error) {
+			Logger.warn(`PlanStorageService: plan change handler failed: ${error}`)
+		}
 	}
 }
 
@@ -172,6 +198,7 @@ export class PlanStorageService {
 			editedBy: [input.composerId],
 			referencedBy: [input.composerId],
 		})
+		emitPlanChange({ kind: existing ? "updated" : "created", planId, planPath })
 		return record
 	}
 
@@ -183,6 +210,7 @@ export class PlanStorageService {
 		await fs.writeFile(planPath, serialized, "utf8")
 		const record = this.toPlanFileRecord(planId, planPath, serialized)
 		await this.upsertRegistryEntry(record, { editedBy: ["user"] })
+		emitPlanChange({ kind: "updated", planId, planPath })
 		return record
 	}
 
@@ -299,6 +327,7 @@ export class PlanStorageService {
 		entry.lastUpdatedAt = now
 		entry.status = current.status
 		await this.writeRegistry(registry, input.workspacePath)
+		emitPlanChange({ kind: "updated", planId: current.planId, planPath: current.planPath })
 		return { plan: { ...current, buildStatus: derivePlanBuildStatus(current.metadata, todoIds) }, todoIds }
 	}
 
@@ -312,6 +341,7 @@ export class PlanStorageService {
 		entry.builtBy = entry.builtBy.filter((build) => build.builderId !== input.builderId)
 		entry.lastUpdatedAt = Date.now()
 		await this.writeRegistry(registry, input.workspacePath)
+		emitPlanChange({ kind: "updated", planId: current.planId, planPath: current.planPath })
 	}
 
 	async openPlan(input: { planId?: string; planPath?: string; workspacePath?: string }): Promise<void> {
@@ -386,9 +416,16 @@ export class PlanStorageService {
 			depth: 1,
 			awaitWriteFinish: { stabilityThreshold: 150, pollInterval: 50 },
 		})
-		this.watcher.on("all", (_event, filePath) => {
+		this.watcher.on("all", (event, filePath) => {
 			if (filePath.endsWith(PLAN_EXTENSION) || path.basename(filePath) === REGISTRY_FILE_NAME) {
 				Logger.debug(`PlanStorageService: observed plan storage change ${filePath}`)
+				if (filePath.endsWith(PLAN_EXTENSION)) {
+					emitPlanChange({
+						kind: event === "unlink" ? "deleted" : "updated",
+						planId: this.planIdFromPath(filePath),
+						planPath: filePath,
+					})
+				}
 			}
 		})
 	}
@@ -948,6 +985,7 @@ export function resetPlanStorageServiceForTests(): void {
 	const existing = singleton
 	singleton = undefined
 	planOpenHandler = undefined
+	planChangeHandlers.clear()
 	if (existing) {
 		void existing.dispose().catch((error) => Logger.warn(`PlanStorageService: test reset failed to dispose: ${error}`))
 	}
@@ -957,5 +995,6 @@ export async function disposePlanStorageServiceForTests(): Promise<void> {
 	const existing = singleton
 	singleton = undefined
 	planOpenHandler = undefined
+	planChangeHandlers.clear()
 	await existing?.dispose()
 }

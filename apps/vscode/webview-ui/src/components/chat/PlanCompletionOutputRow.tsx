@@ -144,6 +144,11 @@ function statusFromString(status: string): PlanTodoStatus {
 	return status === "in_progress" || status === "completed" || status === "cancelled" ? status : "pending"
 }
 
+function fileNameFromPath(value?: string): string {
+	const parts = (value || "").split(/[\\/]/).filter(Boolean)
+	return parts[parts.length - 1] || "local .plan.md"
+}
+
 const PlanCompletionOutputRow = memo(
 	({ text, headClassNames, localPlanBuild, canBuild = false }: PlanCompletionOutputProps) => {
 		const [plan, setPlan] = useState<PlanFile | undefined>()
@@ -196,6 +201,7 @@ const PlanCompletionOutputRow = memo(
 		const searchMatchesBody = Boolean(searchNeedle && body.toLowerCase().includes(searchNeedle))
 		const buildStatus = plan?.buildStatus || localPlanBuild?.status || "none"
 		const visiblePlanPath = plan?.planPath || localPlanBuild?.planPath
+		const visiblePlanName = fileNameFromPath(visiblePlanPath)
 
 		const savePlan = async (nextMetadata = metadata, nextBody = body): Promise<PlanFile | undefined> => {
 			if (!localPlanBuild?.planId && !localPlanBuild?.planPath) {
@@ -465,7 +471,9 @@ const PlanCompletionOutputRow = memo(
 				{localPlanBuild && (
 					<div className="mx-1 mt-2 flex min-w-0 items-center gap-1 rounded-sm border border-description/20 px-2 py-1 text-[11px] text-description">
 						<FileTextIcon className="size-3 shrink-0" />
-						<span className="shrink-0 font-medium text-foreground">local .plan.md</span>
+						<span className="shrink-0 font-medium text-foreground" title={visiblePlanPath}>
+							{visiblePlanName}
+						</span>
 						<span className="min-w-0 truncate font-mono" title={visiblePlanPath}>
 							{visiblePlanPath}
 						</span>

@@ -1,4 +1,9 @@
-import { getPlanStorageService, registerPlanOpenHandler, type PlanRegistryRecord } from "@core/plan/PlanStorageService"
+import {
+	getPlanStorageService,
+	registerPlanChangeHandler,
+	registerPlanOpenHandler,
+	type PlanRegistryRecord,
+} from "@core/plan/PlanStorageService"
 import {
 	buildLocalPlanExecutionMessage,
 	cyclePlanTodoStatus,
@@ -41,6 +46,7 @@ export function registerVscodePlanIntegration(
 		treeView,
 		provider,
 		vscode.commands.registerCommand(ExtensionRegistryInfo.commands.PlansRefresh, () => provider.refresh()),
+		registerPlanChangeHandler(() => provider.refresh()),
 		registerPlanOpenHandler(async ({ planPath }) => {
 			await openPlanPath(planPath)
 		}),

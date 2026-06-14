@@ -3,7 +3,13 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, it } from "mocha"
-import { disposePlanStorageServiceForTests, PlanStorageService, registerPlanOpenHandler } from "../PlanStorageService"
+import {
+	disposePlanStorageServiceForTests,
+	PlanStorageService,
+	registerPlanChangeHandler,
+	registerPlanOpenHandler,
+	type PlanChangeEvent,
+} from "../PlanStorageService"
 
 describe("PlanStorageService", () => {
 	let tempDir: string | undefined
@@ -117,6 +123,32 @@ describe("PlanStorageService", () => {
 		assert.equal(second.todoCount, 2)
 		assert.equal(second.metadata.todos[0].id, first.metadata.todos[0].id)
 		assert.match(await fs.readFile(second.planPath, "utf8"), /Updated\./)
+	})
+
+	it("emits plan change events so native plan views refresh immediately", async () => {
+		const service = await createService()
+		const events: PlanChangeEvent[] = []
+		const subscription = registerPlanChangeHandler((event) => events.push(event))
+
+		const first = await service.createOrUpdatePlanForComposer({
+			composerId: "task-refresh",
+			response: "## Refresh Plan\n\nInitial.",
+			taskProgress: "- [ ] Inspect",
+			workspacePath: tempDir,
+		})
+		await service.createOrUpdatePlanForComposer({
+			composerId: "task-refresh",
+			response: "## Refresh Plan\n\nUpdated.",
+			taskProgress: "- [ ] Inspect\n- [ ] Verify",
+			workspacePath: tempDir,
+		})
+		subscription.dispose()
+
+		assert.deepEqual(events.map((event) => event.kind), ["created", "updated"])
+		assert.deepEqual(
+			events.map((event) => event.planPath),
+			[first.planPath, first.planPath],
+		)
 	})
 
 	it("updates todo statuses through the shared plan file", async () => {
