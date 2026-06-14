@@ -28,6 +28,7 @@ Snapshot date: 2026-06-15. This is a working-tree evidence snapshot, not a relea
 | Plan files and native editor | Focused tests passed on 2026-06-15 for `PlanStorageService`, `PlanModeRespondHandler`, and `Hostbridge - Workspace - searchWorkspaceText`. Plan responses persist `.plan.md` files, register a VS Code-native opener for `codevibe.planEditor`, refresh the native Plans view on storage change events, show the actual `*.plan.md` filename in the plan card, and write `.cursor/.gitignore` with `plans/` when falling back to workspace storage. | Focused guard passed |
 | Retrieval/indexed search | `Hostbridge - Workspace - searchWorkspaceText` test passed on 2026-06-15 and asserts VS Code `findTextInFiles` is used without enumerating/reading candidate files before search. | Focused guard passed |
 | Ranged file reads | Direct read-file test run passed on 2026-06-15. `ReadFileToolHandler` streams Plan-mode and explicit line-range reads through a text line-window path, and the guard reads selected lines from a text file larger than the old full-extraction limit. | Focused guard passed |
+| Standalone runtime assets | `npm --prefix apps/vscode run release:cursor-parity:evidence:standalone`, `npm --prefix apps/vscode run release:standalone:assets`, and `npm --prefix apps/vscode run smoke:standalone-package` passed on 2026-06-15. Current artifacts: `apps/vscode/dist-standalone/standalone.zip`, `apps/vscode/dist-standalone/standalone-manifest.json`, and `apps/vscode/dist-standalone/standalone.zip.sha256` with SHA-256 `b2b17ada4f59da3a9a81c8f2c4ef2911178c1870cb94bc1493b88bda0ca202d3`. The smoke extracted the zip, used `standalone-manifest.json`, launched `codevibe-core.js` with Node `22.21.1`, and reached ProtoBus/HostBridge health on loopback ports. | Runtime guard passed; desktop-shell visual pass still needed |
 | Full evidence run | No current green `npm --prefix apps/vscode run release:cursor-parity:evidence:full` result is recorded. Existing local evidence can be useful context but is not a final gate. | Open gap |
 | Installed VS Code visual validation | The active VS Code window rendered the `CODIE AGENT` sidebar and composer after reload; screenshot evidence: `/private/tmp/codie-code-app-activated.png`. `npm run test:e2e:optimal -- src/test/e2e/native-chat-installed.test.ts --project "e2e tests"` passed on 2026-06-12 and verified installed VSIX command exposure. Native session invocation, prompt/skill discovery, model/account visibility, approvals, MCP, browser automation, retrieval, background agents, sandbox policy, and deeplink flows still need recorded installed-VS-Code evidence. | Partially validated |
 | Upstream patch intake | Upstream intake reports are generated under `.codevibe/upstream-base/<profile>/` and ignored by git. The planner now avoids stale `FETCH_HEAD`/local-branch false zero-delta reports unless the current invocation fetched the upstream ref. | Planning workflow guarded; overlay review still required |
@@ -129,14 +130,14 @@ Manual checks:
 
 ## Standalone UI Validation
 
-- `standalone.zip` artifact:
-- `standalone.zip.sha256` checksum:
-- `standalone-manifest.json` artifact:
-- SHA-256 verification passed:
-- Extracted runtime smoke command:
-- Extracted runtime smoke output/log:
-- Desktop app launches without VS Code.
-- Extracted `standalone.zip` launches from the extracted package using `standalone-manifest.json`.
+- `standalone.zip` artifact: `apps/vscode/dist-standalone/standalone.zip` (54 MB, generated 2026-06-15).
+- `standalone.zip.sha256` checksum: `apps/vscode/dist-standalone/standalone.zip.sha256`.
+- `standalone-manifest.json` artifact: `apps/vscode/dist-standalone/standalone-manifest.json`.
+- SHA-256 verification passed: `b2b17ada4f59da3a9a81c8f2c4ef2911178c1870cb94bc1493b88bda0ca202d3`.
+- Extracted runtime smoke command: `npm --prefix apps/vscode run smoke:standalone-package`.
+- Extracted runtime smoke output/log: passed on 2026-06-15; extracted `/Users/atanumridha/Documents/VibeCode/apps/vscode/dist-standalone/standalone.zip` to a temp install, launched `codevibe-core.js` with Node `22.21.1`, resolved `binaries/darwin-arm64/node_modules` plus package `node_modules`, and reached ProtoBus/HostBridge health.
+- Desktop app launches without VS Code: runtime core launch passed from extracted package; full desktop-shell visual validation still needs recorded UI evidence.
+- Extracted `standalone.zip` launches from the extracted package using `standalone-manifest.json`: passed via `smoke:standalone-package`.
 - Existing Codex auth state is detected from the configured Codex home.
 - Cursor URI preview and launch work from the standalone settings UI.
 - Browser controls, retrieval/indexing controls, background-agent sessions, MCP import/install, plugin add/replace, rule review, git helpers, and NDJSON ingest are visible and functional.
@@ -148,9 +149,9 @@ Manual checks:
 - All CI checks passed:
 - VSIX install smoke passed:
 - Manual installed-VS-Code validation passed:
-- Standalone runtime assets and extracted smoke passed:
-- Standalone UI validation passed:
-- Known residual risks: current open items include the missing full evidence run, remaining installed-VS-Code visual checks beyond sidebar/composer, standalone runtime validation, and manual review of the generated upstream intake report's overlay risk areas.
+- Standalone runtime assets and extracted smoke passed: yes, focused runtime guard passed on 2026-06-15.
+- Standalone UI validation passed: partial; runtime/package/hub route evidence passed, full desktop-shell visual validation remains open.
+- Known residual risks: current open items include the missing full evidence run, remaining installed-VS-Code visual checks beyond sidebar/composer, standalone desktop-shell visual validation, and manual review of the generated upstream intake report's overlay risk areas.
 - Release approver:
 
 Only after this section is complete may the release job be dispatched with:
