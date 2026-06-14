@@ -87,6 +87,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const copyTimerRef = useRef<number | undefined>(undefined);
 	const instanceIdRef = useRef<number | undefined>(undefined);
+	const renderCode = normalizeMermaidForRender(code);
 	const [isLoading, setIsLoading] = useState(false);
 	const [renderError, setRenderError] = useState<string | undefined>(undefined);
 	const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">(
@@ -119,13 +120,13 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 				containerRef.current.innerHTML = "";
 			}
 			mermaid
-				.parse(code, { suppressErrors: true })
+				.parse(renderCode, { suppressErrors: true })
 				.then((isValid) => {
 					if (!isValid) {
 						throw new Error("Invalid or incomplete Mermaid code");
 					}
-					const id = getMermaidRenderId(code, instanceIdRef.current ?? 0);
-					return mermaid.render(id, code);
+					const id = getMermaidRenderId(renderCode, instanceIdRef.current ?? 0);
+					return mermaid.render(id, renderCode);
 				})
 				.then(({ svg }) => {
 					if (containerRef.current) {
@@ -145,7 +146,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 				});
 		},
 		500, // Delay 500ms
-		[code], // Dependencies for scheduling
+		[code, renderCode], // Dependencies for scheduling
 	);
 
 	/**
@@ -236,6 +237,24 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 			/>
 		</MermaidBlockContainer>
 	);
+}
+
+export function normalizeMermaidForRender(source: string): string {
+	if (!/^\s*(flowchart|graph)\b/im.test(source)) {
+		return source;
+	}
+
+	return source.replace(/\b([A-Za-z][\w-]*)\[([^\]\n]+)\]/g, (match, nodeId: string, label: string) => {
+		const trimmed = label.trim();
+		if (!trimmed || /^["'`]/.test(trimmed)) {
+			return match;
+		}
+		if (!/[\s.()/,:+]/.test(trimmed)) {
+			return match;
+		}
+		const escaped = trimmed.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+		return `${nodeId}["${escaped}"]`;
+	});
 }
 
 function getMermaidRenderId(code: string, instanceId: number): string {

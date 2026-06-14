@@ -82,6 +82,25 @@ describe("cursor-sandbox config", () => {
 		config.networkPolicy.should.eql({ default: "deny", allow: [] })
 	})
 
+	it("accepts Cursor networkPolicy defaultAction, deny list, and strict mode", () => {
+		const config = parseCursorSandboxConfig({
+			type: "workspace_readwrite",
+			networkPolicy: {
+				defaultAction: "allow",
+				allow: ["api.github.com"],
+				deny: ["blocked.example.com", "*.internal"],
+			},
+			networkPolicyStrict: true,
+		})
+
+		config.networkPolicy.should.eql({
+			default: "allow",
+			allow: ["api.github.com"],
+			deny: ["blocked.example.com", "*.internal"],
+		})
+		config.networkPolicyStrict.should.equal(true)
+	})
+
 	it("rejects invalid known fields and conflicting aliases", () => {
 		const invalidKnownField = () => parseCursorSandboxConfig({ disableTmpWrite: "yes" })
 		const conflictingAliases = () =>
@@ -92,6 +111,10 @@ describe("cursor-sandbox config", () => {
 
 		invalidKnownField.should.throw(CursorSandboxConfigError)
 		conflictingAliases.should.throw(CursorSandboxConfigError)
+		;(() =>
+			parseCursorSandboxConfig({
+				networkPolicy: { default: "allow", defaultAction: "deny" },
+			})).should.throw(CursorSandboxConfigError)
 	})
 
 	it("returns undefined when no sandbox config exists", async () => {
@@ -232,6 +255,26 @@ describe("cursor-sandbox config", () => {
 		policy!.allowNetworkAutoApprove.should.equal(true)
 		isPathAllowedByCursorSandbox(path.join(tempDir, "src/index.ts"), policy!.writablePaths).should.equal(true)
 		isPathAllowedByCursorSandbox(path.resolve(tempDir, "../cache/out.txt"), policy!.writablePaths).should.equal(true)
+	})
+
+	it("strict network policy disables terminal and network auto-approval", async () => {
+		await writeSandboxConfig({
+			type: "workspace_readwrite",
+			networkPolicy: { defaultAction: "allow" },
+			networkPolicyStrict: true,
+		})
+
+		const policy = await resolveCursorSandboxPolicy({
+			workspaceRoot: tempDir,
+			enabled: true,
+			policySetting: "workspace",
+		})
+
+		should(policy).be.ok()
+		policy!.networkPolicy.should.eql({ default: "allow", allow: [] })
+		policy!.networkPolicyStrict!.should.equal(true)
+		policy!.allowNetworkAutoApprove.should.equal(false)
+		policy!.allowTerminalAutoApprove.should.equal(false)
 	})
 
 	it("read-only sandbox config maps to command permission allowlist", async () => {

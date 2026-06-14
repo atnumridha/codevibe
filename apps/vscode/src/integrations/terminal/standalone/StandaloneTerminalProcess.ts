@@ -116,9 +116,12 @@ export function buildMacOsSandboxProfile(
 	if (!policy || policy.status !== "loaded") {
 		throw new Error("Cannot build a macOS sandbox profile without a loaded Codie sandbox policy.")
 	}
-	if (policy.networkPolicy.default === "deny" && policy.networkPolicy.allow.length > 0) {
+	if (
+		(policy.networkPolicy.default === "deny" && policy.networkPolicy.allow.length > 0) ||
+		(policy.networkPolicy.deny?.length ?? 0) > 0
+	) {
 		throw new Error(
-			"Codie sandboxed terminal mode cannot enforce host-specific network allow lists with macOS sandbox-exec. Use default allow or default deny.",
+			"Codie sandboxed terminal mode cannot enforce host-specific network allow or deny lists with macOS sandbox-exec. Use default allow or default deny.",
 		)
 	}
 

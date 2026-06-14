@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import mermaid from "mermaid";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import MermaidBlock from "./MermaidBlock";
+import MermaidBlock, { normalizeMermaidForRender } from "./MermaidBlock";
 
 vi.mock("mermaid", () => ({
 	default: {
@@ -59,6 +59,22 @@ describe("MermaidBlock", () => {
 		expect(diagram).toHaveTextContent("Explore");
 	});
 
+	it("quotes flowchart labels that contain spaces or punctuation before rendering", async () => {
+		render(
+			<MermaidBlock
+				code={`flowchart TD
+  A[App launch] --> B[MainApplication.onCreate]
+  B --> C["Already quoted"]`}
+			/>,
+		);
+
+		await flushMermaidRender();
+
+		const renderedCode = mermaidMock.render.mock.calls[0][1];
+		expect(renderedCode).toContain('A["App launch"] --> B["MainApplication.onCreate"]');
+		expect(renderedCode).toContain('C["Already quoted"]');
+	});
+
 	it("falls back to escaped source when Mermaid cannot render", async () => {
 		mermaidMock.parse.mockResolvedValue(false);
 
@@ -76,6 +92,13 @@ describe("MermaidBlock", () => {
 		expect(fallback).not.toBeNull();
 		expect(fallback).toHaveTextContent('A["<script>"] --> B');
 		expect(container.innerHTML).not.toContain("<script>");
+	});
+});
+
+describe("normalizeMermaidForRender", () => {
+	it("leaves non-flowchart diagrams unchanged", () => {
+		const source = "sequenceDiagram\n  A->>B: Hello there";
+		expect(normalizeMermaidForRender(source)).toBe(source);
 	});
 });
 

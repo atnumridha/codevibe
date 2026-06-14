@@ -22,7 +22,7 @@ Checklist here (If you have presented the user with concrete steps or requiremen
 
 const id = ClineDefaultTool.PLAN_MODE
 const localPlanContract =
-	"Final plans are persisted locally as .plan.md files with YAML frontmatter. The response should include the inspected-context outcome, constraints, risks, unknowns, acceptance criteria, and phases for project-sized work. The task_progress parameter should be a dependency-aware executable checklist ordered for Act Mode: discovery, implementation, verification, and polish. Use Markdown checklist items only in task_progress so they can become plan todos."
+	"Final plans are persisted locally as .plan.md files with YAML frontmatter. The response should include the inspected-context outcome, constraints, risks, unknowns, acceptance criteria, and phases for project-sized work. The task_progress parameter should be a dependency-aware executable checklist ordered for Act Mode: discovery, implementation, verification, and polish. Use Markdown checklist items only in task_progress so they can become plan todos. When writing Mermaid flowcharts, quote labels that contain spaces, punctuation, dots, or parentheses, for example A[\"Inspect repo\"] --> B[\"PlanStorageService.createOrUpdatePlanForComposer\"]."
 
 const generic: ClineToolSpec = {
 	variant: ModelFamily.GENERIC,

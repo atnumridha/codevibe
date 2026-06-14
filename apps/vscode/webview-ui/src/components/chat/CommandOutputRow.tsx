@@ -408,7 +408,9 @@ function getSandboxPolicySummary(runtime: SandboxRuntimeSummary | undefined) {
 	if (runtime.status === "loaded") {
 		return `${getSandboxRuntimeLabel(runtime)} active: ${runtime.effectiveAccess} access, ${formatPathCount(
 			runtime.writablePathCount,
-		)}, network ${runtime.networkDefault}.`
+		)}, network ${runtime.networkDefault}, allow ${runtime.networkAllowCount}, deny ${
+			runtime.networkDenyCount ?? 0
+		}${runtime.networkStrict ? ", strict" : ""}.`
 	}
 
 	if (runtime.status === "invalid") {

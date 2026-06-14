@@ -70,6 +70,12 @@
 		"onCommand:codevibe.settingsButtonClicked",
 		"onCommand:codevibe.nativeAgentDiagnostics",
 		"onCommand:codevibe.newNativeAgentSession",
+		"onCommand:codevibe.plans.refresh",
+		"onCommand:codevibe.plans.open",
+		"onCommand:codevibe.plans.openLatest",
+		"onCommand:codevibe.plans.openFolder",
+		"onCommand:codevibe.plans.buildLocal",
+		"onCommand:codevibe.plans.buildParallel",
 		"onCommand:codevibe.dev.createTestTasks",
 		"onCommand:codevibe.dev.expireMcpOAuthTokens",
 		"onCommand:codevibe.addToChat",
@@ -173,6 +179,11 @@
 					"type": "webview",
 					"icon": "assets/icons/activitybar.svg",
 					"visibility": "hidden"
+				},
+				{
+					"id": "codevibe-agent-plans",
+					"name": "Plans",
+					"icon": "assets/icons/activitybar.svg"
 				}
 			]
 		},
@@ -395,6 +406,42 @@
 				"icon": "$(sparkle)"
 			},
 			{
+				"command": "codevibe.plans.refresh",
+				"title": "Refresh Plans",
+				"category": "Codie",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "codevibe.plans.open",
+				"title": "Open Plan",
+				"category": "Codie",
+				"icon": "$(go-to-file)"
+			},
+			{
+				"command": "codevibe.plans.openLatest",
+				"title": "Open Latest Plan",
+				"category": "Codie",
+				"icon": "$(preview)"
+			},
+			{
+				"command": "codevibe.plans.openFolder",
+				"title": "Reveal Local Plans Folder",
+				"category": "Codie",
+				"icon": "$(folder-opened)"
+			},
+			{
+				"command": "codevibe.plans.buildLocal",
+				"title": "Build Plan Locally",
+				"category": "Codie",
+				"icon": "$(play)"
+			},
+			{
+				"command": "codevibe.plans.buildParallel",
+				"title": "Build Plan in Parallel",
+				"category": "Codie",
+				"icon": "$(git-branch)"
+			},
+			{
 				"command": "codevibe.dev.createTestTasks",
 				"title": "Create Test Tasks",
 				"category": "Codie",
@@ -548,6 +595,40 @@
 			}
 		],
 		"menus": {
+			"view/title": [
+				{
+					"command": "codevibe.plans.openLatest",
+					"group": "navigation@1",
+					"when": "view == codevibe-agent-plans"
+				},
+				{
+					"command": "codevibe.plans.refresh",
+					"group": "navigation@2",
+					"when": "view == codevibe-agent-plans"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "codevibe.plans.open",
+					"group": "inline@1",
+					"when": "view == codevibe-agent-plans && viewItem == codevibe.plan"
+				},
+				{
+					"command": "codevibe.plans.buildLocal",
+					"group": "inline@2",
+					"when": "view == codevibe-agent-plans && viewItem == codevibe.plan"
+				},
+				{
+					"command": "codevibe.plans.buildParallel",
+					"group": "navigation@1",
+					"when": "view == codevibe-agent-plans && viewItem == codevibe.plan"
+				},
+				{
+					"command": "codevibe.plans.openFolder",
+					"group": "navigation@2",
+					"when": "view == codevibe-agent-plans"
+				}
+			],
 			"chatSessions/newSession": [
 				{
 					"command": "codevibe.newNativeAgentSession",

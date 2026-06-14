@@ -1,7 +1,11 @@
 import os from "os"
 import path from "path"
 import { parse, type ParseEntry } from "shell-quote"
-import { isPathAllowedByCursorSandbox, type CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
+import {
+	isCursorSandboxNetworkUrlAllowed,
+	isPathAllowedByCursorSandbox,
+	type CursorSandboxRuntimePolicy,
+} from "@core/config/cursor-sandbox"
 import type { CodeVibeTerminalRunMode } from "@shared/terminalPolicy"
 
 export type CursorSandboxCommandPreflightResult = { ok: true } | { ok: false; error: string }
@@ -358,7 +362,7 @@ function validateSegmentNetworkAccess(
 		if (!url) {
 			continue
 		}
-		if (isNetworkUrlAllowed(url, policy.networkPolicy.allow)) {
+		if (isCursorSandboxNetworkUrlAllowed(url, policy.networkPolicy)) {
 			continue
 		}
 		return (
@@ -446,42 +450,6 @@ function parseHttpUrl(value: string): URL | undefined {
 	} catch {
 		return undefined
 	}
-}
-
-function isNetworkUrlAllowed(url: URL, allow: readonly string[]): boolean {
-	return allow.some((entry) => doesNetworkAllowEntryMatch(entry, url))
-}
-
-function doesNetworkAllowEntryMatch(entry: string, url: URL): boolean {
-	const trimmed = entry.trim().toLowerCase()
-	if (!trimmed) {
-		return false
-	}
-	if (trimmed === "*") {
-		return true
-	}
-
-	let hostPattern = trimmed
-	let protocolPattern: string | undefined
-	try {
-		const parsedEntry = new URL(trimmed)
-		hostPattern = parsedEntry.hostname.toLowerCase()
-		protocolPattern = parsedEntry.protocol.toLowerCase()
-	} catch {
-		const protocolMatch = /^([a-z][a-z0-9+.-]*:)?\/\/(.+)$/i.exec(trimmed)
-		if (protocolMatch) {
-			protocolPattern = protocolMatch[1]?.toLowerCase()
-			hostPattern = protocolMatch[2] ?? trimmed
-		}
-	}
-
-	if (protocolPattern && protocolPattern !== url.protocol.toLowerCase()) {
-		return false
-	}
-	if (hostPattern.startsWith("*.")) {
-		return url.hostname.toLowerCase().endsWith(hostPattern.slice(1))
-	}
-	return url.hostname.toLowerCase() === hostPattern
 }
 
 function getOperator(entry: ParseEntry): string | undefined {

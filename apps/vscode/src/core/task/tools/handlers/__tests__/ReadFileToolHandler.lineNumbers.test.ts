@@ -1,7 +1,12 @@
 import assert from "node:assert/strict"
 import { ClineDefaultTool } from "@shared/tools"
 import { describe, it } from "mocha"
-import { DEFAULT_MAX_LINES, formatFileContentWithLineNumbers, getReadToolDisplayedLineRange } from "../ReadFileToolHandler"
+import {
+	DEFAULT_MAX_LINES,
+	PLAN_MODE_DEFAULT_MAX_LINES,
+	formatFileContentWithLineNumbers,
+	getReadToolDisplayedLineRange,
+} from "../ReadFileToolHandler"
 
 describe("getReadToolDisplayedLineRange", () => {
 	const block = (start?: string, end?: string) => ({
@@ -19,6 +24,12 @@ describe("getReadToolDisplayedLineRange", () => {
 		const text = Array.from({ length: 10 }, (_, i) => `L${i + 1}`).join("\n")
 		const r = getReadToolDisplayedLineRange(block("3", "5"), { text })
 		assert.deepEqual(r, { start: 3, end: 5 })
+	})
+
+	it("can report a compact Plan-mode default slice", () => {
+		const text = Array.from({ length: PLAN_MODE_DEFAULT_MAX_LINES + 10 }, (_, i) => `L${i + 1}`).join("\n")
+		const r = getReadToolDisplayedLineRange(block(), { text }, PLAN_MODE_DEFAULT_MAX_LINES)
+		assert.deepEqual(r, { start: 1, end: PLAN_MODE_DEFAULT_MAX_LINES })
 	})
 
 	it("returns undefined for image reads", () => {
@@ -133,6 +144,14 @@ describe("formatFileContentWithLineNumbers", () => {
 			const endLine = DEFAULT_MAX_LINES + 200
 			const result = formatFileContentWithLineNumbers(bigContent, 1, endLine)
 			assert.ok(result.includes(`${endLine} | row${endLine}`))
+		})
+
+		it("supports a smaller Plan-mode default chunk size", () => {
+			const result = formatFileContentWithLineNumbers(bigContent, undefined, undefined, PLAN_MODE_DEFAULT_MAX_LINES)
+			assert.ok(result.includes(`1 | row1`))
+			assert.ok(result.includes(`${PLAN_MODE_DEFAULT_MAX_LINES} | row${PLAN_MODE_DEFAULT_MAX_LINES}`))
+			assert.ok(!result.includes(`${PLAN_MODE_DEFAULT_MAX_LINES + 1} |`))
+			assert.ok(result.includes(`start_line=${PLAN_MODE_DEFAULT_MAX_LINES + 1}`))
 		})
 	})
 

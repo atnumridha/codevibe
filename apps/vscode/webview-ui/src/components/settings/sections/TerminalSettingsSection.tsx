@@ -109,7 +109,11 @@ export const TerminalSettingsSection: React.FC<TerminalSettingsSectionProps> = (
 				: "No sandbox policy is active. Codie uses the current terminal permissions for approval decisions."
 	const sandboxRuntimeSummary = `Sandbox runtime: ${sandboxRuntimeStatus}; access: ${
 		sandboxRuntime?.effectiveAccess ?? "disabled"
-	}; writable paths: ${sandboxRuntime?.writablePathCount ?? 0}; network: ${sandboxRuntime?.networkDefault ?? "deny"}.`
+	}; writable paths: ${sandboxRuntime?.writablePathCount ?? 0}; network: ${
+		sandboxRuntime?.networkDefault ?? "deny"
+	}; allow: ${sandboxRuntime?.networkAllowCount ?? 0}; deny: ${sandboxRuntime?.networkDenyCount ?? 0}${
+		sandboxRuntime?.networkStrict ? "; strict" : ""
+	}.`
 
 	return (
 		<div>

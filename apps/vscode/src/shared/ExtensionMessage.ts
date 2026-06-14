@@ -54,6 +54,8 @@ export interface CodeVibeCompatibilityStatus {
 		writablePathCount: number
 		networkDefault: "allow" | "deny"
 		networkAllowCount: number
+		networkDenyCount?: number
+		networkStrict?: boolean
 		blockGitWrites: boolean
 		allowTerminalAutoApprove: boolean
 	}

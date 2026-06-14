@@ -1,6 +1,10 @@
 import type { ClineMessage } from "@shared/ExtensionMessage"
 import { describe, expect, it } from "vitest"
-import { buildToolsWithReasoning, getToolGroupSummaryFromParsedTools } from "./ToolGroupRenderer"
+import {
+	buildToolsWithReasoning,
+	getLocalRetrievalSummaryFromParsedTools,
+	getToolGroupSummaryFromParsedTools,
+} from "./ToolGroupRenderer"
 
 const readToolMessage = (
 	ts: number,
@@ -55,5 +59,16 @@ describe("getToolGroupSummaryFromParsedTools", () => {
 		])
 
 		expect(getToolGroupSummaryFromParsedTools(tools.map((tool) => tool.parsedTool))).toBe("Codie read 1 file")
+	})
+})
+
+describe("getLocalRetrievalSummaryFromParsedTools", () => {
+	it("describes the Cursor-style retrieval phases", () => {
+		expect(
+			getLocalRetrievalSummaryFromParsedTools([
+				{ tool: "searchFiles", path: ".", regex: "PlanStorage" } as any,
+				{ tool: "readFile", path: "src/a.ts", readLineStart: 20, readLineEnd: 60 } as any,
+			]),
+		).toBe("1 ranked search -> 1 sliced read")
 	})
 })

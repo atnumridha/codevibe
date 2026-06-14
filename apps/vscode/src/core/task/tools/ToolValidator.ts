@@ -1,5 +1,9 @@
 import type { ToolParamName, ToolUse } from "@core/assistant-message"
-import { isPathAllowedByCursorSandbox, type CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
+import {
+	isCursorSandboxNetworkUrlAllowed,
+	isPathAllowedByCursorSandbox,
+	type CursorSandboxRuntimePolicy,
+} from "@core/config/cursor-sandbox"
 import type { ClineIgnoreController } from "@core/ignore/ClineIgnoreController"
 
 export type ValidationResult = { ok: true } | { ok: false; error: string }
@@ -72,17 +76,21 @@ export class ToolValidator {
 		allowedDomains: ReadonlyArray<string>,
 		policy?: CursorSandboxRuntimePolicy,
 	): ValidationResult {
-		if (!policy || policy.networkPolicy.default !== "deny") {
+		if (!policy) {
 			return { ok: true }
 		}
-		if (policy.networkPolicy.allow.some((entry) => entry.trim() === "*")) {
+		const denyEntries = policy.networkPolicy.deny ?? []
+		if (policy.networkPolicy.default === "allow" && denyEntries.length === 0) {
+			return { ok: true }
+		}
+		if (policy.networkPolicy.default === "deny" && policy.networkPolicy.allow.some((entry) => entry.trim() === "*")) {
 			return { ok: true }
 		}
 		if (allowedDomains.length === 0) {
 			return {
 				ok: false,
 				error:
-					"Web search is blocked by the active Codie sandbox networkPolicy. Provide allowed_domains constrained to networkPolicy.allow, or allow '*' explicitly.",
+					"Web search is blocked by the active Codie sandbox networkPolicy. Provide allowed_domains constrained to the configured networkPolicy.",
 			}
 		}
 
@@ -94,7 +102,7 @@ export class ToolValidator {
 					error: `Web search domain ${domain} is blocked by the active Codie sandbox networkPolicy.`,
 				}
 			}
-			const allowed = policy.networkPolicy.allow.some((entry) => doesNetworkAllowEntryMatch(entry, normalizedDomain))
+			const allowed = isCursorSandboxNetworkUrlAllowed(normalizedDomain, policy.networkPolicy)
 			if (!allowed) {
 				return {
 					ok: false,
@@ -112,7 +120,9 @@ export function validateCursorSandboxUrl(
 	policy?: CursorSandboxRuntimePolicy,
 ): ValidationResult {
 	if (!policy || policy.networkPolicy.default !== "deny") {
-		return { ok: true }
+		if (!policy) {
+			return { ok: true }
+		}
 	}
 
 	let parsedUrl: URL
@@ -122,7 +132,7 @@ export function validateCursorSandboxUrl(
 		return { ok: true }
 	}
 
-	const allowed = policy.networkPolicy.allow.some((entry) => doesNetworkAllowEntryMatch(entry, parsedUrl))
+	const allowed = isCursorSandboxNetworkUrlAllowed(parsedUrl, policy.networkPolicy)
 	if (!allowed) {
 		return {
 			ok: false,
@@ -131,38 +141,6 @@ export function validateCursorSandboxUrl(
 	}
 
 	return { ok: true }
-}
-
-function doesNetworkAllowEntryMatch(entry: string, url: URL): boolean {
-	const trimmed = entry.trim().toLowerCase()
-	if (!trimmed) {
-		return false
-	}
-	if (trimmed === "*") {
-		return true
-	}
-
-	let hostPattern = trimmed
-	let protocolPattern: string | undefined
-	try {
-		const parsedEntry = new URL(trimmed)
-		hostPattern = parsedEntry.hostname.toLowerCase()
-		protocolPattern = parsedEntry.protocol.toLowerCase()
-	} catch {
-		const protocolMatch = /^([a-z][a-z0-9+.-]*:)?\/\/(.+)$/i.exec(trimmed)
-		if (protocolMatch) {
-			protocolPattern = protocolMatch[1]?.toLowerCase()
-			hostPattern = protocolMatch[2] ?? trimmed
-		}
-	}
-
-	if (protocolPattern && protocolPattern !== url.protocol.toLowerCase()) {
-		return false
-	}
-	if (hostPattern.startsWith("*.")) {
-		return url.hostname.toLowerCase().endsWith(hostPattern.slice(1))
-	}
-	return url.hostname.toLowerCase() === hostPattern
 }
 
 function normalizeNetworkHostInput(value: string): URL | undefined {

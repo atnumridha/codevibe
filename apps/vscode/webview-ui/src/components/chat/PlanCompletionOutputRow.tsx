@@ -16,6 +16,7 @@ import {
 	CircleSlashIcon,
 	CopyIcon,
 	ExternalLinkIcon,
+	FileTextIcon,
 	GitBranchIcon,
 	LoaderCircleIcon,
 	PlayIcon,
@@ -194,6 +195,7 @@ const PlanCompletionOutputRow = memo(
 		const searchNeedle = search.trim().toLowerCase()
 		const searchMatchesBody = Boolean(searchNeedle && body.toLowerCase().includes(searchNeedle))
 		const buildStatus = plan?.buildStatus || localPlanBuild?.status || "none"
+		const visiblePlanPath = plan?.planPath || localPlanBuild?.planPath
 
 		const savePlan = async (nextMetadata = metadata, nextBody = body): Promise<PlanFile | undefined> => {
 			if (!localPlanBuild?.planId && !localPlanBuild?.planPath) {
@@ -459,6 +461,16 @@ const PlanCompletionOutputRow = memo(
 						)}
 					</div>
 				</div>
+
+				{localPlanBuild && (
+					<div className="mx-1 mt-2 flex min-w-0 items-center gap-1 rounded-sm border border-description/20 px-2 py-1 text-[11px] text-description">
+						<FileTextIcon className="size-3 shrink-0" />
+						<span className="shrink-0 font-medium text-foreground">local .plan.md</span>
+						<span className="min-w-0 truncate font-mono" title={visiblePlanPath}>
+							{visiblePlanPath}
+						</span>
+					</div>
+				)}
 
 				{localPlanBuild ? (
 					<div className="w-full relative border-t-1 border-description/20 rounded-b-sm">

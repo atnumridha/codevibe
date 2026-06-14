@@ -135,6 +135,18 @@ describe("StandaloneTerminalProcess sandbox runtime enforcement", () => {
 			/host-specific network allow lists/i,
 		)
 	})
+
+	it("fails closed for host-specific network deny lists", () => {
+		assert.throws(
+			() =>
+				buildMacOsSandboxProfile({
+					cursorSandboxPolicy: makeSandboxPolicy({
+						networkPolicy: { default: "allow", allow: [], deny: ["blocked.example.com"] },
+					}),
+				}),
+			/host-specific network allow or deny lists/i,
+		)
+	})
 })
 
 describe("StandaloneTerminalManager sandbox terminal lookup", () => {

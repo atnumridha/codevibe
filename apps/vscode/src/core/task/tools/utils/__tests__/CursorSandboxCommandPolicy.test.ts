@@ -23,6 +23,7 @@ function makePolicy(overrides: Partial<CursorSandboxRuntimePolicy> = {}): Cursor
 			enableSharedBuildCache: false,
 			blockGitWrites: false,
 			networkPolicy: { default: "allow", allow: [] },
+			networkPolicyStrict: false,
 		},
 		readablePaths: [workspaceRoot],
 		writablePaths: [workspaceRoot],
@@ -243,6 +244,20 @@ describe("CursorSandboxCommandPolicy", () => {
 		})
 
 		assert.deepEqual(result, { ok: true })
+	})
+
+	it("blocks network URLs that match sandbox deny entries even when default is allow", () => {
+		const result = validateCursorSandboxTerminalPreflight({
+			command: "curl https://blocked.example.com/data.json",
+			executionDir: workspaceRoot,
+			policy: makePolicy({ networkPolicy: { default: "allow", allow: [], deny: ["blocked.example.com"] } }),
+			terminalRunMode: "sandboxed",
+		})
+
+		assert.equal(result.ok, false)
+		if (!result.ok) {
+			assert.match(result.error, /network access to blocked\.example\.com/)
+		}
 	})
 
 	it("does not treat ordinary command words as filesystem paths", () => {

@@ -303,6 +303,8 @@ export const ExtensionStateContextProvider: React.FC<{
 				writablePathCount: 0,
 				networkDefault: "deny",
 				networkAllowCount: 0,
+				networkDenyCount: 0,
+				networkStrict: false,
 				blockGitWrites: false,
 				allowTerminalAutoApprove: false,
 			},

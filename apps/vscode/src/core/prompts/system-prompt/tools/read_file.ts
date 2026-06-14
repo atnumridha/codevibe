@@ -6,7 +6,7 @@ import { TASK_PROGRESS_PARAMETER } from "../types"
 const id = ClineDefaultTool.FILE_READ
 
 const READ_FILE_DESCRIPTION =
-	"Request to read the contents of a file at the specified path. Follow Codie retrieval-first context discipline: collect and rank likely files with explicit mentions, open/recent files, git changes, list_files, search_files, indexed workspace search, imports, or dependency clues before reading. Prefer start_line and end_line to read only the relevant slice. Read an entire file only when the file is explicitly attached or mentioned, small enough, or necessary for an edit. Returned text lines are prefixed with line labels (e.g. `1 |`, `2 |`). These labels are metadata, not part of the file content. For large files, output is automatically limited to 1000 lines. Automatically extracts raw text from PDF and DOCX files. May not be suitable for other types of binary files, as it returns the raw content as a string. Do NOT use this tool to list the contents of a directory. Only use this tool on files."
+	"Request to read the contents of a file at the specified path. Follow Codie retrieval-first context discipline: collect and rank likely files with explicit mentions, open/recent files, git changes, list_files, search_files, indexed workspace search, imports, or dependency clues before reading. Prefer start_line and end_line to read only the relevant slice. In PLAN MODE, an un-ranged read_file call is automatically compacted to a small preview; use search_files or indexed workspace search first, then pass start_line/end_line for exact relevant slices. Read an entire file only when the file is explicitly attached or mentioned, small enough, or necessary for an edit. Returned text lines are prefixed with line labels (e.g. `1 |`, `2 |`). These labels are metadata, not part of the file content. For large files, output is automatically limited to 1000 lines in Act mode and a compact preview in Plan mode. Automatically extracts raw text from PDF and DOCX files. May not be suitable for other types of binary files, as it returns the raw content as a string. Do NOT use this tool to list the contents of a directory. Only use this tool on files."
 
 const READ_FILE_PARAMETERS: ClineToolSpec["parameters"] = [
 	{
@@ -27,7 +27,7 @@ const READ_FILE_PARAMETERS: ClineToolSpec["parameters"] = [
 		required: false,
 		type: "integer",
 		instruction:
-			"The 1-based line number to stop reading at (inclusive). Defaults to start_line + 1000. Use with start_line to read specific sections of large files.",
+			"The 1-based line number to stop reading at (inclusive). Defaults to start_line + 1000 in Act mode. In Plan mode, omit this only for a compact preview; after search_files identifies matches, provide an explicit end_line to read the exact useful slice.",
 		usage: "1000",
 	},
 	TASK_PROGRESS_PARAMETER,

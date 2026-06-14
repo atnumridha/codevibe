@@ -36,6 +36,7 @@ export const CompletionOutputRow = memo(
 		messageTs,
 		handleQuoteClick,
 	}: CompletionOutputRowProps) => {
+		const visibleText = sanitizeCompletionText(text)
 		return (
 			<div>
 				<div className="rounded-sm border border-success/20 overflow-visible bg-success/10 p-2 pt-3">
@@ -45,12 +46,12 @@ export const CompletionOutputRow = memo(
 							<CheckIcon className="size-3 text-success" />
 							<span className="text-success font-bold">Task Completed</span>
 						</div>
-						<CopyButton className="text-success" textToCopy={text} />
+						<CopyButton className="text-success" textToCopy={visibleText} />
 					</div>
 					{/* Content */}
 					<div className="w-full relative border-t-1 border-description/20 rounded-b-sm">
 						<div className="completion-output-content p-2 pt-3 w-full [&_hr]:opacity-20 [&_p:last-child]:mb-0 rounded-sm">
-							<MarkdownRow markdown={text} />
+							<MarkdownRow markdown={visibleText} />
 							{quoteButtonState.visible && (
 								<QuoteButton left={quoteButtonState.left} onClick={handleQuoteClick} top={quoteButtonState.top} />
 							)}
@@ -73,6 +74,17 @@ export const CompletionOutputRow = memo(
 )
 
 CompletionOutputRow.displayName = "CompletionOutputRow"
+
+export function sanitizeCompletionText(text: string): string {
+	const withoutClosedThinking = text
+		.replace(/<thinking>[\s\S]*?<\/thinking>/gi, "")
+		.replace(/<think>[\s\S]*?<\/think>/gi, "")
+	const withoutDanglingLeadingThinking = withoutClosedThinking
+		.replace(/^\s*<thinking>[\s\S]*?(?:\n\s*\n|$)/i, "")
+		.replace(/^\s*<think>[\s\S]*?(?:\n\s*\n|$)/i, "")
+	const sanitized = withoutDanglingLeadingThinking.replace(/<\/?(thinking|think)>/gi, "").trim()
+	return sanitized || "Task completed."
+}
 
 const CompletionOutputActionRow = memo(
 	({

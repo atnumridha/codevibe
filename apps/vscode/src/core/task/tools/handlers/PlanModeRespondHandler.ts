@@ -1,4 +1,5 @@
 import type { ToolUse } from "@core/assistant-message"
+import { getPlanStorageService } from "@core/plan/PlanStorageService"
 import { formatResponse } from "@core/prompts/responses"
 import { findLast, parsePartialArrayString } from "@shared/array"
 import { telemetryService } from "@/services/telemetry"
@@ -98,6 +99,18 @@ export class PlanModeRespondHandler implements IToolHandler, IPartialBlockHandle
 			})
 		} catch (error) {
 			Logger.warn(`Failed to persist local plan artifact for task ${config.taskId}: ${error}`)
+		}
+
+		try {
+			if (sharedMessage.localPlanBuild?.planPath) {
+				await getPlanStorageService().openPlan({
+					planId: sharedMessage.localPlanBuild.planId,
+					planPath: sharedMessage.localPlanBuild.planPath,
+					workspacePath: config.cwd,
+				})
+			}
+		} catch (error) {
+			Logger.warn(`Failed to open local plan artifact for task ${config.taskId}: ${error}`)
 		}
 
 		// Auto-switch to Act mode while in yolo mode

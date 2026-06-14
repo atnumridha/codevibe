@@ -135,6 +135,8 @@ function summarizeCursorSandboxRuntimePolicy(
 		writablePathCount: policy.writablePaths.length,
 		networkDefault: policy.networkPolicy.default,
 		networkAllowCount: policy.networkPolicy.allow.length,
+		networkDenyCount: policy.networkPolicy.deny?.length ?? 0,
+		networkStrict: policy.networkPolicyStrict ?? false,
 		blockGitWrites: policy.blockGitWrites,
 		allowTerminalAutoApprove: policy.allowTerminalAutoApprove,
 	};
@@ -155,6 +157,8 @@ function createInactiveSandboxRuntimeSummary(options: {
 		writablePathCount: 0,
 		networkDefault: "deny",
 		networkAllowCount: 0,
+		networkDenyCount: 0,
+		networkStrict: false,
 		blockGitWrites: false,
 		allowTerminalAutoApprove: false,
 	};

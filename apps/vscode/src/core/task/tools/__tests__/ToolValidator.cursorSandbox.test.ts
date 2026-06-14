@@ -111,6 +111,16 @@ describe("ToolValidator Cursor sandbox", () => {
 		assert.equal(denied.ok, false)
 	})
 
+	it("enforces network deny entries before default allow", () => {
+		const policy = makePolicy({
+			networkPolicy: { default: "allow", allow: [], deny: ["blocked.example.com", "*.internal"] },
+		})
+
+		assert.deepEqual(validator.checkCursorSandboxUrl("https://api.github.com/repos", policy), { ok: true })
+		assert.equal(validator.checkCursorSandboxUrl("https://blocked.example.com", policy).ok, false)
+		assert.equal(validator.checkCursorSandboxUrl("https://db.internal", policy).ok, false)
+	})
+
 	it("requires constrained allowed_domains for web search when network default is deny", () => {
 		const policy = makePolicy({
 			networkPolicy: { default: "deny", allow: ["github.com", "*.example.com"] },
@@ -120,5 +130,15 @@ describe("ToolValidator Cursor sandbox", () => {
 		assert.deepEqual(validator.checkCursorSandboxWebSearchDomains(["github.com"], policy), { ok: true })
 		assert.deepEqual(validator.checkCursorSandboxWebSearchDomains(["docs.example.com"], policy), { ok: true })
 		assert.equal(validator.checkCursorSandboxWebSearchDomains(["example.net"], policy).ok, false)
+	})
+
+	it("requires constrained allowed_domains for web search when deny entries exist", () => {
+		const policy = makePolicy({
+			networkPolicy: { default: "allow", allow: [], deny: ["blocked.example.com"] },
+		})
+
+		assert.equal(validator.checkCursorSandboxWebSearchDomains([], policy).ok, false)
+		assert.deepEqual(validator.checkCursorSandboxWebSearchDomains(["github.com"], policy), { ok: true })
+		assert.equal(validator.checkCursorSandboxWebSearchDomains(["blocked.example.com"], policy).ok, false)
 	})
 })

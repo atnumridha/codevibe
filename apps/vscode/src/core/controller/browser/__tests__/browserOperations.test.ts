@@ -112,4 +112,24 @@ describe("browserOperations Cursor sandbox network policy", () => {
 		sinon.assert.calledOnce(browserSession.launchBrowser)
 		sinon.assert.calledTwice(browserSession.navigateToUrl)
 	})
+
+	it("rejects denied URLs before browser launch when network default is allow", async () => {
+		const { browserSession, controller } = createController(
+			makePolicy({ default: "allow", allow: [], deny: ["blocked.example.com"] }),
+		)
+
+		await assert.rejects(
+			browserAction(
+				controller,
+				BrowserActionRequest.create({
+					action: "launch",
+					url: "https://blocked.example.com/path",
+				}),
+			),
+			/Network access to blocked\.example\.com is blocked by the active Codie sandbox networkPolicy/,
+		)
+
+		sinon.assert.notCalled(browserSession.launchBrowser)
+		sinon.assert.notCalled(browserSession.navigateToUrl)
+	})
 })

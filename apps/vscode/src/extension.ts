@@ -73,6 +73,7 @@ import {
 	disposeVscodeCommentReviewController,
 	getVscodeCommentReviewController,
 } from "./hosts/vscode/review/VscodeCommentReviewController"
+import { registerVscodePlanIntegration } from "./hosts/vscode/plan/VscodePlanIntegration"
 import { VscodeTerminalManager } from "./hosts/vscode/terminal/VscodeTerminalManager"
 import { VscodeDiffViewProvider } from "./hosts/vscode/VscodeDiffViewProvider"
 import { VscodeWebviewProvider } from "./hosts/vscode/VscodeWebviewProvider"
@@ -129,6 +130,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	const codeVibeChatParticipants = registerCodeVibeChatParticipants(context, nativeAgentRegistration)
 	registerCodeVibeNativeAgentProvider(context, nativeAgentRegistration)
 	registerCodeVibeNativeChatSessionProvider(context, nativeAgentRegistration, codeVibeChatParticipants.nativeAgentParticipant)
+	registerVscodePlanIntegration(context, () => webview.controller)
 	await closeLegacyCodeVibePanels()
 	scheduleLegacyCodeVibePanelCleanup(context)
 

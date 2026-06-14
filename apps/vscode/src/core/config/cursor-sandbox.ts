@@ -18,6 +18,7 @@ export type CursorSandboxEffectiveAccess = "prompt" | "workspace" | "readOnly"
 export interface CursorSandboxNetworkPolicy {
 	default: "allow" | "deny"
 	allow: string[]
+	deny?: string[]
 }
 
 export interface CursorSandboxConfig {
@@ -28,6 +29,7 @@ export interface CursorSandboxConfig {
 	enableSharedBuildCache: boolean
 	blockGitWrites: boolean
 	networkPolicy: CursorSandboxNetworkPolicy
+	networkPolicyStrict: boolean
 }
 
 export type CursorSandboxRuntimeStatus = "loaded" | "invalid"
@@ -51,6 +53,7 @@ export interface CursorSandboxRuntimePolicy {
 	allowWriteAutoApprove: boolean
 	allowTerminalAutoApprove: boolean
 	allowNetworkAutoApprove: boolean
+	networkPolicyStrict?: boolean
 	commandPermissions?: CommandPermissionConfig
 }
 
@@ -76,10 +79,25 @@ const pathListSchema = z.array(z.string().trim().min(1))
 
 const networkPolicySchema = z
 	.object({
-		default: z.enum(["allow", "deny"]).default("deny"),
+		default: z.enum(["allow", "deny"]).optional(),
+		defaultAction: z.enum(["allow", "deny", "unspecified"]).optional(),
+		default_action: z.enum(["allow", "deny", "unspecified"]).optional(),
 		allow: z.array(z.string().trim().min(1)).default([]),
+		deny: z.array(z.string().trim().min(1)).optional(),
 	})
 	.passthrough()
+	.superRefine((value, ctx) => {
+		addAliasConflictIssue(value, ctx, "defaultAction", "default_action")
+		const explicitDefault = value.default
+		const cursorDefault = normalizeNetworkDefaultAction(value.defaultAction ?? value.default_action)
+		if (explicitDefault && cursorDefault && explicitDefault !== cursorDefault) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["defaultAction"],
+				message: "defaultAction conflicts with default",
+			})
+		}
+	})
 
 const rawCursorSandboxConfigSchema = z
 	.object({
@@ -97,6 +115,8 @@ const rawCursorSandboxConfigSchema = z
 		network_policy: networkPolicySchema.optional(),
 		networkAccess: z.boolean().optional(),
 		network_access: z.boolean().optional(),
+		networkPolicyStrict: z.boolean().optional(),
+		network_policy_strict: z.boolean().optional(),
 		blockGitWrites: z.boolean().optional(),
 		block_git_writes: z.boolean().optional(),
 		folders: pathListSchema.optional(),
@@ -109,11 +129,13 @@ const rawCursorSandboxConfigSchema = z
 		addAliasConflictIssue(value, ctx, "enableSharedBuildCache", "enable_shared_build_cache")
 		addAliasConflictIssue(value, ctx, "networkPolicy", "network_policy")
 		addAliasConflictIssue(value, ctx, "networkAccess", "network_access")
+		addAliasConflictIssue(value, ctx, "networkPolicyStrict", "network_policy_strict")
 		addAliasConflictIssue(value, ctx, "blockGitWrites", "block_git_writes")
 
 		const networkPolicy = value.networkPolicy ?? value.network_policy
 		const networkAccess = value.networkAccess ?? value.network_access
-		if (networkPolicy && networkAccess !== undefined && (networkPolicy.default === "allow") !== networkAccess) {
+		const networkDefault = networkPolicy ? getNetworkPolicyDefault(networkPolicy, networkAccess) : undefined
+		if (networkDefault && networkAccess !== undefined && (networkDefault === "allow") !== networkAccess) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				path: ["networkAccess"],
@@ -123,13 +145,10 @@ const rawCursorSandboxConfigSchema = z
 	})
 	.transform((value): CursorSandboxConfig => {
 		const networkAccess = value.networkAccess ?? value.network_access
-		const networkPolicy =
-			value.networkPolicy ??
-			value.network_policy ??
-			({
-				default: networkAccess === true ? "allow" : "deny",
-				allow: [],
-			} as CursorSandboxNetworkPolicy)
+		const networkPolicy = normalizeCursorSandboxNetworkPolicy(
+			value.networkPolicy ?? value.network_policy,
+			networkAccess,
+		)
 
 		return {
 			type: value.type,
@@ -138,10 +157,8 @@ const rawCursorSandboxConfigSchema = z
 			disableTmpWrite: value.disableTmpWrite ?? value.disable_tmp_write ?? false,
 			enableSharedBuildCache: value.enableSharedBuildCache ?? value.enable_shared_build_cache ?? false,
 			blockGitWrites: value.blockGitWrites ?? value.block_git_writes ?? false,
-			networkPolicy: {
-				default: networkPolicy.default,
-				allow: networkPolicy.allow ?? [],
-			},
+			networkPolicyStrict: value.networkPolicyStrict ?? value.network_policy_strict ?? false,
+			networkPolicy,
 		}
 	})
 
@@ -317,6 +334,7 @@ export async function resolveCursorSandboxPolicy(
 				enableSharedBuildCache: false,
 				blockGitWrites: true,
 				networkPolicy: { default: "deny", allow: [] },
+				networkPolicyStrict: true,
 			},
 			policySetting: "readOnly",
 		})
@@ -337,6 +355,51 @@ export function isPathAllowedByCursorSandbox(
 	allowedPaths: ReadonlyArray<string>,
 ): boolean {
 	return allowedPaths.some((allowedPath) => isSamePathOrDescendant(allowedPath, filePath))
+}
+
+export function isCursorSandboxNetworkUrlAllowed(
+	url: URL,
+	networkPolicy: CursorSandboxNetworkPolicy,
+): boolean {
+	if ((networkPolicy.deny ?? []).some((entry) => doesCursorSandboxNetworkEntryMatch(entry, url))) {
+		return false
+	}
+	if (networkPolicy.default === "allow") {
+		return true
+	}
+	return networkPolicy.allow.some((entry) => doesCursorSandboxNetworkEntryMatch(entry, url))
+}
+
+export function doesCursorSandboxNetworkEntryMatch(entry: string, url: URL): boolean {
+	const trimmed = entry.trim().toLowerCase()
+	if (!trimmed) {
+		return false
+	}
+	if (trimmed === "*") {
+		return true
+	}
+
+	let hostPattern = trimmed
+	let protocolPattern: string | undefined
+	try {
+		const parsedEntry = new URL(trimmed)
+		hostPattern = parsedEntry.hostname.toLowerCase()
+		protocolPattern = parsedEntry.protocol.toLowerCase()
+	} catch {
+		const protocolMatch = /^([a-z][a-z0-9+.-]*:)?\/\/(.+)$/i.exec(trimmed)
+		if (protocolMatch) {
+			protocolPattern = protocolMatch[1]?.toLowerCase()
+			hostPattern = protocolMatch[2] ?? trimmed
+		}
+	}
+
+	if (protocolPattern && protocolPattern !== url.protocol.toLowerCase()) {
+		return false
+	}
+	if (hostPattern.startsWith("*.")) {
+		return url.hostname.toLowerCase().endsWith(hostPattern.slice(1))
+	}
+	return url.hostname.toLowerCase() === hostPattern
 }
 
 function createRuntimePolicy(options: {
@@ -363,7 +426,10 @@ function createRuntimePolicy(options: {
 		effectiveAccess === "workspace" && options.config.type === "workspace_readwrite"
 			? dedupePaths([workspaceRoot, ...additionalReadwritePaths])
 			: []
-	const allowNetworkAutoApprove = options.config.networkPolicy.default === "allow"
+	const allowNetworkAutoApprove =
+		options.config.networkPolicy.default === "allow" &&
+		!options.config.networkPolicyStrict &&
+		(options.config.networkPolicy.deny ?? []).length === 0
 	const allowWriteAutoApprove = writablePaths.length > 0 && effectiveAccess === "workspace"
 	const allowTerminalAutoApprove =
 		effectiveAccess === "workspace" &&
@@ -383,6 +449,7 @@ function createRuntimePolicy(options: {
 		readablePaths,
 		writablePaths,
 		networkPolicy: options.config.networkPolicy,
+		networkPolicyStrict: options.config.networkPolicyStrict,
 		disableTmpWrite: options.config.disableTmpWrite,
 		enableSharedBuildCache: options.config.enableSharedBuildCache,
 		blockGitWrites: options.config.blockGitWrites,
@@ -462,6 +529,40 @@ function createCommandPermissions(
 
 function normalizeSandboxPaths(workspaceRoot: string, paths: ReadonlyArray<string>): string[] {
 	return dedupePaths(paths.map((candidate) => path.resolve(workspaceRoot, candidate)))
+}
+
+function normalizeCursorSandboxNetworkPolicy(
+	value: z.infer<typeof networkPolicySchema> | undefined,
+	networkAccess: boolean | undefined,
+): CursorSandboxNetworkPolicy {
+	if (!value) {
+		return { default: networkAccess === true ? "allow" : "deny", allow: [] }
+	}
+
+	const networkDefault = getNetworkPolicyDefault(value, networkAccess)
+	const normalized: CursorSandboxNetworkPolicy = {
+		default: networkDefault ?? "deny",
+		allow: value.allow ?? [],
+	}
+	if (value.deny && value.deny.length > 0) {
+		normalized.deny = value.deny
+	}
+	return normalized
+}
+
+function getNetworkPolicyDefault(
+	value: z.infer<typeof networkPolicySchema>,
+	networkAccess: boolean | undefined,
+): CursorSandboxNetworkPolicy["default"] | undefined {
+	return (
+		value.default ??
+		normalizeNetworkDefaultAction(value.defaultAction ?? value.default_action) ??
+		(networkAccess === undefined ? undefined : networkAccess ? "allow" : "deny")
+	)
+}
+
+function normalizeNetworkDefaultAction(value: "allow" | "deny" | "unspecified" | undefined) {
+	return value === "unspecified" ? undefined : value
 }
 
 function dedupePaths(paths: ReadonlyArray<string>): string[] {

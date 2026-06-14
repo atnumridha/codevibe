@@ -151,6 +151,7 @@ export const ToolGroupRenderer = memo(({ messages, allMessages, isLastGroup }: T
 	}, [completedTools, activeTools])
 
 	const summary = getToolGroupSummaryFromParsedTools(completedTools.map((item) => item.parsedTool))
+	const retrievalSummary = getLocalRetrievalSummaryFromParsedTools(allTools.map((item) => item.parsedTool))
 
 	const handleOpenFile = useCallback((filePath: string) => {
 		FileServiceClient.openFileRelativePath(StringRequest.create({ value: filePath })).catch((err) =>
@@ -170,7 +171,8 @@ export const ToolGroupRenderer = memo(({ messages, allMessages, isLastGroup }: T
 	return (
 		<div className={cn("px-4 py-2 ml-1 text-description")}>
 			{/* Header */}
-			<div className="text-[13px] text-description font-semibold mb-1">{summary}:</div>
+			<div className="text-[13px] text-description font-semibold">Local retrieval pipeline:</div>
+			<div className="text-[12px] text-description/80 mb-1">{retrievalSummary || summary}</div>
 
 			{/* Content - unified list of completed + active tools */}
 			<div className="min-w-0">
@@ -388,4 +390,49 @@ export function getToolGroupSummaryFromParsedTools(tools: ClineSayTool[]): strin
 	}
 
 	return parts.length === 0 ? "Context" : "Codie" + action + parts.join(", ")
+}
+
+export function getLocalRetrievalSummaryFromParsedTools(tools: ClineSayTool[]): string {
+	const counts = { indexed: 0, search: 0, slices: 0, fullReads: 0, definitions: 0 }
+
+	for (const tool of tools) {
+		switch (tool.tool) {
+			case "listFilesTopLevel":
+			case "listFilesRecursive":
+				counts.indexed++
+				break
+			case "searchFiles":
+				counts.search++
+				break
+			case "listCodeDefinitionNames":
+				counts.definitions++
+				break
+			case "readFile":
+				if (tool.readLineStart != null && tool.readLineEnd != null) {
+					counts.slices++
+				} else {
+					counts.fullReads++
+				}
+				break
+		}
+	}
+
+	const parts: string[] = []
+	if (counts.indexed > 0) {
+		parts.push(`${counts.indexed} index/list pass${counts.indexed > 1 ? "es" : ""}`)
+	}
+	if (counts.search > 0) {
+		parts.push(`${counts.search} ranked search${counts.search > 1 ? "es" : ""}`)
+	}
+	if (counts.definitions > 0) {
+		parts.push(`${counts.definitions} definition map${counts.definitions > 1 ? "s" : ""}`)
+	}
+	if (counts.slices > 0) {
+		parts.push(`${counts.slices} sliced read${counts.slices > 1 ? "s" : ""}`)
+	}
+	if (counts.fullReads > 0) {
+		parts.push(`${counts.fullReads} compact preview${counts.fullReads > 1 ? "s" : ""}`)
+	}
+
+	return parts.join(" -> ")
 }
