@@ -284,6 +284,80 @@ installedE2e("Installed VSIX uses VS Code native text search before file reads",
 	expect(response.matches?.[0]?.afterContext).toEqual(expect.any(Array))
 })
 
+installedE2e("Installed VSIX evaluates Cursor sandbox policy and inline terminal run modes", async ({ app: _app }) => {
+	await expect
+		.poll(
+			async () => {
+				const diagnosticsResponse = await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({ success: false }))
+				return diagnosticsResponse.success === true
+			},
+			{
+				message: "Installed Codie VSIX should activate its E2E command server before sandbox diagnostics run",
+				timeout: 60_000,
+			},
+		)
+		.toBe(true)
+
+	const response = await E2ETestHelper.evaluateNativeSandboxPolicy()
+
+	expect(response.success).toBe(true)
+	expect(response.policy?.status).toBe("loaded")
+	expect(response.policy?.configSource).toBe("cursorCompatibility")
+	expect(response.policy?.configPathRelative).toBe(".cursor/sandbox.json")
+	expect(response.policy?.effectiveAccess).toBe("readOnly")
+	expect(response.policy?.allowReadAutoApprove).toBe(true)
+	expect(response.policy?.allowWriteAutoApprove).toBe(false)
+	expect(response.policy?.allowTerminalAutoApprove).toBe(false)
+	expect(response.policy?.allowNetworkAutoApprove).toBe(false)
+	expect(response.policy?.commandPermissions?.allow).toContain("git diff")
+	expect(response.policy?.commandPermissions?.deny).toContain("git commit *")
+	expect(response.policy?.commandPermissions?.allowRedirects).toBe(false)
+
+	expect(response.defaultRunModes).toEqual({
+		withSandboxPolicy: "sandboxed",
+		withoutSandboxPolicy: "default",
+	})
+
+	expect(response.commands?.readOnly?.sandboxed).toEqual(
+		expect.objectContaining({ allowed: true, reason: "allowed" }),
+	)
+	expect(response.commands?.mutating?.sandboxed).toEqual(
+		expect.objectContaining({ allowed: false, reason: "no_match_deny_default" }),
+	)
+	expect(response.commands?.mutating?.elevated).toEqual(expect.objectContaining({ allowed: true, reason: "no_config" }))
+	expect(response.commands?.gitWrite?.sandboxed).toEqual(
+		expect.objectContaining({ allowed: false, reason: "denied", matchedPattern: "git commit *" }),
+	)
+	expect(response.commands?.redirect?.sandboxed).toEqual(
+		expect.objectContaining({ allowed: false, reason: "redirect_detected" }),
+	)
+
+	expect(response.inlineRequests?.sandboxed).toEqual(
+		expect.objectContaining({
+			ok: true,
+			request: expect.objectContaining({ requestedTerminalRunMode: "sandboxed", requiresManualApproval: false }),
+		}),
+	)
+	expect(response.inlineRequests?.unelevated).toEqual(
+		expect.objectContaining({
+			ok: true,
+			request: expect.objectContaining({ requestedTerminalRunMode: "default", requiresManualApproval: false }),
+		}),
+	)
+	expect(response.inlineRequests?.requireEscalated).toEqual(
+		expect.objectContaining({
+			ok: true,
+			request: expect.objectContaining({ requestedTerminalRunMode: "elevated", requiresManualApproval: true }),
+		}),
+	)
+	expect(response.inlineRequests?.booleanEscalated).toEqual(
+		expect.objectContaining({
+			ok: true,
+			request: expect.objectContaining({ requestedTerminalRunMode: "elevated", requiresManualApproval: true }),
+		}),
+	)
+})
+
 installedE2e("Installed VSIX opens the Codie webview composer", async ({ page, sidebar, helper }) => {
 	const signInButton = sidebar.getByRole("button", { name: "Sign in to Codie" })
 	if (await signInButton.isVisible().catch(() => false)) {

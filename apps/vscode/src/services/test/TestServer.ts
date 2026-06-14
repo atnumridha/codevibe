@@ -1,5 +1,9 @@
+import { resolveCursorSandboxPolicy } from "@core/config/cursor-sandbox"
+import { CommandPermissionController } from "@core/permissions"
+import { COMMAND_PERMISSIONS_ENV_VAR, LEGACY_COMMAND_PERMISSIONS_ENV_VAR } from "@core/permissions/types"
 import { getPlanStorageService } from "@core/plan/PlanStorageService"
 import { getSavedApiConversationHistory, getSavedClineMessages } from "@core/storage/disk"
+import { getDefaultTerminalRunMode, resolveInlineTerminalRequest } from "@core/task/tools/handlers/ExecuteCommandToolHandler"
 import { WebviewProvider } from "@core/webview"
 import { searchWorkspaceText } from "@hosts/vscode/hostbridge/workspace/searchWorkspaceText"
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
@@ -519,6 +523,112 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 					res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
 				}
 			})()
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/sandbox/evaluate") {
+			readRequestBody()
+				.then(async (body) => {
+					const sandboxRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "codevibe-e2e-sandbox-"))
+					const savedPrimaryPermissions = process.env[COMMAND_PERMISSIONS_ENV_VAR]
+					const savedLegacyPermissions = process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
+					delete process.env[COMMAND_PERMISSIONS_ENV_VAR]
+					delete process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
+
+					try {
+						const parsed = body ? JSON.parse(body) : {}
+						const config =
+							parsed && typeof parsed.config === "object" && parsed.config
+								? parsed.config
+								: {
+										type: "workspace_readonly",
+										blockGitWrites: true,
+										networkPolicy: { default: "deny", allow: [] },
+									}
+						const cursorConfigDir = path.join(sandboxRoot, ".cursor")
+						const cursorConfigPath = path.join(cursorConfigDir, "sandbox.json")
+						await fs.promises.mkdir(cursorConfigDir, { recursive: true })
+						await fs.promises.writeFile(cursorConfigPath, `${JSON.stringify(config, null, 2)}\n`, "utf8")
+
+						const policy = await resolveCursorSandboxPolicy({
+							workspaceRoot: sandboxRoot,
+							policySetting: typeof parsed.policySetting === "string" ? parsed.policySetting : "workspace",
+						})
+						if (!policy) {
+							throw new Error("Expected installed sandbox policy to load from .cursor/sandbox.json")
+						}
+
+						const sandboxController = new CommandPermissionController(policy.commandPermissions)
+						const elevatedController = new CommandPermissionController()
+						const evaluate = (command: string) => ({
+							sandboxed: sandboxController.validateCommand(command),
+							elevated: elevatedController.validateCommand(command),
+						})
+						const inlineRequests = {
+							sandboxed: resolveInlineTerminalRequest("npm test", { sandboxPermissionsRaw: "sandboxed" }),
+							unelevated: resolveInlineTerminalRequest("npm test", { sandboxPermissionsRaw: "unelevated" }),
+							requireEscalated: resolveInlineTerminalRequest("npm install left-pad", {
+								sandboxPermissionsRaw: "require_escalated",
+							}),
+							booleanEscalated: resolveInlineTerminalRequest("npm install left-pad", {
+								requireEscalatedRaw: "true",
+							}),
+						}
+
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(
+							JSON.stringify({
+								success: true,
+								policy: {
+									status: policy.status,
+									configSource: policy.configSource,
+									configPath: policy.configPath,
+									configPathRelative: path.relative(sandboxRoot, policy.configPath).split(path.sep).join("/"),
+									effectiveAccess: policy.effectiveAccess,
+									allowReadAutoApprove: policy.allowReadAutoApprove,
+									allowWriteAutoApprove: policy.allowWriteAutoApprove,
+									allowTerminalAutoApprove: policy.allowTerminalAutoApprove,
+									allowNetworkAutoApprove: policy.allowNetworkAutoApprove,
+									commandPermissions: {
+										allow: policy.commandPermissions?.allow ?? [],
+										deny: policy.commandPermissions?.deny ?? [],
+										allowRedirects: policy.commandPermissions?.allowRedirects,
+									},
+								},
+								defaultRunModes: {
+									withSandboxPolicy: getDefaultTerminalRunMode(Boolean(policy)),
+									withoutSandboxPolicy: getDefaultTerminalRunMode(false),
+								},
+								commands: {
+									readOnly: evaluate("git diff"),
+									mutating: evaluate("npm install left-pad"),
+									gitWrite: evaluate("git commit -m test"),
+									redirect: evaluate("cat package.json > /tmp/codie-sandbox-test.txt"),
+								},
+								inlineRequests,
+							}),
+						)
+					} catch (error) {
+						res.writeHead(500, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+					} finally {
+						if (savedPrimaryPermissions === undefined) {
+							delete process.env[COMMAND_PERMISSIONS_ENV_VAR]
+						} else {
+							process.env[COMMAND_PERMISSIONS_ENV_VAR] = savedPrimaryPermissions
+						}
+						if (savedLegacyPermissions === undefined) {
+							delete process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR]
+						} else {
+							process.env[LEGACY_COMMAND_PERMISSIONS_ENV_VAR] = savedLegacyPermissions
+						}
+						await fs.promises.rm(sandboxRoot, { recursive: true, force: true }).catch(() => undefined)
+					}
+				})
+				.catch((error) => {
+					res.writeHead(400, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
+				})
 			return
 		}
 

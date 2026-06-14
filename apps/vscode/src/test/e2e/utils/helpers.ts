@@ -115,6 +115,51 @@ export interface NativeWorkspaceTextSearchResponse {
 	error?: string
 }
 
+type SandboxPermissionResult = {
+	allowed?: boolean
+	reason?: string
+	matchedPattern?: string
+	detectedOperator?: string
+	failedSegment?: string
+}
+
+type InlineTerminalRequestResult = {
+	ok?: boolean
+	request?: {
+		requestedTerminalRunMode?: "sandboxed" | "elevated" | "default"
+		prefixRule?: string[]
+		requiresManualApproval?: boolean
+	}
+	error?: string
+}
+
+export interface NativeSandboxEvaluateResponse {
+	success: boolean
+	policy?: {
+		status?: string
+		configSource?: string
+		configPath?: string
+		configPathRelative?: string
+		effectiveAccess?: string
+		allowReadAutoApprove?: boolean
+		allowWriteAutoApprove?: boolean
+		allowTerminalAutoApprove?: boolean
+		allowNetworkAutoApprove?: boolean
+		commandPermissions?: {
+			allow?: string[]
+			deny?: string[]
+			allowRedirects?: boolean
+		}
+	}
+	defaultRunModes?: {
+		withSandboxPolicy?: string
+		withoutSandboxPolicy?: string
+	}
+	commands?: Record<string, { sandboxed?: SandboxPermissionResult; elevated?: SandboxPermissionResult }>
+	inlineRequests?: Record<string, InlineTerminalRequestResult>
+	error?: string
+}
+
 export class E2ETestHelper {
 	// Constants
 	public static readonly CODEBASE_ROOT_DIR = path.resolve(__dirname, "..", "..", "..", "..")
@@ -727,6 +772,13 @@ export class E2ETestHelper {
 		files?: Array<{ relativePath: string; content: string }>
 	}): Promise<NativeWorkspaceTextSearchResponse> {
 		return E2ETestHelper.postTestServerJson<NativeWorkspaceTextSearchResponse>("/workspace/search-text", input)
+	}
+
+	public static async evaluateNativeSandboxPolicy(input?: {
+		config?: Record<string, unknown>
+		policySetting?: string
+	}): Promise<NativeSandboxEvaluateResponse> {
+		return E2ETestHelper.postTestServerJson<NativeSandboxEvaluateResponse>("/sandbox/evaluate", input)
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {
