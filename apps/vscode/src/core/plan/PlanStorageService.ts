@@ -10,6 +10,7 @@ import {
 	normalizePlanText,
 	normalizePlanTodoStatus,
 	planMetadataToTaskProgress,
+	removePlanTodos,
 	updatePlanTodosStatus,
 	type PlanBuildMode,
 	type PlanMetadata,
@@ -177,6 +178,80 @@ export class PlanStorageService {
 	}): Promise<PlanFileRecord> {
 		const current = await this.readPlan(input)
 		const metadata = updatePlanTodosStatus(current.metadata, input.todoIds, input.status)
+		return this.updatePlan({
+			planId: current.planId,
+			planPath: current.planPath,
+			metadata,
+			body: current.body,
+			workspacePath: input.workspacePath,
+		})
+	}
+
+	async updateTodoContent(input: {
+		planId?: string
+		planPath?: string
+		todoId: string
+		content: string
+		workspacePath?: string
+	}): Promise<PlanFileRecord> {
+		const current = await this.readPlan(input)
+		const content = input.content.trim() || "New todo"
+		const metadata = this.mapMetadataTodos(current.metadata, (todo) =>
+			todo.id === input.todoId ? { ...todo, content } : todo,
+		)
+		return this.updatePlan({
+			planId: current.planId,
+			planPath: current.planPath,
+			metadata,
+			body: current.body,
+			workspacePath: input.workspacePath,
+		})
+	}
+
+	async splitTodo(input: {
+		planId?: string
+		planPath?: string
+		todoId: string
+		beforeContent: string
+		afterContent: string
+		workspacePath?: string
+	}): Promise<PlanFileRecord> {
+		const current = await this.readPlan(input)
+		const metadata = this.splitMetadataTodo(current.metadata, input.todoId, input.beforeContent, input.afterContent)
+		return this.updatePlan({
+			planId: current.planId,
+			planPath: current.planPath,
+			metadata,
+			body: current.body,
+			workspacePath: input.workspacePath,
+		})
+	}
+
+	async mergeTodoBackward(input: {
+		planId?: string
+		planPath?: string
+		todoId: string
+		workspacePath?: string
+	}): Promise<PlanFileRecord> {
+		const current = await this.readPlan(input)
+		const metadata = this.mergeMetadataTodoBackward(current.metadata, input.todoId)
+		return this.updatePlan({
+			planId: current.planId,
+			planPath: current.planPath,
+			metadata,
+			body: current.body,
+			workspacePath: input.workspacePath,
+		})
+	}
+
+	async removeTodoIds(input: {
+		planId?: string
+		planPath?: string
+		todoIds: string[]
+		workspacePath?: string
+	}): Promise<PlanFileRecord> {
+		const current = await this.readPlan(input)
+		const metadata = removePlanTodos(current.metadata, input.todoIds)
 		return this.updatePlan({
 			planId: current.planId,
 			planPath: current.planPath,
@@ -662,6 +737,69 @@ export class PlanStorageService {
 			}
 		}
 		return phases
+	}
+
+	private mapMetadataTodos(metadata: PlanMetadata, mapper: (todo: PlanTodo) => PlanTodo): PlanMetadata {
+		return {
+			...metadata,
+			todos: metadata.todos.map(mapper),
+			phases: metadata.phases?.map((phase) => ({ ...phase, todos: phase.todos.map(mapper) })),
+		}
+	}
+
+	private splitMetadataTodo(metadata: PlanMetadata, todoId: string, beforeContent: string, afterContent: string): PlanMetadata {
+		const splitList = (todos: PlanTodo[]): PlanTodo[] => {
+			const index = todos.findIndex((todo) => todo.id === todoId)
+			if (index < 0) {
+				return todos
+			}
+			const current = todos[index]
+			const before = beforeContent.trim()
+			const after = afterContent.trim()
+			const next = [...todos]
+			const inserted: PlanTodo = {
+				id: generatePlanTodoId(),
+				content: after || "New todo",
+				status: "pending",
+				dependencies: [],
+			}
+			if (!before) {
+				next.splice(index, 0, { ...inserted, content: "New todo" })
+				return next
+			}
+			next.splice(index, 1, { ...current, content: before }, inserted)
+			return next
+		}
+
+		return {
+			...metadata,
+			todos: splitList(metadata.todos),
+			phases: metadata.phases?.map((phase) => ({ ...phase, todos: splitList(phase.todos) })),
+		}
+	}
+
+	private mergeMetadataTodoBackward(metadata: PlanMetadata, todoId: string): PlanMetadata {
+		const mergeList = (todos: PlanTodo[]): PlanTodo[] => {
+			const index = todos.findIndex((todo) => todo.id === todoId)
+			if (index <= 0) {
+				return todos
+			}
+			const previous = todos[index - 1]
+			const current = todos[index]
+			const next = [...todos]
+			next[index - 1] = {
+				...previous,
+				content: [previous.content, current.content].filter(Boolean).join(" ").trim() || previous.content,
+			}
+			next.splice(index, 1)
+			return next
+		}
+
+		return {
+			...metadata,
+			todos: mergeList(metadata.todos),
+			phases: metadata.phases?.map((phase) => ({ ...phase, todos: mergeList(phase.todos) })),
+		}
 	}
 
 	private createPhaseTodos(phase: { name: string; lines: string[] }, existing?: PlanMetadata): PlanTodo[] {

@@ -77,6 +77,51 @@ describe("PlanStorageService", () => {
 		assert.equal(service.planToTaskProgress(updated), "- [ ] Inspect\n- [ ] Implement")
 	})
 
+	it("edits frontmatter todos from native plan editor actions", async () => {
+		const service = await createService()
+		const plan = await service.createOrUpdatePlanForComposer({
+			composerId: "task-editor",
+			response: "## Plan",
+			taskProgress: "- [ ] Inspect files\n- [ ] Implement patch",
+			workspacePath: tempDir,
+		})
+
+		const renamed = await service.updateTodoContent({
+			planId: plan.planId,
+			todoId: plan.metadata.todos[0].id,
+			content: "Search and rank likely files",
+			workspacePath: tempDir,
+		})
+		assert.equal(renamed.metadata.todos[0].content, "Search and rank likely files")
+
+		const split = await service.splitTodo({
+			planId: plan.planId,
+			todoId: renamed.metadata.todos[1].id,
+			beforeContent: "Implement",
+			afterContent: "Verify",
+			workspacePath: tempDir,
+		})
+		assert.equal(split.metadata.todos.length, 3)
+		assert.equal(split.metadata.todos[1].content, "Implement")
+		assert.equal(split.metadata.todos[2].content, "Verify")
+
+		const merged = await service.mergeTodoBackward({
+			planId: plan.planId,
+			todoId: split.metadata.todos[2].id,
+			workspacePath: tempDir,
+		})
+		assert.equal(merged.metadata.todos.length, 2)
+		assert.equal(merged.metadata.todos[1].content, "Implement Verify")
+
+		const removed = await service.removeTodoIds({
+			planId: plan.planId,
+			todoIds: [merged.metadata.todos[0].id],
+			workspacePath: tempDir,
+		})
+		assert.equal(removed.metadata.todos.length, 1)
+		assert.equal(removed.metadata.todos[0].content, "Implement Verify")
+	})
+
 	it("recovers legacy to-do sections when frontmatter is absent", async () => {
 		const service = await createService()
 		const legacyPath = path.join(tempDir!, "legacy.plan.md")

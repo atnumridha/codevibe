@@ -1,5 +1,11 @@
 import { getPlanStorageService, type PlanRegistryRecord } from "@core/plan/PlanStorageService"
-import { buildLocalPlanExecutionMessage, type PlanBuildMode } from "@shared/plan-build"
+import {
+	buildLocalPlanExecutionMessage,
+	cyclePlanTodoStatus,
+	getPlanTodos,
+	normalizePlanTodoStatus,
+	type PlanBuildMode,
+} from "@shared/plan-build"
 import { getWorkspacePath } from "@utils/path"
 import * as path from "node:path"
 import * as vscode from "vscode"
@@ -11,6 +17,15 @@ const PLAN_VIEW_ID = `${ExtensionRegistryInfo.views.AgentContainer}-plans`
 const PLAN_EDITOR_VIEW_TYPE = "codevibe.planEditor"
 
 type PlanCommandTarget = PlanTreeItem | vscode.Uri | string | undefined
+type PlanEditorMessage = {
+	command?: string
+	todoId?: string
+	todoIds?: string[]
+	status?: string
+	content?: string
+	beforeContent?: string
+	afterContent?: string
+}
 
 export function registerVscodePlanIntegration(
 	context: vscode.ExtensionContext,
@@ -173,6 +188,7 @@ async function buildPlanFromNativeCommand(
 	planPath: string | undefined,
 	requestedMode: Exclude<PlanBuildMode, "project">,
 	provider: VscodePlanTreeProvider,
+	todoIds: string[] = [],
 ): Promise<void> {
 	if (!controller) {
 		void vscode.window.showErrorMessage("Codie controller is not ready yet.")
@@ -194,6 +210,7 @@ async function buildPlanFromNativeCommand(
 		planPath: initialPlan.planPath,
 		mode: executionMode,
 		builderId,
+		todoIds: todoIds.length > 0 ? todoIds : undefined,
 		workspacePath,
 	})
 
@@ -260,25 +277,144 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 		})
 		panel.onDidDispose(() => changeSubscription.dispose())
 
-		panel.webview.onDidReceiveMessage(async (message: { command?: string }) => {
+		panel.webview.onDidReceiveMessage(async (message: PlanEditorMessage) => {
 			switch (message.command) {
 				case "buildLocal":
-					await buildPlanFromNativeCommand(this.getController(), document.uri.fsPath, "agent", {
-						refresh: this.refreshPlans,
-					} as VscodePlanTreeProvider)
+					await buildPlanFromNativeCommand(
+						this.getController(),
+						document.uri.fsPath,
+						"agent",
+						{
+							refresh: this.refreshPlans,
+						} as VscodePlanTreeProvider,
+						sanitizeTodoIds(message.todoIds),
+					)
 					break
 				case "buildParallel":
-					await buildPlanFromNativeCommand(this.getController(), document.uri.fsPath, "multitask", {
-						refresh: this.refreshPlans,
-					} as VscodePlanTreeProvider)
+					await buildPlanFromNativeCommand(
+						this.getController(),
+						document.uri.fsPath,
+						"multitask",
+						{
+							refresh: this.refreshPlans,
+						} as VscodePlanTreeProvider,
+						sanitizeTodoIds(message.todoIds),
+					)
 					break
 				case "openRaw":
 					await openRawPlanPath(document.uri.fsPath)
+					break
+				case "cycleTodo":
+					await this.cycleTodo(document.uri.fsPath, message.todoId)
+					await update()
+					this.refreshPlans()
+					break
+				case "setTodosStatus":
+					await this.setTodosStatus(document.uri.fsPath, sanitizeTodoIds(message.todoIds), message.status)
+					await update()
+					this.refreshPlans()
+					break
+				case "updateTodoContent":
+					await this.updateTodoContent(document.uri.fsPath, message.todoId, message.content)
+					await update()
+					this.refreshPlans()
+					break
+				case "splitTodo":
+					await this.splitTodo(document.uri.fsPath, message)
+					await update()
+					this.refreshPlans()
+					break
+				case "mergeTodoBackward":
+					await this.mergeTodoBackward(document.uri.fsPath, message.todoId)
+					await update()
+					this.refreshPlans()
+					break
+				case "deleteTodos":
+					await this.deleteTodos(document.uri.fsPath, sanitizeTodoIds(message.todoIds))
+					await update()
+					this.refreshPlans()
 					break
 			}
 		})
 
 		await update()
+	}
+
+	private async cycleTodo(planPath: string, todoId: string | undefined): Promise<void> {
+		if (!todoId) {
+			return
+		}
+		const workspacePath = await getWorkspacePath()
+		const plan = await getPlanStorageService().readPlan({ planPath, workspacePath })
+		const todo = getPlanTodos(plan.metadata).find((candidate) => candidate.id === todoId)
+		if (!todo) {
+			return
+		}
+		await getPlanStorageService().updateTodoStatus({
+			planPath,
+			todoIds: [todoId],
+			status: cyclePlanTodoStatus(normalizePlanTodoStatus(todo.status)),
+			workspacePath,
+		})
+	}
+
+	private async setTodosStatus(planPath: string, todoIds: string[], status: string | undefined): Promise<void> {
+		if (!todoIds.length) {
+			return
+		}
+		await getPlanStorageService().updateTodoStatus({
+			planPath,
+			todoIds,
+			status: normalizePlanTodoStatus(status),
+			workspacePath: await getWorkspacePath(),
+		})
+	}
+
+	private async updateTodoContent(planPath: string, todoId: string | undefined, content: string | undefined): Promise<void> {
+		if (!todoId || content == null) {
+			return
+		}
+		await getPlanStorageService().updateTodoContent({
+			planPath,
+			todoId,
+			content,
+			workspacePath: await getWorkspacePath(),
+		})
+	}
+
+	private async splitTodo(planPath: string, message: PlanEditorMessage): Promise<void> {
+		if (!message.todoId) {
+			return
+		}
+		await getPlanStorageService().splitTodo({
+			planPath,
+			todoId: message.todoId,
+			beforeContent: message.beforeContent || "",
+			afterContent: message.afterContent || "",
+			workspacePath: await getWorkspacePath(),
+		})
+	}
+
+	private async mergeTodoBackward(planPath: string, todoId: string | undefined): Promise<void> {
+		if (!todoId) {
+			return
+		}
+		await getPlanStorageService().mergeTodoBackward({
+			planPath,
+			todoId,
+			workspacePath: await getWorkspacePath(),
+		})
+	}
+
+	private async deleteTodos(planPath: string, todoIds: string[]): Promise<void> {
+		if (!todoIds.length) {
+			return
+		}
+		await getPlanStorageService().removeTodoIds({
+			planPath,
+			todoIds,
+			workspacePath: await getWorkspacePath(),
+		})
 	}
 
 	private async getHtml(document: vscode.TextDocument, webview: vscode.Webview): Promise<string> {
@@ -289,19 +425,28 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 			workspacePath: await getWorkspacePath(),
 		})
 		const todos = [
-			...plan.metadata.todos.map((todo) => ({ ...todo, phase: "" })),
-			...(plan.metadata.phases || []).flatMap((phase) => phase.todos.map((todo) => ({ ...todo, phase: phase.name }))),
+			...plan.metadata.todos.map((todo) => ({ ...todo, phase: "", group: "__top" })),
+			...(plan.metadata.phases || []).flatMap((phase) =>
+				phase.todos.map((todo) => ({ ...todo, phase: phase.name, group: phase.name })),
+			),
 		]
 		const todoHtml =
 			todos.length > 0
 				? todos
-						.map((todo) => {
+						.map((todo, index) => {
 							const statusClass = `todo-${escapeAttribute(todo.status)}`
 							const phase = todo.phase ? `<span class="todo-phase">${escapeHtml(todo.phase)}</span>` : ""
-							return `<li class="${statusClass}"><span class="status">${escapeHtml(todo.status)}</span><span>${escapeHtml(todo.content)}</span>${phase}</li>`
+							return `<li class="${statusClass}" data-todo-row data-todo-id="${escapeHtml(todo.id)}" data-todo-index="${index}" data-todo-group="${escapeHtml(todo.group)}">
+								<button class="status" data-status-button title="Click to select. Cmd/Ctrl-click to cycle status.">${escapeHtml(todo.status)}</button>
+								<input class="todo-input" data-todo-input value="${escapeHtml(todo.content)}" />
+								${phase}
+							</li>`
 						})
 						.join("")
 				: `<li class="todo-empty">No executable todos found in frontmatter.</li>`
+		const statusButtons = ["pending", "in_progress", "completed", "cancelled"]
+			.map((status) => `<button data-bulk-status="${status}" disabled>${escapeHtml(status.replace("_", " "))}</button>`)
+			.join("")
 
 		return `<!DOCTYPE html>
 <html lang="en">
@@ -336,12 +481,21 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 			color: var(--vscode-button-secondaryForeground);
 		}
 		button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
+		button:disabled { cursor: default; opacity: 0.45; }
 		main { display: grid; grid-template-columns: minmax(220px, 320px) minmax(0, 1fr); gap: 18px; padding: 18px; }
 		aside { border-right: 1px solid var(--vscode-panel-border); padding-right: 18px; }
 		.meta { display: grid; gap: 8px; color: var(--vscode-descriptionForeground); font-size: 12px; margin-bottom: 16px; }
+		.todo-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+		.todo-toolbar button { padding: 4px 7px; font-size: 11px; }
 		.todo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-		.todo-list li { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; padding: 8px; border: 1px solid var(--vscode-panel-border); border-radius: 4px; }
-		.status { font-size: 10px; text-transform: uppercase; color: var(--vscode-descriptionForeground); }
+		.todo-list li { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 8px; align-items: start; padding: 8px; border: 1px solid var(--vscode-panel-border); border-radius: 4px; }
+		.todo-list li.selected { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
+		.status { justify-self: start; width: 100%; padding: 3px 5px; font-size: 10px; text-transform: uppercase; color: var(--vscode-descriptionForeground); }
+		.todo-input {
+			width: 100%; box-sizing: border-box; border: 1px solid transparent; border-radius: 3px;
+			padding: 3px 5px; color: inherit; background: transparent; font-family: var(--vscode-font-family);
+		}
+		.todo-input:focus { border-color: var(--vscode-focusBorder); outline: none; background: var(--vscode-input-background); }
 		.todo-completed { opacity: 0.7; }
 		.todo-in_progress { border-color: var(--vscode-progressBar-background); }
 		.todo-phase { grid-column: 2; color: var(--vscode-descriptionForeground); font-size: 11px; }
@@ -379,6 +533,12 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 					<div>Build: ${escapeHtml(plan.buildStatus)}</div>
 					<div>Todos: ${plan.completedTodoCount}/${plan.todoCount}</div>
 				</div>
+				<div class="todo-toolbar">
+					${statusButtons}
+					<button data-command="deleteSelected" disabled>Delete</button>
+					<button data-command="buildSelectedLocal" disabled>Build Selected</button>
+					<button data-command="buildSelectedParallel" disabled>Build Selected Parallel</button>
+				</div>
 				<ul class="todo-list">${todoHtml}</ul>
 			</aside>
 			<section class="content">${renderPlanMarkdown(plan.body)}</section>
@@ -386,9 +546,141 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 	</div>
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
+		const selectedIds = new Set();
+		let lastSelectedId;
+
+		const rows = () => Array.from(document.querySelectorAll('[data-todo-row]'));
+		const selectedPayload = () => Array.from(selectedIds);
+		const post = (command, extra = {}) => vscode.postMessage({ command, ...extra });
+		const updateBulkState = () => {
+			const hasSelection = selectedIds.size > 0;
+			document.querySelectorAll('[data-bulk-status], [data-command="deleteSelected"], [data-command="buildSelectedLocal"], [data-command="buildSelectedParallel"]').forEach((button) => {
+				button.disabled = !hasSelection;
+			});
+		};
+		const syncSelectedClasses = () => {
+			rows().forEach((row) => row.classList.toggle('selected', selectedIds.has(row.dataset.todoId)));
+			updateBulkState();
+		};
+		const selectTodo = (row, event) => {
+			const todoId = row.dataset.todoId;
+			if (!todoId) {
+				return;
+			}
+			if (event.shiftKey && lastSelectedId) {
+				const group = row.dataset.todoGroup;
+				const currentRows = rows().filter((candidate) => candidate.dataset.todoGroup === group);
+				const from = currentRows.findIndex((candidate) => candidate.dataset.todoId === lastSelectedId);
+				const to = currentRows.findIndex((candidate) => candidate.dataset.todoId === todoId);
+				if (from >= 0 && to >= 0) {
+					const start = Math.min(from, to);
+					const end = Math.max(from, to);
+					currentRows.slice(start, end + 1).forEach((candidate) => selectedIds.add(candidate.dataset.todoId));
+					syncSelectedClasses();
+					return;
+				}
+			}
+			if (selectedIds.has(todoId)) {
+				selectedIds.delete(todoId);
+			} else {
+				selectedIds.add(todoId);
+			}
+			lastSelectedId = todoId;
+			syncSelectedClasses();
+		};
+		const focusAdjacent = (input, direction) => {
+			const inputRows = rows();
+			const row = input.closest('[data-todo-row]');
+			const index = inputRows.indexOf(row);
+			const next = inputRows[index + direction]?.querySelector('[data-todo-input]');
+			if (next) {
+				next.focus();
+				const position = direction > 0 ? 0 : next.value.length;
+				next.setSelectionRange(position, position);
+			}
+		};
+
 		document.querySelectorAll('[data-command]').forEach((button) => {
-			button.addEventListener('click', () => vscode.postMessage({ command: button.dataset.command }));
+			button.addEventListener('click', () => {
+				const command = button.dataset.command;
+				if (command === 'deleteSelected') {
+					post('deleteTodos', { todoIds: selectedPayload() });
+					return;
+				}
+				if (command === 'buildSelectedLocal') {
+					post('buildLocal', { todoIds: selectedPayload() });
+					return;
+				}
+				if (command === 'buildSelectedParallel') {
+					post('buildParallel', { todoIds: selectedPayload() });
+					return;
+				}
+				post(command);
+			});
 		});
+		document.querySelectorAll('[data-bulk-status]').forEach((button) => {
+			button.addEventListener('click', () => post('setTodosStatus', { todoIds: selectedPayload(), status: button.dataset.bulkStatus }));
+		});
+		document.querySelectorAll('[data-status-button]').forEach((button) => {
+			button.addEventListener('click', (event) => {
+				const row = button.closest('[data-todo-row]');
+				const todoId = row?.dataset.todoId;
+				if (!todoId) {
+					return;
+				}
+				if (event.metaKey || event.ctrlKey) {
+					post('cycleTodo', { todoId });
+					return;
+				}
+				selectTodo(row, event);
+			});
+		});
+		document.querySelectorAll('[data-todo-input]').forEach((input) => {
+			input.addEventListener('blur', () => {
+				const todoId = input.closest('[data-todo-row]')?.dataset.todoId;
+				if (todoId) {
+					post('updateTodoContent', { todoId, content: input.value });
+				}
+			});
+			input.addEventListener('keydown', (event) => {
+				const row = input.closest('[data-todo-row]');
+				const todoId = row?.dataset.todoId;
+				if (!todoId) {
+					return;
+				}
+				const start = input.selectionStart ?? input.value.length;
+				const end = input.selectionEnd ?? input.value.length;
+				if (event.key === 'ArrowUp' && start === 0) {
+					event.preventDefault();
+					focusAdjacent(input, -1);
+					return;
+				}
+				if (event.key === 'ArrowDown' && end === input.value.length) {
+					event.preventDefault();
+					focusAdjacent(input, 1);
+					return;
+				}
+				if (event.key === 'Enter') {
+					event.preventDefault();
+					post('splitTodo', {
+						todoId,
+						beforeContent: input.value.slice(0, start),
+						afterContent: input.value.slice(end),
+					});
+					return;
+				}
+				if (event.key === 'Backspace' && input.value.length === 0) {
+					event.preventDefault();
+					post('deleteTodos', { todoIds: [todoId] });
+					return;
+				}
+				if (event.key === 'Backspace' && start === 0 && end === 0) {
+					event.preventDefault();
+					post('mergeTodoBackward', { todoId });
+				}
+			});
+		});
+		updateBulkState();
 	</script>
 </body>
 </html>`
@@ -497,7 +789,9 @@ function renderMermaidBlock(source: string): string {
 	return `<div class="mermaid-preview"><svg class="mermaid-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Mermaid flowchart preview"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="currentColor"></path></marker></defs>${edges}${nodes}</svg></div>`
 }
 
-function parseSimpleFlowchart(source: string): { nodes: Array<{ id: string; label: string }>; edges: Array<{ from: string; to: string }> } | undefined {
+function parseSimpleFlowchart(
+	source: string,
+): { nodes: Array<{ id: string; label: string }>; edges: Array<{ from: string; to: string }> } | undefined {
 	if (!/^\s*(flowchart|graph)\b/im.test(source)) {
 		return undefined
 	}
@@ -508,7 +802,8 @@ function parseSimpleFlowchart(source: string): { nodes: Array<{ id: string; labe
 	while ((nodeMatch = nodePattern.exec(source))) {
 		nodes.set(nodeMatch[1], (nodeMatch[2] || nodeMatch[3] || nodeMatch[1]).trim())
 	}
-	const edgePattern = /\b([A-Za-z][\w-]*)\[[^\]\n]+\]\s*-+>+\s*([A-Za-z][\w-]*)\[[^\]\n]+\]|\b([A-Za-z][\w-]*)\s*-+>+\s*([A-Za-z][\w-]*)/g
+	const edgePattern =
+		/\b([A-Za-z][\w-]*)\[[^\]\n]+\]\s*-+>+\s*([A-Za-z][\w-]*)\[[^\]\n]+\]|\b([A-Za-z][\w-]*)\s*-+>+\s*([A-Za-z][\w-]*)/g
 	let edgeMatch: RegExpExecArray | null
 	while ((edgeMatch = edgePattern.exec(source))) {
 		const from = edgeMatch[1] || edgeMatch[3]
@@ -534,13 +829,12 @@ function getNonce(): string {
 	return Array.from({ length: 32 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("")
 }
 
+function sanitizeTodoIds(todoIds: unknown): string[] {
+	return Array.isArray(todoIds) ? todoIds.map(String).filter(Boolean) : []
+}
+
 function escapeHtml(value: string): string {
-	return value
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#39;")
+	return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 }
 
 function escapeAttribute(value: string): string {
