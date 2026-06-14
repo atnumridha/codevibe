@@ -1,4 +1,4 @@
-import { getPlanStorageService, type PlanRegistryRecord } from "@core/plan/PlanStorageService"
+import { getPlanStorageService, registerPlanOpenHandler, type PlanRegistryRecord } from "@core/plan/PlanStorageService"
 import {
 	buildLocalPlanExecutionMessage,
 	cyclePlanTodoStatus,
@@ -41,6 +41,9 @@ export function registerVscodePlanIntegration(
 		treeView,
 		provider,
 		vscode.commands.registerCommand(ExtensionRegistryInfo.commands.PlansRefresh, () => provider.refresh()),
+		registerPlanOpenHandler(async ({ planPath }) => {
+			await openPlanPath(planPath)
+		}),
 		vscode.commands.registerCommand(ExtensionRegistryInfo.commands.PlansOpenLatest, async () => {
 			const latest = await provider.getLatestPlan()
 			if (!latest) {

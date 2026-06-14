@@ -3,14 +3,20 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, it } from "mocha"
-import { disposePlanStorageServiceForTests, PlanStorageService } from "../PlanStorageService"
+import { disposePlanStorageServiceForTests, PlanStorageService, registerPlanOpenHandler } from "../PlanStorageService"
 
 describe("PlanStorageService", () => {
 	let tempDir: string | undefined
 	let service: PlanStorageService | undefined
+	const originalHome = process.env.HOME
 
 	afterEach(async () => {
 		delete process.env.CODEVIBE_PLAN_HOME
+		if (originalHome === undefined) {
+			delete process.env.HOME
+		} else {
+			process.env.HOME = originalHome
+		}
 		await service?.dispose()
 		service = undefined
 		await disposePlanStorageServiceForTests()
@@ -56,6 +62,37 @@ describe("PlanStorageService", () => {
 		assert.equal(registry[0].uri, plan.planPath)
 		assert.deepEqual(registry[0].editedBy, ["task-123"])
 		assert.deepEqual(registry[0].referencedBy, ["task-123"])
+	})
+
+	it("opens plans through the registered native plan opener", async () => {
+		const service = await createService()
+		const plan = await service.createOrUpdatePlanForComposer({
+			composerId: "task-open",
+			response: "## Native Plan\n\nUse rich editor.",
+			taskProgress: "- [ ] Inspect",
+			workspacePath: tempDir,
+		})
+		const opened: string[] = []
+		registerPlanOpenHandler(async ({ planPath }) => {
+			opened.push(planPath)
+		})
+
+		await service.openPlan({ planId: plan.planId, workspacePath: tempDir })
+
+		assert.deepEqual(opened, [plan.planPath])
+	})
+
+	it("writes .cursor/.gitignore when falling back to workspace plan storage", async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "codevibe-plan-fallback-"))
+		const fakeHomeFile = path.join(tempDir, "home-is-not-a-directory")
+		await fs.writeFile(fakeHomeFile, "", "utf8")
+		process.env.HOME = fakeHomeFile
+		service = new PlanStorageService()
+
+		const planDir = await service.getPlanDir(tempDir)
+
+		assert.equal(planDir, path.join(tempDir, ".cursor", "plans"))
+		assert.equal(await fs.readFile(path.join(tempDir, ".cursor", ".gitignore"), "utf8"), "plans/\n")
 	})
 
 	it("updates the same named plan file for subsequent composer responses", async () => {

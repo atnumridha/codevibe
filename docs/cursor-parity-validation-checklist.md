@@ -15,16 +15,18 @@ Use this checklist as the evidence target for `CODEVIBE_PARITY_EVIDENCE_URL` bef
 
 ## Current Evidence Snapshot
 
-Snapshot date: 2026-06-12. This is a working-tree evidence snapshot, not a release approval. The worktree currently has uncommitted changes, `CODEVIBE_ALL_PARITY_VALIDATED` is not true, and `CODEVIBE_PARITY_EVIDENCE_URL` is not set to a final `https://` checklist or validation log.
+Snapshot date: 2026-06-15. This is a working-tree evidence snapshot, not a release approval. The worktree currently has uncommitted changes, `CODEVIBE_ALL_PARITY_VALIDATED` is not true, and `CODEVIBE_PARITY_EVIDENCE_URL` is not set to a final `https://` checklist or validation log.
 
 | Requirement | Current evidence | Release status |
 | --- | --- | --- |
 | ChatGPT auth fix | Focused OAuth/provider/SDK originator tests passed on 2026-06-12 after the Codie originator update. Keep the broader auth gate green before release, but the prior `expected 'codie' to equal 'cline'` blocker is reconciled. | Focused guard passed |
-| VSIX install presence | `node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install` packaged `/private/tmp/codevibe-vsix/codevibe-3.88.77.vsix`, installed it, and smoke-verified `atnumridha.codevibe@3.88.77` on 2026-06-12. | Installed extension present |
-| Branding audit | `npm --prefix apps/vscode run branding:audit` passed on 2026-06-12. | Guard passed |
+| VSIX install presence | `node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install` packaged `/private/tmp/codevibe-vsix/codevibe-3.88.77.vsix`, installed it, and smoke-verified `atnumridha.codevibe@3.88.77` on 2026-06-15. | Installed extension present |
+| Branding audit | `npm --prefix apps/vscode run branding:audit` passed on 2026-06-15. The audit scans the standalone hub surfaces under `apps/cline-hub`, including `apps/cline-hub/src/webview/src/lib/provider-display.ts`. | Guard passed |
 | Compatibility contracts | `npm --prefix apps/vscode run compatibility:contracts` passed on 2026-06-12. | Guard passed |
 | VSIX release preflight | `npm --prefix apps/vscode run package:github-vsix:preflight` passed on 2026-06-11 with 3 warnings: dirty worktree, missing `CODEVIBE_ALL_PARITY_VALIDATED=true`, and missing final `CODEVIBE_PARITY_EVIDENCE_URL`. | Preflight-ready only |
-| Hub branding | The current branding audit does not scan `apps/cline-hub`. Standalone hub provider labels still need review, especially `apps/cline-hub/src/webview/src/lib/provider-display.ts`. | Open gap |
+| Hub branding | `provider-display.ts` maps visible first-party labels to `Codie Agent`, `Codie Local CLI`, and `Codie Cloud`, and the branding audit requires those hub fragments while blocking visible upstream Cline/CodeVibe labels. | Guard passed |
+| Plan files and native editor | Focused tests passed on 2026-06-15 for `PlanStorageService`, `PlanModeRespondHandler`, and `Hostbridge - Workspace - searchWorkspaceText`. Plan responses persist `.plan.md` files, register a VS Code-native opener for `codevibe.planEditor`, and write `.cursor/.gitignore` with `plans/` when falling back to workspace storage. | Focused guard passed |
+| Retrieval/indexed search | `Hostbridge - Workspace - searchWorkspaceText` test passed on 2026-06-15 and asserts VS Code `findTextInFiles` is used without enumerating/reading candidate files before search. | Focused guard passed |
 | Full evidence run | No current green `npm --prefix apps/vscode run release:cursor-parity:evidence:full` result is recorded. Existing local evidence can be useful context but is not a final gate. | Open gap |
 | Installed VS Code visual validation | The active VS Code window rendered the `CODIE AGENT` sidebar and composer after reload; screenshot evidence: `/private/tmp/codie-code-app-activated.png`. `npm run test:e2e:optimal -- src/test/e2e/native-chat-installed.test.ts --project "e2e tests"` passed on 2026-06-12 and verified installed VSIX command exposure. Native session invocation, prompt/skill discovery, model/account visibility, approvals, MCP, browser automation, retrieval, background agents, sandbox policy, and deeplink flows still need recorded installed-VS-Code evidence. | Partially validated |
 | Upstream patch intake | Upstream intake reports are generated under `.codevibe/upstream-base/<profile>/` and ignored by git. The planner now avoids stale `FETCH_HEAD`/local-branch false zero-delta reports unless the current invocation fetched the upstream ref. | Planning workflow guarded; overlay review still required |
@@ -86,7 +88,7 @@ code --install-extension apps/vscode/dist/codevibe-<version>.vsix --force
 code --list-extensions --show-versions | rg '^atnumridha\.codevibe@'
 ```
 
-Current install-presence evidence: on 2026-06-11, `node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install` installed and smoke-verified `atnumridha.codevibe@3.88.76`. The active VS Code window also rendered the `CODIE AGENT` sidebar and composer after reload; screenshot evidence: `/private/tmp/codie-code-app-activated.png`. This proves install presence and basic sidebar/composer rendering; it does not prove the full visual/manual checklist below.
+Current install-presence evidence: on 2026-06-15, `node apps/vscode/scripts/package-github-vsix.mjs --out-dir /private/tmp/codevibe-vsix --install --verify-install` installed and smoke-verified `atnumridha.codevibe@3.88.77`. The earlier active VS Code window rendered the `CODIE AGENT` sidebar and composer after reload; screenshot evidence: `/private/tmp/codie-code-app-activated.png`. This proves install presence and basic sidebar/composer rendering; it does not prove the full visual/manual checklist below.
 
 Manual checks:
 
@@ -147,7 +149,7 @@ Manual checks:
 - Manual installed-VS-Code validation passed:
 - Standalone runtime assets and extracted smoke passed:
 - Standalone UI validation passed:
-- Known residual risks: current open items include the failed ChatGPT OAuth assertion in the attempted unit command, standalone hub branding coverage, missing full evidence run, remaining installed-VS-Code visual checks beyond sidebar/composer, and manual review of the generated upstream intake report's overlay risk areas.
+- Known residual risks: current open items include the missing full evidence run, remaining installed-VS-Code visual checks beyond sidebar/composer, standalone runtime validation, and manual review of the generated upstream intake report's overlay risk areas.
 - Release approver:
 
 Only after this section is complete may the release job be dispatched with:

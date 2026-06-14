@@ -31,6 +31,21 @@ import { Logger } from "@/shared/services/Logger"
 const REGISTRY_FILE_NAME = "composer.planRegistry.json"
 const PLAN_EXTENSION = ".plan.md"
 
+type PlanOpenHandler = (input: { planId?: string; planPath: string; workspacePath?: string }) => Promise<void>
+
+let planOpenHandler: PlanOpenHandler | undefined
+
+export function registerPlanOpenHandler(handler: PlanOpenHandler): { dispose: () => void } {
+	planOpenHandler = handler
+	return {
+		dispose: () => {
+			if (planOpenHandler === handler) {
+				planOpenHandler = undefined
+			}
+		},
+	}
+}
+
 export interface PlanFileRecord {
 	planId: string
 	planPath: string
@@ -122,6 +137,7 @@ export class PlanStorageService {
 			}
 			Logger.warn(`PlanStorageService: falling back to workspace plan dir after home write failed: ${error}`)
 			this.resolvedPlanDir = await this.ensureWritablePlanDir(path.join(fallbackRoot, ".cursor", "plans"))
+			await this.ensureWorkspaceFallbackGitignore(fallbackRoot)
 		}
 
 		await this.initializePlanDir(this.resolvedPlanDir)
@@ -300,6 +316,18 @@ export class PlanStorageService {
 
 	async openPlan(input: { planId?: string; planPath?: string; workspacePath?: string }): Promise<void> {
 		const planPath = await this.resolvePlanPath(input)
+		if (planOpenHandler) {
+			try {
+				await planOpenHandler({
+					planId: input.planId,
+					planPath,
+					workspacePath: input.workspacePath,
+				})
+				return
+			} catch (error) {
+				Logger.warn(`PlanStorageService: native plan opener failed, falling back to text editor: ${error}`)
+			}
+		}
 		await openFileIntegration(planPath)
 	}
 
@@ -327,6 +355,26 @@ export class PlanStorageService {
 		await fs.mkdir(planDir, { recursive: true })
 		await fs.access(planDir, fsConstants.W_OK)
 		return planDir
+	}
+
+	private async ensureWorkspaceFallbackGitignore(workspaceRoot: string): Promise<void> {
+		const cursorDir = path.join(workspaceRoot, ".cursor")
+		const gitignorePath = path.join(cursorDir, ".gitignore")
+		await fs.mkdir(cursorDir, { recursive: true })
+		let existing = ""
+		try {
+			existing = await fs.readFile(gitignorePath, "utf8")
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+				throw error
+			}
+		}
+		const lines = existing.split(/\r?\n/).map((line) => line.trim())
+		if (lines.includes("plans/")) {
+			return
+		}
+		const prefix = existing && !existing.endsWith("\n") ? "\n" : ""
+		await fs.writeFile(gitignorePath, `${existing}${prefix}plans/\n`, "utf8")
 	}
 
 	private startWatcher(planDir: string): void {
@@ -899,6 +947,7 @@ export function getPlanStorageService(): PlanStorageService {
 export function resetPlanStorageServiceForTests(): void {
 	const existing = singleton
 	singleton = undefined
+	planOpenHandler = undefined
 	if (existing) {
 		void existing.dispose().catch((error) => Logger.warn(`PlanStorageService: test reset failed to dispose: ${error}`))
 	}
@@ -907,5 +956,6 @@ export function resetPlanStorageServiceForTests(): void {
 export async function disposePlanStorageServiceForTests(): Promise<void> {
 	const existing = singleton
 	singleton = undefined
+	planOpenHandler = undefined
 	await existing?.dispose()
 }
