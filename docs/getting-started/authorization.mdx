@@ -6,7 +6,7 @@ description: "Authenticate with Codie and choose your first AI model"
 Codie connects to AI models through a **provider**. You can use:
 
 - **Codie provider** (default): use the configured Codie sign-in and model path.
-- **Local auth import**: reuse `~/.codex/auth.json` when compatibility support is enabled.
+- **Local auth import**: by default, reuse workspace `.codex/auth.json` or `~/.codex/auth.json` before falling back to IDE sign-in storage.
 - **Codie account provider**: sign in with a supported hosted account flow when configured.
 - **Bring Your Own Key (BYOK)**: use your own provider credentials (cloud or local runtimes).
 
@@ -28,7 +28,7 @@ Codie connects to AI models through a **provider**. You can use:
 
   <Step title="Authenticate">
     - **Codie provider:** complete Codie sign-in from the provider settings.
-    - **Local auth import:** keep `~/.codex/auth.json` populated when compatibility support is enabled.
+    - **Local auth import:** keep workspace `.codex/auth.json` or `~/.codex/auth.json` populated when compatibility support is enabled.
     - **Codie account provider:** click **Sign In** and complete OAuth.
     - **BYOK cloud provider:** Paste your API key into the **API Key** field.
     - **Local runtime (Ollama/LM Studio):** no key needed; ensure runtime is running.
@@ -43,7 +43,7 @@ Codie connects to AI models through a **provider**. You can use:
 
 ### Local Auth Import
 
-- Reads `~/.codex/auth.json`, `~/.codex/installation_id`, and local model cache when compatibility support is enabled
+- Reads workspace `.codex/auth.json` first, then `~/.codex/auth.json`, `~/.codex/installation_id`, and local model cache when compatibility support is enabled
 - Can use `openai-codex` internally for compatible profiles without making it the visible product path
 - Preserves session headers and refresh behavior without logging token contents
 

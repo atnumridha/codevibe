@@ -647,7 +647,7 @@
 						"Auto"
 					],
 					"default": "auto",
-					"description": "Controls where Codie credentials are loaded from. Auto tries IDE sign-in first, then local auth files. Local auth files include workspace .codex/auth.json and ~/.codex/auth.json unless an explicit path or CODEX_HOME is set."
+					"description": "Controls where Codie credentials are loaded from. Auto tries local auth files first, then IDE sign-in. Local auth files include workspace .codex/auth.json and ~/.codex/auth.json unless an explicit path or CODEX_HOME is set."
 				},
 				"codevibe.compatibility.enabled": {
 					"type": "boolean",

@@ -437,9 +437,9 @@ function getCredentialSourceOrder(
 ): OpenAiCodexCredentialSource[] {
 	switch (authSource) {
 		case "codexHome":
+		case "auto":
 			return ["codex-home", "vscode-secret"];
 		case "vscodeSecret":
-		case "auto":
 			return ["vscode-secret", "codex-home"];
 	}
 }

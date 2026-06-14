@@ -1604,8 +1604,8 @@ function assertCursorParityManifest(packageJson, label = "package manifest") {
 	if (codexAuth.default !== "auto") {
 		throw new Error(`${label} must default codevibe.openAiCodex.authSource to auto`)
 	}
-	if (!String(codexAuth.description || "").includes("IDE sign-in first")) {
-		throw new Error(`${label} must describe IDE-first Codie sign-in discovery`)
+	if (!String(codexAuth.description || "").includes("local auth files first")) {
+		throw new Error(`${label} must describe local-first Codie sign-in discovery`)
 	}
 	if (!String(codexAuth.description || "").includes("workspace .codex/auth.json")) {
 		throw new Error(`${label} must describe workspace .codex/auth.json local auth import`)

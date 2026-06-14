@@ -469,7 +469,7 @@ describe("Codie ChatGPT OAuth local profile support", () => {
 		});
 	});
 
-	it("defaults to auto auth source with VS Code secret storage before Codex home", async () => {
+	it("defaults to auto auth source with Codex home before VS Code secret storage", async () => {
 		mockAuthSource();
 		const getSecretKey = stubVscodeSecret(
 			vscodeSecretCredentialsJson("vscode-access-secret"),
@@ -482,14 +482,16 @@ describe("Codie ChatGPT OAuth local profile support", () => {
 		const manager = new OpenAiCodexOAuthManager();
 		const credentials = await manager.loadCredentials({ codexHome });
 
-		expect(credentials?.access_token).to.equal("vscode-access-secret");
-		expect(credentials?.tokenSource).to.equal("oauth");
-		expect(getSecretKey.called).to.equal(true);
+		expect(credentials?.tokenSource).to.equal("codex-home");
+		expect(credentials?.refresh_token).to.equal("codex-refresh-secret");
+		expect(getSecretKey.called).to.equal(false);
 	});
 
-	it("defaults to workspace .codex credentials after VS Code secret storage is missing", async () => {
+	it("defaults to workspace .codex credentials before VS Code secret storage", async () => {
 		mockAuthSource();
-		const getSecretKey = stubVscodeSecret(undefined);
+		const getSecretKey = stubVscodeSecret(
+			vscodeSecretCredentialsJson("vscode-access-secret"),
+		);
 		const accessToken = jwt({ exp: 2_000 });
 		const { workspaceRoot } = await createWorkspaceCodexHome(
 			accessToken,
@@ -504,7 +506,7 @@ describe("Codie ChatGPT OAuth local profile support", () => {
 		expect(credentials?.access_token).to.equal(accessToken);
 		expect(credentials?.tokenSource).to.equal("codex-home");
 		expect(credentials?.refresh_token).to.equal("workspace-refresh-secret");
-		expect(getSecretKey.calledOnce).to.equal(true);
+		expect(getSecretKey.called).to.equal(false);
 	});
 
 	it("falls back to VS Code secret credentials when stale Codex home refresh is invalid", async () => {
@@ -634,24 +636,11 @@ describe("Codie ChatGPT OAuth local profile support", () => {
 		expect(credentials?.tokenSource).to.equal("oauth");
 	});
 
-	it("uses auto authSource to try VS Code secret storage before Codex home", async () => {
+	it("uses auto authSource to try Codex home before VS Code secret storage", async () => {
 		mockAuthSource("auto");
-		stubVscodeSecret(vscodeSecretCredentialsJson("vscode-access-secret"));
-		const codexHome = await createCodexHome(
-			jwt({ exp: 2_000 }),
-			"codex-refresh-secret",
+		const getSecretKey = stubVscodeSecret(
+			vscodeSecretCredentialsJson("vscode-access-secret"),
 		);
-
-		const manager = new OpenAiCodexOAuthManager();
-		const credentials = await manager.loadCredentials({ codexHome });
-
-		expect(credentials?.access_token).to.equal("vscode-access-secret");
-		expect(credentials?.tokenSource).to.equal("oauth");
-	});
-
-	it("falls back from missing VS Code secret storage to Codex home in auto mode", async () => {
-		mockAuthSource("auto");
-		stubVscodeSecret(undefined);
 		const codexHome = await createCodexHome(
 			jwt({ exp: 2_000 }),
 			"codex-refresh-secret",
@@ -662,6 +651,21 @@ describe("Codie ChatGPT OAuth local profile support", () => {
 
 		expect(credentials?.tokenSource).to.equal("codex-home");
 		expect(credentials?.refresh_token).to.equal("codex-refresh-secret");
+		expect(getSecretKey.called).to.equal(false);
+	});
+
+	it("falls back from missing Codex home to VS Code secret storage in auto mode", async () => {
+		mockAuthSource("auto");
+		stubVscodeSecret(vscodeSecretCredentialsJson("vscode-access-secret"));
+		const codexHome = await mkdtemp(
+			join(tmpdir(), "codevibe-codex-home-empty-auto-"),
+		);
+
+		const manager = new OpenAiCodexOAuthManager();
+		const credentials = await manager.loadCredentials({ codexHome });
+
+		expect(credentials?.access_token).to.equal("vscode-access-secret");
+		expect(credentials?.tokenSource).to.equal("oauth");
 	});
 
 	it("does not log token values when a preferred credential source fails", async () => {
