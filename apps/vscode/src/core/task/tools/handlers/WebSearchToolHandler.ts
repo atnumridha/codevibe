@@ -20,6 +20,8 @@ import type { TaskConfig } from "../types/TaskConfig"
 import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
 
+export const MIN_WEB_SEARCH_QUERY_LENGTH = 2
+
 export class WebSearchToolHandler implements IFullyManagedTool {
 	readonly name = ClineDefaultTool.WEB_SEARCH
 
@@ -48,7 +50,7 @@ export class WebSearchToolHandler implements IFullyManagedTool {
 
 	async execute(config: TaskConfig, block: ToolUse): Promise<ToolResponse> {
 		try {
-			const query: string | undefined = block.params.query
+			const query = block.params.query?.trim()
 			const allowedDomainsRaw: string | undefined = block.params.allowed_domains
 			const blockedDomainsRaw: string | undefined = block.params.blocked_domains
 
@@ -68,6 +70,12 @@ export class WebSearchToolHandler implements IFullyManagedTool {
 			if (!query) {
 				config.taskState.consecutiveMistakeCount++
 				return await config.callbacks.sayAndCreateMissingParamError(this.name, "query")
+			}
+			if (query.length < MIN_WEB_SEARCH_QUERY_LENGTH) {
+				config.taskState.consecutiveMistakeCount++
+				return formatResponse.toolError(
+					`web_search query must be at least ${MIN_WEB_SEARCH_QUERY_LENGTH} characters long.`,
+				)
 			}
 			config.taskState.consecutiveMistakeCount = 0
 

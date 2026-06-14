@@ -20,6 +20,13 @@ import { getCwd } from "@/utils/path"
 import { FileContextTracker } from "../context/context-tracking/FileContextTracker"
 import type { WorkspaceRootManager } from "../workspace"
 
+const FILE_MENTION_FULL_MAX_LINES = 1000
+const FILE_MENTION_FULL_MAX_CHARS = 128 * 1024
+const FOLDER_MENTION_INLINE_FILE_LIMIT = 6
+const FOLDER_MENTION_SNIPPET_MAX_LINES = 80
+const FOLDER_MENTION_SNIPPET_MAX_CHARS = 16 * 1024
+const FOLDER_MENTION_TOTAL_SNIPPET_CHARS = 64 * 1024
+
 export async function openMention(mention?: string): Promise<void> {
 	if (!mention) {
 		return
@@ -339,33 +346,17 @@ async function getFileOrFolderContent(mentionPath: string, cwd: string): Promise
 				return "(Binary file, unable to display content)"
 			}
 			const content = await extractTextFromFile(absPath)
-			return content
+			return formatExplicitFileMentionContent(content)
 		} else if (stats.isDirectory()) {
 			const entries = await fs.readdir(absPath, { withFileTypes: true })
 			let folderContent = ""
-			const fileContentPromises: Promise<string | undefined>[] = []
+			const fileEntries = entries.filter((entry) => entry.isFile())
+			const selectedFileEntries = fileEntries.slice(0, FOLDER_MENTION_INLINE_FILE_LIMIT)
 			entries.forEach((entry, index) => {
 				const isLast = index === entries.length - 1
 				const linePrefix = isLast ? "└── " : "├── "
 				if (entry.isFile()) {
 					folderContent += `${linePrefix}${entry.name}\n`
-					const filePath = path.join(mentionPath, entry.name)
-					const absoluteFilePath = path.resolve(absPath, entry.name)
-					// const relativeFilePath = path.relative(cwd, absoluteFilePath);
-					fileContentPromises.push(
-						(async () => {
-							try {
-								const isBinary = await isBinaryFile(absoluteFilePath).catch(() => false)
-								if (isBinary) {
-									return undefined
-								}
-								const content = await extractTextFromFile(absoluteFilePath)
-								return `<file_content path="${filePath.toPosix()}">\n${content}\n</file_content>`
-							} catch (_error) {
-								return undefined
-							}
-						})(),
-					)
 				} else if (entry.isDirectory()) {
 					folderContent += `${linePrefix}${entry.name}/\n`
 					// not recursively getting folder contents
@@ -373,7 +364,32 @@ async function getFileOrFolderContent(mentionPath: string, cwd: string): Promise
 					folderContent += `${linePrefix}${entry.name}\n`
 				}
 			})
-			const fileContents = (await Promise.all(fileContentPromises)).filter((content) => content)
+
+			if (fileEntries.length > selectedFileEntries.length) {
+				folderContent += `\n[Folder preview limited to ${selectedFileEntries.length} of ${fileEntries.length} files. Use search_files or read_file with line ranges for more.]\n`
+			}
+
+			let snippetBudget = FOLDER_MENTION_TOTAL_SNIPPET_CHARS
+			const fileContents: string[] = []
+			for (const entry of selectedFileEntries) {
+				const filePath = path.join(mentionPath, entry.name)
+				const absoluteFilePath = path.resolve(absPath, entry.name)
+				try {
+					const isBinary = await isBinaryFile(absoluteFilePath).catch(() => false)
+					if (isBinary || snippetBudget <= 0) {
+						continue
+					}
+					const content = await extractTextFromFile(absoluteFilePath)
+					const snippet = formatFolderMentionSnippet(filePath.toPosix(), content, snippetBudget)
+					if (!snippet) {
+						continue
+					}
+					fileContents.push(snippet)
+					snippetBudget = Math.max(0, snippetBudget - Buffer.byteLength(snippet, "utf8"))
+				} catch (_error) {
+					// Omit unreadable previews while preserving the folder candidate list.
+				}
+			}
 			return `${folderContent}\n${fileContents.join("\n\n")}`.trim()
 		} else {
 			return `(Failed to read contents of ${mentionPath})`
@@ -381,6 +397,72 @@ async function getFileOrFolderContent(mentionPath: string, cwd: string): Promise
 	} catch (error) {
 		throw new Error(`Failed to access path "${mentionPath}": ${error.message}`)
 	}
+}
+
+function formatExplicitFileMentionContent(content: string): string {
+	if (content.length <= FILE_MENTION_FULL_MAX_CHARS && splitContentLines(content).length <= FILE_MENTION_FULL_MAX_LINES) {
+		return content
+	}
+
+	const snippet = buildLabeledSnippet(content, FILE_MENTION_FULL_MAX_LINES, FILE_MENTION_FULL_MAX_CHARS)
+	return [
+		`[Compact file preview: showing lines 1-${snippet.endLine} of ${snippet.totalLines}. Use search_files first, then read_file with start_line/end_line for additional slices.]`,
+		snippet.text,
+	].join("\n")
+}
+
+function formatFolderMentionSnippet(filePath: string, content: string, remainingBudget: number): string | undefined {
+	const budget = Math.min(FOLDER_MENTION_SNIPPET_MAX_CHARS, remainingBudget)
+	if (budget <= 0) {
+		return undefined
+	}
+
+	const snippet = buildLabeledSnippet(content, FOLDER_MENTION_SNIPPET_MAX_LINES, budget)
+	const truncated = snippet.endLine < snippet.totalLines || Buffer.byteLength(content, "utf8") > budget
+	const truncatedAttr = truncated ? ' truncated="true"' : ""
+
+	return `<file_snippet path="${filePath}" lines="1-${snippet.endLine}" total_lines="${snippet.totalLines}"${truncatedAttr}>
+${snippet.text}
+</file_snippet>`
+}
+
+function buildLabeledSnippet(
+	content: string,
+	maxLines: number,
+	maxBytes: number,
+): { text: string; endLine: number; totalLines: number } {
+	const lines = splitContentLines(content)
+	const selectedLines: string[] = []
+	let byteCount = 0
+
+	for (let index = 0; index < lines.length && selectedLines.length < maxLines; index++) {
+		const line = `${index + 1} | ${lines[index]}`
+		const lineBytes = Buffer.byteLength(`${line}\n`, "utf8")
+		if (byteCount + lineBytes > maxBytes) {
+			if (selectedLines.length === 0) {
+				const availableBytes = Math.max(0, maxBytes - Buffer.byteLength(`${index + 1} | \n`, "utf8"))
+				const truncatedLine = Buffer.from(lines[index], "utf8").subarray(0, availableBytes).toString("utf8")
+				selectedLines.push(`${index + 1} | ${truncatedLine}`)
+			}
+			break
+		}
+		selectedLines.push(line)
+		byteCount += lineBytes
+	}
+
+	return {
+		text: selectedLines.join("\n"),
+		endLine: selectedLines.length,
+		totalLines: lines.length,
+	}
+}
+
+function splitContentLines(content: string): string[] {
+	const lines = content.split(/\r?\n/)
+	if (content.endsWith("\n") && lines.length > 0) {
+		lines.pop()
+	}
+	return lines
 }
 
 async function getWorkspaceProblems(): Promise<string> {

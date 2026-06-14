@@ -155,16 +155,55 @@ Error fetching content: Failed to access path "missing.txt": ENOENT: no such fil
 ├── utils/
 └── README.md
 
-<file_content path="src/index.ts">
-export const main = () => {};
-</file_content>
+<file_snippet path="src/index.ts" lines="1-1" total_lines="1">
+1 | export const main = () => {};
+</file_snippet>
 
-<file_content path="src/README.md">
-# Source Code
-</file_content>
+<file_snippet path="src/README.md" lines="1-1" total_lines="1">
+1 | # Source Code
+</file_snippet>
 </folder_content>`
 
 			expect(result).to.equal(expectedOutput)
+		})
+
+		it("limits folder mentions to compact snippets instead of reading every file", async () => {
+			const text = "Look in @/src/ folder"
+			const entries = Array.from({ length: 8 }, (_, index) => ({
+				name: `file${index + 1}.ts`,
+				isFile: () => true,
+				isDirectory: () => false,
+			}))
+
+			fsStatStub.resolves({ isFile: () => false, isDirectory: () => true })
+			fsReaddirStub.resolves(entries)
+			isBinaryFileStub.resolves(false)
+			extractTextStub.callsFake((absoluteFilePath: string) => `content from ${path.basename(absoluteFilePath)}`)
+
+			const result = await parseMentions(text, cwd, urlContentFetcherStub)
+
+			expect(extractTextStub.callCount).to.equal(6)
+			expect(result).to.include("[Folder preview limited to 6 of 8 files.")
+			expect(result).to.include('<file_snippet path="src/file1.ts"')
+			expect(result).to.include('<file_snippet path="src/file6.ts"')
+			expect(result).to.include("├── file7.ts")
+			expect(result).not.to.include('<file_snippet path="src/file7.ts"')
+		})
+
+		it("converts large explicit file mentions into compact line-range previews", async () => {
+			const text = "Check @/large.ts"
+			const largeContent = Array.from({ length: 1002 }, (_, index) => `line ${index + 1}`).join("\n")
+
+			fsStatStub.resolves({ isFile: () => true, isDirectory: () => false })
+			isBinaryFileStub.resolves(false)
+			extractTextStub.resolves(largeContent)
+
+			const result = await parseMentions(text, cwd, urlContentFetcherStub)
+
+			expect(result).to.include("[Compact file preview: showing lines 1-1000 of 1002.")
+			expect(result).to.include("1 | line 1")
+			expect(result).to.include("1000 | line 1000")
+			expect(result).not.to.include("1001 | line 1001")
 		})
 	})
 
