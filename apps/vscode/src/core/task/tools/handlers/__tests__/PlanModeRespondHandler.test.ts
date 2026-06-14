@@ -1,8 +1,13 @@
 import { strict as assert } from "node:assert"
+import fs from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
 import { ClineDefaultTool } from "@shared/tools"
 import { afterEach, describe, it } from "mocha"
 import sinon from "sinon"
+import { HostProvider } from "@/hosts/host-provider"
 import { telemetryService } from "@/services/telemetry"
+import { setVscodeHostProviderMock } from "@/test/host-provider-test-utils"
 import { TaskState } from "../../../TaskState"
 import type { TaskConfig } from "../../types/TaskConfig"
 import { PlanModeRespondHandler } from "../PlanModeRespondHandler"
@@ -110,6 +115,41 @@ describe("PlanModeRespondHandler", () => {
 		sinon.assert.calledOnceWithExactly(callbacks.updateFCListFromToolResponse, taskProgress)
 		sinon.assert.calledOnce(callbacks.ask)
 		sinon.assert.callOrder(callbacks.updateFCListFromToolResponse, callbacks.ask)
+	})
+
+	it("persists local plan metadata before waiting for plan approval", async () => {
+		sinon.stub(telemetryService, "captureTaskCompleted")
+		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "codevibe-plan-build-"))
+		setVscodeHostProviderMock({ globalStorageFsPath: tempDir })
+
+		try {
+			const { config, callbacks } = createConfig()
+			const handler = new PlanModeRespondHandler()
+
+			await handler.execute(config, {
+				type: "tool_use",
+				name: ClineDefaultTool.PLAN_MODE,
+				params: {
+					response: "Here is the plan.",
+					task_progress: "- [x] Inspect\n- [ ] Implement",
+				},
+				partial: false,
+			})
+
+			const askPayload = JSON.parse(callbacks.ask.firstCall.args[1])
+			assert.equal(askPayload.localPlanBuild.status, "none")
+			assert.equal(askPayload.localPlanBuild.todoCount, 2)
+			assert.match(askPayload.localPlanBuild.planPath, /local-plan-task-1\.plan\.md$/)
+
+			const planFile = await fs.readFile(askPayload.localPlanBuild.planPath, "utf8")
+			assert.match(planFile, /# Plan for Task task-1/)
+			assert.match(planFile, /Here is the plan\./)
+			assert.match(planFile, /- \[ \] Inspect/)
+			assert.match(planFile, /- \[ \] Implement/)
+		} finally {
+			HostProvider.reset()
+			await fs.rm(tempDir, { recursive: true, force: true })
+		}
 	})
 
 	it("does not publish task_progress when focus chain is disabled", async () => {

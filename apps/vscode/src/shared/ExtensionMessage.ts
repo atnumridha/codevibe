@@ -13,6 +13,7 @@ import { FocusChainSettings } from "./FocusChainSettings"
 import { HistoryItem } from "./HistoryItem"
 import { McpDisplayMode } from "./McpDisplayMode"
 import { ClineMessageModelInfo } from "./messages"
+import type { LocalPlanBuildMetadata } from "./plan-build"
 import { OnboardingModelGroup } from "./proto/cline/state"
 import { Mode } from "./storage/types"
 import { TelemetrySetting } from "./TelemetrySetting"
@@ -389,6 +390,7 @@ export interface ClinePlanModeResponse {
 	response: string
 	options?: string[]
 	selected?: string
+	localPlanBuild?: LocalPlanBuildMetadata
 }
 
 export interface ClineAskQuestion {

@@ -6,6 +6,7 @@ import { ClinePlanModeResponse } from "@/shared/ExtensionMessage"
 import { Logger } from "@/shared/services/Logger"
 import { ClineDefaultTool } from "@/shared/tools"
 import type { ToolResponse } from "../../index"
+import { writeLocalPlanArtifact } from "../../plan-artifact"
 import type { IPartialBlockHandler, IToolHandler } from "../ToolExecutorCoordinator"
 import type { TaskConfig } from "../types/TaskConfig"
 import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
@@ -68,9 +69,19 @@ export class PlanModeRespondHandler implements IToolHandler, IPartialBlockHandle
 		// Store the number of options for telemetry
 		const options = parsePartialArrayString(optionsRaw || "[]")
 
-		const sharedMessage = {
+		const sharedMessage: ClinePlanModeResponse = {
 			response: response,
 			options: options,
+		}
+
+		try {
+			sharedMessage.localPlanBuild = await writeLocalPlanArtifact({
+				taskId: config.taskId,
+				response,
+				taskProgress,
+			})
+		} catch (error) {
+			Logger.warn(`Failed to persist local plan artifact for task ${config.taskId}: ${error}`)
 		}
 
 		// Auto-switch to Act mode while in yolo mode
