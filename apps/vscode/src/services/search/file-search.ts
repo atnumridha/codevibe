@@ -6,7 +6,7 @@ import * as path from "path"
 import * as readline from "readline"
 import { WorkspaceRootManager } from "@/core/workspace"
 import { HostProvider } from "@/hosts/host-provider"
-import { GetOpenTabsRequest } from "@/shared/proto/host/window"
+import { GetActiveEditorRequest, GetOpenTabsRequest, GetVisibleTabsRequest } from "@/shared/proto/host/window"
 import { SearchWorkspaceItemsRequest, SearchWorkspaceItemsRequest_SearchItemType } from "@/shared/proto/host/workspace"
 import { Logger } from "@/shared/services/Logger"
 import { filterIgnoredWorkspaceItems, type WorkspaceSearchItem } from "@/services/workspace/file-indexer"
@@ -193,17 +193,67 @@ async function filterWorkspaceItemsForPrivacy<T extends WorkspaceSearchItem>(
 	return shouldFilterIgnoredWorkspaceItems(options) ? ((await filterIgnoredWorkspaceItems(workspacePath, items)) as T[]) : items
 }
 
-// Get currently active/open files from VSCode tabs using hostbridge
-async function getActiveFiles(): Promise<Set<string>> {
+function absolutePathToWorkspaceItem(workspacePath: string, filePath?: string): WorkspaceSearchItem | undefined {
+	if (!filePath || !(filePath.startsWith(workspacePath + path.sep) || filePath.startsWith(workspacePath + "/"))) {
+		return undefined
+	}
+	const relativePath = path.relative(workspacePath, filePath)
+	const normalizedPath = relativePath.replace(/\\/g, "/")
+	return {
+		path: normalizedPath,
+		type: "file",
+		label: path.basename(normalizedPath),
+	}
+}
+
+async function getWindowFilePaths(label: string, read: () => Promise<string[]>): Promise<string[]> {
 	try {
-		const request = GetOpenTabsRequest.create({})
-		const response = await HostProvider.window.getOpenTabs(request)
-		return new Set(response.paths)
+		return await read()
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error)
-		Logger.warn(`[file-search] failed to read open tabs, continuing without active-file boost: ${message}`)
-		return new Set()
+		Logger.warn(`[file-search] failed to read ${label}, continuing without that retrieval boost: ${message}`)
+		return []
 	}
+}
+
+async function getWindowFileCandidates(
+	workspacePath: string,
+	selectedType?: "file" | "folder",
+): Promise<RankedWorkspaceSearchItem[]> {
+	if (selectedType === "folder") {
+		return []
+	}
+
+	const [activeEditorPaths, visibleTabPaths, openTabPaths] = await Promise.all([
+		getWindowFilePaths("active editor", async () => {
+			const response = await HostProvider.window.getActiveEditor(GetActiveEditorRequest.create({}))
+			return response.filePath ? [response.filePath] : []
+		}),
+		getWindowFilePaths("visible tabs", async () => {
+			const response = await HostProvider.window.getVisibleTabs(GetVisibleTabsRequest.create({}))
+			return response.paths
+		}),
+		getWindowFilePaths("open tabs", async () => {
+			const response = await HostProvider.window.getOpenTabs(GetOpenTabsRequest.create({}))
+			return response.paths
+		}),
+	])
+
+	const candidates: RankedWorkspaceSearchItem[] = []
+	const seenPaths = new Set<string>()
+	for (const [boost, paths] of [
+		["active", activeEditorPaths],
+		["visible", visibleTabPaths],
+		["recent", openTabPaths],
+	] as const) {
+		for (const filePath of paths) {
+			const item = absolutePathToWorkspaceItem(workspacePath, filePath)
+			if (item) {
+				addUniqueCandidate(candidates, seenPaths, { ...item, retrievalBoost: boost })
+			}
+		}
+	}
+	return candidates
 }
 
 // Maximum number of candidates to ask the host for. The result is filtered &
@@ -211,8 +261,10 @@ async function getActiveFiles(): Promise<Set<string>> {
 const HOST_INDEX_CANDIDATE_LIMIT = 5000
 const GIT_CHANGED_CANDIDATE_LIMIT = 200
 const GIT_CHANGED_CACHE_TTL_MS = 2_000
+const DEPENDENCY_CANDIDATE_LIMIT = 200
+const DEPENDENCY_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".css", ".scss", ".md"]
 
-type RetrievalBoost = "active" | "git_changed"
+type RetrievalBoost = "active" | "visible" | "recent" | "git_changed" | "dependency"
 type RankedWorkspaceSearchItem = WorkspaceSearchItem & { retrievalBoost?: RetrievalBoost }
 
 type GitChangedCacheEntry = {
@@ -416,6 +468,93 @@ async function getGitChangedFiles(
 	return pending
 }
 
+function extractRelativeImportSpecifiers(source: string): string[] {
+	const specifiers = new Set<string>()
+	const importPattern =
+		/(?:import|export)\s+(?:type\s+)?(?:[^'"]*?\s+from\s+)?["']([^"']+)["']|require\(\s*["']([^"']+)["']\s*\)|import\(\s*["']([^"']+)["']\s*\)/g
+	let match: RegExpExecArray | null
+	while ((match = importPattern.exec(source))) {
+		const specifier = match[1] || match[2] || match[3]
+		if (specifier?.startsWith(".")) {
+			specifiers.add(specifier)
+		}
+	}
+	return Array.from(specifiers)
+}
+
+function getDependencyResolutionCandidates(importerPath: string, specifier: string): string[] {
+	const importerDir = path.dirname(importerPath)
+	const rawTarget = path.normalize(path.join(importerDir, specifier))
+	const candidates = [rawTarget]
+	for (const extension of DEPENDENCY_EXTENSIONS) {
+		candidates.push(`${rawTarget}${extension}`)
+		candidates.push(path.join(rawTarget, `index${extension}`))
+	}
+	return candidates.map((candidate) => candidate.replace(/\\/g, "/"))
+}
+
+async function resolveDependencyPath(workspacePath: string, relativeCandidate: string): Promise<WorkspaceSearchItem | undefined> {
+	const absoluteCandidate = path.resolve(workspacePath, relativeCandidate)
+	const relativeToWorkspace = path.relative(path.resolve(workspacePath), absoluteCandidate)
+	if (!relativeToWorkspace || relativeToWorkspace.startsWith("..") || path.isAbsolute(relativeToWorkspace)) {
+		return undefined
+	}
+	try {
+		const stats = await fs.promises.stat(absoluteCandidate)
+		if (!stats.isFile()) {
+			return undefined
+		}
+		const normalizedPath = relativeToWorkspace.replace(/\\/g, "/")
+		return {
+			path: normalizedPath,
+			type: "file",
+			label: path.basename(normalizedPath),
+		}
+	} catch {
+		return undefined
+	}
+}
+
+async function getDependencyCandidates(
+	workspacePath: string,
+	seedItems: WorkspaceSearchItem[],
+	selectedType?: "file" | "folder",
+): Promise<WorkspaceSearchItem[]> {
+	if (selectedType === "folder" || seedItems.length === 0) {
+		return []
+	}
+
+	const dependencies: WorkspaceSearchItem[] = []
+	const seenPaths = new Set(seedItems.map((item) => item.path))
+	for (const seedItem of seedItems) {
+		if (dependencies.length >= DEPENDENCY_CANDIDATE_LIMIT || seedItem.type !== "file") {
+			continue
+		}
+
+		try {
+			const source = await fs.promises.readFile(path.join(workspacePath, seedItem.path), "utf8")
+			for (const specifier of extractRelativeImportSpecifiers(source)) {
+				if (dependencies.length >= DEPENDENCY_CANDIDATE_LIMIT) {
+					break
+				}
+				for (const candidatePath of getDependencyResolutionCandidates(seedItem.path, specifier)) {
+					const dependency = await resolveDependencyPath(workspacePath, candidatePath)
+					if (dependency && !seenPaths.has(dependency.path)) {
+						seenPaths.add(dependency.path)
+						dependencies.push(dependency)
+						break
+					}
+				}
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error)
+			Logger.debug(`[file-search] dependency expansion skipped ${seedItem.path}: ${message}`)
+		}
+	}
+
+	return dependencies
+}
+
 function withRetrievalBoost(items: WorkspaceSearchItem[], retrievalBoost: RetrievalBoost): RankedWorkspaceSearchItem[] {
 	return items.map((item) => ({ ...item, retrievalBoost }))
 }
@@ -457,21 +596,7 @@ export async function searchWorkspaceFiles(
 	options?: FileSearchPrivacyOptions,
 ): Promise<SearchWorkspaceFilesResult> {
 	try {
-		// Get currently active files and convert to search format
-		const activeFilePaths = await getActiveFiles()
-		const activeFiles: WorkspaceSearchItem[] = []
-
-		for (const filePath of activeFilePaths) {
-			if (filePath.startsWith(workspacePath + path.sep) || filePath.startsWith(workspacePath + "/")) {
-				const relativePath = path.relative(workspacePath, filePath)
-				const normalizedPath = relativePath.replace(/\\/g, "/")
-				activeFiles.push({
-					path: normalizedPath,
-					type: "file",
-					label: path.basename(normalizedPath),
-				})
-			}
-		}
+		const windowCandidates = await getWindowFileCandidates(workspacePath, selectedType)
 
 		const hostItems = await executeHostIndexForFiles(query, workspacePath, selectedType, options)
 
@@ -479,18 +604,23 @@ export async function searchWorkspaceFiles(
 			? await filterWorkspaceItemsForPrivacy(workspacePath, hostItems, options)
 			: await executeRipgrepForFiles(workspacePath, 5000, options)
 		const source: FileSearchSource = hostItems ? "host_index" : "ripgrep"
-		const [allowedActiveFiles, allowedGitChangedFiles] = await Promise.all([
-			filterWorkspaceItemsForPrivacy(workspacePath, activeFiles, options),
+		const [allowedWindowCandidates, allowedGitChangedFiles] = await Promise.all([
+			filterWorkspaceItemsForPrivacy(workspacePath, windowCandidates, options),
 			getGitChangedFiles(workspacePath, selectedType).then((items) => filterWorkspaceItemsForPrivacy(workspacePath, items, options)),
 		])
+		const allowedDependencyFiles = await getDependencyCandidates(workspacePath, [
+			...allowedWindowCandidates,
+			...allowedGitChangedFiles,
+		]).then((items) => filterWorkspaceItemsForPrivacy(workspacePath, items, options))
 
 		// Combine high-signal retrieval candidates before broad index results,
 		// removing duplicates like the old WorkspaceTracker path cache.
 		const combinedItems: RankedWorkspaceSearchItem[] = []
 		const seenPaths = new Set<string>()
 		for (const item of [
-			...withRetrievalBoost(allowedActiveFiles, "active"),
+			...allowedWindowCandidates,
 			...withRetrievalBoost(allowedGitChangedFiles, "git_changed"),
+			...withRetrievalBoost(allowedDependencyFiles, "dependency"),
 			...allItems,
 		]) {
 			addUniqueCandidate(combinedItems, seenPaths, item)

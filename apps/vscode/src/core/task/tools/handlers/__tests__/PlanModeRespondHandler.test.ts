@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { resetPlanStorageServiceForTests } from "@core/plan/PlanStorageService"
 import { ClineDefaultTool } from "@shared/tools"
 import { afterEach, describe, it } from "mocha"
 import sinon from "sinon"
@@ -92,6 +93,8 @@ function createConfig(options?: { focusChainEnabled?: boolean }) {
 
 describe("PlanModeRespondHandler", () => {
 	afterEach(() => {
+		delete process.env.CODEVIBE_PLAN_HOME
+		resetPlanStorageServiceForTests()
 		sinon.restore()
 	})
 
@@ -120,6 +123,7 @@ describe("PlanModeRespondHandler", () => {
 	it("persists local plan metadata before waiting for plan approval", async () => {
 		sinon.stub(telemetryService, "captureTaskCompleted")
 		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "codevibe-plan-build-"))
+		process.env.CODEVIBE_PLAN_HOME = tempDir
 		setVscodeHostProviderMock({ globalStorageFsPath: tempDir })
 
 		try {
@@ -142,10 +146,11 @@ describe("PlanModeRespondHandler", () => {
 			assert.match(askPayload.localPlanBuild.planPath, /local-plan-task-1\.plan\.md$/)
 
 			const planFile = await fs.readFile(askPayload.localPlanBuild.planPath, "utf8")
-			assert.match(planFile, /# Plan for Task task-1/)
+			assert.match(planFile, /name: Plan/)
 			assert.match(planFile, /Here is the plan\./)
-			assert.match(planFile, /- \[ \] Inspect/)
-			assert.match(planFile, /- \[ \] Implement/)
+			assert.match(planFile, /content: Inspect/)
+			assert.match(planFile, /content: Implement/)
+			assert.match(planFile, /status: pending/)
 		} finally {
 			HostProvider.reset()
 			await fs.rm(tempDir, { recursive: true, force: true })

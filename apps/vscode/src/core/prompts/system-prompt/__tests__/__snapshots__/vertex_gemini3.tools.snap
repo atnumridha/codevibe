@@ -378,13 +378,13 @@
   },
   {
     "name": "plan_mode_respond",
-    "description": "Respond with a plan that outlines a solution to the user's request. This tool should ONLY be used when you have already explored the relevant files and are ready to present a concrete plan. Only use this tool after you have explored relevant files and collected sufficient context to create a detailed, accurate plan. This tool is only available in PLAN MODE, as indicated by the environment_details.\nIf it becomes apparent that additional exploration is required while the plan_mode_respond response is being generated, the optional needs_more_exploration parameter can be toggled to enable further research. This allows you to acknowledge that more exploration is required before the final plan_mode_respond is generated, and signals that your next message will use exploration tools instead.",
+    "description": "Respond with a plan that outlines a solution to the user's request. This tool should ONLY be used when you have already explored the relevant files and are ready to present a concrete plan. Only use this tool after you have explored relevant files and collected sufficient context to create a detailed, accurate plan. This tool is only available in PLAN MODE, as indicated by the environment_details.\nIf it becomes apparent that additional exploration is required while the plan_mode_respond response is being generated, the optional needs_more_exploration parameter can be toggled to enable further research. This allows you to acknowledge that more exploration is required before the final plan_mode_respond is generated, and signals that your next message will use exploration tools instead.\nFinal plans are persisted locally as .plan.md files with YAML frontmatter. The response should include the inspected-context outcome, constraints, risks, unknowns, acceptance criteria, and phases for project-sized work. The task_progress parameter should be a dependency-aware executable checklist ordered for Act Mode: discovery, implementation, verification, and polish. Use Markdown checklist items only in task_progress so they can become plan todos.",
     "parameters": {
       "type": "OBJECT",
       "properties": {
         "response": {
           "type": "STRING",
-          "description": "A chat message response to the user."
+          "description": "A chat message response to the user. Include inspected context, constraints, risks, unknowns, acceptance criteria, phases when useful, and a Mermaid diagram when sequencing or ownership matters."
         },
         "needs_more_exploration": {
           "type": "BOOLEAN",
@@ -392,7 +392,7 @@
         },
         "task_progress": {
           "type": "STRING",
-          "description": "A checklist showing task progress after this tool use is completed. If you are presenting a final implementation plan to the user with needs_more_exploration set to false, you should include a checklist of items to be completed during Act Mode when implementation is underway. (See 'Updating Task Progress' section for more details)"
+          "description": "A dependency-aware executable Markdown checklist for the accepted local plan. If you are presenting a final implementation plan with needs_more_exploration set to false, include todos ordered for Act Mode execution and verification."
         }
       },
       "required": [

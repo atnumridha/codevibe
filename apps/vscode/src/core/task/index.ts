@@ -844,6 +844,10 @@ export class Task {
 		this.taskState.askResponseFiles = files
 	}
 
+	async updateTaskProgressFromPlan(taskProgress: string) {
+		await this.FocusChainManager?.updateFCListFromToolResponse(taskProgress)
+	}
+
 	async say(
 		type: ClineSay,
 		text?: string,

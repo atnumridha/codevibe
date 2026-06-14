@@ -393,6 +393,69 @@ describe("File Search", () => {
 			}
 		})
 
+		it("places active, visible, and recent files before broad host-index candidates", async () => {
+			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-window-priority-"))
+			try {
+				await fs.promises.mkdir(path.join(workspace, "src"), { recursive: true })
+				for (const fileName of ["active.ts", "visible.ts", "recent.ts", "index.ts"]) {
+					await fs.promises.writeFile(path.join(workspace, "src", fileName), `${fileName}\n`)
+				}
+
+				sandbox
+					.stub(HostProvider.window, "getActiveEditor")
+					.resolves({ filePath: path.join(workspace, "src", "active.ts") } as any)
+				sandbox
+					.stub(HostProvider.window, "getVisibleTabs")
+					.resolves({ paths: [path.join(workspace, "src", "visible.ts")] } as any)
+				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({
+					paths: [path.join(workspace, "src", "recent.ts")],
+				} as any)
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+					SearchWorkspaceItemsResponse.create({
+						items: [{ path: "src/index.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "index.ts" }],
+					}),
+				)
+				stubGitStatus("")
+
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 3)
+
+				should(result.items.map((item) => item.path)).deepEqual(["src/active.ts", "src/visible.ts", "src/recent.ts"])
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
+		})
+
+		it("adds local dependency candidates from high-signal files before broad index candidates", async () => {
+			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-dependency-"))
+			try {
+				await fs.promises.mkdir(path.join(workspace, "src"), { recursive: true })
+				await fs.promises.writeFile(path.join(workspace, "src", "entry.ts"), 'import { dep } from "./dep"\n')
+				await fs.promises.writeFile(path.join(workspace, "src", "dep.ts"), "export const dep = 1\n")
+				await fs.promises.writeFile(path.join(workspace, "src", "index.ts"), "index\n")
+
+				sandbox
+					.stub(HostProvider.window, "getActiveEditor")
+					.resolves({ filePath: path.join(workspace, "src", "entry.ts") } as any)
+				sandbox.stub(HostProvider.window, "getVisibleTabs").resolves({ paths: [] } as any)
+				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+					SearchWorkspaceItemsResponse.create({
+						items: [
+							{ path: "src/index.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "index.ts" },
+							{ path: "src/dep.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "dep.ts" },
+						],
+					}),
+				)
+				stubGitStatus("")
+
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 2)
+
+				should(result.items.map((item) => item.path)).deepEqual(["src/entry.ts", "src/dep.ts"])
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
+		})
+
 		it("filters git-changed candidates through Cursor privacy ignore rules", async () => {
 			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-git-ignore-"))
 			try {

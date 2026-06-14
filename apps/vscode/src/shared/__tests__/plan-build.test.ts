@@ -2,7 +2,11 @@ import { strict as assert } from "node:assert"
 import { describe, it } from "mocha"
 import {
 	buildLocalPlanExecutionMessage,
+	cyclePlanTodoStatus,
+	derivePlanStatus,
 	extractMarkdownTodos,
+	markdownTodosToPlanTodos,
+	planMetadataToTaskProgress,
 	resetMarkdownTodosToPending,
 } from "../plan-build"
 
@@ -29,5 +33,39 @@ describe("plan-build", () => {
 
 		assert.deepEqual(extractMarkdownTodos(source), ["- [x] Done", "- [X] Also done", "- [ ] Remaining"])
 		assert.equal(resetMarkdownTodosToPending(source), "- [ ] Done\n- [ ] Also done\n- [ ] Remaining")
+	})
+
+	it("cycles todo statuses in Cursor order", () => {
+		assert.equal(cyclePlanTodoStatus("pending"), "in_progress")
+		assert.equal(cyclePlanTodoStatus("in_progress"), "completed")
+		assert.equal(cyclePlanTodoStatus("completed"), "cancelled")
+		assert.equal(cyclePlanTodoStatus("cancelled"), "pending")
+	})
+
+	it("serializes plan metadata back to task_progress", () => {
+		const todos = markdownTodosToPlanTodos("- [ ] Inspect\n- [x] Implement")
+		const metadata = {
+			name: "Plan",
+			overview: "",
+			todos,
+			isProject: false,
+		}
+
+		assert.equal(derivePlanStatus(metadata), "in_progress")
+		assert.equal(planMetadataToTaskProgress(metadata), "- [ ] Inspect\n- [x] Implement")
+	})
+
+	it("builds a local parallel execution handoff without cloud/background routing", () => {
+		const message = buildLocalPlanExecutionMessage({
+			planText: "## Plan",
+			taskProgress: "- [ ] A\n- [ ] B",
+			mode: "multitask",
+			selectedTodoIds: ["todo-a", "todo-b"],
+		})
+
+		assert.match(message, /parallel subagents/)
+		assert.match(message, /local parallel build/)
+		assert.match(message, /Do not start or transfer to a cloud\/background build/)
+		assert.match(message, /<selected_todo_ids>\ntodo-a\ntodo-b\n<\/selected_todo_ids>/)
 	})
 })

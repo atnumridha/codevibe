@@ -226,6 +226,7 @@ describe("Package manifest", () => {
 		const expectedSkills = [
 			"./assets/prompts/skills/codevibe-customizations/SKILL.md",
 			"./assets/prompts/skills/codevibe-cursor-compatibility/SKILL.md",
+			"./assets/prompts/skills/codevibe-local-plan-build/SKILL.md",
 			"./assets/prompts/skills/codevibe-mcp/SKILL.md",
 			"./assets/prompts/skills/codevibe-background-sessions/SKILL.md",
 			"./assets/prompts/skills/codevibe-release-validation/SKILL.md",

@@ -10,9 +10,7 @@ import {
 	COMPLETION_RESULT_CHANGES_FLAG,
 } from "@shared/ExtensionMessage"
 import { BooleanRequest, StringRequest } from "@shared/proto/cline/common"
-import { PlanActMode, TogglePlanActModeRequest } from "@shared/proto/cline/state"
 import { Mode } from "@shared/storage/types"
-import { buildLocalPlanExecutionMessage } from "@shared/plan-build"
 import deepEqual from "fast-deep-equal"
 import {
 	ArrowRightIcon,
@@ -48,7 +46,7 @@ import McpResourceRow from "@/components/mcp/configuration/tabs/installed/server
 import McpToolRow from "@/components/mcp/configuration/tabs/installed/server-row/McpToolRow"
 import { useExtensionState } from "@/context/ExtensionStateContext"
 import { cn } from "@/lib/utils"
-import { FileServiceClient, StateServiceClient, UiServiceClient } from "@/services/grpc-client"
+import { FileServiceClient, UiServiceClient } from "@/services/grpc-client"
 import { findMatchingResourceOrTemplate, getMcpServerDisplayName } from "@/utils/mcp"
 import CodeAccordian, { cleanPathPrefix } from "../common/CodeAccordian"
 import { CommandOutputContent, CommandOutputRow } from "./CommandOutputRow"
@@ -1276,44 +1274,26 @@ export const ChatRowContent = memo(
 						let response: string | undefined
 						let options: string[] | undefined
 						let selected: string | undefined
-						let localPlanPath: string | undefined
+						let localPlanBuild: ClinePlanModeResponse["localPlanBuild"] | undefined
 						try {
 							const parsedMessage = JSON.parse(message.text || "{}") as ClinePlanModeResponse
 							response = parsedMessage.response
 							options = parsedMessage.options
 							selected = parsedMessage.selected
-							localPlanPath = parsedMessage.localPlanBuild?.planPath
+							localPlanBuild = parsedMessage.localPlanBuild
 						} catch (_e) {
 							// legacy messages would pass response directly
 							response = message.text
 						}
 						const canBuildLocally =
 							isLast && lastModifiedMessage?.ask === "plan_mode_respond" && mode === "plan" && !selected && !message.partial
-						const taskProgress = clineMessages.filter((clineMessage) => clineMessage.say === "task_progress").at(-1)?.text
-						const onBuildLocally = canBuildLocally
-							? async () => {
-									await StateServiceClient.togglePlanActModeProto(
-										TogglePlanActModeRequest.create({
-											mode: PlanActMode.ACT,
-											chatContent: {
-												message: buildLocalPlanExecutionMessage({
-													planText: response,
-													planPath: localPlanPath,
-													taskProgress,
-												}),
-												images: [],
-												files: localPlanPath ? [localPlanPath] : [],
-											},
-										}),
-									)
-								}
-							: undefined
 
 						return (
 							<div>
 								<PlanCompletionOutputRow
+									canBuild={canBuildLocally}
 									headClassNames={HEADER_CLASSNAMES}
-									onBuildLocally={onBuildLocally}
+									localPlanBuild={localPlanBuild}
 									text={response || message.text || ""}
 								/>
 								<OptionsButtons

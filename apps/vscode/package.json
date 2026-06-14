@@ -315,6 +315,12 @@
 				]
 			},
 			{
+				"path": "./assets/prompts/skills/codevibe-local-plan-build/SKILL.md",
+				"sessionTypes": [
+					"codevibe-agent"
+				]
+			},
+			{
 				"path": "./assets/prompts/skills/codevibe-mcp/SKILL.md",
 				"sessionTypes": [
 					"codevibe-agent"

@@ -25,11 +25,26 @@ export class PlanModeRespondHandler implements IToolHandler, IPartialBlockHandle
 	async handlePartialBlock(block: ToolUse, uiHelpers: StronglyTypedUIHelpers): Promise<void> {
 		const response = block.params.response
 		const optionsRaw = block.params.options
+		const taskProgress = block.params.task_progress
 
-		const sharedMessage = {
+		const sharedMessage: ClinePlanModeResponse = {
 			response: uiHelpers.removeClosingTag(block, "response", response),
 			options: parsePartialArrayString(uiHelpers.removeClosingTag(block, "options", optionsRaw)),
-		} satisfies ClinePlanModeResponse
+		}
+
+		if (sharedMessage.response?.trim()) {
+			try {
+				const config = uiHelpers.getConfig()
+				sharedMessage.localPlanBuild = await writeLocalPlanArtifact({
+					taskId: config.taskId,
+					response: sharedMessage.response,
+					taskProgress,
+					workspacePath: config.cwd,
+				})
+			} catch (error) {
+				Logger.warn(`Failed to persist partial local plan artifact: ${error}`)
+			}
+		}
 
 		await uiHelpers.ask(this.name, JSON.stringify(sharedMessage), true).catch(() => {})
 	}
@@ -79,6 +94,7 @@ export class PlanModeRespondHandler implements IToolHandler, IPartialBlockHandle
 				taskId: config.taskId,
 				response,
 				taskProgress,
+				workspacePath: config.cwd,
 			})
 		} catch (error) {
 			Logger.warn(`Failed to persist local plan artifact for task ${config.taskId}: ${error}`)
