@@ -160,6 +160,38 @@ export interface NativeSandboxEvaluateResponse {
 	error?: string
 }
 
+export interface NativeCompatibilityDeeplinkResponse {
+	success: boolean
+	routeResults?: Record<string, boolean>
+	messages?: Array<{
+		type?: string | number
+		message?: string
+		items?: string[]
+		detail?: string
+		selectedOption?: string
+	}>
+	openSettingsCalls?: unknown[]
+	openFileCalls?: unknown[]
+	calls?: {
+		tasks?: Array<{ preview?: string; hasCompatibleContext?: boolean }>
+		mcpAdds?: Array<{ serverName?: string; type?: unknown; hasUrl?: boolean; hasSecretConfig?: boolean }>
+		oauthInitiations?: string[]
+		oauthCallbacks?: Array<{ serverHash?: string; code?: string; state?: string }>
+		backgroundLaunches?: Array<{
+			prompt?: string
+			repository?: string
+			requestedBranch?: string
+			hasRoutePrompt?: boolean
+		}>
+		automationIngests?: Array<{ eventCount?: number; strict?: boolean; hasRoutePrompt?: boolean }>
+		pluginAdds?: Array<{ sourceParam?: string; force?: boolean; detailMentionsReplace?: boolean }>
+		prReviewTasks?: number
+		postStateCalls?: number
+	}
+	secretLeakInMessages?: boolean
+	error?: string
+}
+
 export class E2ETestHelper {
 	// Constants
 	public static readonly CODEBASE_ROOT_DIR = path.resolve(__dirname, "..", "..", "..", "..")
@@ -779,6 +811,12 @@ export class E2ETestHelper {
 		policySetting?: string
 	}): Promise<NativeSandboxEvaluateResponse> {
 		return E2ETestHelper.postTestServerJson<NativeSandboxEvaluateResponse>("/sandbox/evaluate", input)
+	}
+
+	public static async evaluateNativeCompatibilityDeeplinks(): Promise<NativeCompatibilityDeeplinkResponse> {
+		return E2ETestHelper.postTestServerJson<NativeCompatibilityDeeplinkResponse>(
+			"/compatibility/deeplinks/evaluate",
+		)
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {

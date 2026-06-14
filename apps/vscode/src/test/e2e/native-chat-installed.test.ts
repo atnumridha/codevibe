@@ -358,6 +358,102 @@ installedE2e("Installed VSIX evaluates Cursor sandbox policy and inline terminal
 	)
 })
 
+installedE2e("Installed VSIX routes Cursor-compatible deeplinks through local VS Code handlers", async ({ app: _app }) => {
+	await expect
+		.poll(
+			async () => {
+				const diagnosticsResponse = await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({ success: false }))
+				return diagnosticsResponse.success === true
+			},
+			{
+				message: "Installed Codie VSIX should activate its E2E command server before deeplink diagnostics run",
+				timeout: 60_000,
+			},
+		)
+		.toBe(true)
+
+	const response = await E2ETestHelper.evaluateNativeCompatibilityDeeplinks()
+
+	expect(response.success).toBe(true)
+	expect(response.secretLeakInMessages).toBe(false)
+	expect(response.routeResults).toEqual(
+		expect.objectContaining({
+			createchat: true,
+			prompt: true,
+			glass: true,
+			command: true,
+			mcpInstall: true,
+			backgroundAgent: true,
+			automationIngest: true,
+			settings: true,
+			pluginAdd: true,
+			pluginReplace: true,
+			prReview: true,
+			rulePreview: true,
+			gitCheckoutPreview: true,
+			gitBranchPreview: true,
+			gitCommitPreview: true,
+			mcpOAuthCallback: true,
+			disabledCreatechat: false,
+		}),
+	)
+
+	const messages = response.messages?.map((message) => message.message) ?? []
+	const messageText = JSON.stringify(response.messages)
+	expect(messages).toContain("Create Codie chat task?")
+	expect(messages).toContain("Create Codie prompt task?")
+	expect(messages).toContain("Create Codie glass prompt task?")
+	expect(messages).toContain("Create Codie command task?")
+	expect(messages).toContain('Install MCP server "docs"?')
+	expect(messages).toContain('Installed MCP server "docs". Authentication required.')
+	expect(messages).toContain("Launch Codie background agent?")
+	expect(messages).toContain("Ingest automation NDJSON?")
+	expect(messages).toContain('Install Codie plugin "docs-helper"?')
+	expect(messages).toContain("Start Codie PR review?")
+	expect(messages).toContain('Create or open rule "team-style.mdc"?')
+	expect(messageText).not.toContain("secret-value")
+	expect(messageText).not.toContain("secret-fragment")
+
+	expect(response.openSettingsCalls).toEqual([
+		expect.objectContaining({ query: "@id:codevibe.compatibility.safeBrowserEvaluate.enabled" }),
+	])
+	expect(response.openFileCalls).toEqual([])
+
+	expect(response.calls?.mcpAdds).toEqual([
+		expect.objectContaining({
+			serverName: "docs",
+			type: "streamableHttp",
+			hasUrl: true,
+			hasSecretConfig: true,
+		}),
+	])
+	expect(response.calls?.oauthInitiations).toEqual(["docs"])
+	expect(response.calls?.oauthCallbacks).toEqual([
+		expect.objectContaining({ serverHash: "hash123", code: "code123", state: "state123" }),
+	])
+	expect(response.calls?.backgroundLaunches).toEqual([
+		expect.objectContaining({
+			prompt: "Fix the queue",
+			repository: "owner/repo",
+			requestedBranch: "main",
+			hasRoutePrompt: true,
+		}),
+	])
+	expect(response.calls?.automationIngests).toEqual([
+		expect.objectContaining({ eventCount: 1, strict: false, hasRoutePrompt: true }),
+	])
+	expect(response.calls?.pluginAdds).toEqual([
+		expect.objectContaining({ sourceParam: "id", detailMentionsReplace: false }),
+		expect.objectContaining({ sourceParam: "id", force: true, detailMentionsReplace: true }),
+	])
+	expect(response.calls?.pluginAdds?.[0]).not.toHaveProperty("force")
+	expect(response.calls?.prReviewTasks).toBe(1)
+	expect(response.calls?.postStateCalls).toBe(1)
+	expect(response.calls?.tasks?.length).toBeGreaterThanOrEqual(5)
+	expect(response.calls?.tasks?.some((task) => task.hasCompatibleContext)).toBe(true)
+	expect(response.calls?.tasks?.some((task) => task.preview?.includes("Blocked"))).toBe(false)
+})
+
 installedE2e("Installed VSIX opens the Codie webview composer", async ({ page, sidebar, helper }) => {
 	const signInButton = sidebar.getByRole("button", { name: "Sign in to Codie" })
 	if (await signInButton.isVisible().catch(() => false)) {
@@ -368,7 +464,7 @@ installedE2e("Installed VSIX opens the Codie webview composer", async ({ page, s
 
 	const chatInput = await helper.getChatInput(sidebar)
 	await expect(chatInput).toBeVisible()
-	await expect(chatInput).toHaveAttribute("placeholder", /Start a Codie task|Message Codie/i)
+	await expect(chatInput).toHaveAttribute("placeholder", /Start a Codie task|Message Codie/i, { timeout: 15_000 })
 
 	const modeSwitch = await helper.getModeSwitch(sidebar)
 	await expect(modeSwitch).toBeVisible()

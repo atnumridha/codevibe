@@ -17,7 +17,9 @@ import * as os from "os"
 import * as path from "path"
 import * as vscode from "vscode"
 import { Controller } from "@/core/controller"
+import { HostProvider } from "@/hosts/host-provider"
 import { ExtensionRegistryInfo } from "@/registry"
+import { SharedUriHandler } from "@/services/uri/SharedUriHandler"
 import { Logger } from "@/shared/services/Logger"
 import { getCwd } from "@/utils/path"
 import { calculateToolSuccessRate, getFileChanges, initializeGitRepository, validateWorkspacePath } from "./GitHelper"
@@ -521,6 +523,263 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 				} catch (error) {
 					res.writeHead(500, { "Content-Type": "application/json" })
 					res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+				}
+			})()
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/compatibility/deeplinks/evaluate") {
+			;(async () => {
+				const originalWindowDescriptor = Object.getOwnPropertyDescriptor(HostProvider, "window")
+				const messageLog: Array<{
+					type?: string | number
+					message?: string
+					items?: string[]
+					detail?: string
+					selectedOption?: string
+				}> = []
+				const openSettingsCalls: unknown[] = []
+				const openFileCalls: unknown[] = []
+				const calls = {
+					tasks: [] as Array<{ preview: string; hasCompatibleContext: boolean }>,
+					mcpAdds: [] as Array<{ serverName: string; type?: unknown; hasUrl: boolean; hasSecretConfig: boolean }>,
+					oauthInitiations: [] as string[],
+					oauthCallbacks: [] as Array<{ serverHash: string; code: string; state: string }>,
+					backgroundLaunches: [] as Array<{
+						prompt?: string
+						repository?: string
+						requestedBranch?: string
+						hasRoutePrompt: boolean
+					}>,
+					automationIngests: [] as Array<{ eventCount: number; strict?: boolean; hasRoutePrompt: boolean }>,
+					pluginAdds: [] as Array<{ sourceParam?: string; force?: boolean; detailMentionsReplace: boolean }>,
+					prReviewTasks: 0,
+					postStateCalls: 0,
+				}
+
+				const selectedOptionFor = (message: string | undefined, items: string[] = []): string | undefined => {
+					if (items.includes("Install")) {
+						return "Install"
+					}
+					if (items.includes("Authenticate")) {
+						return "Authenticate"
+					}
+					if (items.includes("Launch and Create Worktree")) {
+						return "Launch and Create Worktree"
+					}
+					if (items.includes("Ingest Events")) {
+						return "Ingest Events"
+					}
+					if (items.includes("Install Plugin")) {
+						return "Install Plugin"
+					}
+					if (items.includes("Start Review")) {
+						return "Start Review"
+					}
+					if (items.includes("Create Task")) {
+						return "Create Task"
+					}
+					if (items.includes("OK")) {
+						return "OK"
+					}
+					if (message?.startsWith("Create or open rule")) {
+						return undefined
+					}
+					return undefined
+				}
+
+				const fakeWindow = {
+					showMessage: async (request: {
+						type?: string | number
+						message?: string
+						options?: { items?: string[]; detail?: string }
+					}) => {
+						const items = request.options?.items ?? []
+						const selectedOption = selectedOptionFor(request.message, items)
+						messageLog.push({
+							type: request.type,
+							message: request.message,
+							items,
+							detail: request.options?.detail,
+							selectedOption,
+						})
+						return { selectedOption }
+					},
+					openSettings: async (request: unknown) => {
+						openSettingsCalls.push(request)
+					},
+					openFile: async (request: unknown) => {
+						openFileCalls.push(request)
+					},
+				}
+
+				Object.defineProperty(HostProvider, "window", {
+					configurable: true,
+					get: () => fakeWindow,
+				})
+
+				try {
+					const controllerStub = {
+						handleOpenRouterCallback: async () => undefined,
+						handleRequestyCallback: async () => undefined,
+						handleAuthCallback: async () => undefined,
+						handleOcaAuthCallback: async () => undefined,
+						handleHicapCallback: async () => undefined,
+						handleTaskCreation: async (prompt: string) => {
+							if (prompt.includes("Codie's review workflow")) {
+								calls.prReviewTasks += 1
+							}
+							calls.tasks.push({
+								preview: prompt.slice(0, 160),
+								hasCompatibleContext: prompt.includes("Compatible route context"),
+							})
+						},
+						handleMcpOAuthCallback: async (serverHash: string, code: string, state: string) => {
+							calls.oauthCallbacks.push({ serverHash, code, state })
+						},
+						handleCursorAutomationIngest: async (request: unknown) => {
+							const typed = request as {
+								strict?: boolean
+								validation?: { events?: unknown[] }
+								routePrompt?: string
+							}
+							calls.automationIngests.push({
+								eventCount: typed.validation?.events?.length ?? 0,
+								strict: typed.strict,
+								hasRoutePrompt: typed.routePrompt?.includes("automation NDJSON ingest deeplink") === true,
+							})
+						},
+						handleCursorBackgroundAgentLaunch: async (request: unknown) => {
+							const typed = request as {
+								prompt?: string
+								repository?: string
+								requestedBranch?: string
+								routePrompt?: string
+							}
+							calls.backgroundLaunches.push({
+								prompt: typed.prompt,
+								repository: typed.repository,
+								requestedBranch: typed.requestedBranch,
+								hasRoutePrompt: typed.routePrompt?.includes("compatible background agent deeplink") === true,
+							})
+						},
+						handleCursorPluginAdd: async (request: unknown) => {
+							const typed = request as { sourceParam?: string; force?: boolean; detail?: string }
+							calls.pluginAdds.push({
+								sourceParam: typed.sourceParam,
+								force: typed.force,
+								detailMentionsReplace: typed.detail?.includes("Replace existing: requested") === true,
+							})
+						},
+						postStateToWebview: async () => {
+							calls.postStateCalls += 1
+						},
+						mcpHub: {
+							addServerFromConfig: async (serverName: string, serverConfig: Record<string, unknown>) => {
+								calls.mcpAdds.push({
+									serverName,
+									type: serverConfig.type,
+									hasUrl: typeof serverConfig.url === "string",
+									hasSecretConfig: JSON.stringify(serverConfig).includes("secret-value"),
+								})
+								return [
+									{
+										name: serverName,
+										config: JSON.stringify(serverConfig),
+										status: "disconnected",
+										error: "Authenticate this MCP server before using tools.",
+										oauthRequired: true,
+										oauthAuthStatus: "unauthenticated",
+									},
+								]
+							},
+							initiateOAuth: async (serverName: string) => {
+								calls.oauthInitiations.push(serverName)
+							},
+						},
+					} as unknown as Parameters<typeof SharedUriHandler.handleUriWithController>[0]
+
+					const routeResults: Record<string, boolean> = {}
+					const runRoute = async (
+						name: string,
+						url: string,
+						options?: Parameters<typeof SharedUriHandler.handleUriWithController>[2],
+					) => {
+						routeResults[name] = await SharedUriHandler.handleUriWithController(controllerStub, url, options)
+					}
+
+					const encodeConfig = (value: unknown) =>
+						Buffer.from(JSON.stringify(value), "utf8")
+							.toString("base64")
+							.replace(/\+/g, "-")
+							.replace(/\//g, "_")
+							.replace(/=+$/g, "")
+					const secretConfig = encodeConfig({ mode: "fast", token: "secret-value" })
+					const automationNdjson = encodeURIComponent(
+						JSON.stringify({
+							eventId: "evt-1",
+							eventType: "git.commit.created",
+							source: "cursor",
+							payload: { token: "secret-value" },
+						}),
+					)
+
+					await runRoute("createchat", "vscode://atnumridha.codevibe/createchat?prompt=Review%20the%20plan")
+					await runRoute("prompt", "cursor://prompt?text=Draft%20a%20local%20plan")
+					await runRoute("glass", `codevibe://glass?text=Continue%20this%20session&config=${secretConfig}`)
+					await runRoute("command", "vscode://atnumridha.codevibe/command?name=review-code")
+					await runRoute(
+						"mcpInstall",
+						"vscode://atnumridha.codevibe/mcp/install?name=docs&url=https%3A%2F%2Fmcp.example.com%2Fsse%3Ftoken%3Dsecret-value",
+					)
+					await runRoute(
+						"backgroundAgent",
+						`vscode://atnumridha.codevibe/background-agent?task=Fix%20the%20queue&repository=owner%2Frepo&branch=main&config=${secretConfig}`,
+					)
+					await runRoute(
+						"automationIngest",
+						`vscode://atnumridha.codevibe/automation/ingest?ndjson=${automationNdjson}&defaultSource=cursor`,
+					)
+					await runRoute("settings", "cursor://settings?section=safe-browser-evaluate")
+					await runRoute("pluginAdd", "vscode://atnumridha.codevibe/plugin/add?id=docs-helper")
+					await runRoute("pluginReplace", "vscode://atnumridha.codevibe/plugin/add?id=docs-helper&replace=true")
+					await runRoute(
+						"prReview",
+						"vscode://atnumridha.codevibe/pr-review?repo=owner%2Frepo&number=42&base=origin%2Fmain&head=pr-42&instructions=focus%20tests",
+					)
+					await runRoute("rulePreview", "vscode://atnumridha.codevibe/rule?name=team-style")
+					await runRoute("gitCheckoutPreview", "vscode://atnumridha.codevibe/git/checkout?branch=main")
+					await runRoute("gitBranchPreview", "vscode://atnumridha.codevibe/git/branch?name=feature%2Fcodie-route&base=main")
+					await runRoute("gitCommitPreview", "vscode://atnumridha.codevibe/git/commit?message=fix%3A%20route%20preview")
+					await runRoute("mcpOAuthCallback", "vscode://atnumridha.codevibe/mcp-auth/callback/hash123?code=code123&state=state123")
+					await runRoute("disabledCreatechat", "vscode://atnumridha.codevibe/createchat?prompt=Blocked", {
+						cursorCompatibleDeepLinksEnabled: false,
+					})
+
+					const serializedMessages = JSON.stringify(messageLog)
+
+					res.writeHead(200, { "Content-Type": "application/json" })
+					res.end(
+						JSON.stringify({
+							success: true,
+							routeResults,
+							messages: messageLog,
+							openSettingsCalls,
+							openFileCalls,
+							calls,
+							secretLeakInMessages:
+								serializedMessages.includes("secret-value") || serializedMessages.includes("secret-fragment"),
+						}),
+					)
+				} catch (error) {
+					res.writeHead(500, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+				} finally {
+					if (originalWindowDescriptor) {
+						Object.defineProperty(HostProvider, "window", originalWindowDescriptor)
+					} else {
+						Reflect.deleteProperty(HostProvider, "window")
+					}
 				}
 			})()
 			return
