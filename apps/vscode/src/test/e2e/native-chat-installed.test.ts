@@ -17,7 +17,9 @@ interface InstalledExtensionManifest {
 		commands?: Array<{ command?: string; title?: string }>
 		chatAgents?: Array<{ id?: string; name?: string; path?: string }>
 		chatParticipants?: Array<{ id?: string; name?: string }>
+		chatPromptFiles?: Array<{ path?: string; sessionTypes?: string[] }>
 		chatSessions?: Array<{ id?: string; type?: string; displayName?: string }>
+		chatSkills?: Array<{ path?: string; sessionTypes?: string[] }>
 		menus?: Record<string, Array<{ command?: string; group?: string; when?: string }>>
 	}
 }
@@ -30,6 +32,20 @@ const NATIVE_CHAT_API_PROPOSALS = [
 const CODEVIBE_NATIVE_CHAT_SESSION_TYPE = "codevibe-agent"
 const CODEVIBE_OPEN_NATIVE_CHAT_SIDEBAR_COMMAND =
 	`workbench.action.chat.openNewSessionSidebar.${CODEVIBE_NATIVE_CHAT_SESSION_TYPE}`
+const EXPECTED_PROMPT_FILES = [
+	"./assets/prompts/codevibe-plan.prompt.md",
+	"./assets/prompts/codevibe-review.prompt.md",
+	"./assets/prompts/codevibe-standalone-readiness.prompt.md",
+]
+const EXPECTED_SKILL_FILES = [
+	"./assets/prompts/skills/codevibe-customizations/SKILL.md",
+	"./assets/prompts/skills/codevibe-cursor-compatibility/SKILL.md",
+	"./assets/prompts/skills/codevibe-local-plan-build/SKILL.md",
+	"./assets/prompts/skills/codevibe-mcp/SKILL.md",
+	"./assets/prompts/skills/codevibe-background-sessions/SKILL.md",
+	"./assets/prompts/skills/codevibe-release-validation/SKILL.md",
+	"./assets/prompts/skills/codevibe-performance-troubleshooting/SKILL.md",
+]
 
 function readJsonFile(filePath: string): InstalledExtensionManifest {
 	return JSON.parse(readFileSync(filePath, "utf8")) as InstalledExtensionManifest
@@ -79,6 +95,19 @@ installedE2e("Installed VSIX native chat exposes Codie agent runtime", async ({ 
 		name: "codie",
 		path: "agents/00-codevibe-agent.agent.md",
 	})
+	expect(manifest?.contributes?.chatPromptFiles?.map((entry) => entry.path)).toEqual(EXPECTED_PROMPT_FILES)
+	expect(manifest?.contributes?.chatSkills?.map((entry) => entry.path)).toEqual(EXPECTED_SKILL_FILES)
+	for (const entry of [
+		...(manifest?.contributes?.chatPromptFiles ?? []),
+		...(manifest?.contributes?.chatSkills ?? []),
+	]) {
+		expect(entry.sessionTypes).toEqual([CODEVIBE_NATIVE_CHAT_SESSION_TYPE])
+		expect(entry.path).toMatch(/^\.\/assets\/prompts\//)
+		const fileText = readFileSync(path.join(installed?.extensionPath ?? "", entry.path?.replace(/^\.\//, "") ?? ""), "utf8")
+		expect(fileText).toMatch(/^---\nname: [a-z0-9-]+\n/m)
+		expect(fileText).toMatch(/\ndescription: .+\n/m)
+		expect(fileText).not.toMatch(/\bCline\b/)
+	}
 	expect(manifest?.contributes?.menus?.["chatSessions/newSession"]?.[0]?.command).toBe("codevibe.newNativeAgentSession")
 	expect(manifest?.contributes?.menus?.["chatSessions/newSession"]?.[0]?.group).toBe("navigation@-1000")
 	expect(manifest?.contributes?.menus?.["chatSessions/newSession"]?.[0]?.when).toBeUndefined()
