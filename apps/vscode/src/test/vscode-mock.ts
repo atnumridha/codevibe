@@ -65,6 +65,13 @@ export const Uri = {
 	parse: (uri: string) => ({ fsPath: uri, toString: () => uri }),
 }
 
+export class RelativePattern {
+	constructor(
+		public readonly baseUri: any,
+		public readonly pattern: string,
+	) {}
+}
+
 export const ExtensionContextMock = {}
 export const StatusBarAlignmentMock = { Left: 1, Right: 2 }
 export const ViewColumnMock = { One: 1, Two: 2, Three: 3 }

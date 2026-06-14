@@ -12,7 +12,8 @@
 		"chatPromptFiles",
 		"defaultChatParticipant",
 		"chatSessionCustomizationProvider",
-		"chatSessionsProvider"
+		"chatSessionsProvider",
+		"findTextInFiles"
 	],
 	"author": {
 		"name": "Codie"
