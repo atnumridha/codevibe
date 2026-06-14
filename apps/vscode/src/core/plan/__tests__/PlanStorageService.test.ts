@@ -3,14 +3,17 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, it } from "mocha"
-import { PlanStorageService, resetPlanStorageServiceForTests } from "../PlanStorageService"
+import { disposePlanStorageServiceForTests, PlanStorageService } from "../PlanStorageService"
 
 describe("PlanStorageService", () => {
 	let tempDir: string | undefined
+	let service: PlanStorageService | undefined
 
 	afterEach(async () => {
 		delete process.env.CODEVIBE_PLAN_HOME
-		resetPlanStorageServiceForTests()
+		await service?.dispose()
+		service = undefined
+		await disposePlanStorageServiceForTests()
 		if (tempDir) {
 			await fs.rm(tempDir, { recursive: true, force: true })
 			tempDir = undefined
@@ -20,7 +23,7 @@ describe("PlanStorageService", () => {
 	async function createService() {
 		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "codevibe-plan-storage-"))
 		process.env.CODEVIBE_PLAN_HOME = tempDir
-		const service = new PlanStorageService()
+		service = new PlanStorageService()
 		await service.getPlanDir(tempDir)
 		return service
 	}

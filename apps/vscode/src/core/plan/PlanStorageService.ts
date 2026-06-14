@@ -231,6 +231,16 @@ export class PlanStorageService {
 		return planMetadataToTaskProgress(plan.metadata, todoIds)
 	}
 
+	async dispose(): Promise<void> {
+		const watcher = this.watcher
+		this.watcher = undefined
+		this.resolvedPlanDir = undefined
+		this.migrated = false
+		if (watcher) {
+			await watcher.close()
+		}
+	}
+
 	private async initializePlanDir(planDir: string): Promise<void> {
 		await this.migrateLegacyPlans(planDir)
 		this.startWatcher(planDir)
@@ -709,5 +719,15 @@ export function getPlanStorageService(): PlanStorageService {
 }
 
 export function resetPlanStorageServiceForTests(): void {
+	const existing = singleton
 	singleton = undefined
+	if (existing) {
+		void existing.dispose().catch((error) => Logger.warn(`PlanStorageService: test reset failed to dispose: ${error}`))
+	}
+}
+
+export async function disposePlanStorageServiceForTests(): Promise<void> {
+	const existing = singleton
+	singleton = undefined
+	await existing?.dispose()
 }

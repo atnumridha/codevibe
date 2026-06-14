@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert"
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { resetPlanStorageServiceForTests } from "@core/plan/PlanStorageService"
+import { disposePlanStorageServiceForTests } from "@core/plan/PlanStorageService"
 import { ClineDefaultTool } from "@shared/tools"
 import { afterEach, describe, it } from "mocha"
 import sinon from "sinon"
@@ -92,9 +92,9 @@ function createConfig(options?: { focusChainEnabled?: boolean }) {
 }
 
 describe("PlanModeRespondHandler", () => {
-	afterEach(() => {
+	afterEach(async () => {
 		delete process.env.CODEVIBE_PLAN_HOME
-		resetPlanStorageServiceForTests()
+		await disposePlanStorageServiceForTests()
 		sinon.restore()
 	})
 
@@ -153,6 +153,7 @@ describe("PlanModeRespondHandler", () => {
 			assert.match(planFile, /status: pending/)
 		} finally {
 			HostProvider.reset()
+			await disposePlanStorageServiceForTests()
 			await fs.rm(tempDir, { recursive: true, force: true })
 		}
 	})
