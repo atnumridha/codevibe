@@ -76,6 +76,7 @@
 		"onCommand:codevibe.plans.openFolder",
 		"onCommand:codevibe.plans.buildLocal",
 		"onCommand:codevibe.plans.buildParallel",
+		"onCustomEditor:codevibe.planEditor",
 		"onCommand:codevibe.dev.createTestTasks",
 		"onCommand:codevibe.dev.expireMcpOAuthTokens",
 		"onCommand:codevibe.addToChat",
@@ -187,6 +188,18 @@
 				}
 			]
 		},
+		"customEditors": [
+			{
+				"viewType": "codevibe.planEditor",
+				"displayName": "Codie Plan",
+				"selector": [
+					{
+						"filenamePattern": "*.plan.md"
+					}
+				],
+				"priority": "default"
+			}
+		],
 		"chatAgents": [
 			{
 				"id": "codevibe-agent",
