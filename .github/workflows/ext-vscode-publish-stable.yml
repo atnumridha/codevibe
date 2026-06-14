@@ -36,6 +36,9 @@ permissions:
     checks: write
     pull-requests: write
 
+env:
+    npm_config_cache: ${{ runner.temp }}/npm-cache
+
 jobs:
     test:
         if: github.repository == 'atnumridha/codevibe'

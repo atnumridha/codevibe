@@ -15,6 +15,9 @@ concurrency:
 
 permissions: {}
 
+env:
+  npm_config_cache: ${{ runner.temp }}/npm-cache
+
 jobs:
   test:
     if: github.repository == 'atnumridha/codevibe' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cursor-parity')
