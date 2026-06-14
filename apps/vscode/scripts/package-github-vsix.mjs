@@ -263,6 +263,7 @@ const githubVsixManifestOverrides = {
 
 const visibleManifestStringKeys = new Set(["category", "description", "title"])
 const defaultCommandTimeoutMs = readPositiveIntegerEnv("CODEVIBE_PACKAGE_COMMAND_TIMEOUT_MS", 10 * 60 * 1000)
+const vscePackageTimeoutMs = readPositiveIntegerEnv("CODEVIBE_VSCE_PACKAGE_TIMEOUT_MS", defaultCommandTimeoutMs)
 const vsCodeSmokeInstallTimeoutMs = readPositiveIntegerEnv("CODEVIBE_VSCODE_SMOKE_INSTALL_TIMEOUT_MS", 3 * 60 * 1000)
 
 function readPositiveIntegerEnv(name, fallback) {
@@ -594,6 +595,14 @@ function runCommand(candidates, args, options = {}) {
 
 		lastError = result.error
 		if (result.error.code === "ETIMEDOUT") {
+			if (options.acceptTimedOut?.(result, command, args)) {
+				console.warn(
+					`${quoteCommand(command, args)} reported a timeout after ${formatDuration(
+						timeoutMs,
+					)}; continuing because the expected artifact exists and will be verified.`,
+				)
+				return result
+			}
 			throw new Error(`${quoteCommand(command, args)} timed out after ${formatDuration(timeoutMs)}`)
 		}
 		if (result.error.code !== "ENOENT") {
@@ -602,6 +611,15 @@ function runCommand(candidates, args, options = {}) {
 	}
 
 	throw lastError ?? new Error(`Unable to find command: ${candidates.join(" or ")}`)
+}
+
+function isNonEmptyFile(filePath) {
+	try {
+		const stats = fs.statSync(filePath)
+		return stats.isFile() && stats.size > 0
+	} catch {
+		return false
+	}
 }
 
 function installSignalCleanup(cleanup) {
@@ -717,6 +735,14 @@ function verifyInstalledExtension(listOutput, expectedExtension) {
 			`VSIX smoke install did not find ${expectedExtension}. Installed extensions:\n${listOutput.trim() || "(none)"}`,
 		)
 	}
+}
+
+function resolveInstalledManifestPath(metadata, extensionsDir = resolveVsCodeExtensionsDir()) {
+	return path.join(
+		extensionsDir,
+		`${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`,
+		"package.json",
+	)
 }
 
 function getInstalledCodeVibeExtensionDirs(metadata, extensionsDir = resolveVsCodeExtensionsDir()) {
@@ -2045,8 +2071,10 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 		const codeInvocation = await resolveCodeInvocation(codePath)
 		const codeCommand = [codeInvocation.command]
 		const isolatedArgs = ["--user-data-dir", userDataDir, "--extensions-dir", extensionsDir]
+		const installedManifestPath = resolveInstalledManifestPath(metadata, extensionsDir)
 		runCommand(codeCommand, [...codeInvocation.baseArgs, ...isolatedArgs, "--install-extension", outPath, "--force"], {
 			timeoutMs: vsCodeSmokeInstallTimeoutMs,
+			acceptTimedOut: () => isNonEmptyFile(installedManifestPath),
 		})
 		const listResult = runCommand(
 			codeCommand,
@@ -2058,11 +2086,6 @@ async function verifyInstallWithCode(outPath, metadata, codePath) {
 		)
 		const expectedExtension = `${metadata.extensionId}@${metadata.version}`
 		verifyInstalledExtension(listResult.stdout ?? "", expectedExtension)
-		const installedManifestPath = path.join(
-			extensionsDir,
-			`${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`,
-			"package.json",
-		)
 		assertInstalledCodeVibeManifest(installedManifestPath, "installed VSIX package.json")
 		console.log(`VSIX smoke install verified ${expectedExtension} using isolated VS Code directories`)
 	} finally {
@@ -2094,11 +2117,7 @@ async function verifyDefaultInstallWithCode(metadata, codePath) {
 		timeoutMs: vsCodeSmokeInstallTimeoutMs,
 	})
 	verifyInstalledExtension(listResult.stdout ?? "", expectedExtension)
-	const installedManifestPath = path.join(
-		resolveVsCodeExtensionsDir(),
-		`${metadata.extensionId.toLowerCase()}-${metadata.version.toLowerCase()}`,
-		"package.json",
-	)
+	const installedManifestPath = resolveInstalledManifestPath(metadata)
 	assertInstalledCodeVibeManifest(installedManifestPath, "default installed VSIX package.json")
 	assertNoStaleInstalledCodeVibeExtensionVersions(metadata)
 	console.log(`VSIX default install verified ${expectedExtension}`)
@@ -2166,11 +2185,15 @@ async function main() {
 		writePackageJson(githubVsixPackageJson)
 		assertPackageInputs(githubVsixPackageJson)
 		fs.mkdirSync(path.dirname(outPath), { recursive: true })
+		fs.rmSync(outPath, { force: true })
 		const packageArgs = ["package", "--allow-package-secrets", "sendgrid", "--no-dependencies", "--out", outPath]
 		if (options.preRelease) {
 			packageArgs.push("--pre-release")
 		}
-		runCommand(commandCandidates("vsce"), packageArgs)
+		runCommand(commandCandidates("vsce"), packageArgs, {
+			timeoutMs: vscePackageTimeoutMs,
+			acceptTimedOut: () => isNonEmptyFile(outPath),
+		})
 		assertBuildOutputs()
 		assertPackagedVsix(outPath, metadata)
 		console.log(`VSIX packaged at ${outPath} with extension id ${metadata.extensionId}`)
@@ -2182,7 +2205,10 @@ async function main() {
 		}
 
 		if (options.install) {
-			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"])
+			runCommand(codeCommandCandidates(options.code), ["--install-extension", outPath, "--force"], {
+				timeoutMs: vsCodeSmokeInstallTimeoutMs,
+				acceptTimedOut: () => isNonEmptyFile(resolveInstalledManifestPath(metadata)),
+			})
 			enableNativeAgentInVSCodeArgv(metadata)
 			pruneInstalledCodeVibeExtensionVersions(metadata)
 			removeInstalledNativeAgentCache(metadata)
