@@ -1,4 +1,5 @@
 import { getSavedApiConversationHistory, getSavedClineMessages } from "@core/storage/disk"
+import { getPlanStorageService } from "@core/plan/PlanStorageService"
 import { WebviewProvider } from "@core/webview"
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
 import type { ApiProvider, ModelInfo } from "@shared/api"
@@ -328,6 +329,79 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 					res.writeHead(400, { "Content-Type": "application/json" })
 					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
 				})
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/plans/create") {
+			readRequestBody()
+				.then(async (body) => {
+					try {
+						const parsed = body ? JSON.parse(body) : {}
+						const response = typeof parsed.response === "string" ? parsed.response : "## E2E Plan\n\nCreated by test mode."
+						const taskProgress = typeof parsed.taskProgress === "string" ? parsed.taskProgress : "- [ ] Inspect\n- [ ] Verify"
+						const composerId = typeof parsed.composerId === "string" ? parsed.composerId : `e2e-plan-${Date.now()}`
+						const workspacePath = await getCwd()
+						const plan = await getPlanStorageService().createOrUpdatePlanForComposer({
+							composerId,
+							response,
+							taskProgress,
+							workspacePath,
+						})
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(
+							JSON.stringify({
+								success: true,
+								plan: {
+									planId: plan.planId,
+									planPath: plan.planPath,
+									status: plan.status,
+									buildStatus: plan.buildStatus,
+									todoCount: plan.todoCount,
+									completedTodoCount: plan.completedTodoCount,
+									metadata: plan.metadata,
+									body: plan.body,
+								},
+							}),
+						)
+					} catch (error) {
+						res.writeHead(500, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+					}
+				})
+				.catch((error) => {
+					res.writeHead(400, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
+				})
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/plans/open-latest") {
+			;(async () => {
+				try {
+					await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.PlansOpenLatest)
+					await new Promise((resolve) => setTimeout(resolve, 350))
+					const latestPlan = (await getPlanStorageService().listPlans(await getCwd()))[0]
+					const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab
+					const input = activeTab?.input as { uri?: vscode.Uri; viewType?: string } | undefined
+					res.writeHead(200, { "Content-Type": "application/json" })
+					res.end(
+						JSON.stringify({
+							success: true,
+							latestPlan,
+							activeTab: activeTab
+								? {
+										label: activeTab.label,
+										inputUri: input?.uri?.fsPath,
+										inputViewType: input?.viewType,
+									}
+								: undefined,
+						}),
+					)
+				} catch (error) {
+					res.writeHead(500, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+				}
+			})()
 			return
 		}
 

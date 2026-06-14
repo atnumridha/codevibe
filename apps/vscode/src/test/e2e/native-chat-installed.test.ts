@@ -191,6 +191,51 @@ installedE2e("Installed VSIX native chat exposes Codie agent runtime", async ({ 
 	expect(openResponse.result?.error).toBeUndefined()
 })
 
+installedE2e("Installed VSIX opens native plan editor for local plan files", async ({ app: _app }) => {
+	await expect
+		.poll(
+			async () => {
+				const diagnosticsResponse = await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({ success: false }))
+				return diagnosticsResponse.success === true
+			},
+			{
+				message: "Installed Codie VSIX should activate its E2E command server before plan commands run",
+				timeout: 60_000,
+			},
+		)
+		.toBe(true)
+
+	const created = await E2ETestHelper.createNativePlan({
+		composerId: "installed-native-plan-e2e",
+		response:
+			"## Native Plan E2E\n\nCreate and open a plan from the installed VSIX.\n\n```mermaid\nflowchart TD\n  A[\"Create .plan.md\"] --> B[\"Open custom editor\"]\n```\n\n## Acceptance Criteria\n\n- Plan is persisted locally.\n- The native plan editor opens.",
+		taskProgress: "- [ ] Create installed plan file\n- [ ] Open native plan editor",
+	})
+
+	expect(created.success).toBe(true)
+	expect(created.plan?.planId).toMatch(/^Native-Plan-E2E_[a-z0-9]{8}$/)
+	expect(created.plan?.planPath).toMatch(/\.plan\.md$/)
+	expect(created.plan?.todoCount).toBe(2)
+	expect(created.plan?.metadata?.name).toBe("Native Plan E2E")
+	expect(created.plan?.metadata?.todos?.map((todo) => todo.status)).toEqual(["pending", "pending"])
+
+	const planPath = created.plan?.planPath
+	expect(planPath).toBeTruthy()
+	const planText = readFileSync(planPath ?? "", "utf8")
+	expect(planText).toMatch(/^---\nname: Native Plan E2E/m)
+	expect(planText).toContain("todos:")
+	expect(planText).toContain("```mermaid")
+	expect(planText).not.toMatch(/\bCline\b/)
+
+	const opened = await E2ETestHelper.openLatestNativePlan()
+	expect(opened.success).toBe(true)
+	expect(opened.latestPlan?.uri).toBe(planPath)
+	expect(opened.latestPlan?.name).toBe("Native Plan E2E")
+	expect(opened.activeTab?.inputUri).toBe(planPath)
+	expect(opened.activeTab?.inputViewType).toBe("codevibe.planEditor")
+	expect(opened.activeTab?.label).toContain("Native-Plan-E2E")
+})
+
 installedE2e("Installed VSIX opens the Codie webview composer", async ({ page, sidebar, helper }) => {
 	const signInButton = sidebar.getByRole("button", { name: "Sign in to Codie" })
 	if (await signInButton.isVisible().catch(() => false)) {

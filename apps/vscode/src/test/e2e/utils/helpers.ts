@@ -60,6 +60,43 @@ export interface NativeAgentOpenResponse {
 	error?: string
 }
 
+export interface NativePlanCreateResponse {
+	success: boolean
+	plan?: {
+		planId?: string
+		planPath?: string
+		status?: string
+		buildStatus?: string
+		todoCount?: number
+		completedTodoCount?: number
+		metadata?: {
+			name?: string
+			overview?: string
+			todos?: Array<{ id?: string; content?: string; status?: string }>
+			isProject?: boolean
+			phases?: Array<{ name?: string; todos?: Array<{ id?: string; content?: string; status?: string }> }>
+		}
+		body?: string
+	}
+	error?: string
+}
+
+export interface NativePlanOpenLatestResponse {
+	success: boolean
+	latestPlan?: {
+		id?: string
+		name?: string
+		uri?: string
+		status?: string
+	}
+	activeTab?: {
+		label?: string
+		inputUri?: string
+		inputViewType?: string
+	}
+	error?: string
+}
+
 export class E2ETestHelper {
 	// Constants
 	public static readonly CODEBASE_ROOT_DIR = path.resolve(__dirname, "..", "..", "..", "..")
@@ -653,6 +690,18 @@ export class E2ETestHelper {
 		return E2ETestHelper.postTestServerJson<NativeAgentOpenResponse>("/native-agent/open", { position })
 	}
 
+	public static async createNativePlan(input: {
+		response: string
+		taskProgress: string
+		composerId?: string
+	}): Promise<NativePlanCreateResponse> {
+		return E2ETestHelper.postTestServerJson<NativePlanCreateResponse>("/plans/create", input)
+	}
+
+	public static async openLatestNativePlan(): Promise<NativePlanOpenLatestResponse> {
+		return E2ETestHelper.postTestServerJson<NativePlanOpenLatestResponse>("/plans/open-latest")
+	}
+
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {
 		await E2ETestHelper.openCommandPalette(page, `>${command}`)
 		await page.keyboard.press("Enter")
@@ -867,6 +916,7 @@ export const e2e = test
 						E2E_TEST: "true",
 						CLINE_ENVIRONMENT: "local",
 						CODEVIBE_DIR: codeVibeTestDir,
+						CODEVIBE_PLAN_HOME: path.join(codeVibeTestDir, "plans"),
 						CLINE_DIR: codeVibeTestDir,
 						GRPC_RECORDER_FILE_NAME: E2ETestHelper.generateTestFileName(testInfo.title, testInfo.project.name),
 						// GRPC_RECORDER_ENABLED: "true",
