@@ -572,7 +572,7 @@ function runCommand(commandSpec, runtimeBudget) {
 		stdio: "pipe",
 		shell: false,
 		timeout: timeoutMs,
-		killSignal: "SIGTERM",
+		killSignal: "SIGKILL",
 	})
 	const finishedAt = new Date().toISOString()
 	if (result.error) {
