@@ -17,9 +17,6 @@ permissions:
     contents: read
     pull-requests: read
 
-env:
-    npm_config_cache: ${{ runner.temp }}/npm-cache
-
 jobs:
     detect-changes:
         runs-on: ubuntu-latest
@@ -136,14 +133,19 @@ jobs:
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode ci
               env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Install webview-ui dependencies
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode/webview-ui ci
+              env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
 
             - name: Install vsce
               run: npm install -g @vscode/vsce
+              env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
 
             - name: Install xvfb on Linux
               if: matrix.name == 'ubuntu'

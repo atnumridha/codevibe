@@ -15,9 +15,6 @@ permissions:
     contents: read # Needed to check out code
     pull-requests: read # Needed for changed-file detection on pull requests
 
-env:
-    npm_config_cache: ${{ runner.temp }}/npm-cache
-
 jobs:
     detect-changes:
         runs-on: ubuntu-latest
@@ -98,11 +95,14 @@ jobs:
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode ci
               env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Install webview-ui dependencies
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode/webview-ui ci
+              env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
 
             - name: Run Quality Checks (Parallel)
               run: npm run ci:check-all
@@ -143,11 +143,14 @@ jobs:
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode ci
               env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Install webview-ui dependencies
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode/webview-ui ci
+              env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
 
             - name: Set up NPM on Windows
               if: runner.os == 'Windows'
@@ -245,11 +248,14 @@ jobs:
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode ci
               env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Install webview-ui dependencies
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode/webview-ui ci
+              env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
 
             - name: Download ripgrep binaries
               run: npm run download-ripgrep

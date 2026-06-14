@@ -15,9 +15,6 @@ concurrency:
 
 permissions: {}
 
-env:
-  npm_config_cache: ${{ runner.temp }}/npm-cache
-
 jobs:
   test:
     if: github.repository == 'atnumridha/codevibe' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/codex/cursor-parity')
@@ -63,13 +60,19 @@ jobs:
       - name: Install extension dependencies
         working-directory: ${{ github.workspace }}
         run: npm --prefix apps/vscode ci --include=optional
+        env:
+          npm_config_cache: ${{ runner.temp }}/npm-cache
 
       - name: Install webview-ui dependencies
         working-directory: ${{ github.workspace }}
         run: npm --prefix apps/vscode/webview-ui ci --include=optional
+        env:
+          npm_config_cache: ${{ runner.temp }}/npm-cache
 
       - name: Install Publishing Tools
         run: npm install -g @vscode/vsce ovsx
+        env:
+          npm_config_cache: ${{ runner.temp }}/npm-cache
 
       - name: Publish Nightly Extension
         env:

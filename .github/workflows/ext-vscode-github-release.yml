@@ -59,9 +59,6 @@ permissions:
     checks: write
     pull-requests: write
 
-env:
-    npm_config_cache: ${{ runner.temp }}/npm-cache
-
 jobs:
     test:
         if: ${{ github.repository == 'atnumridha/codevibe' && (github.event.inputs.run_tests || 'true') == 'true' }}
@@ -229,13 +226,19 @@ jobs:
             - name: Install extension dependencies
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode ci --include=optional
+              env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
 
             - name: Install webview-ui dependencies
               working-directory: ${{ github.workspace }}
               run: npm --prefix apps/vscode/webview-ui ci --include=optional
+              env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
 
             - name: Install VSIX packaging tool
               run: npm install -g @vscode/vsce
+              env:
+                  npm_config_cache: ${{ runner.temp }}/npm-cache
 
             - name: Package VSIX
               env:
