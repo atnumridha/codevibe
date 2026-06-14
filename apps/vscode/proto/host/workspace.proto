@@ -46,6 +46,11 @@ service WorkspaceService {
   // (e.g. IntelliJ FilenameIndex). Hosts that lack a fast index should leave
   // this UNIMPLEMENTED so the caller can fall back to ripgrep.
   rpc searchWorkspaceItems(SearchWorkspaceItemsRequest) returns (SearchWorkspaceItemsResponse);
+
+  // Searches workspace text using the host IDE's native/indexed text search.
+  // Hosts that lack indexed text search should leave this UNIMPLEMENTED so the
+  // caller can fall back to ripgrep.
+  rpc searchWorkspaceText(SearchWorkspaceTextRequest) returns (SearchWorkspaceTextResponse);
 }
 
 message GetWorkspacePathsRequest {
@@ -106,6 +111,29 @@ message SearchWorkspaceItemsResponse {
     optional string label = 3; // Optional display label (e.g., basename)
   }
   repeated SearchItem items = 1;
+}
+
+message SearchWorkspaceTextRequest {
+  string regex = 1;
+  optional string file_pattern = 2;
+  optional string workspace_path = 3;
+  optional string directory_path = 4;
+  optional int32 max_results = 5;
+  optional bool include_ignored = 6;
+}
+
+message SearchWorkspaceTextResponse {
+  message SearchMatch {
+    string path = 1;
+    int32 line = 2;
+    int32 column = 3;
+    string match = 4;
+    repeated string before_context = 5;
+    repeated string after_context = 6;
+  }
+
+  repeated SearchMatch matches = 1;
+  optional bool limit_hit = 2;
 }
 
 message OpenProblemsPanelRequest {}

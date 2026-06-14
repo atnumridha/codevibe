@@ -142,10 +142,10 @@ export class PlanStorageService {
 
 	async createOrUpdatePlanForComposer(input: CreateOrUpdatePlanInput): Promise<PlanFileRecord> {
 		const planDir = await this.getPlanDir(input.workspacePath)
-		const planId = `local-plan-${this.slugify(input.composerId)}`
-		const planPath = path.join(planDir, `${planId}${PLAN_EXTENSION}`)
-		const existing = await this.readPlanIfExists(planPath, planId)
+		const existing = await this.findExistingComposerPlan(input.composerId, input.workspacePath)
 		const metadata = this.createMetadataFromResponse(input.response, input.taskProgress, existing?.metadata)
+		const planId = existing?.planId || (await this.createFreshPlanId(metadata.name, planDir))
+		const planPath = existing?.planPath || path.join(planDir, `${planId}${PLAN_EXTENSION}`)
 		const body = normalizePlanText(input.response)
 		const serialized = this.serializePlan(metadata, body)
 
@@ -153,6 +153,7 @@ export class PlanStorageService {
 		const record = this.toPlanFileRecord(planId, planPath, serialized)
 		await this.upsertRegistryEntry(record, {
 			createdBy: input.composerId,
+			editedBy: [input.composerId],
 			referencedBy: [input.composerId],
 		})
 		return record
@@ -522,6 +523,45 @@ export class PlanStorageService {
 			}
 			throw error
 		}
+	}
+
+	private async findExistingComposerPlan(
+		composerId: string,
+		workspacePath?: string,
+	): Promise<PlanFileRecord | undefined> {
+		const registry = await this.readRegistry(workspacePath)
+		const entry = registry.plans.find(
+			(plan) =>
+				plan.createdBy === composerId ||
+				plan.editedBy.includes(composerId) ||
+				plan.referencedBy.includes(composerId),
+		)
+		if (!entry?.uri) {
+			return undefined
+		}
+		try {
+			return await this.readPlanIfExists(entry.uri, entry.id)
+		} catch (error) {
+			Logger.warn(`PlanStorageService: failed to reuse composer plan ${entry.id}: ${error}`)
+			return undefined
+		}
+	}
+
+	private async createFreshPlanId(name: string, planDir: string): Promise<string> {
+		const baseName = this.slugify(name) || "plan"
+		for (let attempt = 0; attempt < 10; attempt++) {
+			const shortId = Math.random().toString(36).slice(2, 10)
+			const planId = `${baseName}_${shortId}`
+			try {
+				await fs.access(path.join(planDir, `${planId}${PLAN_EXTENSION}`))
+			} catch (error) {
+				if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+					return planId
+				}
+				throw error
+			}
+		}
+		return `${baseName}_${Date.now().toString(36)}`
 	}
 
 	private toPlanFileRecord(planId: string, planPath: string, serialized: string): PlanFileRecord {

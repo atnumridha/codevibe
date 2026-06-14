@@ -1,13 +1,15 @@
 import type { ToolUse } from "@core/assistant-message"
-import { regexSearchFiles } from "@services/ripgrep"
+import { formatRegexSearchResults, regexSearchFiles, type RegexSearchResult } from "@services/ripgrep"
 import { arePathsEqual, getReadablePath, isLocatedInWorkspace } from "@utils/path"
 import * as path from "path"
 import { formatResponse } from "@/core/prompts/responses"
 import { parseWorkspaceInlinePath } from "@/core/workspace/utils/parseWorkspaceInlinePath"
 import { WorkspacePathAdapter } from "@/core/workspace/WorkspacePathAdapter"
 import { resolveWorkspacePath } from "@/core/workspace/WorkspaceResolver"
+import { HostProvider } from "@/hosts/host-provider"
 import { telemetryService } from "@/services/telemetry"
 import { ClineSayTool } from "@/shared/ExtensionMessage"
+import { SearchWorkspaceTextRequest } from "@/shared/proto/host/workspace"
 import { Logger } from "@/shared/services/Logger"
 import { ClineDefaultTool } from "@/shared/tools"
 import type { ToolResponse } from "../../index"
@@ -71,6 +73,51 @@ export class SearchFilesToolHandler implements IFullyManagedTool {
 	/**
 	 * Executes a single search operation in a workspace
 	 */
+	private async executeIndexedTextSearch(
+		config: TaskConfig,
+		cwd: string,
+		absolutePath: string,
+		workspaceRoot: string | undefined,
+		regex: string,
+		filePattern: string | undefined,
+	): Promise<string | undefined> {
+		if (!HostProvider.isInitialized()) {
+			return undefined
+		}
+
+		try {
+			const response = await HostProvider.workspace.searchWorkspaceText(
+				SearchWorkspaceTextRequest.create({
+					regex,
+					filePattern,
+					workspacePath: workspaceRoot || cwd,
+					directoryPath: absolutePath,
+					maxResults: 300,
+					includeIgnored: !config.cursorRetrievalIndexingPrivacyGate,
+				}),
+			)
+			const results: RegexSearchResult[] = response.matches
+				.map((match) => ({
+					filePath: path.resolve(workspaceRoot || cwd, match.path),
+					line: match.line,
+					column: match.column,
+					match: match.match,
+					beforeContext: match.beforeContext,
+					afterContext: match.afterContext,
+				}))
+				.filter(
+					(result) =>
+						!config.cursorRetrievalIndexingPrivacyGate ||
+						config.services.clineIgnoreController.validateRetrievalAccess(result.filePath),
+				)
+
+			return formatRegexSearchResults(results, cwd)
+		} catch (error) {
+			Logger.debug(`VS Code indexed text search unavailable; falling back to ripgrep: ${error}`)
+			return undefined
+		}
+	}
+
 	private async executeSearch(
 		config: TaskConfig,
 		absolutePath: string,
@@ -82,6 +129,26 @@ export class SearchFilesToolHandler implements IFullyManagedTool {
 		try {
 			// Use workspace root for relative path calculation, fallback to cwd
 			const basePathForRelative = workspaceRoot || config.cwd
+			const indexedResults = await this.executeIndexedTextSearch(
+				config,
+				basePathForRelative,
+				absolutePath,
+				workspaceRoot,
+				regex,
+				filePattern,
+			)
+			if (indexedResults !== undefined) {
+				const firstLine = indexedResults.split("\n")[0]
+				const resultMatch = firstLine.match(/Found (\d+) result/)
+				const resultCount = resultMatch ? Number.parseInt(resultMatch[1], 10) : 0
+
+				return {
+					workspaceName,
+					workspaceResults: indexedResults,
+					resultCount,
+					success: true,
+				}
+			}
 
 			const workspaceResults = await regexSearchFiles(
 				basePathForRelative,

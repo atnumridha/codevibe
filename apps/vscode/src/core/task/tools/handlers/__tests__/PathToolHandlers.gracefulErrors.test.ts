@@ -4,10 +4,13 @@ import os from "node:os"
 import path from "node:path"
 import type { CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
 import { ClineIgnoreController, LOCK_TEXT_SYMBOL } from "@core/ignore/ClineIgnoreController"
+import { HostProvider } from "@hosts/host-provider"
 import { ClineDefaultTool } from "@shared/tools"
 import * as pathUtils from "@utils/path"
 import { afterEach, beforeEach, describe, it } from "mocha"
 import sinon from "sinon"
+import { SearchWorkspaceTextResponse } from "@/shared/proto/host/workspace"
+import { setVscodeHostProviderMock } from "@/test/host-provider-test-utils"
 import { TaskState } from "../../../TaskState"
 import { ToolValidator } from "../../ToolValidator"
 import type { TaskConfig } from "../../types/TaskConfig"
@@ -124,7 +127,11 @@ function createConfig() {
 			browserSession: {},
 			urlContentFetcher: {},
 			diffViewProvider: {},
-			clineIgnoreController: { validateAccess: () => true, filterPaths: (paths: string[]) => paths },
+			clineIgnoreController: {
+				validateAccess: () => true,
+				validateRetrievalAccess: () => true,
+				filterPaths: (paths: string[]) => paths,
+			},
 			commandPermissionController: {},
 			contextManager: {},
 		},
@@ -149,6 +156,7 @@ describe("ListCodeDefinitionNamesToolHandler.execute – error recovery", () => 
 	})
 
 	afterEach(async () => {
+		HostProvider.reset()
 		sandbox.restore()
 		await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {})
 	})
@@ -555,6 +563,7 @@ describe("SearchFilesToolHandler.execute – error recovery", () => {
 	let sandbox: sinon.SinonSandbox
 
 	beforeEach(async () => {
+		HostProvider.reset()
 		sandbox = sinon.createSandbox()
 		tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "cline-search-test-"))
 		sandbox.stub(pathUtils, "isLocatedInWorkspace").resolves(true)
@@ -650,6 +659,45 @@ describe("SearchFilesToolHandler.execute – error recovery", () => {
 		const result = await handler.execute(config, makeBlock(".", "nonexistent-pattern-xyz"))
 		assert.equal(typeof result, "string")
 		assert.equal(taskState.consecutiveMistakeCount, 0)
+	})
+
+	it("uses VS Code indexed text search before ripgrep", async () => {
+		const { config, validator } = createConfig()
+		const indexedSearch = sinon.stub().resolves(
+			SearchWorkspaceTextResponse.create({
+				matches: [
+					{
+						path: "src/main.ts",
+						line: 2,
+						column: 6,
+						match: "const needle = true",
+						beforeContext: ["const before = false"],
+						afterContext: ["const after = true"],
+					},
+				],
+			}),
+		)
+		setVscodeHostProviderMock({
+			hostBridgeClient: {
+				workspaceClient: { searchWorkspaceText: indexedSearch },
+				envClient: {},
+				windowClient: {},
+				diffClient: {},
+			} as any,
+		})
+		const handler = new SearchFilesToolHandler(validator)
+		const ripgrepModule = await import("@services/ripgrep")
+		const ripgrepStub = sandbox.stub(ripgrepModule, "regexSearchFiles").resolves("Found 0 results.\n\n")
+
+		const result = await handler.execute(config, makeBlock(".", "needle", "*.ts"))
+
+		assert.equal(indexedSearch.callCount, 1)
+		assert.equal(indexedSearch.firstCall.args[0].regex, "needle")
+		assert.equal(indexedSearch.firstCall.args[0].filePattern, "*.ts")
+		assert.equal(ripgrepStub.callCount, 0)
+		assert.match(String(result), /Found 1 result/)
+		assert.match(String(result), /src\/main\.ts/)
+		assert.match(String(result), /needle/)
 	})
 
 	it("passes the retrieval ignore controller to search_files when Cursor privacy gate is enabled", async () => {

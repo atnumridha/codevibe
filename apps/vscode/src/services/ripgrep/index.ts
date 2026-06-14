@@ -46,7 +46,7 @@ rel/path/to/helper.ts
 │----
 */
 
-interface SearchResult {
+export interface RegexSearchResult {
 	filePath: string
 	line: number
 	column: number
@@ -114,8 +114,8 @@ export async function regexSearchFiles(
 	} catch (error) {
 		throw Error("Error calling ripgrep", { cause: error })
 	}
-	const results: SearchResult[] = []
-	let currentResult: Partial<SearchResult> | null = null
+	const results: RegexSearchResult[] = []
+	let currentResult: Partial<RegexSearchResult> | null = null
 
 	output.split("\n").forEach((line) => {
 		if (line) {
@@ -123,7 +123,7 @@ export async function regexSearchFiles(
 				const parsed = JSON.parse(line)
 				if (parsed.type === "match") {
 					if (currentResult) {
-						results.push(currentResult as SearchResult)
+						results.push(currentResult as RegexSearchResult)
 					}
 					currentResult = {
 						filePath: parsed.data.path.text,
@@ -147,7 +147,7 @@ export async function regexSearchFiles(
 	})
 
 	if (currentResult) {
-		results.push(currentResult as SearchResult)
+		results.push(currentResult as RegexSearchResult)
 	}
 
 	// Filter results using ClineIgnoreController if provided
@@ -155,14 +155,14 @@ export async function regexSearchFiles(
 		? results.filter((result) => clineIgnoreController.validateRetrievalAccess(result.filePath))
 		: results
 
-	return formatResults(filteredResults, cwd)
+	return formatRegexSearchResults(filteredResults, cwd)
 }
 
 const MAX_RIPGREP_MB = 0.25
 const MAX_BYTE_SIZE = MAX_RIPGREP_MB * 1024 * 1024 // 0./25MB in bytes
 
-function formatResults(results: SearchResult[], cwd: string): string {
-	const groupedResults: { [key: string]: SearchResult[] } = {}
+export function formatRegexSearchResults(results: RegexSearchResult[], cwd: string): string {
+	const groupedResults: { [key: string]: RegexSearchResult[] } = {}
 
 	let output = ""
 	if (results.length >= MAX_RESULTS) {

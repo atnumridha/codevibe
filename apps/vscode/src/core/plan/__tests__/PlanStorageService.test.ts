@@ -38,8 +38,9 @@ describe("PlanStorageService", () => {
 			workspacePath: tempDir,
 		})
 
-		assert.equal(plan.planId, "local-plan-task-123")
+		assert.match(plan.planId, /^Implementation-Plan_[a-z0-9]{8}$/)
 		assert.equal(path.dirname(plan.planPath), tempDir)
+		assert.match(path.basename(plan.planPath), /^Implementation-Plan_[a-z0-9]{8}\.plan\.md$/)
 		assert.equal(plan.todoCount, 2)
 		assert.equal(plan.metadata.todos[0].id.startsWith("todo-"), true)
 		assert.equal(plan.metadata.todos[0].status, "pending")
@@ -51,9 +52,34 @@ describe("PlanStorageService", () => {
 
 		const registry = await service.listPlans(tempDir)
 		assert.equal(registry.length, 1)
-		assert.equal(registry[0].id, "local-plan-task-123")
+		assert.equal(registry[0].id, plan.planId)
 		assert.equal(registry[0].uri, plan.planPath)
+		assert.deepEqual(registry[0].editedBy, ["task-123"])
 		assert.deepEqual(registry[0].referencedBy, ["task-123"])
+	})
+
+	it("updates the same named plan file for subsequent composer responses", async () => {
+		const service = await createService()
+		const first = await service.createOrUpdatePlanForComposer({
+			composerId: "task-stream",
+			response: "## Launch Review\n\nInitial.",
+			taskProgress: "- [ ] Inspect",
+			workspacePath: tempDir,
+		})
+
+		const second = await service.createOrUpdatePlanForComposer({
+			composerId: "task-stream",
+			response: "## Launch Review\n\nUpdated.",
+			taskProgress: "- [ ] Inspect\n- [ ] Verify",
+			workspacePath: tempDir,
+		})
+
+		assert.equal(second.planId, first.planId)
+		assert.equal(second.planPath, first.planPath)
+		assert.match(path.basename(second.planPath), /^Launch-Review_[a-z0-9]{8}\.plan\.md$/)
+		assert.equal(second.todoCount, 2)
+		assert.equal(second.metadata.todos[0].id, first.metadata.todos[0].id)
+		assert.match(await fs.readFile(second.planPath, "utf8"), /Updated\./)
 	})
 
 	it("updates todo statuses through the shared plan file", async () => {

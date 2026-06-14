@@ -143,7 +143,7 @@ describe("PlanModeRespondHandler", () => {
 			const askPayload = JSON.parse(callbacks.ask.firstCall.args[1])
 			assert.equal(askPayload.localPlanBuild.status, "none")
 			assert.equal(askPayload.localPlanBuild.todoCount, 2)
-			assert.match(askPayload.localPlanBuild.planPath, /local-plan-task-1\.plan\.md$/)
+			assert.match(askPayload.localPlanBuild.planPath, /Plan_[a-z0-9]{8}\.plan\.md$/)
 
 			const planFile = await fs.readFile(askPayload.localPlanBuild.planPath, "utf8")
 			assert.match(planFile, /name: Plan/)
