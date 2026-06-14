@@ -57,6 +57,10 @@ export interface RegexSearchResult {
 
 const MAX_RESULTS = 300
 
+export interface RegexSearchOptions {
+	includeIgnored?: boolean
+}
+
 async function execRipgrep(args: string[]): Promise<string> {
 	const binPath: string = await getBinaryLocation("rg")
 
@@ -106,7 +110,23 @@ export async function regexSearchFiles(
 	filePattern?: string,
 	clineIgnoreController?: ClineIgnoreController,
 ): Promise<string> {
-	const args = ["--json", "-e", regex, "--glob", filePattern || "*", "--context", "1", directoryPath]
+	const filteredResults = await regexSearchFileMatches(cwd, directoryPath, regex, filePattern, clineIgnoreController)
+	return formatRegexSearchResults(filteredResults, cwd)
+}
+
+export async function regexSearchFileMatches(
+	cwd: string,
+	directoryPath: string,
+	regex: string,
+	filePattern?: string,
+	clineIgnoreController?: ClineIgnoreController,
+	options?: RegexSearchOptions,
+): Promise<RegexSearchResult[]> {
+	const args = ["--json", "-e", regex, "--glob", filePattern || "*", "--context", "1"]
+	if (options?.includeIgnored) {
+		args.push("--no-ignore")
+	}
+	args.push(directoryPath)
 
 	let output: string
 	try {
@@ -155,7 +175,7 @@ export async function regexSearchFiles(
 		? results.filter((result) => clineIgnoreController.validateRetrievalAccess(result.filePath))
 		: results
 
-	return formatRegexSearchResults(filteredResults, cwd)
+	return filteredResults
 }
 
 const MAX_RIPGREP_MB = 0.25

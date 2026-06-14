@@ -3,15 +3,17 @@ import type { ToolUse } from "@core/assistant-message"
 import { getHookModelContext } from "@core/hooks/hook-model-context"
 import { getHooksEnabledSafe } from "@core/hooks/hooks-utils"
 import * as NotificationHook from "@core/hooks/notification-hook"
+import { getPlanStorageService } from "@core/plan/PlanStorageService"
 import { formatResponse } from "@core/prompts/responses"
 import { processFilesIntoText } from "@integrations/misc/extract-text"
 import { showSystemNotification } from "@integrations/notifications"
 import { telemetryService } from "@services/telemetry"
 import { findLastIndex } from "@shared/array"
-import { COMPLETION_RESULT_CHANGES_FLAG } from "@shared/ExtensionMessage"
+import { COMPLETION_RESULT_CHANGES_FLAG, type ClinePlanModeResponse } from "@shared/ExtensionMessage"
 import { Logger } from "@shared/services/Logger"
 import { ClineDefaultTool } from "@shared/tools"
 import type { ToolResponse } from "../../index"
+import { writeLocalPlanArtifact } from "../../plan-artifact"
 import { showNotificationForApproval } from "../../utils"
 import { buildUserFeedbackContent } from "../../utils/buildUserFeedbackContent"
 import type { IPartialBlockHandler, IToolHandler } from "../ToolExecutorCoordinator"
@@ -102,6 +104,29 @@ export class AttemptCompletionHandler implements IToolHandler, IPartialBlockHand
 			throw error
 		}
 
+		let completionResultText = result
+		if (config.mode === "plan") {
+			try {
+				const localPlanBuild = await writeLocalPlanArtifact({
+					taskId: config.taskId,
+					response: result,
+					taskProgress: block.params.task_progress,
+					workspacePath: config.cwd,
+				})
+				completionResultText = JSON.stringify({
+					response: result,
+					localPlanBuild,
+				} satisfies ClinePlanModeResponse)
+				await getPlanStorageService().openPlan({
+					planId: localPlanBuild.planId,
+					planPath: localPlanBuild.planPath,
+					workspacePath: config.cwd,
+				})
+			} catch (error) {
+				Logger.warn(`Failed to persist local plan artifact for completion in task ${config.taskId}: ${error}`)
+			}
+		}
+
 		// Show notification if enabled
 		if (config.autoApprovalSettings.enableNotifications) {
 			showSystemNotification({
@@ -152,7 +177,13 @@ export class AttemptCompletionHandler implements IToolHandler, IPartialBlockHand
 		if (command) {
 			if (lastMessage && lastMessage.ask !== "command") {
 				// haven't sent a command message yet so first send completion_result then command
-				const completionMessageTs = await config.callbacks.say("completion_result", result, undefined, undefined, false)
+				const completionMessageTs = await config.callbacks.say(
+					"completion_result",
+					completionResultText,
+					undefined,
+					undefined,
+					false,
+				)
 				await config.callbacks.saveCheckpoint(true, completionMessageTs)
 				await addNewChangesFlagToLastCompletionResultMessage()
 				telemetryService.captureTaskCompleted(config.ulid, getTaskCompletionTelemetry(config))
@@ -199,7 +230,13 @@ export class AttemptCompletionHandler implements IToolHandler, IPartialBlockHand
 			commandResult = execCommandResult
 		} else {
 			// Send the complete completion_result message (partial was already removed above)
-			const completionMessageTs = await config.callbacks.say("completion_result", result, undefined, undefined, false)
+			const completionMessageTs = await config.callbacks.say(
+				"completion_result",
+				completionResultText,
+				undefined,
+				undefined,
+				false,
+			)
 			await config.callbacks.saveCheckpoint(true, completionMessageTs)
 			await addNewChangesFlagToLastCompletionResultMessage()
 			telemetryService.captureTaskCompleted(config.ulid, getTaskCompletionTelemetry(config))

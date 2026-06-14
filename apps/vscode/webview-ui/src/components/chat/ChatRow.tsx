@@ -68,6 +68,21 @@ import UserMessage from "./UserMessage"
 
 const HEADER_CLASSNAMES = "flex items-center gap-2.5 mb-3"
 
+function parseLocalPlanCompletion(text?: string): ClinePlanModeResponse | undefined {
+	if (!text?.trim().startsWith("{")) {
+		return undefined
+	}
+	try {
+		const parsed = JSON.parse(text) as Partial<ClinePlanModeResponse>
+		if (typeof parsed.response === "string" && parsed.localPlanBuild) {
+			return parsed as ClinePlanModeResponse
+		}
+	} catch (_error) {
+		return undefined
+	}
+	return undefined
+}
+
 interface ChatRowProps {
 	message: ClineMessage
 	isExpanded: boolean
@@ -1023,6 +1038,18 @@ export const ChatRowContent = memo(
 					case "completion_result":
 						const hasChanges = message.text?.endsWith(COMPLETION_RESULT_CHANGES_FLAG) ?? false
 						const text = hasChanges ? message.text?.slice(0, -COMPLETION_RESULT_CHANGES_FLAG.length) : message.text
+						const localPlanCompletion = parseLocalPlanCompletion(text)
+
+						if (localPlanCompletion) {
+							return (
+								<PlanCompletionOutputRow
+									canBuild={mode === "plan" && message.partial !== true}
+									headClassNames={HEADER_CLASSNAMES}
+									localPlanBuild={localPlanCompletion.localPlanBuild}
+									text={localPlanCompletion.response}
+								/>
+							)
+						}
 
 						return (
 							<CompletionOutputRow
@@ -1171,6 +1198,19 @@ export const ChatRowContent = memo(
 						if (message.text) {
 							const hasChanges = message.text.endsWith(COMPLETION_RESULT_CHANGES_FLAG) ?? false
 							const text = hasChanges ? message.text.slice(0, -COMPLETION_RESULT_CHANGES_FLAG.length) : message.text
+							const localPlanCompletion = parseLocalPlanCompletion(text)
+
+							if (localPlanCompletion) {
+								return (
+									<PlanCompletionOutputRow
+										canBuild={mode === "plan" && message.partial !== true}
+										headClassNames={HEADER_CLASSNAMES}
+										localPlanBuild={localPlanCompletion.localPlanBuild}
+										text={localPlanCompletion.response}
+									/>
+								)
+							}
+
 							return (
 								<CompletionOutputRow
 									explainChangesDisabled={explainChangesDisabled}

@@ -3,6 +3,7 @@ import * as path from "node:path"
 import { afterEach, describe, it } from "mocha"
 import sinon from "sinon"
 import * as vscode from "vscode"
+import * as ripgrepModule from "@services/ripgrep"
 import { searchWorkspaceText } from "@/hosts/vscode/hostbridge/workspace/searchWorkspaceText"
 import { SearchWorkspaceTextRequest } from "@/shared/proto/host/workspace"
 
@@ -98,6 +99,61 @@ describe("Hostbridge - Workspace - searchWorkspaceText", () => {
 				line: 2,
 				column: 6,
 				match: "const needle = true",
+				beforeContext: ["const before = false"],
+				afterContext: ["const after = true"],
+			},
+		])
+		assert.equal(response.limitHit, false)
+	})
+
+	it("falls back to ripgrep compact matches without reading candidate files", async () => {
+		const workspacePath = path.join(path.sep, "tmp", "codevibe-search-workspace")
+		const sourcePath = path.join(workspacePath, "src", "fallback.ts")
+		const findFiles = sinon.stub().throws(new Error("findFiles fallback should not run"))
+		const readFile = sinon.stub().throws(new Error("readFile fallback should not run"))
+		const regexSearchFileMatches = sinon.stub(ripgrepModule, "regexSearchFileMatches").resolves([
+			{
+				filePath: sourcePath,
+				line: 3,
+				column: 13,
+				match: "export const fallbackNeedle = true\n",
+				beforeContext: ["const before = false\n"],
+				afterContext: ["const after = true\n"],
+			},
+		])
+
+		delete (vscode.workspace as any).findTextInFiles
+		;(vscode.workspace as any).findFiles = findFiles
+		;(vscode.workspace as any).fs = {
+			stat: sinon.stub(),
+			readFile,
+		}
+
+		const response = await searchWorkspaceText(
+			SearchWorkspaceTextRequest.create({
+				regex: "fallbackNeedle",
+				filePattern: "*.ts",
+				workspacePath,
+				directoryPath: path.join(workspacePath, "src"),
+				maxResults: 10,
+				includeIgnored: true,
+			}),
+		)
+
+		assert.equal(regexSearchFileMatches.callCount, 1)
+		assert.equal(regexSearchFileMatches.firstCall.args[0], workspacePath)
+		assert.equal(regexSearchFileMatches.firstCall.args[1], path.join(workspacePath, "src"))
+		assert.equal(regexSearchFileMatches.firstCall.args[2], "fallbackNeedle")
+		assert.equal(regexSearchFileMatches.firstCall.args[3], "*.ts")
+		assert.deepEqual(regexSearchFileMatches.firstCall.args[5], { includeIgnored: true })
+		assert.equal(findFiles.callCount, 0)
+		assert.equal(readFile.callCount, 0)
+		assert.deepEqual(response.matches, [
+			{
+				path: "src/fallback.ts",
+				line: 3,
+				column: 13,
+				match: "export const fallbackNeedle = true",
 				beforeContext: ["const before = false"],
 				afterContext: ["const after = true"],
 			},
