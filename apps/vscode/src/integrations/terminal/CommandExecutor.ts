@@ -18,6 +18,7 @@ import { ClineToolResponseContent } from "@shared/messages"
 import { Logger } from "@/shared/services/Logger"
 import { orchestrateCommandExecution } from "./CommandOrchestrator"
 import { StandaloneTerminalManager } from "./standalone/StandaloneTerminalManager"
+import { redactCommandForLogging } from "./terminalRedaction"
 import type {
 	CommandExecutionOptions,
 	CommandExecutorCallbacks,
@@ -113,7 +114,7 @@ export class CommandExecutor {
 			this.terminalExecutionMode === "backgroundExec"
 		const manager = useStandalone ? this.standaloneManager : this.terminalManager
 		Logger.info(
-			`Executing command in ${useStandalone ? "standalone" : "VSCode"} terminal (${options?.terminalRunMode ?? "default"}): ${command}`,
+			`Executing command in ${useStandalone ? "standalone" : "VSCode"} terminal (${options?.terminalRunMode ?? "default"}): ${redactCommandForLogging(command)}`,
 		)
 
 		// Get terminal and run command
@@ -179,7 +180,7 @@ export class CommandExecutor {
 		for (const cmd of runningCommands) {
 			if (this.standaloneManager.cancelBackgroundCommand(cmd.id)) {
 				cancelled = true
-				Logger.info(`Cancelled background command: ${cmd.command}`)
+				Logger.info(`Cancelled background command: ${redactCommandForLogging(cmd.command)}`)
 			}
 		}
 

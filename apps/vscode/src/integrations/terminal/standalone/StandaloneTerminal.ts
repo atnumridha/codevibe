@@ -7,6 +7,7 @@
 
 import type { ChildProcess } from "child_process"
 import { Logger } from "@/shared/services/Logger"
+import { redactCommandForLogging } from "../terminalRedaction"
 import type { ITerminal, StandaloneTerminalOptions } from "../types"
 
 /**
@@ -81,7 +82,7 @@ export class StandaloneTerminal implements ITerminal {
 	 * @param addNewLine Whether to add a newline (default: true)
 	 */
 	sendText(text: string, addNewLine: boolean = true): void {
-		Logger.log(`[StandaloneTerminal] sendText: ${text}`)
+		Logger.log(`[StandaloneTerminal] sendText: ${redactCommandForLogging(text)}`)
 
 		// If we have an active process, send input to it
 		if (this._process && !this._process.killed) {
