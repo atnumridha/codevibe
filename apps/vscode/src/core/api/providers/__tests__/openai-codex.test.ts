@@ -57,6 +57,74 @@ describe("OpenAiCodexHandler", () => {
 		expect(body).not.to.have.property("messages")
 	})
 
+	it("sends GPT_API-compatible manual Codex responses requests", async () => {
+		const accessToken = "codex-access-token-secret"
+		const refreshToken = "codex-refresh-token-secret"
+		const idToken = "codex-id-token-secret"
+		const handler = new OpenAiCodexHandler({ reasoningEffort: "none" })
+		sinon.stub(handler as any, "buildCodexHeaders").resolves({
+			originator: "codie",
+			"x-codex-installation-id": "install_123",
+		})
+		const requestBody = (handler as any).buildRequestBody(
+			handler.getModel(),
+			[{ role: "user", content: [{ type: "input_text", text: "hello" }] }],
+			"You are Codie.",
+		)
+
+		let seenUrl = ""
+		let seenInit: RequestInit | undefined
+		const stream = new ReadableStream<Uint8Array>({
+			start(controller) {
+				controller.enqueue(
+					new TextEncoder().encode(
+						`data: ${JSON.stringify({ type: "response.output_text.delta", delta: "hi" })}\n\n` +
+							"data: [DONE]\n\n",
+					),
+				)
+				controller.close()
+			},
+		})
+		const mockFetch = sinon.stub().callsFake(async (input: string | URL | Request, init?: RequestInit) => {
+			seenUrl = String(input)
+			seenInit = init
+			return new Response(stream, { status: 200 })
+		})
+
+		const chunks: unknown[] = []
+		await mockFetchForTesting(mockFetch as any, async () => {
+			for await (const chunk of (handler as any).makeCodexRequest(
+				requestBody,
+				handler.getModel(),
+				accessToken,
+				"0.136.0-test",
+			)) {
+				chunks.push(chunk)
+			}
+		})
+
+		expect(seenUrl).to.equal("https://chatgpt.com/backend-api/codex/responses?client_version=0.136.0-test")
+		expect(seenInit?.method).to.equal("POST")
+		expect(seenInit?.headers).to.deep.include({
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${accessToken}`,
+			originator: "codie",
+			"x-codex-installation-id": "install_123",
+		})
+		const bodyText = String(seenInit?.body)
+		const body = JSON.parse(bodyText)
+		expect(body).to.deep.include({
+			model: "gpt-5.5-pro",
+			stream: true,
+			store: false,
+			instructions: "You are Codie.",
+		})
+		expect(body.input).to.be.an("array")
+		expect(bodyText).not.to.contain(refreshToken)
+		expect(bodyText).not.to.contain(idToken)
+		expect(chunks).to.deep.equal([{ type: "text", text: "hi" }])
+	})
+
 	it("preserves authenticated backend model ids that are not bundled", () => {
 		const handler = new OpenAiCodexHandler({ apiModelId: "gpt-6-codex-preview" })
 
