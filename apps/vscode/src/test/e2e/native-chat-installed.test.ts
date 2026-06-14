@@ -161,3 +161,21 @@ installedE2e("Installed VSIX native chat exposes Codie agent runtime", async ({ 
 	})
 	expect(openResponse.result?.error).toBeUndefined()
 })
+
+installedE2e("Installed VSIX opens the Codie webview composer", async ({ page, sidebar, helper }) => {
+	const chatInput = await helper.getChatInput(sidebar)
+	await expect(chatInput).toBeVisible()
+	await expect(chatInput).toHaveAttribute("placeholder", /Start a Codie task|Message Codie/i)
+
+	const modeSwitch = await helper.getModeSwitch(sidebar)
+	await expect(modeSwitch).toBeVisible()
+
+	const smokePrompt = "Plan a Codie installed-webview smoke test"
+	const readySidebar = await helper.enterChatMessage(page, sidebar, smokePrompt)
+	const readyChatInput = await helper.getChatInput(readySidebar)
+	await expect(readyChatInput).toHaveValue(smokePrompt)
+
+	const visibleWebviewText = await readySidebar.locator("body").innerText()
+	expect(visibleWebviewText).toContain("Codie")
+	expect(visibleWebviewText).not.toMatch(/\bCline\b/)
+})

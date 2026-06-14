@@ -176,7 +176,7 @@ export class E2ETestHelper {
 					break
 				}
 				this.clearCachedFrame()
-				await E2ETestHelper.openClineSidebar(page)
+				await E2ETestHelper.openCodeVibeSidebar(page)
 				sidebar = await this.getReadySidebar(page)
 			}
 		}
@@ -241,7 +241,7 @@ export class E2ETestHelper {
 					break
 				}
 				this.clearCachedFrame()
-				await E2ETestHelper.openClineSidebar(page)
+				await E2ETestHelper.openCodeVibeSidebar(page)
 				sidebar = await this.getReadySidebar(page)
 			}
 		}
@@ -278,7 +278,7 @@ export class E2ETestHelper {
 					break
 				}
 				this.clearCachedFrame()
-				await E2ETestHelper.openClineSidebar(page)
+				await E2ETestHelper.openCodeVibeSidebar(page)
 				sidebar = await this.getReadySidebar(page)
 			}
 		}
@@ -562,7 +562,7 @@ export class E2ETestHelper {
 			for (let attempt = 0; attempt < 3; attempt++) {
 				try {
 					this.clearCachedFrame()
-					await E2ETestHelper.openClineSidebar(page)
+					await E2ETestHelper.openCodeVibeSidebar(page)
 					webview = await this.getReadySidebar(page)
 					return webview
 				} catch (error: any) {
@@ -597,7 +597,7 @@ export class E2ETestHelper {
 		for (let attempt = 0; attempt < 2; attempt++) {
 			try {
 				this.clearCachedFrame()
-				await E2ETestHelper.openClineSidebar(page, 15_000)
+				await E2ETestHelper.openCodeVibeSidebar(page, 15_000)
 				return await this.getSidebar(page)
 			} catch (error: any) {
 				lastError = error
@@ -610,7 +610,7 @@ export class E2ETestHelper {
 		throw lastError instanceof Error ? lastError : new Error(String(lastError))
 	}
 
-	public static async openClineSidebar(
+	public static async openCodeVibeSidebar(
 		page: Page,
 		maxDelay = E2ETestHelper.SIDEBAR_DISCOVERY_TIMEOUT_MS,
 	): Promise<void> {
@@ -743,9 +743,9 @@ export class E2ETestHelper {
 /**
  * NOTE: Use the `e2e` test fixture for all E2E tests to test the CodeVibe extension.
  *
- * Extended Playwright test configuration for Cline E2E testing.
+ * Extended Playwright test configuration for CodeVibe E2E testing.
  *
- * This test configuration provides a comprehensive setup for end-to-end testing of the Cline VS Code extension,
+ * This test configuration provides a comprehensive setup for end-to-end testing of the CodeVibe VS Code extension,
  * including server mocking, temporary directories, VS Code instance management, and helper utilities.
  *
  * NOTE: Default to run in single-root workspace; use `e2eMultiRoot` for multi-root workspace tests.
@@ -824,7 +824,7 @@ export const e2e = test
 
 			await use(async (workspacePath: string) => {
 				// Create isolated CodeVibe data directory for this test. Keep CLINE_DIR during transition for
-				// compatibility with storage code that still uses legacy Cline naming.
+				// compatibility with storage code that still uses legacy config keys.
 				const codeVibeTestDir = mkdtempSync(path.join(os.tmpdir(), "codevibe-e2e-"))
 				const userSettingsDir = path.join(userDataDir, "User")
 				mkdirSync(userSettingsDir, { recursive: true })
@@ -918,7 +918,7 @@ export const e2e = test
 			}
 		},
 		clineTestDir: async ({}, use) => {
-			// This legacy fixture name is kept for older tests; openVSCode owns the isolated CodeVibe/Cline dirs.
+			// This legacy fixture name is kept for older tests; openVSCode owns the isolated CodeVibe data dirs.
 			await use("")
 		},
 	})

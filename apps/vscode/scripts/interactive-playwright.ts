@@ -68,7 +68,7 @@ async function main() {
 
 	const page = await app.firstWindow()
 
-	await E2ETestHelper.openClineSidebar(page)
+	await E2ETestHelper.openCodeVibeSidebar(page)
 
 	console.log("VS Code with CodeVibe extension is now running!")
 	console.log(`Temporary data directory on: ${userDataDir}`)
