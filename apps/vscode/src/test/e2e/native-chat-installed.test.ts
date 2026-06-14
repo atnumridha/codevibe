@@ -236,6 +236,54 @@ installedE2e("Installed VSIX opens native plan editor for local plan files", asy
 	expect(opened.activeTab?.label).toContain("Native-Plan-E2E")
 })
 
+installedE2e("Installed VSIX uses VS Code native text search before file reads", async ({ app: _app }) => {
+	await expect
+		.poll(
+			async () => {
+				const diagnosticsResponse = await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({ success: false }))
+				return diagnosticsResponse.success === true
+			},
+			{
+				message: "Installed Codie VSIX should activate its E2E command server before search commands run",
+				timeout: 60_000,
+			},
+		)
+		.toBe(true)
+
+	const response = await E2ETestHelper.searchNativeWorkspaceText({
+		regex: "installedSearchNeedle",
+		filePattern: "*.ts",
+		maxResults: 10,
+		files: [
+			{
+				relativePath: "src/search-target.ts",
+				content: "const before = false\nexport const installedSearchNeedle = true\nconst after = true\n",
+			},
+			{
+				relativePath: "docs/search-target.md",
+				content: "installedSearchNeedle should not appear when the *.ts include pattern is respected\n",
+			},
+		],
+	})
+
+	expect(response.success).toBe(true)
+	expect(response.nativeTextSearchAvailable).toBe(true)
+	expect(response.nativeFindTextInFilesCalls).toBe(1)
+	expect(response.fallbackFindFilesCalls).toBe(0)
+	expect(response.fallbackReadFileCalls).toBe(0)
+	expect(response.limitHit).toBe(false)
+	expect(response.matches).toEqual([
+		expect.objectContaining({
+			path: "src/search-target.ts",
+			line: 2,
+			column: 13,
+			match: "export const installedSearchNeedle = true",
+		}),
+	])
+	expect(response.matches?.[0]?.beforeContext).toEqual(expect.any(Array))
+	expect(response.matches?.[0]?.afterContext).toEqual(expect.any(Array))
+})
+
 installedE2e("Installed VSIX opens the Codie webview composer", async ({ page, sidebar, helper }) => {
 	const signInButton = sidebar.getByRole("button", { name: "Sign in to Codie" })
 	if (await signInButton.isVisible().catch(() => false)) {

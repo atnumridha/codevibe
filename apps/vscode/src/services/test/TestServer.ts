@@ -1,12 +1,15 @@
-import { getSavedApiConversationHistory, getSavedClineMessages } from "@core/storage/disk"
 import { getPlanStorageService } from "@core/plan/PlanStorageService"
+import { getSavedApiConversationHistory, getSavedClineMessages } from "@core/storage/disk"
 import { WebviewProvider } from "@core/webview"
+import { searchWorkspaceText } from "@hosts/vscode/hostbridge/workspace/searchWorkspaceText"
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
-import type { ApiProvider, ModelInfo } from "@shared/api"
 import { HistoryItem } from "@shared/HistoryItem"
+import type { ApiProvider, ModelInfo } from "@shared/api"
+import { SearchWorkspaceTextRequest } from "@shared/proto/host/workspace"
 import { execa } from "execa"
 import * as fs from "fs"
 import * as http from "http"
+import * as os from "os"
 import * as path from "path"
 import * as vscode from "vscode"
 import { Controller } from "@/core/controller"
@@ -323,6 +326,120 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 					} catch (error) {
 						res.writeHead(500, { "Content-Type": "application/json" })
 						res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+					}
+				})
+				.catch((error) => {
+					res.writeHead(400, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
+				})
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/workspace/search-text") {
+			readRequestBody()
+				.then(async (body) => {
+					const searchRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "codevibe-e2e-search-"))
+					const nativeWorkspace = vscode.workspace as typeof vscode.workspace & {
+						findTextInFiles?: (...args: any[]) => PromiseLike<unknown>
+						findFiles?: (...args: any[]) => PromiseLike<vscode.Uri[]>
+					}
+					const workspaceFs = vscode.workspace.fs as typeof vscode.workspace.fs & {
+						readFile?: (...args: any[]) => PromiseLike<Uint8Array>
+					}
+					const originalFindTextInFiles = nativeWorkspace.findTextInFiles
+					const originalFindFiles = nativeWorkspace.findFiles
+					const originalReadFile = workspaceFs.readFile
+					let nativeFindTextInFilesCalls = 0
+					let fallbackFindFilesCalls = 0
+					let fallbackReadFileCalls = 0
+
+					try {
+						const parsed = body ? JSON.parse(body) : {}
+						const files = Array.isArray(parsed.files) && parsed.files.length > 0 ? parsed.files : []
+						const corpus =
+							files.length > 0
+								? files
+								: [
+										{
+											relativePath: "src/search-target.ts",
+											content:
+												"const before = false\nexport const installedSearchNeedle = true\nconst after = true\n",
+										},
+										{
+											relativePath: "src/no-match.ts",
+											content: "export const nearby = false\n",
+										},
+									]
+
+						for (const file of corpus) {
+							const relativePath =
+								typeof file?.relativePath === "string" && file.relativePath.trim()
+									? path.normalize(file.relativePath)
+									: undefined
+							if (!relativePath || path.isAbsolute(relativePath) || relativePath.startsWith("..")) {
+								throw new Error(`Invalid relativePath for search corpus: ${String(file?.relativePath)}`)
+							}
+							const filePath = path.join(searchRoot, relativePath)
+							await fs.promises.mkdir(path.dirname(filePath), { recursive: true })
+							await fs.promises.writeFile(filePath, typeof file.content === "string" ? file.content : "", "utf8")
+						}
+
+						if (originalFindTextInFiles) {
+							nativeWorkspace.findTextInFiles = (...args: any[]) => {
+								nativeFindTextInFilesCalls++
+								return originalFindTextInFiles.apply(vscode.workspace, args)
+							}
+						}
+						if (originalFindFiles) {
+							nativeWorkspace.findFiles = (...args: any[]) => {
+								fallbackFindFilesCalls++
+								return originalFindFiles.apply(vscode.workspace, args)
+							}
+						}
+						if (originalReadFile) {
+							workspaceFs.readFile = (...args: any[]) => {
+								fallbackReadFileCalls++
+								return originalReadFile.apply(vscode.workspace.fs, args)
+							}
+						}
+
+						const searchResponse = await searchWorkspaceText(
+							SearchWorkspaceTextRequest.create({
+								regex: typeof parsed.regex === "string" ? parsed.regex : "installedSearchNeedle",
+								filePattern: typeof parsed.filePattern === "string" ? parsed.filePattern : "*.ts",
+								workspacePath: searchRoot,
+								directoryPath: searchRoot,
+								maxResults: Number.isFinite(Number(parsed.maxResults)) ? Number(parsed.maxResults) : 10,
+								includeIgnored: parsed.includeIgnored === true,
+							}),
+						)
+
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(
+							JSON.stringify({
+								success: true,
+								nativeTextSearchAvailable: typeof originalFindTextInFiles === "function",
+								nativeFindTextInFilesCalls,
+								fallbackFindFilesCalls,
+								fallbackReadFileCalls,
+								matches: searchResponse.matches,
+								limitHit: searchResponse.limitHit,
+							}),
+						)
+					} catch (error) {
+						res.writeHead(500, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+					} finally {
+						if (originalFindTextInFiles) {
+							nativeWorkspace.findTextInFiles = originalFindTextInFiles
+						}
+						if (originalFindFiles) {
+							nativeWorkspace.findFiles = originalFindFiles
+						}
+						if (originalReadFile) {
+							workspaceFs.readFile = originalReadFile
+						}
+						await fs.promises.rm(searchRoot, { recursive: true, force: true }).catch(() => undefined)
 					}
 				})
 				.catch((error) => {

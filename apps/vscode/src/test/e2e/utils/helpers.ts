@@ -97,6 +97,24 @@ export interface NativePlanOpenLatestResponse {
 	error?: string
 }
 
+export interface NativeWorkspaceTextSearchResponse {
+	success: boolean
+	nativeTextSearchAvailable?: boolean
+	nativeFindTextInFilesCalls?: number
+	fallbackFindFilesCalls?: number
+	fallbackReadFileCalls?: number
+	limitHit?: boolean
+	matches?: Array<{
+		path?: string
+		line?: number
+		column?: number
+		match?: string
+		beforeContext?: string[]
+		afterContext?: string[]
+	}>
+	error?: string
+}
+
 export class E2ETestHelper {
 	// Constants
 	public static readonly CODEBASE_ROOT_DIR = path.resolve(__dirname, "..", "..", "..", "..")
@@ -700,6 +718,15 @@ export class E2ETestHelper {
 
 	public static async openLatestNativePlan(): Promise<NativePlanOpenLatestResponse> {
 		return E2ETestHelper.postTestServerJson<NativePlanOpenLatestResponse>("/plans/open-latest")
+	}
+
+	public static async searchNativeWorkspaceText(input: {
+		regex: string
+		filePattern?: string
+		maxResults?: number
+		files?: Array<{ relativePath: string; content: string }>
+	}): Promise<NativeWorkspaceTextSearchResponse> {
+		return E2ETestHelper.postTestServerJson<NativeWorkspaceTextSearchResponse>("/workspace/search-text", input)
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {
