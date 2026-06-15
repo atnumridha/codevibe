@@ -516,12 +516,14 @@ installedE2e(
 		await expect(
 			planCanvasFrame!.locator("[data-build-action-menu]"),
 		).toBeVisible();
+		await captureSlowUiScreenshot(page, testInfo, "native-plan-build-dropdown");
 		const buildOptions = (
 			await planCanvasFrame!
 				.locator("[data-build-action-menu] [data-build-action-button]")
 				.allInnerTexts()
 		).join("\n");
-		expect(buildOptions).toContain("Build Locally");
+		expect(buildOptions).toContain("Build");
+		expect(buildOptions).toContain("Run locally in Act mode");
 		expect(buildOptions).toContain("Build in Parallel");
 		expect(buildOptions).toContain("Build Selected");
 		expect(buildOptions).toContain("Build Selected Parallel");
@@ -668,43 +670,23 @@ installedE2e(
 		await captureSlowUiScreenshot(page, testInfo, "build-locally-plan-card");
 		await slowVisiblePause(page);
 
-		await E2ETestHelper.waitUntil(async () => {
-			try {
-				sidebar = await revealReadyPlanSidebar();
-				const planCard = sidebar
-					.locator("[data-plan-card]", { hasText: "Build Button Materializes" })
-					.last();
-				await planCard.scrollIntoViewIfNeeded().catch(() => undefined);
-				if (!(await planCard.isVisible().catch(() => false))) {
-					return false;
-				}
-				const buildActionSelects = planCard.getByRole("button", {
-					name: /^Build plan action$/,
-				});
-				const selectCount = await buildActionSelects.count().catch(() => 0);
-				for (let index = 0; index < selectCount; index += 1) {
-					const buildActionSelect = buildActionSelects.nth(index);
-					if (
-						(await buildActionSelect.isVisible().catch(() => false)) &&
-						(await buildActionSelect.isEnabled().catch(() => false))
-					) {
-						await buildActionSelect
-							.scrollIntoViewIfNeeded()
-							.catch(() => undefined);
-						await buildActionSelect.click();
-						await planCard
-							.locator("[data-build-action-menu] [data-build-action-button]", {
-								hasText: "Build Locally",
-							})
-							.click();
-						return true;
-					}
-				}
-			} catch {
-				return false;
-			}
-			return false;
-		}, 60_000);
+		const buildActionTrigger = visiblePlanCard
+			.getByRole("button", { name: /^Build plan action$/ })
+			.first();
+		await expect(buildActionTrigger).toBeVisible();
+		await expect(buildActionTrigger).toBeEnabled();
+		await buildActionTrigger.click();
+		const buildActionMenu = visiblePlanCard
+			.locator("[data-build-action-menu]")
+			.first();
+		await expect(buildActionMenu).toBeVisible();
+		const defaultBuildAction = buildActionMenu
+			.locator("[data-default-build-action]")
+			.first();
+		await expect(defaultBuildAction).toBeVisible();
+		await slowVisiblePause(page);
+		await captureSlowUiScreenshot(page, testInfo, "build-locally-dropdown-open");
+		await defaultBuildAction.click();
 		await slowVisiblePause(page);
 		let opened = await E2ETestHelper.openLatestNativePlan();
 		await expect

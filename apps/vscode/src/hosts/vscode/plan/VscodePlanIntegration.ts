@@ -811,22 +811,48 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 				width: 100%;
 				min-height: 30px;
 				display: flex;
+				flex-direction: column;
 				align-items: center;
 				justify-content: flex-start;
-				border: 1px solid transparent;
+				gap: 2px;
+				border: 1px solid var(--vscode-panel-border);
 				border-radius: 5px;
-				padding: 5px 8px;
-				background: transparent;
+				padding: 7px 9px;
+				background: color-mix(in srgb, var(--vscode-button-secondaryBackground, var(--vscode-input-background)), transparent 20%);
 				color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
 				font-family: var(--vscode-font-family);
 				font-size: 12px;
 				text-align: left;
 				cursor: pointer;
 			}
+			.menu-action-primary {
+				border-color: var(--vscode-focusBorder);
+				background: var(--vscode-button-background);
+				color: var(--vscode-button-foreground);
+			}
+			.menu-action-title {
+				width: 100%;
+				font-weight: 600;
+				line-height: 1.2;
+			}
+			.menu-action-subtitle {
+				width: 100%;
+				color: var(--vscode-descriptionForeground);
+				font-size: 11px;
+				line-height: 1.25;
+			}
+			.menu-action-primary .menu-action-subtitle {
+				color: color-mix(in srgb, var(--vscode-button-foreground), transparent 18%);
+			}
 			.menu-action:hover:not(:disabled),
 			.menu-action:focus:not(:disabled) {
+				border-color: var(--vscode-focusBorder);
 				background: var(--vscode-list-hoverBackground);
 				outline: none;
+			}
+			.menu-action-primary:hover:not(:disabled),
+			.menu-action-primary:focus:not(:disabled) {
+				background: var(--vscode-button-hoverBackground);
 			}
 			.menu-action:disabled { cursor: not-allowed; opacity: 0.48; }
 			.menu-caret { color: var(--vscode-descriptionForeground); font-size: 11px; }
@@ -982,8 +1008,14 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 								<span>Build</span><span class="menu-caret">v</span>
 							</button>
 							<div class="menu-popover" data-menu-popover data-build-action-menu role="menu" hidden>
-								<button type="button" class="menu-action" data-menu-action="buildLocal" data-build-action-button role="menuitem">Build Locally</button>
-								<button type="button" class="menu-action" data-menu-action="buildParallel" data-build-action-button role="menuitem">Build in Parallel</button>
+								<button type="button" class="menu-action menu-action-primary" data-menu-action="buildLocal" data-build-action-button data-default-build-action role="menuitem">
+									<span class="menu-action-title">Build</span>
+									<span class="menu-action-subtitle">Run locally in Act mode</span>
+								</button>
+								<button type="button" class="menu-action" data-menu-action="buildParallel" data-build-action-button role="menuitem">
+									<span class="menu-action-title">Build in Parallel</span>
+									<span class="menu-action-subtitle">Prepare multitask local execution</span>
+								</button>
 								<button type="button" class="menu-action" data-menu-action="buildSelectedLocal" data-build-action-button data-selection-option disabled role="menuitem">Build Selected</button>
 								<button type="button" class="menu-action" data-menu-action="buildSelectedParallel" data-build-action-button data-selection-option disabled role="menuitem">Build Selected Parallel</button>
 								<button type="button" class="menu-action" data-menu-action="buildNewAgent" data-build-action-button data-selection-option disabled role="menuitem">Build Selected in New Agent</button>

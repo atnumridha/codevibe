@@ -256,9 +256,41 @@ const PlanCompletionOutputRow = memo(
 		const [search, setSearch] = useState("");
 		const [showRawMarkdown, setShowRawMarkdown] = useState(false);
 		const [isBuildMenuOpen, setIsBuildMenuOpen] = useState(false);
+		const [buildMenuPosition, setBuildMenuPosition] = useState<
+			{ left: number; top: number; width: number } | undefined
+		>();
 		const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 		const buildMenuRef = useRef<HTMLDivElement>(null);
+		const buildMenuPanelRef = useRef<HTMLDivElement>(null);
 		const effectivePlanBuild = localPlanBuild || createdPlanBuild;
+
+		const updateBuildMenuPosition = () => {
+			const trigger = buildMenuRef.current?.querySelector(
+				"[data-build-action-trigger]",
+			);
+			if (!(trigger instanceof HTMLElement)) {
+				return;
+			}
+			const triggerRect = trigger.getBoundingClientRect();
+			const panelHeight = buildMenuPanelRef.current?.offsetHeight ?? 152;
+			const panelWidth = Math.max(
+				buildMenuPanelRef.current?.offsetWidth ?? 224,
+				triggerRect.width,
+			);
+			const viewportWidth = document.documentElement.clientWidth;
+			const viewportHeight = document.documentElement.clientHeight;
+			const gutter = 8;
+			const left = Math.min(
+				Math.max(gutter, triggerRect.right - panelWidth),
+				Math.max(gutter, viewportWidth - panelWidth - gutter),
+			);
+			const bottomTop = triggerRect.bottom + 4;
+			const top =
+				bottomTop + panelHeight <= viewportHeight - gutter
+					? bottomTop
+					: Math.max(gutter, triggerRect.top - panelHeight - 4);
+			setBuildMenuPosition({ left, top, width: panelWidth });
+		};
 
 		useEffect(() => {
 			setCreatedPlanBuild(undefined);
@@ -282,12 +314,21 @@ const PlanCompletionOutputRow = memo(
 					setIsBuildMenuOpen(false);
 				}
 			};
+			const updatePosition = () => updateBuildMenuPosition();
+
+			window.requestAnimationFrame(() => {
+				updateBuildMenuPosition();
+			});
 
 			document.addEventListener("pointerdown", closeOnOutsidePointer);
 			document.addEventListener("keydown", closeOnEscape);
+			window.addEventListener("resize", updatePosition);
+			window.addEventListener("scroll", updatePosition, true);
 			return () => {
 				document.removeEventListener("pointerdown", closeOnOutsidePointer);
 				document.removeEventListener("keydown", closeOnEscape);
+				window.removeEventListener("resize", updatePosition);
+				window.removeEventListener("scroll", updatePosition, true);
 			};
 		}, [isBuildMenuOpen]);
 
@@ -596,10 +637,22 @@ const PlanCompletionOutputRow = memo(
 		) => {
 			const triggerLabel = isStartingBuild ? liveStatusText : idleLabel;
 			const actionClassName =
-				"w-full rounded-sm px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted focus:bg-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
+				"w-full rounded-sm border border-description/20 bg-background/70 px-2 py-1.5 text-left text-xs text-foreground hover:border-primary/50 hover:bg-muted focus:border-primary/50 focus:bg-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
+			const primaryActionClassName = cn(
+				actionClassName,
+				"border-primary/45 bg-primary/10 font-medium",
+			);
+			const toggleBuildMenu = () => {
+				if (isBuildMenuOpen) {
+					setIsBuildMenuOpen(false);
+					return;
+				}
+				updateBuildMenuPosition();
+				setIsBuildMenuOpen(true);
+			};
 
 			return (
-				<div className="relative inline-flex shrink-0" ref={buildMenuRef}>
+				<div className="relative grid shrink-0" ref={buildMenuRef}>
 					<button
 						aria-expanded={isBuildMenuOpen}
 						aria-haspopup="menu"
@@ -610,7 +663,7 @@ const PlanCompletionOutputRow = memo(
 						)}
 						data-build-action-trigger
 						disabled={!canBuild || Boolean(isStartingBuild)}
-						onClick={() => setIsBuildMenuOpen((current) => !current)}
+						onClick={toggleBuildMenu}
 						type="button"
 					>
 						<span className="truncate">{triggerLabel}</span>
@@ -618,18 +671,32 @@ const PlanCompletionOutputRow = memo(
 					</button>
 					{isBuildMenuOpen && (
 						<div
-							className="absolute right-0 top-full z-30 mt-1 grid min-w-56 gap-1 rounded-sm border border-description/30 bg-background p-1 shadow-lg"
+							className="fixed z-[1000] grid min-w-56 gap-1 rounded-sm border border-description/30 bg-background p-1 shadow-lg"
 							data-build-action-menu
+							ref={buildMenuPanelRef}
 							role="menu"
+							style={{
+								left: buildMenuPosition?.left ?? 8,
+								top: buildMenuPosition?.top ?? 8,
+								width: buildMenuPosition?.width ?? 224,
+							}}
 						>
 							<button
-								className={actionClassName}
+								aria-label="Build"
+								className={primaryActionClassName}
 								data-build-action-button
+								data-default-build-action
 								onClick={() => void buildPlan("agent")}
 								role="menuitem"
 								type="button"
 							>
-								Build Locally
+								<span className="block">Build</span>
+								<span
+									aria-hidden="true"
+									className="block text-[10px] font-normal text-description"
+								>
+									Run locally in Act mode
+								</span>
 							</button>
 							<button
 								className={actionClassName}
@@ -638,7 +705,10 @@ const PlanCompletionOutputRow = memo(
 								role="menuitem"
 								type="button"
 							>
-								Build in Parallel
+								<span className="block">Build in Parallel</span>
+								<span className="block text-[10px] text-description">
+									Prepare multitask local execution
+								</span>
 							</button>
 							<button
 								className={actionClassName}
@@ -819,7 +889,10 @@ const PlanCompletionOutputRow = memo(
 		if (!hasPlanArtifact && canBuild && !hasStructuredTodos) {
 			return (
 				<div
-					className="min-w-0 rounded-sm border border-description/40 bg-code p-2"
+					className={cn(
+						"min-w-0 rounded-sm border border-description/40 bg-code p-2",
+						isBuildMenuOpen && "relative z-50 overflow-visible",
+					)}
 					data-plan-card
 				>
 					<div
@@ -844,7 +917,12 @@ const PlanCompletionOutputRow = memo(
 
 		return (
 			<div
-				className="min-w-0 rounded-sm border border-description/40 overflow-hidden bg-code p-2 pt-3"
+				className={cn(
+					"min-w-0 rounded-sm border border-description/40 bg-code p-2 pt-3",
+					isBuildMenuOpen
+						? "relative z-50 overflow-visible"
+						: "overflow-hidden",
+				)}
 				data-plan-card
 			>
 				<div className={cn(headClassNames, "justify-between px-1")}>
