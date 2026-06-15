@@ -237,6 +237,21 @@ export interface NativeOpenAiCodexStateResponse {
 	error?: string
 }
 
+export interface NativeVisibleCommandApprovalResponse {
+	success: boolean
+	command?: string
+	taskId?: string
+	messageCount?: number
+	sandboxRuntime?: {
+		status?: string
+		effectiveAccess?: string
+		configSource?: string
+		networkDefault?: string
+		writablePathCount?: number
+	}
+	error?: string
+}
+
 export class E2ETestHelper {
 	// Constants
 	public static readonly CODEBASE_ROOT_DIR = path.resolve(__dirname, "..", "..", "..", "..")
@@ -866,6 +881,15 @@ export class E2ETestHelper {
 
 	public static async evaluateNativeOpenAiCodexState(): Promise<NativeOpenAiCodexStateResponse> {
 		return E2ETestHelper.postTestServerJson<NativeOpenAiCodexStateResponse>("/state/openai-codex/evaluate")
+	}
+
+	public static async seedVisibleCommandApproval(input?: {
+		command?: string
+	}): Promise<NativeVisibleCommandApprovalResponse> {
+		return E2ETestHelper.postTestServerJson<NativeVisibleCommandApprovalResponse>(
+			"/seed-visible-command-approval",
+			input,
+		)
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {

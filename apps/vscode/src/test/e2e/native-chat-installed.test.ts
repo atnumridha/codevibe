@@ -446,6 +446,54 @@ installedE2e("Installed VSIX evaluates Cursor sandbox policy and inline terminal
 	)
 })
 
+installedE2e("Installed VSIX renders visible sandbox command approval controls", async ({ page, sidebar, helper }) => {
+	await expect
+		.poll(
+			async () => {
+				const diagnosticsResponse = await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({ success: false }))
+				return diagnosticsResponse.success === true
+			},
+			{
+				message: "Installed Codie VSIX should activate its E2E command server before approval UI diagnostics run",
+				timeout: 60_000,
+			},
+		)
+		.toBe(true)
+
+	sidebar = await helper.openSidebar(page)
+	const response = await E2ETestHelper.seedVisibleCommandApproval({ command: "git status --short" })
+
+	expect(response.success).toBe(true)
+	expect(response.command).toBe("git status --short")
+	expect(response.messageCount).toBe(2)
+	expect(response.sandboxRuntime).toEqual(
+		expect.objectContaining({
+			status: "loaded",
+			effectiveAccess: "readOnly",
+			configSource: "cursorCompatibility",
+			networkDefault: "deny",
+		}),
+	)
+
+	let visibleWebviewText = ""
+	await E2ETestHelper.waitUntil(async () => {
+		visibleWebviewText = await sidebar.locator("body").innerText().catch(() => "")
+		return (
+			visibleWebviewText.includes("Codie wants to execute this command:") &&
+			visibleWebviewText.includes("git status --short")
+		)
+	}, 30_000)
+	await expect(sidebar.getByText("Codie needs your approval before running this command.")).toBeVisible()
+	await expect(sidebar.getByRole("button", { name: "Run command in sandbox" })).toBeVisible()
+	await expect(sidebar.getByRole("button", { name: "Run command unelevated" })).toBeVisible()
+	await expect(sidebar.getByRole("button", { name: "Run command elevated" })).toBeVisible()
+	await expect(sidebar.getByRole("button", { name: "Reject command" })).toBeVisible()
+	await expect(sidebar.getByText(/Legacy import-compatible sandbox active/)).toBeVisible()
+	await expect(sidebar.getByText(/Unelevated uses normal terminal mode/)).toBeVisible()
+
+	expect(visibleWebviewText).not.toMatch(/\bCline\b/)
+})
+
 installedE2e("Installed VSIX routes Cursor-compatible deeplinks through local VS Code handlers", async ({ app: _app }) => {
 	await expect
 		.poll(

@@ -1,4 +1,5 @@
-import { resolveCursorSandboxPolicy } from "@core/config/cursor-sandbox"
+import { resolveCursorSandboxPolicy, type CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
+import { sendStateUpdate } from "@core/controller/state/subscribeToState"
 import { CommandPermissionController } from "@core/permissions"
 import { COMMAND_PERMISSIONS_ENV_VAR, LEGACY_COMMAND_PERMISSIONS_ENV_VAR } from "@core/permissions/types"
 import { getPlanStorageService } from "@core/plan/PlanStorageService"
@@ -7,6 +8,8 @@ import { getDefaultTerminalRunMode, resolveInlineTerminalRequest } from "@core/t
 import { WebviewProvider } from "@core/webview"
 import { searchWorkspaceText } from "@hosts/vscode/hostbridge/workspace/searchWorkspaceText"
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
+import { COMMAND_REQ_APP_STRING } from "@shared/combineCommandSequences"
+import type { ClineMessage, ExtensionState } from "@shared/ExtensionMessage"
 import { HistoryItem } from "@shared/HistoryItem"
 import { DEFAULT_API_PROVIDER, openAiCodexDefaultModelId, openAiCodexModels, type ApiProvider, type ModelInfo } from "@shared/api"
 import { SearchWorkspaceTextRequest } from "@shared/proto/host/workspace"
@@ -98,6 +101,115 @@ function encodeBase64UrlJson(value: unknown): string {
 
 function createE2EOpenAiCodexJwt(claims: Record<string, unknown>): string {
 	return `${encodeBase64UrlJson({ alg: "none", typ: "JWT" })}.${encodeBase64UrlJson(claims)}.signature`
+}
+
+function summarizeVisibleApprovalSandbox(
+	policy: CursorSandboxRuntimePolicy,
+): NonNullable<ExtensionState["compatibilityStatus"]>["sandboxRuntime"] {
+	return {
+		status: policy.status,
+		effectiveAccess: policy.effectiveAccess,
+		configSource: policy.configSource ?? (policy.source === "cursor-sandbox" ? "cursorCompatibility" : "codie"),
+		configPath: policy.configPath,
+		workspaceRoot: policy.workspaceRoot,
+		error: policy.error,
+		readablePathCount: policy.readablePaths.length,
+		writablePathCount: policy.writablePaths.length,
+		networkDefault: policy.networkPolicy.default,
+		networkAllowCount: policy.networkPolicy.allow.length,
+		networkDenyCount: policy.networkPolicy.deny?.length ?? 0,
+		networkStrict: policy.networkPolicyStrict ?? false,
+		blockGitWrites: policy.blockGitWrites,
+		allowTerminalAutoApprove: policy.allowTerminalAutoApprove,
+	}
+}
+
+async function createVisibleCommandApprovalSeed(controller: Controller, command: string) {
+	let sandboxRoot: string | undefined
+	try {
+		sandboxRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "codevibe-e2e-visible-approval-"))
+		const cursorConfigDir = path.join(sandboxRoot, ".cursor")
+		const cursorConfigPath = path.join(cursorConfigDir, "sandbox.json")
+		await fs.promises.mkdir(cursorConfigDir, { recursive: true })
+		await fs.promises.writeFile(
+			cursorConfigPath,
+			`${JSON.stringify(
+				{
+					type: "workspace_readonly",
+					blockGitWrites: true,
+					networkPolicy: { default: "deny", allow: [] },
+				},
+				null,
+				2,
+			)}\n`,
+			"utf8",
+		)
+		const sandboxPolicy = await resolveCursorSandboxPolicy({
+			workspaceRoot: sandboxRoot,
+			policySetting: "workspace",
+		})
+		if (!sandboxPolicy) {
+			throw new Error("Expected visible approval sandbox policy to load from .cursor/sandbox.json")
+		}
+
+		await controller.clearTask()
+		controller.stateManager.setGlobalState("welcomeViewCompleted", true)
+		controller.stateManager.setGlobalState("isNewUser", false)
+
+		const baseState = await controller.getStateToPostToWebview()
+		const taskTs = Date.now()
+		const taskItem: HistoryItem = {
+			id: `e2e-visible-approval-${taskTs}`,
+			ts: taskTs,
+			task: "Installed visible terminal approval",
+			tokensIn: 0,
+			tokensOut: 0,
+			totalCost: 0,
+		}
+		const clineMessages: ClineMessage[] = [
+			{
+				type: "say",
+				say: "task",
+				text: "Installed visible terminal approval",
+				ts: taskTs,
+			},
+			{
+				type: "ask",
+				ask: "command",
+				text: `${command}${COMMAND_REQ_APP_STRING}`,
+				ts: taskTs + 1,
+			},
+		]
+		const seededState: ExtensionState = {
+			...baseState,
+			currentTaskItem: taskItem,
+			taskHistory: [taskItem, ...(baseState.taskHistory ?? []).filter((item) => item.id !== taskItem.id)],
+			clineMessages,
+			isNewUser: false,
+			welcomeViewCompleted: true,
+			mode: "act",
+			compatibilityStatus: {
+				...(baseState.compatibilityStatus ?? {
+					enabled: true,
+					deepLinksEnabled: true,
+					retrievalIndexingPrivacyGate: true,
+					sandboxPolicy: "workspace",
+					safeBrowserEvaluateEnabled: false,
+					effectiveBrowserEvaluateEnabled: false,
+					openAiCodexAuthSource: "auto",
+					openAiCodexAuthenticated: false,
+				}),
+				sandboxPolicy: "workspace",
+				sandboxRuntime: summarizeVisibleApprovalSandbox(sandboxPolicy),
+			},
+		}
+
+		return { clineMessages, command, seededState, taskItem }
+	} finally {
+		if (sandboxRoot) {
+			await fs.promises.rm(sandboxRoot, { recursive: true, force: true }).catch(() => undefined)
+		}
+	}
 }
 
 /**
@@ -244,6 +356,43 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 					res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
 				}
 			})()
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/seed-visible-command-approval") {
+			readRequestBody()
+				.then(async (body) => {
+					try {
+						const parsed = body ? JSON.parse(body) : {}
+						const command = typeof parsed.command === "string" ? parsed.command : "git status --short"
+						const { clineMessages, seededState, taskItem } = await createVisibleCommandApprovalSeed(
+							controller,
+							command,
+						)
+
+						await sendStateUpdate(seededState)
+						await new Promise((resolve) => setTimeout(resolve, 250))
+						await sendStateUpdate(seededState)
+
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(
+							JSON.stringify({
+								success: true,
+								command,
+								taskId: taskItem.id,
+								messageCount: clineMessages.length,
+								sandboxRuntime: seededState.compatibilityStatus?.sandboxRuntime,
+							}),
+						)
+					} catch (error) {
+						res.writeHead(500, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+					}
+				})
+				.catch((error) => {
+					res.writeHead(400, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
+				})
 			return
 		}
 
