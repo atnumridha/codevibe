@@ -262,6 +262,8 @@ const HOST_INDEX_CANDIDATE_LIMIT = 5000
 const GIT_CHANGED_CANDIDATE_LIMIT = 200
 const GIT_CHANGED_CACHE_TTL_MS = 2_000
 const DEPENDENCY_CANDIDATE_LIMIT = 200
+const DEPENDENCY_SCAN_MAX_LINES = 400
+const DEPENDENCY_SCAN_MAX_BYTES = 64 * 1024
 const DEPENDENCY_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".css", ".scss", ".md"]
 
 type RetrievalBoost = "active" | "visible" | "recent" | "git_changed" | "dependency"
@@ -482,6 +484,29 @@ function extractRelativeImportSpecifiers(source: string): string[] {
 	return Array.from(specifiers)
 }
 
+async function readDependencyImportPrefix(filePath: string): Promise<string> {
+	const stream = fs.createReadStream(filePath, {
+		encoding: "utf8",
+		start: 0,
+		end: DEPENDENCY_SCAN_MAX_BYTES - 1,
+	})
+	const reader = readline.createInterface({ input: stream, crlfDelay: Infinity })
+	const lines: string[] = []
+	try {
+		for await (const line of reader) {
+			lines.push(line)
+			if (lines.length >= DEPENDENCY_SCAN_MAX_LINES) {
+				reader.close()
+				stream.destroy()
+				break
+			}
+		}
+	} finally {
+		stream.destroy()
+	}
+	return lines.join("\n")
+}
+
 function getDependencyResolutionCandidates(importerPath: string, specifier: string): string[] {
 	const importerDir = path.dirname(importerPath)
 	const rawTarget = path.normalize(path.join(importerDir, specifier))
@@ -532,7 +557,7 @@ async function getDependencyCandidates(
 		}
 
 		try {
-			const source = await fs.promises.readFile(path.join(workspacePath, seedItem.path), "utf8")
+				const source = await readDependencyImportPrefix(path.join(workspacePath, seedItem.path))
 			for (const specifier of extractRelativeImportSpecifiers(source)) {
 				if (dependencies.length >= DEPENDENCY_CANDIDATE_LIMIT) {
 					break

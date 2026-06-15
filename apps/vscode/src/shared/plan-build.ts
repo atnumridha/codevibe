@@ -37,10 +37,27 @@ export interface LocalPlanBuildMetadata {
 
 export interface LocalPlanExecutionMessageInput {
 	planText?: string
+	planId?: string
 	planPath?: string
 	taskProgress?: string
 	mode?: PlanBuildMode
 	selectedTodoIds?: string[]
+	skipSubmission?: boolean
+	forceNewAgent?: boolean
+}
+
+export interface ExecutePlanAction {
+	type: "ExecutePlanAction"
+	isPlanExecution: true
+	planId?: string
+	planUri?: string
+	planContent: string
+	unifiedMode: PlanBuildMode
+	executionMode: PlanBuildMode
+	selectedTodoIds: string[]
+	skipSubmission: boolean
+	targetEnvironment: "local"
+	entrypoint: "plan_tab_build" | "plan_tab_build_parallel" | "plan_tab_build_new_agent"
 }
 
 const CHECKBOX_LINE = /^-\s*\[([ xX])\]\s*(.+)$/
@@ -172,25 +189,53 @@ export function planMetadataToTaskProgress(metadata: PlanMetadata, todoIds?: str
 
 export function buildLocalPlanExecutionMessage({
 	planText,
+	planId,
 	planPath,
 	taskProgress,
 	mode = "agent",
 	selectedTodoIds,
+	skipSubmission = false,
+	forceNewAgent = false,
 }: LocalPlanExecutionMessageInput): string {
 	const normalizedPlan = normalizePlanText(planText)
 	const normalizedTaskProgress = normalizePlanText(taskProgress)
+	const action: ExecutePlanAction = {
+		type: "ExecutePlanAction",
+		isPlanExecution: true,
+		planId,
+		planUri: planPath,
+		planContent: normalizedPlan,
+		unifiedMode: mode,
+		executionMode: mode,
+		selectedTodoIds: selectedTodoIds ?? [],
+		skipSubmission,
+		targetEnvironment: "local",
+		entrypoint: forceNewAgent
+			? "plan_tab_build_new_agent"
+			: mode === "multitask"
+				? "plan_tab_build_parallel"
+				: "plan_tab_build",
+	}
 	const modeLabel =
 		mode === "multitask"
 			? "Build this plan locally with parallel subagents in Act mode."
+			: forceNewAgent
+				? "Build the selected plan todos locally in a new Act-mode agent."
 			: "Build this plan locally in Act mode."
 	const routingRequirement =
 		mode === "multitask"
 			? "- Route this as a local parallel build using local subagents only. Do not start or transfer to a cloud/background build."
+			: forceNewAgent
+				? "- Route this as a brand-new local agent build for only the selected todos. Do not start or transfer to a cloud/background build."
 			: "- Route this as a local agent build only. Do not start or transfer to a cloud/background build."
 	const sections = [
 		modeLabel,
 		"",
 		"The plan below is accepted and attached as the execution reference. Use it as the source of truth.",
+		"",
+		"<execute_plan_action>",
+		JSON.stringify(action, null, 2),
+		"</execute_plan_action>",
 		"",
 		"Execution requirements:",
 		routingRequirement,

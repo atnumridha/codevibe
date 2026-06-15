@@ -438,23 +438,27 @@ describe("File Search", () => {
 					.resolves({ filePath: path.join(workspace, "src", "entry.ts") } as any)
 				sandbox.stub(HostProvider.window, "getVisibleTabs").resolves({ paths: [] } as any)
 				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
-				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
-					SearchWorkspaceItemsResponse.create({
-						items: [
-							{ path: "src/index.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "index.ts" },
-							{ path: "src/dep.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "dep.ts" },
+					sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+						SearchWorkspaceItemsResponse.create({
+							items: [
+								{ path: "src/index.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "index.ts" },
+								{ path: "src/dep.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "dep.ts" },
 						],
 					}),
-				)
-				stubGitStatus("")
+					)
+					stubGitStatus("")
+					const readFileSpy = sandbox.spy(fs.promises, "readFile")
 
-				const result = await fileSearch.searchWorkspaceFiles("", workspace, 2)
+					const result = await fileSearch.searchWorkspaceFiles("", workspace, 2)
 
-				should(result.items.map((item) => item.path)).deepEqual(["src/entry.ts", "src/dep.ts"])
-			} finally {
-				await fs.promises.rm(workspace, { recursive: true, force: true })
-			}
-		})
+					should(result.items.map((item) => item.path)).deepEqual(["src/entry.ts", "src/dep.ts"])
+					should(
+						readFileSpy.getCalls().some((call) => String(call.args[0]) === path.join(workspace, "src", "entry.ts")),
+					).equal(false)
+				} finally {
+					await fs.promises.rm(workspace, { recursive: true, force: true })
+				}
+			})
 
 		it("filters git-changed candidates through Cursor privacy ignore rules", async () => {
 			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-git-ignore-"))

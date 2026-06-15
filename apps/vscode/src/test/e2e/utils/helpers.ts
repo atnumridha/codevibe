@@ -60,6 +60,28 @@ export interface NativeAgentOpenResponse {
 	error?: string
 }
 
+export interface NativeAgentRequestResponse {
+	success: boolean
+	taskText?: string
+	progress?: string[]
+	markdown?: string[]
+	result?: {
+		metadata?: {
+			routedTo?: string
+			taskId?: string
+			startedInCodeVibe?: boolean
+			cancelled?: boolean
+			fallbackToTaskInput?: boolean
+		}
+	}
+	currentTaskItem?: {
+		id?: string
+		task?: string
+		ts?: number
+	}
+	error?: string
+}
+
 export interface NativePlanCreateResponse {
 	success: boolean
 	plan?: {
@@ -894,6 +916,13 @@ export class E2ETestHelper {
 		position: "sidebar" | "editor" = "sidebar",
 	): Promise<NativeAgentOpenResponse> {
 		return E2ETestHelper.postTestServerJson<NativeAgentOpenResponse>("/native-agent/open", { position })
+	}
+
+	public static async invokeNativeAgentRequest(input: {
+		command?: string
+		prompt?: string
+	}): Promise<NativeAgentRequestResponse> {
+		return E2ETestHelper.postTestServerJson<NativeAgentRequestResponse>("/native-agent/request", input)
 	}
 
 	public static async createNativePlan(input: {

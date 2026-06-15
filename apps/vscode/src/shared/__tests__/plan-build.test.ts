@@ -19,6 +19,10 @@ describe("plan-build", () => {
 		})
 
 		assert.match(message, /Build this plan locally in Act mode\./)
+		assert.match(message, /"type": "ExecutePlanAction"/)
+		assert.match(message, /"isPlanExecution": true/)
+		assert.match(message, /"unifiedMode": "agent"/)
+		assert.match(message, /"planUri": "\/tmp\/task\/local-plan\.plan\.md"/)
 		assert.match(message, /local agent build only/)
 		assert.match(message, /Do not start or transfer to a cloud\/background build/)
 		assert.match(message, /Do not edit the plan file/)
@@ -61,9 +65,12 @@ describe("plan-build", () => {
 			taskProgress: "- [ ] A\n- [ ] B",
 			mode: "multitask",
 			selectedTodoIds: ["todo-a", "todo-b"],
+			skipSubmission: true,
 		})
 
 		assert.match(message, /parallel subagents/)
+		assert.match(message, /"unifiedMode": "multitask"/)
+		assert.match(message, /"skipSubmission": true/)
 		assert.match(message, /local parallel build/)
 		assert.match(message, /Do not start or transfer to a cloud\/background build/)
 		assert.match(message, /<selected_todo_ids>\ntodo-a\ntodo-b\n<\/selected_todo_ids>/)

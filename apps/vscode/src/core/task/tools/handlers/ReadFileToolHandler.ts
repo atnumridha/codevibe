@@ -16,7 +16,7 @@ import type { StronglyTypedUIHelpers } from "../types/UIHelpers"
 import { ToolResultUtils } from "../utils/ToolResultUtils"
 
 export const DEFAULT_MAX_LINES = 1000
-export const PLAN_MODE_DEFAULT_MAX_LINES = 160
+export const PLAN_MODE_DEFAULT_MAX_LINES = 80
 const FILE_TRUNCATED_MARKER = "\n\n---\n\n[FILE TRUNCATED:"
 
 type DisplayedLineSlice = {

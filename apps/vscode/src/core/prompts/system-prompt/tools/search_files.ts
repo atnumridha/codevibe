@@ -5,7 +5,7 @@ import { TASK_PROGRESS_PARAMETER } from "../types"
 
 /**
  * ## search_files
-Description: Request to perform a regex search across files in a specified directory, providing context-rich results. This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.
+	Description: Request to perform a regex search across files in a specified directory, returning compact path + line-range snippets. This searches/ranks before reading and is the preferred way to find exact start_line/end_line ranges for read_file.
 Parameters:
 - path: (required) The path of the directory to search in (relative to the current working directory ${cwd.toPosix()}). This directory will be recursively searched.
 - regex: (required) The regular expression pattern to search for. Uses Rust regex syntax.
@@ -19,13 +19,14 @@ Usage:
  */
 
 const id = ClineDefaultTool.SEARCH
+const SEARCH_FILES_DESCRIPTION =
+	"Request to perform a regex search across files in a specified directory, returning compact path + line-range snippets with nearby context. Use this to rank likely files/ranges before read_file, then read only exact start_line/end_line slices instead of loading whole files."
 
 const generic: ClineToolSpec = {
 	variant: ModelFamily.GENERIC,
 	id,
 	name: "search_files",
-	description:
-		"Request to perform a regex search across files in a specified directory, providing context-rich results. This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.",
+	description: SEARCH_FILES_DESCRIPTION,
 	parameters: [
 		{
 			name: "path",
@@ -54,8 +55,7 @@ const NATIVE_NEXT_GEN: ClineToolSpec = {
 	variant: ModelFamily.NATIVE_NEXT_GEN,
 	id,
 	name: "search_files",
-	description:
-		"Request to perform a regex search across files in a specified directory, providing context-rich results. This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.",
+	description: SEARCH_FILES_DESCRIPTION,
 	parameters: [
 		{
 			name: "path",

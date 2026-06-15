@@ -1,5 +1,5 @@
 import { resolveCursorSandboxPolicy, type CursorSandboxRuntimePolicy } from "@core/config/cursor-sandbox"
-import { sendStateUpdate } from "@core/controller/state/subscribeToState"
+import { sendStateUpdate, setE2EInitialStateOverride } from "@core/controller/state/subscribeToState"
 import { CommandPermissionController } from "@core/permissions"
 import { COMMAND_PERMISSIONS_ENV_VAR, LEGACY_COMMAND_PERMISSIONS_ENV_VAR } from "@core/permissions/types"
 import { getPlanStorageService } from "@core/plan/PlanStorageService"
@@ -61,9 +61,25 @@ export type TestServerNativeAgentDiagnostics = {
 	diagnostics: unknown
 }
 
+export type TestServerNativeAgentRequestInput = {
+	prompt?: string
+	command?: string
+}
+
+export type TestServerNativeAgentRequestResult = {
+	taskText?: string
+	progress: string[]
+	markdown: string[]
+	result?: unknown
+	currentTaskItem?: Pick<HistoryItem, "id" | "task" | "ts">
+}
+
 export type TestServerHooks = {
 	getNativeAgentDiagnostics?: () => TestServerNativeAgentDiagnostics
 	openNativeAgentSession?: (position: "sidebar" | "editor") => Promise<unknown>
+	invokeNativeAgentRequest?: (
+		input: TestServerNativeAgentRequestInput,
+	) => Promise<TestServerNativeAgentRequestResult>
 }
 
 const E2E_CLINE_TEST_API_KEY = "test-personal-token"
@@ -451,6 +467,39 @@ async function updateAutoApprovalSettings(controller?: Controller) {
 	}
 }
 
+async function revealLegacyWebviewForTest(): Promise<boolean> {
+	const webviewProvider = WebviewProvider.getInstance() as WebviewProvider & {
+		show?: (preserveEditorFocus?: boolean) => Promise<void>
+		showPanel?: (preserveEditorFocus?: boolean) => Promise<void>
+	}
+
+	await vscode.commands
+		.executeCommand("workbench.view.extension.codevibe-agent")
+		.then(
+			() => undefined,
+			() => undefined,
+		)
+	await vscode.commands.executeCommand("codevibe-agent-chat.focus").then(
+		() => undefined,
+		() => undefined,
+	)
+	await new Promise((resolve) => setTimeout(resolve, 500))
+	if (webviewProvider.isVisible()) {
+		return true
+	}
+
+	if (typeof webviewProvider.showPanel === "function") {
+		await webviewProvider.showPanel(false)
+	} else if (typeof webviewProvider.show === "function") {
+		await webviewProvider.show(false)
+	} else {
+		await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview)
+	}
+
+	await new Promise((resolve) => setTimeout(resolve, 500))
+	return webviewProvider.isVisible()
+}
+
 /**
  * Creates and starts an HTTP server for test automation
  * @param webviewProvider The webview provider instance to use for message catching
@@ -458,7 +507,9 @@ async function updateAutoApprovalSettings(controller?: Controller) {
  */
 export async function createTestServer(controller: Controller, hooks: TestServerHooks = {}): Promise<http.Server> {
 	Logger.log("[createTestServer] Opening CodeVibe surface...")
-	vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview)
+	revealLegacyWebviewForTest().catch((error) => {
+		Logger.warn(`Failed to eagerly open CodeVibe surface for tests: ${error}`)
+	})
 
 	// Update auto approval settings is available
 	await updateAutoApprovalSettings(controller)
@@ -504,19 +555,7 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 		if (req.method === "POST" && req.url === "/open-legacy-webview") {
 			;(async () => {
 				try {
-					const webviewProvider = WebviewProvider.getInstance() as WebviewProvider & {
-						show?: (preserveEditorFocus?: boolean) => Promise<void>
-						showPanel?: (preserveEditorFocus?: boolean) => Promise<void>
-					}
-					if (typeof webviewProvider.showPanel === "function") {
-						await webviewProvider.showPanel(false)
-					} else if (typeof webviewProvider.show === "function") {
-						await webviewProvider.show(false)
-					} else {
-						await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.OpenLegacyWebview)
-					}
-					await new Promise((resolve) => setTimeout(resolve, 250))
-					const visible = webviewProvider.isVisible()
+					const visible = await revealLegacyWebviewForTest()
 					res.writeHead(200, { "Content-Type": "application/json" })
 					res.end(JSON.stringify({ success: true, visible }))
 				} catch (error) {
@@ -633,6 +672,8 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 				try {
 					const { clineMessages, response, seededState, taskItem } = await createVisiblePlanBuildSeed(controller)
 
+					setE2EInitialStateOverride(seededState)
+					await revealLegacyWebviewForTest()
 					await sendStateUpdate(seededState)
 					await new Promise((resolve) => setTimeout(resolve, 250))
 					await sendStateUpdate(seededState)
@@ -981,6 +1022,36 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 							workspaceFs.readFile = originalReadFile
 						}
 						await fs.promises.rm(searchRoot, { recursive: true, force: true }).catch(() => undefined)
+					}
+				})
+				.catch((error) => {
+					res.writeHead(400, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
+				})
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/native-agent/request") {
+			readRequestBody()
+				.then(async (body) => {
+					try {
+						if (!hooks.invokeNativeAgentRequest) {
+							res.writeHead(404, { "Content-Type": "application/json" })
+							res.end(JSON.stringify({ success: false, error: "Native agent request hook is not registered" }))
+							return
+						}
+
+						const parsed = body ? JSON.parse(body) : {}
+						const input: TestServerNativeAgentRequestInput = {
+							command: typeof parsed.command === "string" ? parsed.command : undefined,
+							prompt: typeof parsed.prompt === "string" ? parsed.prompt : undefined,
+						}
+						const result = await hooks.invokeNativeAgentRequest(input)
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: true, ...result }))
+					} catch (error) {
+						res.writeHead(500, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
 					}
 				})
 				.catch((error) => {

@@ -192,9 +192,9 @@ export const FocusChain: React.FC<FocusChainProps> = memo(
 					aria-hidden={true}
 					className="relative rounded-sm bg-toolbar-hover/65 flex items-center gap-2 select-none overflow-hidden opacity-80 px-2.5 py-2">
 					<span className="rounded-lg px-2 py-0.25 inline-block shrink-0 bg-badge-foreground/20 text-foreground text-sm">
-						0/0
+						Plan
 					</span>
-					<span className="text-sm text-foreground/80 truncate">TODOs</span>
+					<span className="text-sm text-foreground/80 truncate">Steps pending</span>
 				</div>
 			)
 		}

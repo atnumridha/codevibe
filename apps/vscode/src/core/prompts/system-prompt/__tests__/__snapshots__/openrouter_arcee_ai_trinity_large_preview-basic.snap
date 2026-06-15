@@ -119,7 +119,7 @@ Usage:
 </replace_in_file>
 
 ## search_files
-Description: Request to perform a regex search across files in a specified directory, providing context-rich results. This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.
+Description: Request to perform a regex search across files in a specified directory, returning compact path + line-range snippets with nearby context. Use this to rank likely files/ranges before read_file, then read only exact start_line/end_line slices instead of loading whole files.
 Parameters:
 - path: (required) The path of the directory to search in (relative to the current working directory /test/project). This directory will be recursively searched.
 - regex: (required) The regular expression pattern to search for. Uses Rust regex syntax.

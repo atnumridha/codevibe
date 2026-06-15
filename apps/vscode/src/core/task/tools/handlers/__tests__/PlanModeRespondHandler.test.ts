@@ -147,11 +147,12 @@ describe("PlanModeRespondHandler", () => {
 
 			const planFile = await fs.readFile(askPayload.localPlanBuild.planPath, "utf8")
 			assert.match(planFile, /name: Plan/)
-			assert.match(planFile, /Here is the plan\./)
-			assert.match(planFile, /content: Inspect/)
-			assert.match(planFile, /content: Implement/)
-			assert.match(planFile, /status: pending/)
-		} finally {
+				assert.match(planFile, /Here is the plan\./)
+				assert.match(planFile, /content: Inspect/)
+				assert.match(planFile, /content: Implement/)
+				assert.match(planFile, /status: completed/)
+				assert.match(planFile, /status: pending/)
+			} finally {
 			HostProvider.reset()
 			await disposePlanStorageServiceForTests()
 			await fs.rm(tempDir, { recursive: true, force: true })

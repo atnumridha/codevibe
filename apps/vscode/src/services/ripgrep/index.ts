@@ -61,6 +61,25 @@ export interface RegexSearchOptions {
 	includeIgnored?: boolean
 }
 
+type NumberedSearchLine = {
+	line: number
+	text: string
+	isMatch: boolean
+}
+
+type SearchSnippet = {
+	start: number
+	end: number
+	lines: NumberedSearchLine[]
+}
+
+const MAX_FORMATTED_RESULTS = 120
+const MAX_MATCHES_PER_FILE = 16
+const MERGE_ADJACENT_LINE_GAP = 2
+const MAX_SEARCH_OUTPUT_KB = 80
+const MAX_SEARCH_OUTPUT_BYTES = MAX_SEARCH_OUTPUT_KB * 1024
+const MAX_SEARCH_LINE_CHARS = 700
+
 async function execRipgrep(args: string[]): Promise<string> {
 	const binPath: string = await getBinaryLocation("rg")
 
@@ -178,124 +197,155 @@ export async function regexSearchFileMatches(
 	return filteredResults
 }
 
-const MAX_RIPGREP_MB = 0.25
-const MAX_BYTE_SIZE = MAX_RIPGREP_MB * 1024 * 1024 // 0./25MB in bytes
+function normalizeSnippetLine(line: string | undefined): string {
+	const normalized = (line ?? "").replace(/\r?\n$/, "").trimEnd()
+	if (normalized.length <= MAX_SEARCH_LINE_CHARS) {
+		return normalized
+	}
+	return `${normalized.slice(0, MAX_SEARCH_LINE_CHARS)}... [line truncated]`
+}
+
+function toNumberedLines(result: RegexSearchResult): NumberedSearchLine[] {
+	const beforeStart = result.line - result.beforeContext.length
+	const before = result.beforeContext.map((line, index) => ({
+		line: beforeStart + index,
+		text: normalizeSnippetLine(line),
+		isMatch: false,
+	}))
+	const match = {
+		line: result.line,
+		text: normalizeSnippetLine(result.match),
+		isMatch: true,
+	}
+	const after = result.afterContext.map((line, index) => ({
+		line: result.line + index + 1,
+		text: normalizeSnippetLine(line),
+		isMatch: false,
+	}))
+	return [...before, match, ...after].filter((line) => line.line > 0)
+}
+
+function mergeResultIntoSnippets(snippets: SearchSnippet[], result: RegexSearchResult): void {
+	const numberedLines = toNumberedLines(result)
+	if (numberedLines.length === 0) {
+		return
+	}
+
+	const start = numberedLines[0].line
+	const end = numberedLines[numberedLines.length - 1].line
+	const previous = snippets[snippets.length - 1]
+	if (!previous || start > previous.end + MERGE_ADJACENT_LINE_GAP) {
+		snippets.push({ start, end, lines: numberedLines })
+		return
+	}
+
+	previous.end = Math.max(previous.end, end)
+	const byLine = new Map<number, NumberedSearchLine>()
+	for (const line of previous.lines) {
+		byLine.set(line.line, line)
+	}
+	for (const line of numberedLines) {
+		const existing = byLine.get(line.line)
+		byLine.set(line.line, {
+			line: line.line,
+			text: existing?.text ?? line.text,
+			isMatch: (existing?.isMatch ?? false) || line.isMatch,
+		})
+	}
+	previous.lines = Array.from(byLine.values()).sort((a, b) => a.line - b.line)
+}
+
+function appendWithinBudget(output: string, addition: string): { output: string; didFit: boolean } {
+	if (Buffer.byteLength(output, "utf8") + Buffer.byteLength(addition, "utf8") > MAX_SEARCH_OUTPUT_BYTES) {
+		return { output, didFit: false }
+	}
+	return { output: output + addition, didFit: true }
+}
 
 export function formatRegexSearchResults(results: RegexSearchResult[], cwd: string): string {
-	const groupedResults: { [key: string]: RegexSearchResult[] } = {}
+	const groupedResults = new Map<string, RegexSearchResult[]>()
+	const formattedResults = results.slice(0, MAX_FORMATTED_RESULTS)
 
 	let output = ""
-	if (results.length >= MAX_RESULTS) {
-		output += `Showing first ${MAX_RESULTS} of ${MAX_RESULTS}+ results. Use a more specific search if necessary.\n\n`
+	if (results.length > MAX_FORMATTED_RESULTS) {
+		output += `Showing first ${MAX_FORMATTED_RESULTS.toLocaleString()} of ${results.length.toLocaleString()} results as compact snippets. Use a more specific search if necessary.\n\n`
+	} else if (results.length >= MAX_RESULTS) {
+		output += `Showing first ${MAX_FORMATTED_RESULTS.toLocaleString()} of ${MAX_RESULTS}+ results as compact snippets. Use a more specific search if necessary.\n\n`
 	} else {
 		output += `Found ${results.length === 1 ? "1 result" : `${results.length.toLocaleString()} results`}.\n\n`
 	}
 
-	// Group results by file name
-	results.slice(0, MAX_RESULTS).forEach((result) => {
+	for (const result of formattedResults) {
 		const relativeFilePath = path.relative(cwd, result.filePath)
-		if (!groupedResults[relativeFilePath]) {
-			groupedResults[relativeFilePath] = []
+		const fileResults = groupedResults.get(relativeFilePath) ?? []
+		if (fileResults.length < MAX_MATCHES_PER_FILE) {
+			fileResults.push(result)
 		}
-		groupedResults[relativeFilePath].push(result)
-	})
+		groupedResults.set(relativeFilePath, fileResults)
+	}
 
-	// Track byte size
-	let byteSize = Buffer.byteLength(output, "utf8")
 	let wasLimitReached = false
 
-	for (const [filePath, fileResults] of Object.entries(groupedResults)) {
-		// Check if adding this file's path would exceed the byte limit
-		const filePathString = `${filePath.toPosix()}\n│----\n`
-		const filePathBytes = Buffer.byteLength(filePathString, "utf8")
-
-		if (byteSize + filePathBytes >= MAX_BYTE_SIZE) {
+	for (const [filePath, fileResults] of groupedResults.entries()) {
+		const snippets: SearchSnippet[] = []
+		for (const result of fileResults.sort((a, b) => a.line - b.line || a.column - b.column)) {
+			mergeResultIntoSnippets(snippets, result)
+		}
+		const omittedForFile = Math.max(0, results.filter((result) => path.relative(cwd, result.filePath) === filePath).length - fileResults.length)
+		const fileHeader = `${filePath.toPosix()}\n`
+		const headerResult = appendWithinBudget(output, fileHeader)
+		if (!headerResult.didFit) {
 			wasLimitReached = true
 			break
 		}
+		output = headerResult.output
 
-		output += filePathString
-		byteSize += filePathBytes
-
-		for (let resultIndex = 0; resultIndex < fileResults.length; resultIndex++) {
-			const result = fileResults[resultIndex]
-			const allLines = [...result.beforeContext, result.match, ...result.afterContext]
-
-			// Calculate bytes in all lines for this result
-			let resultBytes = 0
-			const resultLines: string[] = []
-
-			for (const line of allLines) {
-				const trimmedLine = line?.trimEnd() ?? ""
-				const lineString = `│${trimmedLine}\n`
-				const lineBytes = Buffer.byteLength(lineString, "utf8")
-
-				// Check if adding this line would exceed the byte limit
-				if (byteSize + resultBytes + lineBytes >= MAX_BYTE_SIZE) {
-					wasLimitReached = true
-					break
-				}
-
-				resultLines.push(lineString)
-				resultBytes += lineBytes
-			}
-
-			// If we hit the limit in the middle of processing lines, break out of the result loop
-			if (wasLimitReached) {
-				break
-			}
-
-			// Add all lines for this result to the output
-			resultLines.forEach((line) => {
-				output += line
-			})
-			byteSize += resultBytes
-
-			// Add separator between results if needed
-			if (resultIndex < fileResults.length - 1) {
-				const separatorString = "│----\n"
-				const separatorBytes = Buffer.byteLength(separatorString, "utf8")
-
-				if (byteSize + separatorBytes >= MAX_BYTE_SIZE) {
-					wasLimitReached = true
-					break
-				}
-
-				output += separatorString
-				byteSize += separatorBytes
-			}
-
-			// Check if we've hit the byte limit
-			if (byteSize >= MAX_BYTE_SIZE) {
+		for (let snippetIndex = 0; snippetIndex < snippets.length; snippetIndex++) {
+			const snippet = snippets[snippetIndex]
+			const snippetHeader = `│---- lines ${snippet.start}-${snippet.end}\n`
+			const snippetHeaderResult = appendWithinBudget(output, snippetHeader)
+			if (!snippetHeaderResult.didFit) {
 				wasLimitReached = true
 				break
 			}
+			output = snippetHeaderResult.output
+
+			for (const line of snippet.lines) {
+				const marker = line.isMatch ? ">" : " "
+				const lineString = `│${marker} ${line.line} | ${line.text}\n`
+				const lineResult = appendWithinBudget(output, lineString)
+				if (!lineResult.didFit) {
+					wasLimitReached = true
+					break
+				}
+				output = lineResult.output
+			}
+
+			if (wasLimitReached) {
+				break
+			}
+			if (snippetIndex === snippets.length - 1) {
+				continue
+			}
 		}
 
-		// If we hit the limit, break out of the file loop
 		if (wasLimitReached) {
 			break
 		}
 
-		const closingString = "│----\n\n"
-		const closingBytes = Buffer.byteLength(closingString, "utf8")
-
-		if (byteSize + closingBytes >= MAX_BYTE_SIZE) {
+		const footer = omittedForFile > 0 ? `│----\n│ ${omittedForFile} more match(es) in this file omitted.\n\n` : "│----\n\n"
+		const footerResult = appendWithinBudget(output, footer)
+		if (!footerResult.didFit) {
 			wasLimitReached = true
 			break
 		}
-
-		output += closingString
-		byteSize += closingBytes
+		output = footerResult.output
 	}
 
-	// Add a message if we hit the byte limit
-	if (wasLimitReached) {
-		const truncationMessage = `\n[Results truncated due to exceeding the ${MAX_RIPGREP_MB}MB size limit. Please use a more specific search pattern.]`
-		// Only add the message if it fits within the limit
-		if (byteSize + Buffer.byteLength(truncationMessage, "utf8") < MAX_BYTE_SIZE) {
-			output += truncationMessage
-		}
+	if (wasLimitReached || results.length > formattedResults.length) {
+		const truncationMessage = `\n[Results truncated to compact snippets under ${MAX_SEARCH_OUTPUT_KB}KB. Use a more specific search pattern, then read precise start_line/end_line ranges.]`
+		const truncationResult = appendWithinBudget(output, truncationMessage)
+		output = truncationResult.didFit ? truncationResult.output : `${output.trimEnd()}\n[Results truncated.]`
 	}
 
 	return output.trim()

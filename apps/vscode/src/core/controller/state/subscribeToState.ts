@@ -8,6 +8,14 @@ import { Controller } from "../index"
 
 // Keep track of active state subscriptions
 const activeStateSubscriptions = new Set<StreamingResponseHandler<State>>()
+let e2eInitialStateOverride: ExtensionState | undefined
+
+export function setE2EInitialStateOverride(state: ExtensionState | undefined): void {
+	if (process.env.E2E_TEST !== "true") {
+		return
+	}
+	e2eInitialStateOverride = state
+}
 
 /**
  * Subscribe to state updates
@@ -37,7 +45,8 @@ export async function subscribeToState(
 
 	// Send the initial state. Keep hydration fast so auth/onboarding recovery is
 	// never blocked by a backend model refresh immediately after ChatGPT sign-in.
-	const initialState = await controller.getStateToPostToWebview({ skipOpenAiCodexBackendModelsRefresh: true })
+	const initialState =
+		e2eInitialStateOverride ?? (await controller.getStateToPostToWebview({ skipOpenAiCodexBackendModelsRefresh: true }))
 	const initialStateJson = JSON.stringify(initialState)
 
 	recordStateSizeTelemetry(Buffer.byteLength(initialStateJson, "utf8"))

@@ -80,6 +80,9 @@ describe("controller plan build", () => {
 			const [, handoff] = togglePlanActMode.firstCall.args
 			assert.equal(handoff.files[0], planPath)
 			assert.match(handoff.message, /Plan file reference:/)
+			assert.match(handoff.message, /"type": "ExecutePlanAction"/)
+			assert.match(handoff.message, /"isPlanExecution": true/)
+			assert.match(handoff.message, /"unifiedMode": "agent"/)
 			assert.match(handoff.message, /Build From Card/)
 			assert.deepEqual(openedPlans, [planPath])
 		} finally {
@@ -122,7 +125,106 @@ describe("controller plan build", () => {
 			sinon.assert.calledOnce(initTask)
 			assert.equal(initTask.firstCall.args[2][0], planPath)
 			assert.match(initTask.firstCall.args[0], /Plan file reference:/)
+			assert.match(initTask.firstCall.args[0], /"type": "ExecutePlanAction"/)
+			assert.match(initTask.firstCall.args[0], /"unifiedMode": "agent"/)
 			assert.deepEqual(openedPlans, [planPath])
+		} finally {
+			await fs.rm(tempDir, { recursive: true, force: true })
+		}
+	})
+
+	it("marks parallel builds as multitask plan execution with skip submission metadata", async () => {
+		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "codevibe-build-plan-parallel-"))
+		process.env.CODEVIBE_PLAN_HOME = tempDir
+		setVscodeHostProviderMock({
+			globalStorageFsPath: tempDir,
+			hostBridgeClient: createHostBridgeClient(tempDir),
+		})
+
+		try {
+			const togglePlanActMode = sinon.stub().resolves(true)
+			const updateTaskProgressFromPlan = sinon.stub().resolves(undefined)
+			registerPlanOpenHandler(async () => undefined)
+			const controller = {
+				task: {
+					taskId: "task-build-parallel",
+					taskState: { isAwaitingPlanResponse: true },
+					updateTaskProgressFromPlan,
+				},
+				togglePlanActMode,
+				initTask: sinon.stub().resolves(undefined),
+			} as any
+
+			const response = await buildPlan(
+				controller,
+				BuildPlanRequest.create({
+					body: "## Parallel Plan\n\n- [ ] A\n- [ ] B",
+					composerId: "chat-1700000000002",
+					mode: "multitask",
+				}),
+			)
+
+			assert.equal(response.started, true)
+			assert.equal(response.mode, "multitask")
+			const [, handoff] = togglePlanActMode.firstCall.args
+			assert.match(handoff.message, /"unifiedMode": "multitask"/)
+			assert.match(handoff.message, /"skipSubmission": true/)
+			assert.match(handoff.message, /local parallel build/)
+		} finally {
+			await fs.rm(tempDir, { recursive: true, force: true })
+		}
+	})
+
+	it("starts selected todos in a new local agent instead of consuming the waiting plan composer", async () => {
+		const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "codevibe-build-plan-new-agent-"))
+		process.env.CODEVIBE_PLAN_HOME = tempDir
+		setVscodeHostProviderMock({
+			globalStorageFsPath: tempDir,
+			hostBridgeClient: createHostBridgeClient(tempDir),
+		})
+
+		try {
+			const initTask = sinon.stub().resolves("task-selected-new-agent")
+			const togglePlanActMode = sinon.stub().resolves(true)
+			const updateTaskProgressFromPlan = sinon.stub().resolves(undefined)
+			registerPlanOpenHandler(async () => undefined)
+			const controller = {
+				task: {
+					taskId: "task-waiting-plan",
+					taskState: { isAwaitingPlanResponse: true },
+					updateTaskProgressFromPlan,
+				},
+				togglePlanActMode,
+				initTask,
+			} as any
+
+			const created = await buildPlan(
+				controller,
+				BuildPlanRequest.create({
+					body: "## Selected Plan\n\n- [ ] A\n- [ ] B",
+					composerId: "chat-1700000000003",
+					mode: "agent",
+				}),
+			)
+			const firstTodoId = created.plan?.metadata?.todos?.[0]?.id || ""
+
+			const response = await buildPlan(
+				controller,
+				BuildPlanRequest.create({
+					planId: created.plan?.planId,
+					planPath: created.plan?.planPath,
+					mode: "new_agent",
+					todoIds: [firstTodoId],
+				}),
+			)
+
+			assert.equal(response.started, true)
+			sinon.assert.calledOnce(initTask)
+			sinon.assert.calledOnce(togglePlanActMode)
+			const message = initTask.firstCall.args[0]
+			assert.match(message, /new Act-mode agent/)
+			assert.match(message, /"entrypoint": "plan_tab_build_new_agent"/)
+			assert.match(message, new RegExp(firstTodoId))
 		} finally {
 			await fs.rm(tempDir, { recursive: true, force: true })
 		}

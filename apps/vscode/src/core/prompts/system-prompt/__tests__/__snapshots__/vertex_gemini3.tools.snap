@@ -118,7 +118,7 @@
   },
   {
     "name": "search_files",
-    "description": "Request to perform a regex search across files in a specified directory, providing context-rich results. This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.",
+    "description": "Request to perform a regex search across files in a specified directory, returning compact path + line-range snippets with nearby context. Use this to rank likely files/ranges before read_file, then read only exact start_line/end_line slices instead of loading whole files.",
     "parameters": {
       "type": "OBJECT",
       "properties": {

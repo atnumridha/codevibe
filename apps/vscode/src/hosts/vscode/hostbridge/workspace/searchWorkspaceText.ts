@@ -5,7 +5,8 @@ import { SearchWorkspaceTextRequest, SearchWorkspaceTextResponse } from "@/share
 
 const DEFAULT_MAX_RESULTS = 300
 const CONTEXT_LINES = 1
-const PREVIEW_CHARS_PER_LINE = 20_000
+const PREVIEW_CHARS_PER_LINE = 800
+const CONTEXT_CHARS_PER_LINE = 800
 
 type VscodePositionLike = {
 	line: number
@@ -91,7 +92,11 @@ function isNativeTextSearchMatch(result: NativeTextSearchResult): result is Nati
 }
 
 function normalizeSearchText(text: string): string {
-	return text.replace(/\r?\n$/, "")
+	const normalized = text.replace(/\r?\n$/, "")
+	if (normalized.length <= CONTEXT_CHARS_PER_LINE) {
+		return normalized
+	}
+	return `${normalized.slice(0, CONTEXT_CHARS_PER_LINE)}... [line truncated]`
 }
 
 function getPreviewLine(previewText: string, previewRange: VscodeRangeLike | undefined): string {

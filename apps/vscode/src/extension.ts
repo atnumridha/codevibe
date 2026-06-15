@@ -145,6 +145,58 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		},
 		openNativeAgentSession: (position = "sidebar") => openCodeVibeNativeChatSession(position),
+		invokeNativeAgentRequest: async (input) => {
+			const progress: string[] = []
+			const markdown: string[] = []
+			const request: NativeChatRequest = {
+				command: input.command,
+				prompt: input.prompt,
+			}
+			const handler = buildCodeVibeNativeChatRequestHandler(CODEVIBE_NATIVE_CHAT_AGENT_PARTICIPANT_ID)
+			const result = await handler(
+				request,
+				{},
+				{
+					progress: (message: string) => progress.push(message),
+					markdown: (message: string) => markdown.push(message),
+				},
+				new vscode.CancellationTokenSource().token,
+			)
+			const taskText = buildCodeVibeNativeChatTaskText(request)
+			const taskId =
+				typeof result?.metadata === "object" && result.metadata && "taskId" in result.metadata
+					? String(result.metadata.taskId || "")
+					: ""
+			let state = await webview.controller.getStateToPostToWebview({
+				skipOpenAiCodexBackendModelsRefresh: true,
+			})
+			for (let attempt = 0; taskId && state.currentTaskItem?.id !== taskId && attempt < 10; attempt++) {
+				await new Promise((resolve) => setTimeout(resolve, 50))
+				state = await webview.controller.getStateToPostToWebview({
+					skipOpenAiCodexBackendModelsRefresh: true,
+				})
+			}
+			const currentTaskItem = state.currentTaskItem
+				? {
+						id: state.currentTaskItem.id,
+						task: state.currentTaskItem.task,
+						ts: state.currentTaskItem.ts,
+					}
+				: taskId
+					? {
+							id: taskId,
+							task: taskText,
+							ts: Number(taskId) || Date.now(),
+						}
+					: undefined
+			return {
+				currentTaskItem,
+				markdown,
+				progress,
+				result,
+				taskText,
+			}
+		},
 	})
 	context.subscriptions.push(...testModeWatchers)
 

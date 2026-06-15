@@ -1,6 +1,7 @@
 import { FocusChainSettings } from "@shared/FocusChainSettings"
 import * as chokidar from "chokidar"
 import * as fs from "fs/promises"
+import { getPlanStorageService } from "@core/plan/PlanStorageService"
 import { telemetryService } from "@/services/telemetry"
 import { Logger } from "@/shared/services/Logger"
 import { ClineSay } from "../../../shared/ExtensionMessage"
@@ -281,11 +282,12 @@ export class FocusChainManager {
 
 			// If model provides task_progress update, write it to the markdown file
 			if (trimmedTaskProgress) {
-				const previousList = this.taskState.currentFocusChainChecklist
-				if (previousList === trimmedTaskProgress) {
-					Logger.debug(`[Task ${this.taskId}] focus chain list: Ignoring duplicate task_progress update`)
-					return
-				}
+					const previousList = this.taskState.currentFocusChainChecklist
+					if (previousList === trimmedTaskProgress) {
+						Logger.debug(`[Task ${this.taskId}] focus chain list: Ignoring duplicate task_progress update`)
+						await this.syncActivePlanBuild(trimmedTaskProgress)
+						return
+					}
 				this.taskState.currentFocusChainChecklist = trimmedTaskProgress
 				Logger.debug(
 					`[Task ${this.taskId}] focus chain list: LLM provided focus chain list update via task_progress parameter. Length ${previousList?.length || 0} > ${this.taskState.currentFocusChainChecklist.length}`,
@@ -308,14 +310,16 @@ export class FocusChainManager {
 				try {
 					await this.writeFocusChainToDisk(trimmedTaskProgress)
 
-					// Send the task_progress message to the UI immediately
-					await this.say("task_progress", trimmedTaskProgress)
-				} catch (error) {
-					Logger.error(`[Task ${this.taskId}] focus chain list: Failed to write to markdown file:`, error)
-					// Fall back to creating a task_progress message directly if file write fails
-					await this.say("task_progress", trimmedTaskProgress)
-					Logger.log(`[Task ${this.taskId}] focus chain list: Sent fallback task_progress message to UI`)
-				}
+						// Send the task_progress message to the UI immediately
+						await this.say("task_progress", trimmedTaskProgress)
+						await this.syncActivePlanBuild(trimmedTaskProgress)
+					} catch (error) {
+						Logger.error(`[Task ${this.taskId}] focus chain list: Failed to write to markdown file:`, error)
+						// Fall back to creating a task_progress message directly if file write fails
+						await this.say("task_progress", trimmedTaskProgress)
+						await this.syncActivePlanBuild(trimmedTaskProgress)
+						Logger.log(`[Task ${this.taskId}] focus chain list: Sent fallback task_progress message to UI`)
+					}
 			} else {
 				// No model update provided, check if markdown file exists and load it
 				const markdownTodoList = await this.readFocusChainFromDisk()
@@ -325,12 +329,24 @@ export class FocusChainManager {
 
 					// Create a task_progress message to display the focus chain list in the UI
 					await this.say("task_progress", markdownTodoList)
+					await this.syncActivePlanBuild(markdownTodoList)
 				} else {
 					Logger.debug(`[Task ${this.taskId}] focus chain list: No valid task progress to update with`)
 				}
 			}
 		} catch (error) {
 			Logger.error(`[Task ${this.taskId}] focus chain list: Error in updateFCListFromToolResponse:`, error)
+		}
+	}
+
+	private async syncActivePlanBuild(taskProgress: string) {
+		try {
+			await getPlanStorageService().syncBuildTaskProgress({
+				builderId: this.taskId,
+				taskProgress,
+			})
+		} catch (error) {
+			Logger.warn(`[Task ${this.taskId}] focus chain list: failed to sync active plan build: ${error}`)
 		}
 	}
 
