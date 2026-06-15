@@ -477,7 +477,7 @@ installedE2e(
 						.locator("body")
 						.innerText({ timeout: 500 });
 					const hasActionMenus = await frame
-						.locator("[data-action-select]")
+						.locator("[data-build-action-trigger]")
 						.first()
 						.isVisible({ timeout: 500 })
 						.catch(() => false);
@@ -492,9 +492,10 @@ installedE2e(
 			}
 			return false;
 		}, 60_000);
-		expect(planCanvasText).toContain("Choose build action");
+		expect(planCanvasText).toContain("Build");
 		expect(planCanvasText).toContain("Plan actions");
 		expect(planCanvasText).toContain("Set selected status");
+		expect(planCanvasText).toContain("Selected task actions");
 		expect(planCanvasText).toContain("Native Plan E2E");
 		expect(planCanvasText).toContain("50%");
 		expect(planCanvasText).toMatch(/\bcomplete\b/i);
@@ -503,17 +504,21 @@ installedE2e(
 		expect(planCanvasText).not.toMatch(/\bBuild in Cloud\b/i);
 		expect(planCanvasFrame).toBeTruthy();
 		await expect(
-			planCanvasFrame!.locator("[data-build-action-select]"),
+			planCanvasFrame!.locator("[data-build-action-trigger]"),
 		).toBeVisible();
 		await expect(
 			planCanvasFrame!.locator("[data-bulk-status-select]"),
 		).toBeVisible();
 		await expect(
-			planCanvasFrame!.locator("[data-selection-action-select]"),
+			planCanvasFrame!.locator("[data-selection-action-trigger]"),
+		).toBeVisible();
+		await planCanvasFrame!.locator("[data-build-action-trigger]").click();
+		await expect(
+			planCanvasFrame!.locator("[data-build-action-menu]"),
 		).toBeVisible();
 		const buildOptions = (
 			await planCanvasFrame!
-				.locator("[data-build-action-select] option")
+				.locator("[data-build-action-menu] [data-build-action-button]")
 				.allInnerTexts()
 		).join("\n");
 		expect(buildOptions).toContain("Build Locally");
@@ -528,9 +533,17 @@ installedE2e(
 		expect(planOptions).toContain("Raw Markdown");
 		expect(planOptions).toContain("Copy Plan");
 		expect(planOptions).toContain("Open Raw Markdown");
+		await planCanvasFrame!.locator("[data-todo-row]").first().click();
+		await expect(
+			planCanvasFrame!.locator("[data-selection-action-trigger]"),
+		).toBeEnabled();
+		await planCanvasFrame!.locator("[data-selection-action-trigger]").click();
+		await expect(
+			planCanvasFrame!.locator("[data-selection-action-menu]"),
+		).toBeVisible();
 		const selectedTaskOptions = (
 			await planCanvasFrame!
-				.locator("[data-selection-action-select] option")
+				.locator("[data-selection-action-menu] [data-selection-action-button]")
 				.allInnerTexts()
 		).join("\n");
 		expect(selectedTaskOptions).toContain("Build Selected");
@@ -631,7 +644,7 @@ installedE2e(
 						.isVisible()
 						.catch(() => false)) &&
 					(await planCard
-						.getByRole("combobox", { name: /^Build plan action$/ })
+						.getByRole("button", { name: /^Build plan action$/ })
 						.count()
 						.catch(() => 0)) > 0
 				) {
@@ -665,7 +678,7 @@ installedE2e(
 				if (!(await planCard.isVisible().catch(() => false))) {
 					return false;
 				}
-				const buildActionSelects = planCard.getByRole("combobox", {
+				const buildActionSelects = planCard.getByRole("button", {
 					name: /^Build plan action$/,
 				});
 				const selectCount = await buildActionSelects.count().catch(() => 0);
@@ -678,7 +691,12 @@ installedE2e(
 						await buildActionSelect
 							.scrollIntoViewIfNeeded()
 							.catch(() => undefined);
-						await buildActionSelect.selectOption("agent");
+						await buildActionSelect.click();
+						await planCard
+							.locator("[data-build-action-menu] [data-build-action-button]", {
+								hasText: "Build Locally",
+							})
+							.click();
 						return true;
 					}
 				}
@@ -709,6 +727,141 @@ installedE2e(
 		expect(planText).toMatch(/^---\nname: Build Button Materializes/m);
 		expect(planText).toContain("content: Create the plan file");
 		expect(planText).toContain("content: Start local Act mode");
+	},
+);
+
+installedE2e(
+	"Installed VSIX Build Selected in New Agent starts a local Act task from native plan canvas",
+	async ({ page, helper }, testInfo) => {
+		await expect
+			.poll(
+				async () => {
+					const diagnosticsResponse =
+						await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({
+							success: false,
+						}));
+					return diagnosticsResponse.success === true;
+				},
+				{
+					message:
+						"Installed Codie VSIX should activate its E2E command server before selected plan builds run",
+					timeout: 60_000,
+				},
+			)
+			.toBe(true);
+
+		const created = await E2ETestHelper.createNativePlan({
+			composerId: "installed-native-selected-new-agent-e2e",
+			response:
+				"## Selected New Agent Build\n\nUse selected plan todos to start a new local agent.\n\n- [ ] Inspect selected todo wiring\n- [ ] Confirm Act mode handoff",
+			taskProgress:
+				"- [ ] Inspect selected todo wiring\n- [ ] Confirm Act mode handoff",
+		});
+
+		expect(created.success).toBe(true);
+		expect(created.plan?.planPath).toMatch(/\.plan\.md$/);
+
+		const opened = await E2ETestHelper.openLatestNativePlan();
+		expect(opened.success).toBe(true);
+		expect(opened.latestPlan?.name).toBe("Selected New Agent Build");
+		expect(opened.activeTab?.inputViewType).toBe("codevibe.planEditor");
+
+		let planCanvasFrame: Frame | undefined;
+		await E2ETestHelper.waitUntil(async () => {
+			for (const frame of page.frames()) {
+				if (frame.isDetached()) {
+					continue;
+				}
+				const bodyText = await frame
+					.locator("body")
+					.innerText({ timeout: 500 })
+					.catch(() => "");
+				if (
+					bodyText.includes("Selected New Agent Build") &&
+					(await frame
+						.locator("[data-selection-action-trigger]")
+						.first()
+						.isVisible({ timeout: 500 })
+						.catch(() => false))
+				) {
+					planCanvasFrame = frame;
+					return true;
+				}
+			}
+			return false;
+		}, 60_000);
+		expect(planCanvasFrame).toBeTruthy();
+
+		const firstTodoRow = planCanvasFrame!.locator("[data-todo-row]").first();
+		await expect(firstTodoRow).toBeVisible();
+		await firstTodoRow.click();
+		const selectedAction = planCanvasFrame!.locator(
+			"[data-selection-action-trigger]",
+		);
+		await expect(selectedAction).toBeEnabled();
+		await selectedAction.click();
+		await expect(
+			planCanvasFrame!.locator("[data-selection-action-menu]"),
+		).toBeVisible();
+		await captureSlowUiScreenshot(
+			page,
+			testInfo,
+			"build-selected-new-agent-before-action",
+		);
+		await E2ETestHelper.waitUntil(async () => {
+			for (const frame of page.frames()) {
+				if (frame.isDetached()) {
+					continue;
+				}
+				const bodyText = await frame
+					.locator("body")
+					.innerText({ timeout: 500 })
+					.catch(() => "");
+				if (!bodyText.includes("Selected New Agent Build")) {
+					continue;
+				}
+				const trigger = frame.locator("[data-selection-action-trigger]").first();
+				if (!(await trigger.isVisible({ timeout: 500 }).catch(() => false))) {
+					continue;
+				}
+				if (!(await trigger.isEnabled().catch(() => false))) {
+					await frame.locator("[data-todo-row]").first().click();
+				}
+				await trigger.click();
+				const newAgentButton = frame
+					.locator("[data-selection-action-menu] [data-menu-action='buildNewAgent']")
+					.first();
+				if (await newAgentButton.isVisible({ timeout: 500 }).catch(() => false)) {
+					await newAgentButton.click({ force: true, timeout: 1_000 }).catch((error) => {
+						const message =
+							error instanceof Error ? error.message : String(error);
+						if (!message.includes("Frame was detached")) {
+							throw error;
+						}
+					});
+					return true;
+				}
+			}
+			return false;
+		}, 60_000);
+		await slowVisiblePause(page);
+
+		let sidebar = await helper.openSidebar(page);
+		sidebar = await helper.getReadySidebar(page);
+		const modeSwitch = await helper.getModeSwitch(sidebar);
+		await expect(modeSwitch.locator("[aria-current='true']")).toHaveText("Act", {
+			timeout: 60_000,
+		});
+		await expect(sidebar.locator("body")).toContainText(
+			"Selected New Agent Build",
+			{ timeout: 60_000 },
+		);
+		await captureSlowUiScreenshot(
+			page,
+			testInfo,
+			"build-selected-new-agent-act-mode",
+		);
+		await slowVisiblePause(page);
 	},
 );
 

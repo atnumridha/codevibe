@@ -757,6 +757,79 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 			.select-control-primary select { border-color: var(--vscode-focusBorder); }
 			.select-control.is-running select { opacity: 0.78; }
 			.select-control-compact { min-width: 0; flex: 1 1 145px; }
+			.action-menu {
+				position: relative;
+				display: grid;
+				gap: 3px;
+				min-width: 152px;
+			}
+			.action-menu-label {
+				color: var(--vscode-descriptionForeground);
+				font-size: 10px;
+				line-height: 1;
+				text-transform: uppercase;
+			}
+			.action-menu-compact { min-width: 0; flex: 1 1 170px; }
+			.menu-trigger {
+				height: 30px;
+				min-width: 0;
+				width: 100%;
+				display: inline-flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+				border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
+				border-radius: 6px;
+				padding: 0 9px;
+				background: var(--vscode-dropdown-background, var(--vscode-input-background));
+				color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+				font-family: var(--vscode-font-family);
+				font-size: 12px;
+				line-height: 1.2;
+				cursor: pointer;
+			}
+			.menu-trigger:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
+			.menu-trigger:disabled { cursor: not-allowed; opacity: 0.48; }
+			.action-menu-primary .menu-trigger { border-color: var(--vscode-focusBorder); }
+			.action-menu.is-running .menu-trigger { opacity: 0.78; }
+			.menu-popover {
+				position: absolute;
+				right: 0;
+				top: calc(100% + 4px);
+				z-index: 20;
+				display: grid;
+				gap: 4px;
+				min-width: 224px;
+				padding: 6px;
+				border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
+				border-radius: 7px;
+				background: var(--vscode-dropdown-background, var(--vscode-editor-background));
+				box-shadow: 0 8px 24px color-mix(in srgb, var(--vscode-widget-shadow), transparent 25%);
+			}
+			.menu-popover[hidden] { display: none; }
+			.menu-action {
+				width: 100%;
+				min-height: 30px;
+				display: flex;
+				align-items: center;
+				justify-content: flex-start;
+				border: 1px solid transparent;
+				border-radius: 5px;
+				padding: 5px 8px;
+				background: transparent;
+				color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+				font-family: var(--vscode-font-family);
+				font-size: 12px;
+				text-align: left;
+				cursor: pointer;
+			}
+			.menu-action:hover:not(:disabled),
+			.menu-action:focus:not(:disabled) {
+				background: var(--vscode-list-hoverBackground);
+				outline: none;
+			}
+			.menu-action:disabled { cursor: not-allowed; opacity: 0.48; }
+			.menu-caret { color: var(--vscode-descriptionForeground); font-size: 11px; }
 			.plan-dashboard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(308px, 34vw); gap: 10px; align-items: stretch; }
 			.live-card {
 				display: grid;
@@ -815,7 +888,7 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 			.meta-summary { color: var(--vscode-editor-foreground); font-family: var(--vscode-editor-font-family); }
 			.todo-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 			.todo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-			.todo-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; align-items: start; padding: 9px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; background: var(--vscode-editor-background); }
+			.todo-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 9px; align-items: start; padding: 9px; border: 1px solid var(--vscode-panel-border); border-radius: 7px; background: var(--vscode-editor-background); cursor: pointer; }
 			.todo-list li.selected { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
 			.status { width: 24px; height: 24px; min-height: 24px; padding: 0; display: inline-grid; place-items: center; border-radius: 999px; background: var(--vscode-input-background); border-color: var(--vscode-panel-border); }
 			.status span { width: 9px; height: 9px; border-radius: 50%; background: var(--vscode-descriptionForeground); }
@@ -903,17 +976,19 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 						<div class="path">${escapeHtml(plan.planPath)}</div>
 					</div>
 					<div class="actions">
-						<label class="select-control select-control-primary" data-build-action-control>
-							<span>Build</span>
-							<select data-action-select data-build-action-select aria-label="Build plan action">
-								<option value="">Choose build action</option>
-								<option value="buildLocal">Build Locally</option>
-								<option value="buildParallel">Build in Parallel</option>
-								<option value="buildSelectedLocal" data-selection-option disabled>Build Selected</option>
-								<option value="buildSelectedParallel" data-selection-option disabled>Build Selected Parallel</option>
-								<option value="buildNewAgent" data-selection-option disabled>Build Selected in New Agent</option>
-							</select>
-						</label>
+						<div class="action-menu action-menu-primary" data-action-menu data-build-action-control>
+							<span class="action-menu-label">Build</span>
+							<button type="button" class="menu-trigger" data-menu-trigger data-build-action-trigger aria-label="Open build actions" aria-haspopup="menu" aria-expanded="false">
+								<span>Build</span><span class="menu-caret">v</span>
+							</button>
+							<div class="menu-popover" data-menu-popover data-build-action-menu role="menu" hidden>
+								<button type="button" class="menu-action" data-menu-action="buildLocal" data-build-action-button role="menuitem">Build Locally</button>
+								<button type="button" class="menu-action" data-menu-action="buildParallel" data-build-action-button role="menuitem">Build in Parallel</button>
+								<button type="button" class="menu-action" data-menu-action="buildSelectedLocal" data-build-action-button data-selection-option disabled role="menuitem">Build Selected</button>
+								<button type="button" class="menu-action" data-menu-action="buildSelectedParallel" data-build-action-button data-selection-option disabled role="menuitem">Build Selected Parallel</button>
+								<button type="button" class="menu-action" data-menu-action="buildNewAgent" data-build-action-button data-selection-option disabled role="menuitem">Build Selected in New Agent</button>
+							</div>
+						</div>
 						<label class="select-control">
 							<span>Plan</span>
 							<select data-action-select aria-label="Plan action">
@@ -957,16 +1032,18 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 							${statusOptions}
 						</select>
 					</label>
-					<label class="select-control select-control-compact">
-						<span>Selection</span>
-						<select data-selection-action-select aria-label="Selected task action" disabled>
-							<option value="">Selected task actions</option>
-							<option value="buildSelectedLocal">Build Selected</option>
-							<option value="buildSelectedParallel">Build Selected Parallel</option>
-							<option value="buildNewAgent">Build Selected in New Agent</option>
-							<option value="deleteSelected">Delete Selected</option>
-						</select>
-					</label>
+					<div class="action-menu action-menu-compact" data-action-menu>
+						<span class="action-menu-label">Selection</span>
+						<button type="button" class="menu-trigger" data-menu-trigger data-selection-action-trigger aria-label="Open selected task actions" aria-haspopup="menu" aria-expanded="false" disabled>
+							<span>Selected task actions</span><span class="menu-caret">v</span>
+						</button>
+						<div class="menu-popover" data-menu-popover data-selection-action-menu role="menu" hidden>
+							<button type="button" class="menu-action" data-menu-action="buildSelectedLocal" data-selection-action-button role="menuitem">Build Selected</button>
+							<button type="button" class="menu-action" data-menu-action="buildSelectedParallel" data-selection-action-button role="menuitem">Build Selected Parallel</button>
+							<button type="button" class="menu-action" data-menu-action="buildNewAgent" data-selection-action-button role="menuitem">Build Selected in New Agent</button>
+							<button type="button" class="menu-action" data-menu-action="deleteSelected" data-selection-action-button role="menuitem">Delete Selected</button>
+						</div>
+					</div>
 				</div>
 				<ul class="todo-list">${todoHtml}</ul>
 			</aside>
@@ -997,20 +1074,60 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 		let buildStarting = false;
 		const updateBulkState = () => {
 			const hasSelection = selectedIds.size > 0;
-			document.querySelectorAll('[data-bulk-status-select], [data-selection-action-select]').forEach((control) => {
+			document.querySelectorAll('[data-bulk-status-select]').forEach((control) => {
 				control.disabled = buildStarting || !hasSelection;
+			});
+			document.querySelectorAll('[data-selection-action-trigger]').forEach((control) => {
+				control.disabled = buildStarting || !hasSelection;
+			});
+			document.querySelectorAll('[data-selection-action-button]').forEach((button) => {
+				button.disabled = buildStarting || !hasSelection;
 			});
 			document.querySelectorAll('[data-selection-option]').forEach((option) => {
 				option.disabled = buildStarting || !hasSelection;
 			});
-			document.querySelectorAll('[data-build-action-select]').forEach((control) => {
+			document.querySelectorAll('[data-build-action-trigger]').forEach((control) => {
 				control.disabled = buildStarting;
+			});
+			document.querySelectorAll('[data-build-action-button]').forEach((button) => {
+				if (!button.hasAttribute('data-selection-option')) {
+					button.disabled = buildStarting;
+				}
 			});
 		};
 		const setBuildStarting = () => {
 			buildStarting = true;
 			document.querySelectorAll('[data-build-action-control]').forEach((control) => control.classList.add('is-running'));
 			updateBulkState();
+		};
+		const closeMenus = (except) => {
+			document.querySelectorAll('[data-action-menu]').forEach((menu) => {
+				if (except && menu === except) {
+					return;
+				}
+				const popover = menu.querySelector('[data-menu-popover]');
+				const trigger = menu.querySelector('[data-menu-trigger]');
+				if (popover) {
+					popover.hidden = true;
+				}
+				if (trigger) {
+					trigger.setAttribute('aria-expanded', 'false');
+				}
+			});
+		};
+		const toggleMenu = (menu) => {
+			if (!menu) {
+				return;
+			}
+			const popover = menu.querySelector('[data-menu-popover]');
+			const trigger = menu.querySelector('[data-menu-trigger]');
+			if (!popover || !trigger || trigger.disabled) {
+				return;
+			}
+			const shouldOpen = popover.hidden;
+			closeMenus(menu);
+			popover.hidden = !shouldOpen;
+			trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
 		};
 		const setRawMode = () => {
 			const canvas = document.querySelector('[data-rendered-plan-canvas]');
@@ -1115,12 +1232,39 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 			}
 		};
 
-		document.querySelectorAll('[data-action-select], [data-selection-action-select]').forEach((select) => {
+		document.querySelectorAll('[data-action-select]').forEach((select) => {
 			select.addEventListener('change', () => {
 				const command = select.value;
 				select.value = '';
 				runCommand(command);
 			});
+		});
+		document.querySelectorAll('[data-menu-trigger]').forEach((trigger) => {
+			trigger.addEventListener('click', (event) => {
+				event.stopPropagation();
+				toggleMenu(trigger.closest('[data-action-menu]'));
+			});
+		});
+		document.querySelectorAll('[data-menu-action]').forEach((button) => {
+			button.addEventListener('click', (event) => {
+				event.stopPropagation();
+				if (button.disabled) {
+					return;
+				}
+				const command = button.dataset.menuAction;
+				closeMenus();
+				runCommand(command);
+			});
+		});
+		document.addEventListener('click', (event) => {
+			if (!event.target?.closest?.('[data-action-menu]')) {
+				closeMenus();
+			}
+		});
+		document.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') {
+				closeMenus();
+			}
 		});
 		document.querySelectorAll('[data-command]').forEach((button) => {
 			button.addEventListener('click', () => runCommand(button.dataset.command));
@@ -1144,6 +1288,24 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 				}
 				if (event.metaKey || event.ctrlKey) {
 					post('cycleTodo', { todoId });
+					return;
+				}
+				event.stopPropagation();
+				selectTodo(row, event);
+			});
+		});
+		document.querySelectorAll('[data-todo-row]').forEach((row) => {
+			row.addEventListener('click', (event) => {
+				if (event.target?.closest?.('button, select, textarea, a')) {
+					return;
+				}
+				const todoId = row.dataset.todoId;
+				if (todoId && event.target?.closest?.('[data-todo-input]')) {
+					if (!selectedIds.has(todoId)) {
+						selectedIds.add(todoId);
+						lastSelectedId = todoId;
+						syncSelectedClasses();
+					}
 					return;
 				}
 				selectTodo(row, event);

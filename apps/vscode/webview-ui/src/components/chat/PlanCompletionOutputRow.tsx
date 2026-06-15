@@ -255,13 +255,41 @@ const PlanCompletionOutputRow = memo(
 		>();
 		const [search, setSearch] = useState("");
 		const [showRawMarkdown, setShowRawMarkdown] = useState(false);
+		const [isBuildMenuOpen, setIsBuildMenuOpen] = useState(false);
 		const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+		const buildMenuRef = useRef<HTMLDivElement>(null);
 		const effectivePlanBuild = localPlanBuild || createdPlanBuild;
 
 		useEffect(() => {
 			setCreatedPlanBuild(undefined);
 			setShowRawMarkdown(false);
 		}, [localPlanBuild?.planId, localPlanBuild?.planPath]);
+
+		useEffect(() => {
+			if (!isBuildMenuOpen) {
+				return;
+			}
+
+			const closeOnOutsidePointer = (event: PointerEvent) => {
+				const target = event.target;
+				if (target instanceof Node && buildMenuRef.current?.contains(target)) {
+					return;
+				}
+				setIsBuildMenuOpen(false);
+			};
+			const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+				if (event.key === "Escape") {
+					setIsBuildMenuOpen(false);
+				}
+			};
+
+			document.addEventListener("pointerdown", closeOnOutsidePointer);
+			document.addEventListener("keydown", closeOnEscape);
+			return () => {
+				document.removeEventListener("pointerdown", closeOnOutsidePointer);
+				document.removeEventListener("keydown", closeOnEscape);
+			};
+		}, [isBuildMenuOpen]);
 
 		useEffect(() => {
 			if (!effectivePlanBuild?.planId && !effectivePlanBuild?.planPath) {
@@ -525,6 +553,7 @@ const PlanCompletionOutputRow = memo(
 			if (!canBuild || isStartingBuild) {
 				return;
 			}
+			setIsBuildMenuOpen(false);
 			setIsStartingBuild(mode);
 			try {
 				const saved = await savePlan();
@@ -559,6 +588,72 @@ const PlanCompletionOutputRow = memo(
 			} finally {
 				setIsStartingBuild(undefined);
 			}
+		};
+
+		const renderBuildActionMenu = (
+			idleLabel: string,
+			triggerClassName: string,
+		) => {
+			const triggerLabel = isStartingBuild ? liveStatusText : idleLabel;
+			const actionClassName =
+				"w-full rounded-sm px-2 py-1.5 text-left text-xs text-foreground hover:bg-muted focus:bg-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
+
+			return (
+				<div className="relative inline-flex shrink-0" ref={buildMenuRef}>
+					<button
+						aria-expanded={isBuildMenuOpen}
+						aria-haspopup="menu"
+						aria-label="Build plan action"
+						className={cn(
+							"inline-flex items-center justify-between gap-2 rounded-sm border border-description/30 bg-background/60 text-xs text-foreground outline-none focus:border-primary/60 disabled:cursor-not-allowed disabled:opacity-50",
+							triggerClassName,
+						)}
+						data-build-action-trigger
+						disabled={!canBuild || Boolean(isStartingBuild)}
+						onClick={() => setIsBuildMenuOpen((current) => !current)}
+						type="button"
+					>
+						<span className="truncate">{triggerLabel}</span>
+						<span className="text-description">v</span>
+					</button>
+					{isBuildMenuOpen && (
+						<div
+							className="absolute right-0 top-full z-30 mt-1 grid min-w-56 gap-1 rounded-sm border border-description/30 bg-background p-1 shadow-lg"
+							data-build-action-menu
+							role="menu"
+						>
+							<button
+								className={actionClassName}
+								data-build-action-button
+								onClick={() => void buildPlan("agent")}
+								role="menuitem"
+								type="button"
+							>
+								Build Locally
+							</button>
+							<button
+								className={actionClassName}
+								data-build-action-button
+								onClick={() => void buildPlan("multitask")}
+								role="menuitem"
+								type="button"
+							>
+								Build in Parallel
+							</button>
+							<button
+								className={actionClassName}
+								data-build-action-button
+								disabled={!hasSelectedTodos}
+								onClick={() => void buildPlan("new_agent")}
+								role="menuitem"
+								type="button"
+							>
+								Build Selected in New Agent
+							</button>
+						</div>
+					)}
+				</div>
+			);
 		};
 
 		const deleteSelectedTodos = async () => {
@@ -728,7 +823,7 @@ const PlanCompletionOutputRow = memo(
 					data-plan-card
 				>
 					<div
-						className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 rounded-sm border border-description/25 bg-background/40 px-2 py-1.5"
+						className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 rounded-sm border border-description/25 bg-background/40 px-2 py-1.5"
 						data-plan-visible-summary
 						title={
 							previewText
@@ -741,30 +836,7 @@ const PlanCompletionOutputRow = memo(
 								{displayPlanName || "Implementation plan"}
 							</span>
 						</div>
-						<select
-							aria-label="Build plan action"
-							className="h-7 min-w-36 rounded-sm border border-description/30 bg-background/60 px-2 text-xs text-foreground outline-none focus:border-primary/60 disabled:opacity-50"
-							disabled={!canBuild || Boolean(isStartingBuild)}
-							onChange={(event) => {
-								const mode = event.currentTarget.value as
-									| "agent"
-									| "multitask"
-									| "new_agent"
-									| "";
-								event.currentTarget.value = "";
-								if (mode) {
-									void buildPlan(mode);
-								}
-							}}
-							value=""
-						>
-							<option value="">Build</option>
-							<option value="agent">Build Locally</option>
-							<option value="multitask">Build in Parallel</option>
-							<option disabled={!hasSelectedTodos} value="new_agent">
-								Build Selected in New Agent
-							</option>
-						</select>
+						{renderBuildActionMenu("Build", "h-7 min-w-36 px-2")}
 					</div>
 				</div>
 			);
@@ -1074,32 +1146,7 @@ const PlanCompletionOutputRow = memo(
 							</Button>
 						</div>
 						<div className="col-span-2 flex flex-wrap justify-end gap-1">
-							<select
-								aria-label="Build plan action"
-								className="h-8 min-w-48 rounded-sm border border-description/30 bg-background/60 px-2 text-xs text-foreground outline-none focus:border-primary/60 disabled:opacity-50"
-								disabled={!canBuild || Boolean(isStartingBuild)}
-								onChange={(event) => {
-									const mode = event.currentTarget.value as
-										| "agent"
-										| "multitask"
-										| "new_agent"
-										| "";
-									event.currentTarget.value = "";
-									if (mode) {
-										void buildPlan(mode);
-									}
-								}}
-								value=""
-							>
-								<option value="">
-									{isStartingBuild ? liveStatusText : "Build actions"}
-								</option>
-								<option value="agent">Build Locally</option>
-								<option value="multitask">Build in Parallel</option>
-								<option disabled={!hasSelectedTodos} value="new_agent">
-									Build Selected in New Agent
-								</option>
-							</select>
+							{renderBuildActionMenu("Build actions", "h-8 min-w-48 px-2")}
 						</div>
 					</div>
 				)}
