@@ -965,6 +965,58 @@ installedE2e(
 );
 
 installedE2e(
+	"Installed VSIX uses local file index before raw ripgrep fallback",
+	async ({ app: _app, page }, testInfo) => {
+		await expect
+			.poll(
+				async () => {
+					const diagnosticsResponse =
+						await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({
+							success: false,
+						}));
+					return diagnosticsResponse.success === true;
+				},
+				{
+					message:
+						"Installed Codie VSIX should activate its E2E command server before file-search diagnostics run",
+					timeout: 60_000,
+				},
+			)
+			.toBe(true);
+
+		const response = await E2ETestHelper.searchNativeWorkspaceFiles({
+			query: "keep",
+			selectedType: "file",
+			limit: 10,
+			files: [
+				{
+					relativePath: ".cursorindexingignore",
+					content: "generated/\n!generated/keep.ts\n",
+				},
+				{
+					relativePath: "generated/drop.ts",
+					content: "drop\n",
+				},
+				{
+					relativePath: "generated/keep.ts",
+					content: "keep\n",
+				},
+			],
+		});
+
+		expect(response.success).toBe(true);
+		expect(response.source).toBe("local_index");
+		expect(response.items?.map((item) => item.path)).toContain(
+			"generated/keep.ts",
+		);
+		expect(response.items?.map((item) => item.path)).not.toContain(
+			"generated/drop.ts",
+		);
+		await captureSlowUiScreenshot(page, testInfo, "native-file-search-local-index");
+	},
+);
+
+installedE2e(
 	"Installed VSIX evaluates Cursor sandbox policy and inline terminal run modes",
 	async ({ app: _app }) => {
 		await expect

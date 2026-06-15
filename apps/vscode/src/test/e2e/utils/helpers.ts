@@ -148,6 +148,18 @@ export interface NativeWorkspaceTextSearchResponse {
 	error?: string
 }
 
+export interface NativeWorkspaceFileSearchResponse {
+	success: boolean
+	source?: "host_index" | "local_index" | "ripgrep"
+	items?: Array<{
+		path?: string
+		type?: "file" | "folder"
+		label?: string
+		workspaceName?: string
+	}>
+	error?: string
+}
+
 type SandboxPermissionResult = {
 	allowed?: boolean
 	reason?: string
@@ -967,6 +979,16 @@ export class E2ETestHelper {
 		files?: Array<{ relativePath: string; content: string }>
 	}): Promise<NativeWorkspaceTextSearchResponse> {
 		return E2ETestHelper.postTestServerJson<NativeWorkspaceTextSearchResponse>("/workspace/search-text", input)
+	}
+
+	public static async searchNativeWorkspaceFiles(input: {
+		query?: string
+		limit?: number
+		selectedType?: "file" | "folder"
+		includeIgnored?: boolean
+		files?: Array<{ relativePath: string; content: string }>
+	}): Promise<NativeWorkspaceFileSearchResponse> {
+		return E2ETestHelper.postTestServerJson<NativeWorkspaceFileSearchResponse>("/workspace/search-files", input)
 	}
 
 	public static async evaluateNativeSandboxPolicy(input?: {

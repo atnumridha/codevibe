@@ -262,13 +262,32 @@ describe("File Search", () => {
 			should(srcEntries[0]).have.properties({ path: "src", type: "folder" })
 		})
 
-		it("continues search when the host cannot return open tabs", async () => {
+		it("continues search from the local index when the host cannot return open tabs", async () => {
+			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-local-index-"))
+			try {
+				await fs.promises.mkdir(path.join(workspace, "src"), { recursive: true })
+				await fs.promises.writeFile(path.join(workspace, "src", "main.ts"), "main\n")
+
+				sandbox.stub(HostProvider.window, "getOpenTabs").rejects(new Error("getOpenTabs unavailable"))
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").rejects({ code: 12, message: "not implemented" })
+
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 20)
+
+				should(result.source).equal("local_index")
+				should(result.items).containDeep([{ path: "src/main.ts", type: "file", label: "main.ts" }])
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
+		})
+
+		it("falls back to ripgrep when the local file index cannot be built", async () => {
+			const workspace = path.join(os.tmpdir(), `file-search-missing-${Date.now()}`)
 			sandbox.stub(HostProvider.window, "getOpenTabs").rejects(new Error("getOpenTabs unavailable"))
 			sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").rejects({ code: 12, message: "not implemented" })
 
 			const mockStdout = new Readable({
 				read() {
-					this.push("/workspace/src/main.ts\n")
+					this.push(path.join(workspace, "src", "main.ts") + "\n")
 					this.push(null)
 				},
 			})
@@ -290,7 +309,7 @@ describe("File Search", () => {
 				kill: () => {},
 			} as unknown as childProcess.ChildProcess)
 
-			const result = await fileSearch.searchWorkspaceFiles("", "/workspace", 20)
+			const result = await fileSearch.searchWorkspaceFiles("", workspace, 20)
 			const expectedPath = process.platform === "win32" ? "src\\main.ts" : "src/main.ts"
 
 			should(result.source).equal("ripgrep")
@@ -438,27 +457,27 @@ describe("File Search", () => {
 					.resolves({ filePath: path.join(workspace, "src", "entry.ts") } as any)
 				sandbox.stub(HostProvider.window, "getVisibleTabs").resolves({ paths: [] } as any)
 				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
-					sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
-						SearchWorkspaceItemsResponse.create({
-							items: [
-								{ path: "src/index.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "index.ts" },
-								{ path: "src/dep.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "dep.ts" },
+				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").resolves(
+					SearchWorkspaceItemsResponse.create({
+						items: [
+							{ path: "src/index.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "index.ts" },
+							{ path: "src/dep.ts", type: SearchWorkspaceItemsRequest_SearchItemType.FILE, label: "dep.ts" },
 						],
 					}),
-					)
-					stubGitStatus("")
-					const readFileSpy = sandbox.spy(fs.promises, "readFile")
+				)
+				stubGitStatus("")
+				const readFileSpy = sandbox.spy(fs.promises, "readFile")
 
-					const result = await fileSearch.searchWorkspaceFiles("", workspace, 2)
+				const result = await fileSearch.searchWorkspaceFiles("", workspace, 2)
 
-					should(result.items.map((item) => item.path)).deepEqual(["src/entry.ts", "src/dep.ts"])
-					should(
-						readFileSpy.getCalls().some((call) => String(call.args[0]) === path.join(workspace, "src", "entry.ts")),
-					).equal(false)
-				} finally {
-					await fs.promises.rm(workspace, { recursive: true, force: true })
-				}
-			})
+				should(result.items.map((item) => item.path)).deepEqual(["src/entry.ts", "src/dep.ts"])
+				should(readFileSpy.getCalls().some((call) => String(call.args[0]) === path.join(workspace, "src", "entry.ts"))).equal(
+					false,
+				)
+			} finally {
+				await fs.promises.rm(workspace, { recursive: true, force: true })
+			}
+		})
 
 		it("filters git-changed candidates through Cursor privacy ignore rules", async () => {
 			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-git-ignore-"))
@@ -483,7 +502,7 @@ describe("File Search", () => {
 			}
 		})
 
-		it("filters ripgrep fallback results through Cursor indexing ignore negations", async () => {
+		it("filters local-index fallback results through Cursor indexing ignore negations", async () => {
 			const workspace = await fs.promises.mkdtemp(path.join(os.tmpdir(), "file-search-rg-ignore-"))
 			try {
 				await fs.promises.mkdir(path.join(workspace, "generated"), { recursive: true })
@@ -494,38 +513,9 @@ describe("File Search", () => {
 				sandbox.stub(HostProvider.window, "getOpenTabs").resolves({ paths: [] } as any)
 				sandbox.stub(HostProvider.workspace, "searchWorkspaceItems").rejects({ code: 12, message: "not implemented" })
 
-				const mockStdout = new Readable({
-					read() {
-						this.push(
-							[
-								path.join(workspace, "generated", "drop.ts"),
-								path.join(workspace, "generated", "keep.ts"),
-							].join("\n"),
-						)
-						this.push(null)
-					},
-				})
-				const mockStderr = new Readable({
-					read() {
-						this.push(null)
-					},
-				})
-
-				spawnStub.returns({
-					stdout: mockStdout,
-					stderr: mockStderr,
-					on: function (event: string, callback: Function) {
-						if (event === "exit") {
-							setImmediate(() => callback(0))
-						}
-						return this
-					},
-					kill: () => {},
-				} as unknown as childProcess.ChildProcess)
-
 				const result = await fileSearch.searchWorkspaceFiles("", workspace, 20)
 
-				should(result.source).equal("ripgrep")
+				should(result.source).equal("local_index")
 				result.items.map((item) => item.path).should.containEql("generated/keep.ts")
 				result.items.map((item) => item.path).should.not.containEql("generated/drop.ts")
 			} finally {

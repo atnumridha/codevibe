@@ -2086,9 +2086,10 @@ export class TelemetryService {
 	 * @param isEmpty Whether the search returned no results
 	 * @param fsContext Optional filesystem info, emitted as `fs_class` and `fs_type`.
 	 * @param searchSource Which backend served the search: `host_index` (e.g.
-	 *   JetBrains FilenameIndex) or `ripgrep` (default everywhere). Emitted as
-	 *   the `search_source` property so we can tell, for a given fs_class, how
-	 *   often the host index actually picks up the load.
+	 *   JetBrains FilenameIndex), `local_index` (cached CodeVibe workspace
+	 *   index), or `ripgrep` (raw final fallback). Emitted as the
+	 *   `search_source` property so we can tell, for a given fs_class, how
+	 *   often indexed retrieval actually picks up the load.
 	 */
 	public captureMentionSearchResults(
 		query: string,
@@ -2096,7 +2097,7 @@ export class TelemetryService {
 		searchType: "file" | "folder" | "all",
 		isEmpty: boolean,
 		fsContext?: { fsClass?: "local" | "network" | "unknown"; fsType?: string },
-		searchSource?: "host_index" | "ripgrep",
+		searchSource?: "host_index" | "local_index" | "ripgrep",
 	) {
 		this.capture({
 			event: TelemetryService.EVENTS.TASK.MENTION_SEARCH_RESULTS,

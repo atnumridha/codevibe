@@ -9,16 +9,17 @@ import { HostProvider } from "@/hosts/host-provider"
 import { GetActiveEditorRequest, GetOpenTabsRequest, GetVisibleTabsRequest } from "@/shared/proto/host/window"
 import { SearchWorkspaceItemsRequest, SearchWorkspaceItemsRequest_SearchItemType } from "@/shared/proto/host/workspace"
 import { Logger } from "@/shared/services/Logger"
-import { filterIgnoredWorkspaceItems, type WorkspaceSearchItem } from "@/services/workspace/file-indexer"
+import { filterIgnoredWorkspaceItems, getWorkspaceSearchItems, type WorkspaceSearchItem } from "@/services/workspace/file-indexer"
 import { getBinaryLocation } from "@/utils/fs"
 
 /**
  * Indicates which backend served a workspace-files search.
  *
  * - `host_index`: served by the host's native file-name index (e.g. JetBrains FilenameIndex).
- * - `ripgrep`:    served by the bundled ripgrep walker (default everywhere).
+ * - `local_index`: served by CodeVibe's cached local workspace file index.
+ * - `ripgrep`:    served by the bundled ripgrep walker as the final fallback.
  */
-export type FileSearchSource = "host_index" | "ripgrep"
+export type FileSearchSource = "host_index" | "local_index" | "ripgrep"
 
 export type FileSearchPrivacyOptions = {
 	cursorRetrievalIndexingPrivacyGate?: boolean
@@ -352,12 +353,28 @@ async function executeHostIndexForFiles(
 		const msg = (err as { message?: string } | null)?.message ?? ""
 		const isUnimplemented = code === GRPC_STATUS_UNIMPLEMENTED || /not implemented/i.test(msg)
 		if (isUnimplemented) {
-			Logger.debug("[file-search] host index unimplemented, using ripgrep")
+			Logger.debug("[file-search] host index unimplemented, using local workspace index")
 		} else {
-			Logger.warn(`[file-search] host index call failed (code=${String(code)}), falling back to ripgrep: ${msg}`)
+			Logger.warn(`[file-search] host index call failed (code=${String(code)}), falling back to local workspace index: ${msg}`)
 		}
 		return null
 	}
+}
+
+async function executeLocalIndexForFiles(
+	workspacePath: string,
+	selectedType?: "file" | "folder",
+	options?: FileSearchPrivacyOptions,
+): Promise<WorkspaceSearchItem[]> {
+	const workspaceStats = await fs.promises.stat(workspacePath)
+	if (!workspaceStats.isDirectory()) {
+		throw new Error(`workspace path is not a directory: ${workspacePath}`)
+	}
+	const allItems = await getWorkspaceSearchItems(workspacePath, {
+		includeIgnored: !shouldFilterIgnoredWorkspaceItems(options),
+	})
+	const typedItems = selectedType ? allItems.filter((item) => item.type === selectedType) : allItems
+	return typedItems.slice(0, HOST_INDEX_CANDIDATE_LIMIT)
 }
 
 function parseGitStatusPorcelainZ(output: string): string[] {
@@ -557,7 +574,7 @@ async function getDependencyCandidates(
 		}
 
 		try {
-				const source = await readDependencyImportPrefix(path.join(workspacePath, seedItem.path))
+			const source = await readDependencyImportPrefix(path.join(workspacePath, seedItem.path))
 			for (const specifier of extractRelativeImportSpecifiers(source)) {
 				if (dependencies.length >= DEPENDENCY_CANDIDATE_LIMIT) {
 					break
@@ -625,10 +642,22 @@ export async function searchWorkspaceFiles(
 
 		const hostItems = await executeHostIndexForFiles(query, workspacePath, selectedType, options)
 
-		const allItems = hostItems
-			? await filterWorkspaceItemsForPrivacy(workspacePath, hostItems, options)
-			: await executeRipgrepForFiles(workspacePath, 5000, options)
-		const source: FileSearchSource = hostItems ? "host_index" : "ripgrep"
+		let allItems: WorkspaceSearchItem[]
+		let source: FileSearchSource
+		if (hostItems) {
+			allItems = await filterWorkspaceItemsForPrivacy(workspacePath, hostItems, options)
+			source = "host_index"
+		} else {
+			try {
+				allItems = await executeLocalIndexForFiles(workspacePath, selectedType, options)
+				source = "local_index"
+			} catch (error) {
+				const message = error instanceof Error ? error.message : String(error)
+				Logger.warn(`[file-search] local workspace index unavailable, falling back to ripgrep: ${message}`)
+				allItems = await executeRipgrepForFiles(workspacePath, 5000, options)
+				source = "ripgrep"
+			}
+		}
 		const [allowedWindowCandidates, allowedGitChangedFiles] = await Promise.all([
 			filterWorkspaceItemsForPrivacy(workspacePath, windowCandidates, options),
 			getGitChangedFiles(workspacePath, selectedType).then((items) => filterWorkspaceItemsForPrivacy(workspacePath, items, options)),
@@ -772,13 +801,16 @@ export async function searchWorkspaceFilesMultiroot(
 			}
 		})
 
-		// Aggregate per-root results. The combined `source` is `host_index`
-		// only if every contributing root reported `host_index`; if any root
-		// fell back to ripgrep we report `ripgrep` so telemetry isn't misleading.
+		// Aggregate per-root results. Prefer the weakest backend observed so
+		// telemetry shows when we left host/local indexes for raw ripgrep.
 		const allResults = await Promise.all(searchPromises)
 		let flatResults: SearchWorkspaceFilesResult["items"] = allResults.flatMap((r) => r.items)
 		const aggregateSource: FileSearchSource =
-			allResults.length > 0 && allResults.every((r) => r.source === "host_index") ? "host_index" : "ripgrep"
+			allResults.length === 0 || allResults.some((r) => r.source === "ripgrep")
+				? "ripgrep"
+				: allResults.every((r) => r.source === "host_index")
+					? "host_index"
+					: "local_index"
 		if (workspacesToSearch.length > 1) {
 			const pathCounts = new Map<string, number>()
 			for (const result of flatResults) {

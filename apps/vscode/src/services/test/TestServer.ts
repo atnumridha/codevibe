@@ -22,6 +22,7 @@ import * as vscode from "vscode"
 import { Controller } from "@/core/controller"
 import { HostProvider } from "@/hosts/host-provider"
 import { ExtensionRegistryInfo } from "@/registry"
+import { searchWorkspaceFiles } from "@/services/search/file-search"
 import { SharedUriHandler } from "@/services/uri/SharedUriHandler"
 import { Logger } from "@/shared/services/Logger"
 import { getCwd } from "@/utils/path"
@@ -1020,6 +1021,100 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 						}
 						if (originalReadFile) {
 							workspaceFs.readFile = originalReadFile
+						}
+						await fs.promises.rm(searchRoot, { recursive: true, force: true }).catch(() => undefined)
+					}
+				})
+				.catch((error) => {
+					res.writeHead(400, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
+				})
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/workspace/search-files") {
+			readRequestBody()
+				.then(async (body) => {
+					const searchRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "codevibe-e2e-file-search-"))
+					const workspaceClient = HostProvider.workspace as {
+						searchWorkspaceItems?: (...args: any[]) => Promise<unknown>
+					}
+					const windowClient = HostProvider.window as {
+						getActiveEditor?: (...args: any[]) => Promise<unknown>
+						getVisibleTabs?: (...args: any[]) => Promise<unknown>
+						getOpenTabs?: (...args: any[]) => Promise<unknown>
+					}
+					const originalSearchWorkspaceItems = workspaceClient.searchWorkspaceItems
+					const originalGetActiveEditor = windowClient.getActiveEditor
+					const originalGetVisibleTabs = windowClient.getVisibleTabs
+					const originalGetOpenTabs = windowClient.getOpenTabs
+
+					try {
+						const parsed = body ? JSON.parse(body) : {}
+						const files = Array.isArray(parsed.files) && parsed.files.length > 0 ? parsed.files : []
+						const corpus =
+							files.length > 0
+								? files
+								: [
+										{
+											relativePath: "src/file-search-target.ts",
+											content: "export const installedFileSearchNeedle = true\n",
+										},
+									]
+
+						for (const file of corpus) {
+							const relativePath =
+								typeof file?.relativePath === "string" && file.relativePath.trim()
+									? path.normalize(file.relativePath)
+									: undefined
+							if (!relativePath || path.isAbsolute(relativePath) || relativePath.startsWith("..")) {
+								throw new Error(`Invalid relativePath for file-search corpus: ${String(file?.relativePath)}`)
+							}
+							const filePath = path.join(searchRoot, relativePath)
+							await fs.promises.mkdir(path.dirname(filePath), { recursive: true })
+							await fs.promises.writeFile(filePath, typeof file.content === "string" ? file.content : "", "utf8")
+						}
+
+						workspaceClient.searchWorkspaceItems = async () => {
+							throw { code: 12, message: "not implemented" }
+						}
+						windowClient.getActiveEditor = async () => ({ filePath: "" })
+						windowClient.getVisibleTabs = async () => ({ paths: [] })
+						windowClient.getOpenTabs = async () => ({ paths: [] })
+
+						const selectedType = parsed.selectedType === "folder" ? "folder" : parsed.selectedType === "file" ? "file" : undefined
+						const searchResult = await searchWorkspaceFiles(
+							typeof parsed.query === "string" ? parsed.query : "",
+							searchRoot,
+							Number.isFinite(Number(parsed.limit)) ? Number(parsed.limit) : 20,
+							selectedType,
+							undefined,
+							{ cursorRetrievalIndexingPrivacyGate: parsed.includeIgnored === true ? false : true },
+						)
+
+						res.writeHead(200, { "Content-Type": "application/json" })
+						res.end(
+							JSON.stringify({
+								success: true,
+								source: searchResult.source,
+								items: searchResult.items,
+							}),
+						)
+					} catch (error) {
+						res.writeHead(500, { "Content-Type": "application/json" })
+						res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+					} finally {
+						if (originalSearchWorkspaceItems) {
+							workspaceClient.searchWorkspaceItems = originalSearchWorkspaceItems
+						}
+						if (originalGetActiveEditor) {
+							windowClient.getActiveEditor = originalGetActiveEditor
+						}
+						if (originalGetVisibleTabs) {
+							windowClient.getVisibleTabs = originalGetVisibleTabs
+						}
+						if (originalGetOpenTabs) {
+							windowClient.getOpenTabs = originalGetOpenTabs
 						}
 						await fs.promises.rm(searchRoot, { recursive: true, force: true }).catch(() => undefined)
 					}
