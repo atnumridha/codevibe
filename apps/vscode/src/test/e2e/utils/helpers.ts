@@ -94,6 +94,17 @@ export interface NativePlanOpenLatestResponse {
 		inputUri?: string
 		inputViewType?: string
 	}
+	planEditor?: {
+		editorAssociation?: string
+		usesCustomEditor?: boolean
+		renderedCanvasExpected?: boolean
+		hasLocalBuildActions?: boolean
+		hasBuildSelectedAction?: boolean
+		hasParallelBuildAction?: boolean
+		hasCloudBuildAction?: boolean
+		hasMermaid?: boolean
+		hasFrontmatterTodos?: boolean
+	}
 	error?: string
 }
 
@@ -189,6 +200,40 @@ export interface NativeCompatibilityDeeplinkResponse {
 		postStateCalls?: number
 	}
 	secretLeakInMessages?: boolean
+	error?: string
+}
+
+export interface NativeOpenAiCodexStateResponse {
+	success: boolean
+	defaultApiProvider?: string
+	apiConfiguration?: {
+		planModeApiProvider?: string
+		actModeApiProvider?: string
+		planModeApiModelId?: string
+		actModeApiModelId?: string
+	}
+	openAiCodexIsAuthenticated?: boolean
+	compatibilityStatus?: {
+		openAiCodexAuthSource?: string
+		openAiCodexAuthenticated?: boolean
+	}
+	credentials?: {
+		tokenSource?: string
+		authMode?: string
+		email?: string
+		accountId?: string
+		installationId?: string
+		clientVersion?: string
+		hasAccessToken?: boolean
+		hasRefreshToken?: boolean
+	}
+	models?: {
+		defaultModelId?: string
+		bundledModelCount?: number
+		includesDefaultModel?: boolean
+	}
+	authJsonRelativePath?: string
+	secretLeakInPayload?: boolean
 	error?: string
 }
 
@@ -817,6 +862,10 @@ export class E2ETestHelper {
 		return E2ETestHelper.postTestServerJson<NativeCompatibilityDeeplinkResponse>(
 			"/compatibility/deeplinks/evaluate",
 		)
+	}
+
+	public static async evaluateNativeOpenAiCodexState(): Promise<NativeOpenAiCodexStateResponse> {
+		return E2ETestHelper.postTestServerJson<NativeOpenAiCodexStateResponse>("/state/openai-codex/evaluate")
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {

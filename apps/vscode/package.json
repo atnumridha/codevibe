@@ -201,6 +201,11 @@
 				"priority": "default"
 			}
 		],
+		"configurationDefaults": {
+			"workbench.editorAssociations": {
+				"*.plan.md": "codevibe.planEditor"
+			}
+		},
 		"chatAgents": [
 			{
 				"id": "codevibe-agent",

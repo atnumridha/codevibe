@@ -28,6 +28,7 @@ type PlanEditorMessage = {
 	todoIds?: string[]
 	status?: string
 	content?: string
+	body?: string
 	beforeContent?: string
 	afterContent?: string
 }
@@ -76,7 +77,7 @@ export function registerVscodePlanIntegration(
 		}),
 		vscode.window.registerCustomEditorProvider(
 			PLAN_EDITOR_VIEW_TYPE,
-			new VscodePlanEditorProvider(getController, () => provider.refresh()),
+			new VscodePlanEditorProvider(context.extensionUri, getController, () => provider.refresh()),
 			{
 				supportsMultipleEditorsPerDocument: false,
 				webviewOptions: { retainContextWhenHidden: true },
@@ -268,12 +269,13 @@ async function buildPlanFromNativeCommand(
 
 class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 	constructor(
+		private readonly extensionUri: vscode.Uri,
 		private readonly getController: () => Controller | undefined,
 		private readonly refreshPlans: () => void,
 	) {}
 
 	async resolveCustomTextEditor(document: vscode.TextDocument, panel: vscode.WebviewPanel): Promise<void> {
-		panel.webview.options = { enableScripts: true }
+		panel.webview.options = { enableScripts: true, localResourceRoots: [this.extensionUri] }
 
 		const update = async () => {
 			panel.webview.html = await this.getHtml(document, panel.webview)
@@ -313,6 +315,11 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 				case "openRaw":
 					await openRawPlanPath(document.uri.fsPath)
 					break
+				case "saveRaw":
+					await this.saveRawBody(document.uri.fsPath, message.body)
+					await update()
+					this.refreshPlans()
+					break
 				case "cycleTodo":
 					await this.cycleTodo(document.uri.fsPath, message.todoId)
 					await update()
@@ -347,6 +354,21 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 		})
 
 		await update()
+	}
+
+	private async saveRawBody(planPath: string, body: string | undefined): Promise<void> {
+		if (body == null) {
+			return
+		}
+		const workspacePath = await getWorkspacePath()
+		const plan = await getPlanStorageService().readPlan({ planPath, workspacePath })
+		await getPlanStorageService().updatePlan({
+			planId: plan.planId,
+			planPath,
+			metadata: plan.metadata,
+			body,
+			workspacePath,
+		})
 	}
 
 	private async cycleTodo(planPath: string, todoId: string | undefined): Promise<void> {
@@ -429,6 +451,9 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 	private async getHtml(document: vscode.TextDocument, webview: vscode.Webview): Promise<string> {
 		const nonce = getNonce()
 		const cspSource = webview.cspSource
+		const mermaidScriptUri = webview.asWebviewUri(
+			vscode.Uri.joinPath(this.extensionUri, "assets", "plan-editor", "mermaid.min.js"),
+		)
 		const plan = await getPlanStorageService().readPlan({
 			planPath: document.uri.fsPath,
 			workspacePath: await getWorkspacePath(),
@@ -456,12 +481,14 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 		const statusButtons = ["pending", "in_progress", "completed", "cancelled"]
 			.map((status) => `<button data-bulk-status="${status}" disabled>${escapeHtml(status.replace("_", " "))}</button>`)
 			.join("")
+		const hasMermaid = /```mermaid\b/i.test(plan.body)
+		const serializedPlanJson = escapeScriptJson(plan.serialized)
 
 		return `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} data:; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${cspSource} data: blob:; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'nonce-${nonce}';">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>${escapeHtml(plan.metadata.name || "Codie Plan")}</title>
 	<style>
@@ -471,18 +498,21 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 			color: var(--vscode-editor-foreground);
 			background: var(--vscode-editor-background);
 		}
-		body { margin: 0; }
+		* { box-sizing: border-box; }
+		body { margin: 0; background: var(--vscode-editor-background); }
 		.shell { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
-		header {
+		.plan-header {
 			position: sticky; top: 0; z-index: 2;
-			display: grid; gap: 10px; padding: 14px 18px;
+			display: grid; gap: 10px; padding: 14px 18px 12px;
 			border-bottom: 1px solid var(--vscode-panel-border);
 			background: var(--vscode-editor-background);
 		}
-		.title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+		.title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 		h1 { margin: 0; font-size: 18px; line-height: 1.25; }
 		.path { color: var(--vscode-descriptionForeground); font-size: 11px; font-family: var(--vscode-editor-font-family); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-		.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+		.actions { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+		.plan-tabs { display: flex; gap: 12px; color: var(--vscode-descriptionForeground); font-size: 11px; }
+		.plan-tabs strong { color: var(--vscode-editor-foreground); }
 		button {
 			border: 1px solid var(--vscode-button-border, transparent);
 			border-radius: 3px; padding: 5px 10px; cursor: pointer;
@@ -491,9 +521,11 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 		}
 		button.primary { background: var(--vscode-button-background); color: var(--vscode-button-foreground); }
 		button:disabled { cursor: default; opacity: 0.45; }
-		main { display: grid; grid-template-columns: minmax(220px, 320px) minmax(0, 1fr); gap: 18px; padding: 18px; }
+		button.icon { width: 28px; height: 28px; padding: 0; display: inline-grid; place-items: center; }
+		main { display: grid; grid-template-columns: minmax(240px, 340px) minmax(0, 1fr); gap: 18px; padding: 18px; }
 		aside { border-right: 1px solid var(--vscode-panel-border); padding-right: 18px; }
 		.meta { display: grid; gap: 8px; color: var(--vscode-descriptionForeground); font-size: 12px; margin-bottom: 16px; }
+		.meta strong { color: var(--vscode-editor-foreground); font-weight: 600; }
 		.todo-toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 		.todo-toolbar button { padding: 4px 7px; font-size: 11px; }
 		.todo-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
@@ -510,34 +542,78 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 		.todo-phase { grid-column: 2; color: var(--vscode-descriptionForeground); font-size: 11px; }
 		.todo-empty { color: var(--vscode-descriptionForeground); }
 		.content { min-width: 0; line-height: 1.55; }
-		.content h2 { margin-top: 24px; border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 4px; }
-		.content code { font-family: var(--vscode-editor-font-family); background: var(--vscode-textCodeBlock-background); padding: 1px 3px; border-radius: 3px; }
-		pre { overflow: auto; padding: 12px; border-radius: 4px; background: var(--vscode-textCodeBlock-background); }
-		.mermaid-preview { border: 1px solid var(--vscode-panel-border); border-radius: 4px; padding: 12px; overflow: auto; background: var(--vscode-editor-inactiveSelectionBackground); }
-		.mermaid-svg text { fill: var(--vscode-editor-foreground); font-family: var(--vscode-font-family); font-size: 12px; }
-		.mermaid-svg rect { fill: var(--vscode-editor-background); stroke: var(--vscode-focusBorder); }
-		.mermaid-svg path { stroke: var(--vscode-descriptionForeground); fill: none; marker-end: url(#arrow); }
+		.plan-canvas { display: grid; gap: 14px; }
+		.canvas-banner {
+			display: flex; align-items: center; justify-content: space-between; gap: 10px;
+			border: 1px solid var(--vscode-panel-border); border-radius: 6px; padding: 10px 12px;
+			background: var(--vscode-editor-inactiveSelectionBackground);
+		}
+		.canvas-banner-title { font-weight: 600; }
+		.canvas-banner-subtitle { color: var(--vscode-descriptionForeground); font-size: 12px; }
+		.markdown-body { min-width: 0; max-width: 900px; }
+		.markdown-body h2 { margin-top: 24px; border-bottom: 1px solid var(--vscode-panel-border); padding-bottom: 4px; }
+		.markdown-body h3, .markdown-body h4 { margin-top: 18px; }
+		.markdown-body code { font-family: var(--vscode-editor-font-family); background: var(--vscode-textCodeBlock-background); padding: 1px 3px; border-radius: 3px; }
+		.markdown-body pre { overflow: auto; padding: 12px; border-radius: 4px; background: var(--vscode-textCodeBlock-background); }
+		.raw-editor {
+			width: 100%; min-height: 320px; resize: vertical; border: 1px solid var(--vscode-panel-border);
+			border-radius: 4px; padding: 12px; color: var(--vscode-editor-foreground);
+			background: var(--vscode-input-background); font-family: var(--vscode-editor-font-family);
+			line-height: 1.45;
+		}
+		.raw-actions { display: none; gap: 8px; }
+		.raw-mode .raw-actions { display: flex; }
+		.raw-mode .markdown-body { display: none; }
+		.raw-mode .raw-editor { display: block; }
+		.plan-diagram {
+			border: 1px solid var(--vscode-panel-border); border-radius: 6px; overflow: hidden;
+			background: var(--vscode-editor-background); margin: 12px 0;
+		}
+		.diagram-header {
+			display: flex; align-items: center; justify-content: space-between; gap: 10px;
+			padding: 8px 10px; border-bottom: 1px solid var(--vscode-panel-border);
+			background: var(--vscode-editor-inactiveSelectionBackground);
+		}
+		.diagram-title { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+		.diagram-actions { display: flex; gap: 4px; }
+		.mermaid-target { min-height: 80px; padding: 14px; overflow: auto; }
+		.mermaid-target svg { max-width: 100%; height: auto; }
+		.mermaid-loading, .mermaid-error { color: var(--vscode-descriptionForeground); font-size: 12px; padding: 12px; }
+		.mermaid-error { color: var(--vscode-errorForeground); }
+		.mermaid-source { margin: 0; border-top: 1px solid var(--vscode-panel-border); }
 		@media (max-width: 760px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--vscode-panel-border); padding-right: 0; padding-bottom: 16px; } }
 	</style>
 </head>
 <body>
+	<script id="plan-source-json" type="application/json">${serializedPlanJson}</script>
 	<div class="shell">
-		<header>
+		<header class="plan-header">
 			<div class="title-row">
 				<div>
 					<h1>${escapeHtml(plan.metadata.name || "Codie Plan")}</h1>
 					<div class="path">${escapeHtml(plan.planPath)}</div>
 				</div>
 				<div class="actions">
-					<button class="primary" data-command="buildLocal">Build Locally</button>
+					<button class="primary" data-command="buildLocal">Build</button>
+					<button data-command="buildSelectedLocal" disabled>Build Selected</button>
+					<button data-command="buildLocal">Build Locally</button>
 					<button data-command="buildParallel">Build in Parallel</button>
+					<button data-command="toggleRaw">Raw Markdown</button>
+					<button data-command="copyPlan">Copy</button>
 					<button data-command="openRaw">Open Raw Markdown</button>
 				</div>
+			</div>
+			<div class="plan-tabs">
+				<span><strong>Status</strong> ${escapeHtml(plan.status)}</span>
+				<span><strong>Build</strong> ${escapeHtml(plan.buildStatus)}</span>
+				<span><strong>Todos</strong> ${plan.completedTodoCount}/${plan.todoCount}</span>
+				<span><strong>Diagrams</strong> ${hasMermaid ? "Mermaid enabled" : "None"}</span>
 			</div>
 		</header>
 		<main>
 			<aside>
 				<div class="meta">
+					<div><strong>Executable plan todos</strong></div>
 					<div>Status: ${escapeHtml(plan.status)}</div>
 					<div>Build: ${escapeHtml(plan.buildStatus)}</div>
 					<div>Todos: ${plan.completedTodoCount}/${plan.todoCount}</div>
@@ -550,13 +626,26 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 				</div>
 				<ul class="todo-list">${todoHtml}</ul>
 			</aside>
-			<section class="content">${renderPlanMarkdown(plan.body)}</section>
+			<section class="content plan-canvas" data-rendered-plan-canvas>
+				<div class="canvas-banner">
+					<div>
+						<div class="canvas-banner-title">Rendered local plan canvas</div>
+						<div class="canvas-banner-subtitle">Todos, Mermaid diagrams, and Build actions are backed by ${escapeHtml(path.basename(plan.planPath))}.</div>
+					</div>
+					<div class="raw-actions">
+						<button data-command="saveRaw">Save Markdown</button>
+					</div>
+				</div>
+				<div class="markdown-body" data-rendered-markdown>${renderPlanMarkdown(plan.body)}</div>
+				<textarea class="raw-editor" data-raw-body hidden>${escapeHtml(plan.body)}</textarea>
+			</section>
 		</main>
 	</div>
 	<script nonce="${nonce}">
 		const vscode = acquireVsCodeApi();
 		const selectedIds = new Set();
 		let lastSelectedId;
+		const planSource = JSON.parse(document.getElementById('plan-source-json')?.textContent || '""');
 
 		const rows = () => Array.from(document.querySelectorAll('[data-todo-row]'));
 		const selectedPayload = () => Array.from(selectedIds);
@@ -614,6 +703,25 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 				const command = button.dataset.command;
 				if (command === 'deleteSelected') {
 					post('deleteTodos', { todoIds: selectedPayload() });
+					return;
+				}
+				if (command === 'copyPlan') {
+					navigator.clipboard.writeText(planSource);
+					return;
+				}
+				if (command === 'toggleRaw') {
+					const canvas = document.querySelector('[data-rendered-plan-canvas]');
+					const raw = document.querySelector('[data-raw-body]');
+					const isRaw = canvas?.classList.toggle('raw-mode');
+					if (raw) {
+						raw.hidden = !isRaw;
+					}
+					button.textContent = isRaw ? 'Rendered Canvas' : 'Raw Markdown';
+					return;
+				}
+				if (command === 'saveRaw') {
+					const raw = document.querySelector('[data-raw-body]');
+					post('saveRaw', { body: raw?.value || '' });
 					return;
 				}
 				if (command === 'buildSelectedLocal') {
@@ -688,9 +796,92 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 					post('mergeTodoBackward', { todoId });
 				}
 			});
-		});
-		updateBulkState();
-	</script>
+			});
+			updateBulkState();
+		</script>
+			<script nonce="${nonce}" src="${mermaidScriptUri}"></script>
+			<script nonce="${nonce}">
+				const mermaid = globalThis.mermaid;
+				const normalizeMermaidForRender = (source) => {
+					if (!/^\\s*(flowchart|graph)\\b/im.test(source)) {
+						return source;
+					}
+				return source.replace(/\\b([A-Za-z][\\w-]*)\\[([^\\]\\n]+)\\]/g, (match, nodeId, label) => {
+					const trimmed = label.trim();
+					if (!trimmed || trimmed.startsWith('"') || trimmed.startsWith("'") || trimmed.startsWith(String.fromCharCode(96)) || !/[\\s.()/,:+]/.test(trimmed)) {
+						return match;
+					}
+					return nodeId + "[" + JSON.stringify(trimmed) + "]";
+				});
+			};
+
+			const hashMermaidCode = (value) => {
+				let hash = 2166136261;
+				for (let index = 0; index < value.length; index++) {
+					hash ^= value.charCodeAt(index);
+					hash = Math.imul(hash, 16777619);
+				}
+				return (hash >>> 0).toString(36);
+			};
+
+			if (mermaid) {
+				mermaid.initialize({
+					startOnLoad: false,
+					securityLevel: "strict",
+					theme: "base",
+					themeVariables: {
+						background: "transparent",
+						fontFamily: "var(--vscode-font-family)",
+						primaryColor: "var(--vscode-editor-background)",
+						primaryTextColor: "var(--vscode-editor-foreground)",
+						primaryBorderColor: "var(--vscode-focusBorder)",
+						lineColor: "var(--vscode-descriptionForeground)",
+						textColor: "var(--vscode-editor-foreground)",
+						mainBkg: "var(--vscode-editor-background)",
+						nodeBorder: "var(--vscode-focusBorder)"
+					}
+				});
+
+				for (const card of document.querySelectorAll('[data-mermaid-card]')) {
+					const source = card.querySelector('[data-mermaid-source]')?.textContent || '';
+					const target = card.querySelector('[data-mermaid-target]');
+					const normalized = normalizeMermaidForRender(source);
+					if (!target || normalized.trim().length < 4) {
+						continue;
+					}
+					const fallbackHtml = target.innerHTML;
+					mermaid.parse(normalized, { suppressErrors: true })
+						.then((valid) => {
+							if (!valid) {
+								throw new Error('Invalid or incomplete Mermaid code');
+							}
+							return mermaid.render('codevibe-plan-mermaid-' + hashMermaidCode(normalized), normalized);
+						})
+						.then(({ svg }) => {
+							target.innerHTML = svg;
+						})
+						.catch((error) => {
+							console.warn('Plan Mermaid render failed:', error);
+							target.innerHTML = fallbackHtml || '<div class="mermaid-error">Unable to render diagram.</div>';
+						});
+				}
+			}
+
+			document.querySelectorAll('[data-mermaid-copy]').forEach((button) => {
+				button.addEventListener('click', () => {
+					const source = button.closest('[data-mermaid-card]')?.querySelector('[data-mermaid-source]')?.textContent || '';
+					navigator.clipboard.writeText(source);
+				});
+			});
+			document.querySelectorAll('[data-mermaid-toggle-source]').forEach((button) => {
+				button.addEventListener('click', () => {
+					const source = button.closest('[data-mermaid-card]')?.querySelector('[data-mermaid-source]');
+					if (source) {
+						source.hidden = !source.hidden;
+					}
+				});
+			});
+		</script>
 </body>
 </html>`
 	}
@@ -767,70 +958,132 @@ function renderInlineMarkdown(value: string): string {
 }
 
 function renderMermaidBlock(source: string): string {
-	const graph = parseSimpleFlowchart(source)
-	if (!graph) {
-		return `<pre class="mermaid-preview"><code>${escapeHtml(source)}</code></pre>`
-	}
-	const boxWidth = 260
-	const boxHeight = 44
-	const gap = 28
-	const width = boxWidth + 80
-	const height = graph.nodes.length * (boxHeight + gap) + 24
-	const nodeIndex = new Map(graph.nodes.map((node, index) => [node.id, index]))
-	const nodes = graph.nodes
-		.map((node, index) => {
-			const y = 12 + index * (boxHeight + gap)
-			return `<g><rect x="40" y="${y}" width="${boxWidth}" height="${boxHeight}" rx="4"></rect><text x="${40 + boxWidth / 2}" y="${y + 27}" text-anchor="middle">${escapeHtml(node.label)}</text></g>`
-		})
-		.join("")
-	const edges = graph.edges
-		.map((edge) => {
-			const from = nodeIndex.get(edge.from)
-			const to = nodeIndex.get(edge.to)
-			if (from == null || to == null) {
-				return ""
-			}
-			const startY = 12 + from * (boxHeight + gap) + boxHeight
-			const endY = 12 + to * (boxHeight + gap)
-			return `<path d="M 170 ${startY} L 170 ${endY}"></path>`
-		})
-		.join("")
-	return `<div class="mermaid-preview"><svg class="mermaid-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Mermaid flowchart preview"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="currentColor"></path></marker></defs>${edges}${nodes}</svg></div>`
+	return `<section class="plan-diagram" data-mermaid-card>
+		<div class="diagram-header">
+			<div class="diagram-title"><span class="codicon codicon-type-hierarchy-sub"></span><span>Plan diagram</span></div>
+			<div class="diagram-actions">
+				<button class="icon" data-mermaid-copy title="Copy Mermaid source" aria-label="Copy Mermaid source">Cp</button>
+				<button class="icon" data-mermaid-toggle-source title="Show Mermaid source" aria-label="Show Mermaid source">Src</button>
+			</div>
+		</div>
+			<div class="mermaid-target" data-mermaid-target>${renderMermaidFallbackSvg(source)}</div>
+			<pre class="mermaid-source" data-mermaid-source hidden>${escapeHtml(source)}</pre>
+		</section>`
 }
 
-function parseSimpleFlowchart(
-	source: string,
-): { nodes: Array<{ id: string; label: string }>; edges: Array<{ from: string; to: string }> } | undefined {
+function renderMermaidFallbackSvg(source: string): string {
 	if (!/^\s*(flowchart|graph)\b/im.test(source)) {
-		return undefined
+		return `<pre><code>${escapeHtml(source)}</code></pre>`
 	}
 	const nodes = new Map<string, string>()
 	const edges: Array<{ from: string; to: string }> = []
-	const nodePattern = /\b([A-Za-z][\w-]*)\[(?:"([^"]+)"|([^\]\n]+))\]/g
-	let nodeMatch: RegExpExecArray | null
-	while ((nodeMatch = nodePattern.exec(source))) {
-		nodes.set(nodeMatch[1], (nodeMatch[2] || nodeMatch[3] || nodeMatch[1]).trim())
-	}
-	const edgePattern =
-		/\b([A-Za-z][\w-]*)\[[^\]\n]+\]\s*-+>+\s*([A-Za-z][\w-]*)\[[^\]\n]+\]|\b([A-Za-z][\w-]*)\s*-+>+\s*([A-Za-z][\w-]*)/g
-	let edgeMatch: RegExpExecArray | null
-	while ((edgeMatch = edgePattern.exec(source))) {
-		const from = edgeMatch[1] || edgeMatch[3]
-		const to = edgeMatch[2] || edgeMatch[4]
-		if (from && to) {
-			edges.push({ from, to })
-			if (!nodes.has(from)) {
-				nodes.set(from, from)
-			}
-			if (!nodes.has(to)) {
-				nodes.set(to, to)
-			}
+	for (const rawLine of source.split(/\r?\n/)) {
+		const line = rawLine.trim()
+		if (!line || /^(flowchart|graph)\b/i.test(line)) {
+			continue
 		}
+		const arrowIndex = line.indexOf("-->")
+		if (arrowIndex < 0) {
+			continue
+		}
+		const from = parseMermaidNodeRef(line.slice(0, arrowIndex))
+		const to = parseMermaidNodeRef(line.slice(arrowIndex + 3))
+		if (!from || !to) {
+			continue
+		}
+		if (!nodes.has(from.id)) {
+			nodes.set(from.id, from.label)
+		}
+		if (!nodes.has(to.id)) {
+			nodes.set(to.id, to.label)
+		}
+		edges.push({ from: from.id, to: to.id })
 	}
-	if (nodes.size === 0) {
+	if (!nodes.size) {
+		return `<pre><code>${escapeHtml(source)}</code></pre>`
+	}
+	const nodeIds = Array.from(nodes.keys())
+	const nodeIndex = new Map(nodeIds.map((id, index) => [id, index]))
+	const width = 760
+	const nodeWidth = 300
+	const nodeHeight = 46
+	const rowHeight = 82
+	const nodeX = 230
+	const topPad = 20
+	const height = topPad * 2 + nodeIds.length * rowHeight
+	const markerId = `codevibe-plan-arrow-${hashString(source)}`
+	const edgeSvg = edges
+		.map(({ from, to }) => {
+			const fromIndex = nodeIndex.get(from)
+			const toIndex = nodeIndex.get(to)
+			if (fromIndex == null || toIndex == null) {
+				return ""
+			}
+			const startX = nodeX + nodeWidth / 2
+			const startY = topPad + fromIndex * rowHeight + nodeHeight
+			const endX = nodeX + nodeWidth / 2
+			const endY = topPad + toIndex * rowHeight
+			return `<path d="M ${startX} ${startY + 3} C ${startX} ${startY + 24}, ${endX} ${endY - 24}, ${endX} ${endY - 3}" fill="none" stroke="var(--vscode-descriptionForeground)" stroke-width="1.6" marker-end="url(#${markerId})" opacity="0.86" />`
+		})
+		.join("")
+	const nodeSvg = nodeIds
+		.map((id, index) => {
+			const label = nodes.get(id) || id
+			const y = topPad + index * rowHeight
+			const lines = wrapSvgLabel(label)
+			const textY = y + nodeHeight / 2 - (lines.length - 1) * 8
+			return `<g>
+				<rect x="${nodeX}" y="${y}" width="${nodeWidth}" height="${nodeHeight}" rx="6" fill="var(--vscode-editor-background)" stroke="var(--vscode-focusBorder)" stroke-width="1.4" />
+				${lines.map((line, lineIndex) => `<text x="${nodeX + nodeWidth / 2}" y="${textY + lineIndex * 16}" text-anchor="middle" dominant-baseline="middle" fill="var(--vscode-editor-foreground)" font-family="var(--vscode-font-family)" font-size="12">${escapeHtml(line)}</text>`).join("")}
+			</g>`
+		})
+		.join("")
+	return `<svg class="mermaid-fallback-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Rendered Mermaid flowchart fallback" xmlns="http://www.w3.org/2000/svg">
+		<defs>
+			<marker id="${markerId}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
+				<path d="M 0 0 L 8 4 L 0 8 z" fill="var(--vscode-descriptionForeground)" />
+			</marker>
+		</defs>
+		${edgeSvg}
+		${nodeSvg}
+	</svg>`
+}
+
+function parseMermaidNodeRef(value: string): { id: string; label: string } | undefined {
+	const match = value.trim().match(/^([A-Za-z][\w-]*)(?:\[(?:"([^"]+)"|'([^']+)'|([^\]]+))\])?/)
+	if (!match) {
 		return undefined
 	}
-	return { nodes: Array.from(nodes, ([id, label]) => ({ id, label })), edges }
+	const id = match[1]
+	return { id, label: (match[2] || match[3] || match[4] || id).trim() }
+}
+
+function wrapSvgLabel(label: string): string[] {
+	const words = label.split(/\s+/).filter(Boolean)
+	const lines: string[] = []
+	let current = ""
+	for (const word of words) {
+		const candidate = current ? `${current} ${word}` : word
+		if (candidate.length > 30 && current) {
+			lines.push(current)
+			current = word
+			continue
+		}
+		current = candidate
+	}
+	if (current) {
+		lines.push(current)
+	}
+	return (lines.length ? lines : [label]).slice(0, 3)
+}
+
+function hashString(value: string): string {
+	let hash = 2166136261
+	for (let index = 0; index < value.length; index++) {
+		hash ^= value.charCodeAt(index)
+		hash = Math.imul(hash, 16777619)
+	}
+	return (hash >>> 0).toString(36)
 }
 
 function getNonce(): string {
@@ -848,4 +1101,8 @@ function escapeHtml(value: string): string {
 
 function escapeAttribute(value: string): string {
 	return escapeHtml(value).replace(/\s+/g, "-")
+}
+
+function escapeScriptJson(value: string): string {
+	return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026")
 }

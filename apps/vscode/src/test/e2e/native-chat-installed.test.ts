@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
-import { expect } from "@playwright/test"
+import { expect, type Frame } from "@playwright/test"
 import { E2ETestHelper, e2e } from "./utils/helpers"
 
 const installedE2e = e2e.extend({
@@ -191,7 +191,55 @@ installedE2e("Installed VSIX native chat exposes Codie agent runtime", async ({ 
 	expect(openResponse.result?.error).toBeUndefined()
 })
 
-installedE2e("Installed VSIX opens native plan editor for local plan files", async ({ app: _app }) => {
+installedE2e("Installed VSIX exposes ChatGPT for Codie local auth and model state", async ({ app: _app }) => {
+	await expect
+		.poll(
+			async () => {
+				const diagnosticsResponse = await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({ success: false }))
+				return diagnosticsResponse.success === true && diagnosticsResponse.ready === true
+			},
+			{
+				message: "Installed Codie VSIX should activate before Codex state is evaluated",
+				timeout: 60_000,
+			},
+		)
+		.toBe(true)
+
+	const response = await E2ETestHelper.evaluateNativeOpenAiCodexState()
+
+	expect(response.success).toBe(true)
+	expect(response.defaultApiProvider).toBe("openai-codex")
+	expect(response.apiConfiguration).toMatchObject({
+		planModeApiProvider: "openai-codex",
+		actModeApiProvider: "openai-codex",
+		planModeApiModelId: "gpt-5.5-pro",
+		actModeApiModelId: "gpt-5.5-pro",
+	})
+	expect(response.openAiCodexIsAuthenticated).toBe(true)
+	expect(response.compatibilityStatus).toMatchObject({
+		openAiCodexAuthSource: "auto",
+		openAiCodexAuthenticated: true,
+	})
+	expect(response.credentials).toMatchObject({
+		tokenSource: "codex-home",
+		authMode: "chatgpt",
+		email: "codex-e2e@example.invalid",
+		accountId: "acct_codevibe_e2e_codex",
+		installationId: "install_codevibe_e2e",
+		clientVersion: "0.136.0-e2e",
+		hasAccessToken: true,
+		hasRefreshToken: true,
+	})
+	expect(response.models).toMatchObject({
+		defaultModelId: "gpt-5.5-pro",
+		includesDefaultModel: true,
+	})
+	expect(response.models?.bundledModelCount ?? 0).toBeGreaterThan(0)
+	expect(response.authJsonRelativePath).toBe(".codex/auth.json")
+	expect(response.secretLeakInPayload).toBe(false)
+})
+
+installedE2e("Installed VSIX opens native plan editor for local plan files", async ({ app: _app, page }) => {
 	await expect
 		.poll(
 			async () => {
@@ -234,6 +282,46 @@ installedE2e("Installed VSIX opens native plan editor for local plan files", asy
 	expect(opened.activeTab?.inputUri).toBe(planPath)
 	expect(opened.activeTab?.inputViewType).toBe("codevibe.planEditor")
 	expect(opened.activeTab?.label).toContain("Native-Plan-E2E")
+	expect(opened.planEditor).toMatchObject({
+		editorAssociation: "codevibe.planEditor",
+		usesCustomEditor: true,
+		renderedCanvasExpected: true,
+		hasLocalBuildActions: true,
+		hasBuildSelectedAction: true,
+		hasParallelBuildAction: true,
+		hasCloudBuildAction: false,
+		hasMermaid: true,
+		hasFrontmatterTodos: true,
+	})
+
+	let planCanvasText = ""
+	let planCanvasFrame: Frame | undefined
+	await E2ETestHelper.waitUntil(async () => {
+		for (const frame of page.frames()) {
+			if (frame.isDetached()) {
+				continue
+			}
+			try {
+				const bodyText = await frame.locator("body").innerText({ timeout: 500 })
+				if (bodyText.includes("Rendered local plan canvas") && bodyText.includes("Build Locally")) {
+					planCanvasText = bodyText
+					planCanvasFrame = frame
+					return true
+				}
+			} catch {
+				continue
+			}
+		}
+		return false
+	}, 30_000)
+	expect(planCanvasText).toContain("Build")
+	expect(planCanvasText).toContain("Build Selected")
+	expect(planCanvasText).toContain("Build in Parallel")
+	expect(planCanvasText).toContain("Raw Markdown")
+	expect(planCanvasText).toContain("Native Plan E2E")
+	expect(planCanvasText).not.toMatch(/\bBuild in Cloud\b/i)
+	expect(planCanvasFrame).toBeTruthy()
+	await expect(planCanvasFrame!.locator("[data-mermaid-target] svg").first()).toBeVisible({ timeout: 15_000 })
 })
 
 installedE2e("Installed VSIX uses VS Code native text search before file reads", async ({ app: _app }) => {

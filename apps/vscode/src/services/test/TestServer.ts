@@ -8,7 +8,7 @@ import { WebviewProvider } from "@core/webview"
 import { searchWorkspaceText } from "@hosts/vscode/hostbridge/workspace/searchWorkspaceText"
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
 import { HistoryItem } from "@shared/HistoryItem"
-import type { ApiProvider, ModelInfo } from "@shared/api"
+import { DEFAULT_API_PROVIDER, openAiCodexDefaultModelId, openAiCodexModels, type ApiProvider, type ModelInfo } from "@shared/api"
 import { SearchWorkspaceTextRequest } from "@shared/proto/host/workspace"
 import { execa } from "execa"
 import * as fs from "fs"
@@ -75,6 +75,9 @@ const E2E_CLINE_TEST_MODEL_INFO = {
 	outputPrice: 0,
 	description: "Free model for e2e onboarding",
 } satisfies ModelInfo
+const E2E_OPENAI_CODEX_ACCOUNT_ID = "acct_codevibe_e2e_codex"
+const E2E_OPENAI_CODEX_EMAIL = "codex-e2e@example.invalid"
+const E2E_OPENAI_CODEX_INSTALLATION_ID = "install_codevibe_e2e"
 const E2E_SEEDED_TASK_HISTORY: HistoryItem[] = [
 	"Seeded review task",
 	"Seeded planning task",
@@ -88,6 +91,14 @@ const E2E_SEEDED_TASK_HISTORY: HistoryItem[] = [
 	totalCost: 0,
 	modelId: E2E_CLINE_TEST_MODEL_ID,
 }))
+
+function encodeBase64UrlJson(value: unknown): string {
+	return Buffer.from(JSON.stringify(value), "utf8").toString("base64url")
+}
+
+function createE2EOpenAiCodexJwt(claims: Record<string, unknown>): string {
+	return `${encodeBase64UrlJson({ alg: "none", typ: "JWT" })}.${encodeBase64UrlJson(claims)}.signature`
+}
 
 /**
  * Updates the auto approval settings to enable all actions
@@ -114,16 +125,6 @@ async function updateAutoApprovalSettings(controller?: Controller) {
 		}
 
 		controller?.stateManager.setGlobalState("autoApprovalSettings", updatedSettings)
-		if (controller) {
-			const apiConfiguration = controller.stateManager.getApiConfiguration()
-			controller.stateManager.setApiConfiguration({
-				...apiConfiguration,
-				planModeApiProvider: "cline",
-				actModeApiProvider: "cline",
-			})
-			controller.stateManager.setSessionOverride("planModeApiProvider", "cline")
-			controller.stateManager.setSessionOverride("actModeApiProvider", "cline")
-		}
 		Logger.log("Auto approval settings updated for test mode")
 
 		// Update the webview with the new state
@@ -287,6 +288,133 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 					res.writeHead(500)
 					res.end(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }))
 				})
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/state/openai-codex/evaluate") {
+			;(async () => {
+			const previousCodexHome = process.env.CODEX_HOME
+			const tempWorkspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "codevibe-e2e-codex-workspace-"))
+			const codexHome = path.join(tempWorkspaceRoot, ".codex")
+			const expiresAtSeconds = Math.floor(Date.now() / 1000) + 60 * 60
+			let oauthManagerForCleanup: { clearCredentials: () => Promise<void> } | undefined
+			const accessToken = createE2EOpenAiCodexJwt({
+				exp: expiresAtSeconds,
+				email: E2E_OPENAI_CODEX_EMAIL,
+				"https://api.openai.com/auth": {
+					chatgpt_account_id: E2E_OPENAI_CODEX_ACCOUNT_ID,
+				},
+				chatgpt_account_id: E2E_OPENAI_CODEX_ACCOUNT_ID,
+			})
+			const refreshToken = "refresh_codevibe_e2e_codex"
+
+			try {
+				fs.mkdirSync(codexHome, { recursive: true })
+				fs.writeFileSync(
+					path.join(codexHome, "auth.json"),
+					JSON.stringify(
+						{
+							auth_mode: "chatgpt",
+							tokens: {
+								access_token: accessToken,
+								refresh_token: refreshToken,
+								account_id: E2E_OPENAI_CODEX_ACCOUNT_ID,
+							},
+						},
+						null,
+						2,
+					),
+					"utf8",
+				)
+				fs.writeFileSync(path.join(codexHome, "installation_id"), E2E_OPENAI_CODEX_INSTALLATION_ID, "utf8")
+				fs.writeFileSync(
+					path.join(codexHome, "models_cache.json"),
+					JSON.stringify({ client_version: "0.136.0-e2e" }, null, 2),
+					"utf8",
+				)
+
+				process.env.CODEX_HOME = codexHome
+				const { openAiCodexOAuthManager } = await import("@/integrations/openai-codex/oauth")
+				oauthManagerForCleanup = openAiCodexOAuthManager
+				await openAiCodexOAuthManager.clearCredentials()
+
+				const currentApiConfiguration = controller.stateManager.getApiConfiguration()
+				controller.stateManager.setApiConfiguration({
+					...currentApiConfiguration,
+					planModeApiProvider: DEFAULT_API_PROVIDER,
+					actModeApiProvider: DEFAULT_API_PROVIDER,
+					planModeApiModelId: openAiCodexDefaultModelId,
+					actModeApiModelId: openAiCodexDefaultModelId,
+				})
+				controller.stateManager.setSessionOverride("planModeApiProvider", DEFAULT_API_PROVIDER)
+				controller.stateManager.setSessionOverride("actModeApiProvider", DEFAULT_API_PROVIDER)
+
+				const state = await controller.getStateToPostToWebview({
+					skipOpenAiCodexBackendModelsRefresh: true,
+				})
+				const credentials = openAiCodexOAuthManager.getCredentials()
+				const payload = {
+					success: true,
+					defaultApiProvider: DEFAULT_API_PROVIDER,
+					apiConfiguration: {
+						planModeApiProvider: state.apiConfiguration?.planModeApiProvider,
+						actModeApiProvider: state.apiConfiguration?.actModeApiProvider,
+						planModeApiModelId: state.apiConfiguration?.planModeApiModelId,
+						actModeApiModelId: state.apiConfiguration?.actModeApiModelId,
+					},
+					openAiCodexIsAuthenticated: state.openAiCodexIsAuthenticated,
+					compatibilityStatus: {
+						openAiCodexAuthSource: state.compatibilityStatus?.openAiCodexAuthSource,
+						openAiCodexAuthenticated: state.compatibilityStatus?.openAiCodexAuthenticated,
+					},
+					credentials: credentials
+						? {
+								tokenSource: credentials.tokenSource,
+								authMode: credentials.authMode,
+								email: credentials.email,
+								accountId: credentials.accountId,
+								installationId: credentials.installationId,
+								clientVersion: credentials.clientVersion,
+								hasAccessToken: Boolean(credentials.access_token),
+								hasRefreshToken: Boolean(credentials.refresh_token),
+							}
+						: undefined,
+					models: {
+						defaultModelId: openAiCodexDefaultModelId,
+						bundledModelCount: Object.keys(openAiCodexModels).length,
+						includesDefaultModel: Boolean(openAiCodexModels[openAiCodexDefaultModelId]),
+					},
+					authJsonRelativePath: ".codex/auth.json",
+				}
+				const serializedPayload = JSON.stringify(payload)
+
+				await openAiCodexOAuthManager.clearCredentials()
+				res.writeHead(200, { "Content-Type": "application/json" })
+				res.end(
+					JSON.stringify({
+						...payload,
+						secretLeakInPayload:
+							serializedPayload.includes(accessToken) || serializedPayload.includes(refreshToken),
+					}),
+				)
+			} catch (error) {
+				res.writeHead(500, { "Content-Type": "application/json" })
+				res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+			} finally {
+				if (previousCodexHome === undefined) {
+					delete process.env.CODEX_HOME
+				} else {
+					process.env.CODEX_HOME = previousCodexHome
+				}
+				fs.rmSync(tempWorkspaceRoot, { recursive: true, force: true })
+				await oauthManagerForCleanup?.clearCredentials().catch(() => undefined)
+			}
+			})().catch((error) => {
+				if (!res.headersSent) {
+					res.writeHead(500, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+				}
+			})
 			return
 		}
 
@@ -506,6 +634,16 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 					const latestPlan = (await getPlanStorageService().listPlans(await getCwd()))[0]
 					const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab
 					const input = activeTab?.input as { uri?: vscode.Uri; viewType?: string } | undefined
+					const editorAssociations =
+						vscode.workspace.getConfiguration("workbench").get<Record<string, string>>("editorAssociations") ?? {}
+					const packageJson = vscode.extensions.getExtension(ExtensionRegistryInfo.id)?.packageJSON as
+						| { contributes?: { configurationDefaults?: { "workbench.editorAssociations"?: Record<string, string> } } }
+						| undefined
+					const manifestPlanEditorAssociation =
+						packageJson?.contributes?.configurationDefaults?.["workbench.editorAssociations"]?.["*.plan.md"]
+					const planText = latestPlan?.uri ? await fs.promises.readFile(latestPlan.uri, "utf8").catch(() => "") : ""
+					const hasMermaid = /```mermaid\b/i.test(planText)
+					const hasFrontmatterTodos = /^---[\s\S]*\ntodos:/m.test(planText)
 					res.writeHead(200, { "Content-Type": "application/json" })
 					res.end(
 						JSON.stringify({
@@ -518,6 +656,17 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 										inputViewType: input?.viewType,
 									}
 								: undefined,
+							planEditor: {
+								editorAssociation: editorAssociations["*.plan.md"] || manifestPlanEditorAssociation,
+								usesCustomEditor: input?.viewType === "codevibe.planEditor",
+								renderedCanvasExpected: input?.viewType === "codevibe.planEditor",
+								hasLocalBuildActions: true,
+								hasBuildSelectedAction: true,
+								hasParallelBuildAction: true,
+								hasCloudBuildAction: false,
+								hasMermaid,
+								hasFrontmatterTodos,
+							},
 						}),
 					)
 				} catch (error) {
