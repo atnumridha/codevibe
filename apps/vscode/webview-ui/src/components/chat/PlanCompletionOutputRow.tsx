@@ -634,14 +634,14 @@ const PlanCompletionOutputRow = memo(
 		const renderBuildActionMenu = (
 			idleLabel: string,
 			triggerClassName: string,
-		) => {
-			const triggerLabel = isStartingBuild ? liveStatusText : idleLabel;
-			const actionClassName =
-				"w-full rounded-sm border border-description/20 bg-background/70 px-2 py-1.5 text-left text-xs text-foreground hover:border-primary/50 hover:bg-muted focus:border-primary/50 focus:bg-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
-			const primaryActionClassName = cn(
-				actionClassName,
-				"border-primary/45 bg-primary/10 font-medium",
-			);
+			) => {
+				const triggerLabel = isStartingBuild ? liveStatusText : idleLabel;
+				const actionClassName =
+					"w-full rounded-sm border border-description/20 bg-background/70 px-2 py-1.5 text-left text-xs text-foreground hover:border-primary/50 hover:bg-muted focus:border-primary/50 focus:bg-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
+				const primaryActionClassName = cn(
+					actionClassName,
+					"border-[var(--vscode-button-border,transparent)] bg-button-background font-medium text-button-foreground shadow-sm hover:bg-button-hover focus:bg-button-hover",
+				);
 			const toggleBuildMenu = () => {
 				if (isBuildMenuOpen) {
 					setIsBuildMenuOpen(false);
@@ -687,16 +687,16 @@ const PlanCompletionOutputRow = memo(
 								data-build-action-button
 								data-default-build-action
 								onClick={() => void buildPlan("agent")}
-								role="menuitem"
-								type="button"
-							>
-								<span className="block">Build</span>
-								<span
-									aria-hidden="true"
-									className="block text-[10px] font-normal text-description"
+									role="menuitem"
+									type="button"
 								>
-									Run locally in Act mode
-								</span>
+									<span className="block">Build</span>
+									<span
+										aria-hidden="true"
+										className="block text-[10px] font-normal text-button-foreground/80"
+									>
+										Run locally in Act mode
+									</span>
 							</button>
 							<button
 								className={actionClassName}
@@ -712,14 +712,17 @@ const PlanCompletionOutputRow = memo(
 							</button>
 							<button
 								className={actionClassName}
-								data-build-action-button
-								disabled={!hasSelectedTodos}
-								onClick={() => void buildPlan("new_agent")}
-								role="menuitem"
-								type="button"
-							>
-								Build Selected in New Agent
-							</button>
+									data-build-action-button
+									disabled={!hasSelectedTodos}
+									onClick={() => void buildPlan("new_agent")}
+									role="menuitem"
+									type="button"
+								>
+									<span className="block">Build Selected in New Agent</span>
+									<span className="block text-[10px] text-description">
+										Start a fresh local Act composer for selection
+									</span>
+								</button>
 						</div>
 					)}
 				</div>

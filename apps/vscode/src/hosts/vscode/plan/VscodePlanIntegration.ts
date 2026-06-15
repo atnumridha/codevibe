@@ -812,18 +812,19 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 				min-height: 30px;
 				display: flex;
 				flex-direction: column;
-				align-items: center;
-				justify-content: flex-start;
+				align-items: flex-start;
+				justify-content: center;
 				gap: 2px;
 				border: 1px solid var(--vscode-panel-border);
 				border-radius: 5px;
-				padding: 7px 9px;
+				padding: 8px 10px;
 				background: color-mix(in srgb, var(--vscode-button-secondaryBackground, var(--vscode-input-background)), transparent 20%);
 				color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
 				font-family: var(--vscode-font-family);
 				font-size: 12px;
 				text-align: left;
 				cursor: pointer;
+				white-space: normal;
 			}
 			.menu-action-primary {
 				border-color: var(--vscode-focusBorder);
@@ -1016,9 +1017,18 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 									<span class="menu-action-title">Build in Parallel</span>
 									<span class="menu-action-subtitle">Prepare multitask local execution</span>
 								</button>
-								<button type="button" class="menu-action" data-menu-action="buildSelectedLocal" data-build-action-button data-selection-option disabled role="menuitem">Build Selected</button>
-								<button type="button" class="menu-action" data-menu-action="buildSelectedParallel" data-build-action-button data-selection-option disabled role="menuitem">Build Selected Parallel</button>
-								<button type="button" class="menu-action" data-menu-action="buildNewAgent" data-build-action-button data-selection-option disabled role="menuitem">Build Selected in New Agent</button>
+								<button type="button" class="menu-action" data-menu-action="buildSelectedLocal" data-build-action-button data-selection-option disabled role="menuitem">
+									<span class="menu-action-title">Build Selected</span>
+									<span class="menu-action-subtitle">Run selected todos locally in Act mode</span>
+								</button>
+								<button type="button" class="menu-action" data-menu-action="buildSelectedParallel" data-build-action-button data-selection-option disabled role="menuitem">
+									<span class="menu-action-title">Build Selected Parallel</span>
+									<span class="menu-action-subtitle">Prepare selected todos for multitask execution</span>
+								</button>
+								<button type="button" class="menu-action" data-menu-action="buildNewAgent" data-build-action-button data-selection-option disabled role="menuitem">
+									<span class="menu-action-title">Build Selected in New Agent</span>
+									<span class="menu-action-subtitle">Start a fresh local Act composer for selection</span>
+								</button>
 							</div>
 						</div>
 						<label class="select-control">
@@ -1070,10 +1080,22 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 							<span>Selected task actions</span><span class="menu-caret">v</span>
 						</button>
 						<div class="menu-popover" data-menu-popover data-selection-action-menu role="menu" hidden>
-							<button type="button" class="menu-action" data-menu-action="buildSelectedLocal" data-selection-action-button role="menuitem">Build Selected</button>
-							<button type="button" class="menu-action" data-menu-action="buildSelectedParallel" data-selection-action-button role="menuitem">Build Selected Parallel</button>
-							<button type="button" class="menu-action" data-menu-action="buildNewAgent" data-selection-action-button role="menuitem">Build Selected in New Agent</button>
-							<button type="button" class="menu-action" data-menu-action="deleteSelected" data-selection-action-button role="menuitem">Delete Selected</button>
+							<button type="button" class="menu-action" data-menu-action="buildSelectedLocal" data-selection-action-button role="menuitem">
+								<span class="menu-action-title">Build Selected</span>
+								<span class="menu-action-subtitle">Run selected todos locally in Act mode</span>
+							</button>
+							<button type="button" class="menu-action" data-menu-action="buildSelectedParallel" data-selection-action-button role="menuitem">
+								<span class="menu-action-title">Build Selected Parallel</span>
+								<span class="menu-action-subtitle">Prepare selected todos for multitask execution</span>
+							</button>
+							<button type="button" class="menu-action" data-menu-action="buildNewAgent" data-selection-action-button role="menuitem">
+								<span class="menu-action-title">Build Selected in New Agent</span>
+								<span class="menu-action-subtitle">Start a fresh local Act composer for selection</span>
+							</button>
+							<button type="button" class="menu-action" data-menu-action="deleteSelected" data-selection-action-button role="menuitem">
+								<span class="menu-action-title">Delete Selected</span>
+								<span class="menu-action-subtitle">Remove selected todos from this plan</span>
+							</button>
 						</div>
 					</div>
 				</div>

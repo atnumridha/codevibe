@@ -94,6 +94,16 @@ interface GitCommit {
 const PLAN_MODE_COLOR = "var(--vscode-activityWarningBadge-background)"
 const ACT_MODE_COLOR = "var(--color-codevibe, var(--vscode-focusBorder))"
 
+const normalizeModeValue = (value: unknown): Mode => {
+	if (value === "plan" || value === "PLAN" || value === "0" || value === PlanActMode.PLAN) {
+		return "plan"
+	}
+	if (value === "act" || value === "ACT" || value === "1" || value === PlanActMode.ACT) {
+		return "act"
+	}
+	return "act"
+}
+
 const SwitchContainer = styled.div<{ disabled: boolean }>`
 	display: flex;
 	align-items: center;
@@ -224,6 +234,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			navigateToSettingsModelPicker,
 			mcpServers,
 		} = useExtensionState()
+		const safeMode = normalizeModeValue(mode)
 		const [isTextAreaFocused, setIsTextAreaFocused] = useState(false)
 		const [isDraggingOver, setIsDraggingOver] = useState(false)
 		const [gitCommits, setGitCommits] = useState<GitCommit[]>([])
@@ -1018,7 +1029,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 
 		const onModeToggle = useCallback(() => {
 			void (async () => {
-				const convertedProtoMode = mode === "plan" ? PlanActMode.ACT : PlanActMode.PLAN
+				const convertedProtoMode = safeMode === "plan" ? PlanActMode.ACT : PlanActMode.PLAN
 				const response = await StateServiceClient.togglePlanActModeProto(
 					TogglePlanActModeRequest.create({
 						mode: convertedProtoMode,
@@ -1037,7 +1048,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 					textAreaRef.current?.focus()
 				}, 100)
 			})()
-		}, [mode, inputValue, selectedImages, selectedFiles, setInputValue])
+		}, [safeMode, inputValue, selectedImages, selectedFiles, setInputValue])
 
 		useShortcut(usePlatform().togglePlanActKeys, onModeToggle, { disableTextInputs: false }) // important that we don't disable the text input here
 
@@ -1088,7 +1099,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 
 		// Get model display name
 		const modelDisplayName = useMemo(() => {
-			const { selectedProvider, selectedModelId } = normalizeApiConfiguration(apiConfiguration, mode)
+			const { selectedProvider, selectedModelId } = normalizeApiConfiguration(apiConfiguration, safeMode)
 			const {
 				vsCodeLmModelSelector,
 				togetherModelId,
@@ -1097,7 +1108,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 				liteLlmModelId,
 				requestyModelId,
 				vercelAiGatewayModelId,
-			} = getModeSpecificFields(apiConfiguration, mode)
+			} = getModeSpecificFields(apiConfiguration, safeMode)
 			const unknownModel = "unknown"
 
 			if (!apiConfiguration) {
@@ -1127,7 +1138,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 				default:
 					return `${selectedProvider}:${selectedModelId}`
 			}
-		}, [apiConfiguration, mode])
+		}, [apiConfiguration, safeMode])
 
 		// Function to show error message for unsupported files for drag and drop
 		const showUnsupportedFileErrorMessage = () => {
@@ -1504,7 +1515,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 								isDraggingOver && !showUnsupportedFileError // Only show drag outline if not showing error
 									? "2px dashed var(--vscode-focusBorder)"
 									: isTextAreaFocused
-										? `1px solid ${mode === "plan" ? PLAN_MODE_COLOR : "var(--vscode-focusBorder)"}`
+										? `1px solid ${safeMode === "plan" ? PLAN_MODE_COLOR : "var(--vscode-focusBorder)"}`
 										: "none",
 							outlineOffset: isDraggingOver && !showUnsupportedFileError ? "1px" : "0px", // Add offset for drag-over outline
 						}}
@@ -1640,13 +1651,16 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 								}}
 								role="button"
 								tabIndex={0}>
-								<Slider isAct={mode === "act"} isPlan={mode === "plan"} />
+								<span aria-current="true" className="sr-only">
+									{safeMode === "act" ? "Act" : "Plan"}
+								</span>
+								<Slider isAct={safeMode === "act"} isPlan={safeMode === "plan"} />
 								{["Plan", "Act"].map((m) => (
 									<div
-										aria-current={mode === m.toLowerCase() ? "true" : undefined}
+										aria-selected={safeMode === m.toLowerCase() ? "true" : "false"}
 										className={cn(
 											"pt-0.5 pb-px px-2 z-10 text-xs w-1/2 text-center bg-transparent",
-											mode === m.toLowerCase() ? "text-white" : "text-input-foreground",
+											safeMode === m.toLowerCase() ? "text-white" : "text-input-foreground",
 										)}
 										key={m}
 										onMouseLeave={() => setShownTooltipMode(null)}

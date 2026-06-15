@@ -621,6 +621,12 @@ export async function activate(context: vscode.ExtensionContext) {
 				return
 			}
 			await addToCodeVibe(context.controller, context.commandContext)
+			await vscode.commands.executeCommand(commands.FocusChatInput, false)
+			for (const delayMs of [100, 300]) {
+				setTimeout(() => {
+					void vscode.commands.executeCommand(commands.FocusChatInput, false)
+				}, delayMs)
+			}
 		}),
 	)
 	context.subscriptions.push(
@@ -669,7 +675,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(commands.FocusChatInput, async (preserveEditorFocus = false) => {
 			const webview = isInTestMode()
-				? await showCodeVibeSurface(preserveEditorFocus)
+				? await showCodeVibeSidebarSurface(preserveEditorFocus)
 				: await openCodeVibeNativeChatSession("sidebar").then((result) =>
 						result.opened
 							? (WebviewProvider.getInstance() as VscodeWebviewProvider)
@@ -1596,6 +1602,26 @@ async function openCodeVibeSurfaceForTaskUri(): Promise<void> {
 async function showCodeVibeSurface(preserveEditorFocus: boolean): Promise<VscodeWebviewProvider> {
 	const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
 	await webview.showPanel(preserveEditorFocus)
+	return webview
+}
+
+async function showCodeVibeSidebarSurface(preserveEditorFocus: boolean): Promise<VscodeWebviewProvider> {
+	const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
+	if (!preserveEditorFocus) {
+		await vscode.commands
+			.executeCommand(`workbench.view.extension.${ExtensionRegistryInfo.views.AgentContainer}`)
+			.then(
+				() => undefined,
+				() => undefined,
+			)
+		await vscode.commands.executeCommand(`${ExtensionRegistryInfo.views.Sidebar}.focus`).then(
+			() => undefined,
+			() => undefined,
+		)
+	}
+	if (!webview.isVisible()) {
+		await webview.showPanel(preserveEditorFocus)
+	}
 	return webview
 }
 

@@ -383,6 +383,29 @@ export class E2ETestHelper {
 		])
 	}
 
+	public async getActiveMode(modeSwitch: Locator): Promise<Locator> {
+		const currentMode = modeSwitch.locator("[aria-current='true']")
+		if ((await currentMode.count()) > 0) {
+			return currentMode.first()
+		}
+
+		const checkedMode = modeSwitch.locator("[role='radio'][aria-checked='true'], [aria-checked='true']")
+		if ((await checkedMode.count()) > 0) {
+			return checkedMode.first()
+		}
+
+		return currentMode
+	}
+
+	private async clickMode(modeSwitch: Locator, targetMode: "Act" | "Plan"): Promise<void> {
+		const targetOption = modeSwitch.getByText(targetMode, { exact: true }).first()
+		if (await this.isLocatorVisible(targetOption)) {
+			await targetOption.click()
+			return
+		}
+		await modeSwitch.click()
+	}
+
 	public async ensureActMode(page: Page, webview: Frame): Promise<Frame> {
 		let sidebar = webview
 		let lastError: unknown
@@ -390,16 +413,16 @@ export class E2ETestHelper {
 		for (let attempt = 0; attempt < 3; attempt++) {
 			try {
 				let modeSwitch = await this.getModeSwitch(sidebar)
-				let activeMode = modeSwitch.locator("[aria-current='true']")
+				let activeMode = await this.getActiveMode(modeSwitch)
 				await expect(activeMode).toHaveText(/^(Plan|Act)$/)
 				if (((await activeMode.textContent())?.trim() ?? "") === "Act") {
 					return sidebar
 				}
 
-				await modeSwitch.click()
+				await this.clickMode(modeSwitch, "Act")
 				sidebar = await this.getReadySidebar(page)
 				modeSwitch = await this.getModeSwitch(sidebar)
-				activeMode = modeSwitch.locator("[aria-current='true']")
+				activeMode = await this.getActiveMode(modeSwitch)
 				await expect(activeMode).toHaveText("Act", { timeout: 5_000 })
 				return sidebar
 			} catch (error: any) {
@@ -423,16 +446,16 @@ export class E2ETestHelper {
 		for (let attempt = 0; attempt < 3; attempt++) {
 			try {
 				let modeSwitch = await this.getModeSwitch(sidebar)
-				let activeMode = modeSwitch.locator("[aria-current='true']")
+				let activeMode = await this.getActiveMode(modeSwitch)
 				await expect(activeMode).toHaveText(/^(Plan|Act)$/)
 				if (((await activeMode.textContent())?.trim() ?? "") === "Plan") {
 					return sidebar
 				}
 
-				await modeSwitch.click()
+				await this.clickMode(modeSwitch, "Plan")
 				sidebar = await this.getReadySidebar(page)
 				modeSwitch = await this.getModeSwitch(sidebar)
-				activeMode = modeSwitch.locator("[aria-current='true']")
+				activeMode = await this.getActiveMode(modeSwitch)
 				await expect(activeMode).toHaveText("Plan", { timeout: 5_000 })
 				return sidebar
 			} catch (error: any) {

@@ -513,22 +513,38 @@ installedE2e(
 			planCanvasFrame!.locator("[data-selection-action-trigger]"),
 		).toBeVisible();
 		await planCanvasFrame!.locator("[data-build-action-trigger]").click();
-		await expect(
-			planCanvasFrame!.locator("[data-build-action-menu]"),
-		).toBeVisible();
-		await captureSlowUiScreenshot(page, testInfo, "native-plan-build-dropdown");
-		const buildOptions = (
-			await planCanvasFrame!
+			await expect(
+				planCanvasFrame!.locator("[data-build-action-menu]"),
+			).toBeVisible();
+			await captureSlowUiScreenshot(page, testInfo, "native-plan-build-dropdown");
+			const buildOptions = (
+				await planCanvasFrame!
+					.locator("[data-build-action-menu] [data-build-action-button]")
+					.allInnerTexts()
+			).join("\n");
+			const buildOptionElements = await planCanvasFrame!
 				.locator("[data-build-action-menu] [data-build-action-button]")
-				.allInnerTexts()
-		).join("\n");
-		expect(buildOptions).toContain("Build");
-		expect(buildOptions).toContain("Run locally in Act mode");
-		expect(buildOptions).toContain("Build in Parallel");
-		expect(buildOptions).toContain("Build Selected");
-		expect(buildOptions).toContain("Build Selected Parallel");
-		expect(buildOptions).toContain("Build Selected in New Agent");
-		expect(buildOptions).not.toMatch(/\bBuild in Cloud\b/i);
+				.evaluateAll((nodes) =>
+					nodes.map((node) => ({
+						tag: node.tagName,
+						type: node.getAttribute("type"),
+						role: node.getAttribute("role"),
+					})),
+				);
+			expect(buildOptionElements.every((entry) => entry.tag === "BUTTON")).toBe(true);
+			expect(buildOptionElements.every((entry) => entry.type === "button")).toBe(true);
+			expect(buildOptionElements.every((entry) => entry.role === "menuitem")).toBe(true);
+			expect(buildOptions).toContain("Build");
+			expect(buildOptions).toContain("Run locally in Act mode");
+			expect(buildOptions).toContain("Build in Parallel");
+			expect(buildOptions).toContain("Prepare multitask local execution");
+			expect(buildOptions).toContain("Build Selected");
+			expect(buildOptions).toContain("Run selected todos locally in Act mode");
+			expect(buildOptions).toContain("Build Selected Parallel");
+			expect(buildOptions).toContain("Prepare selected todos for multitask execution");
+			expect(buildOptions).toContain("Build Selected in New Agent");
+			expect(buildOptions).toContain("Start a fresh local Act composer for selection");
+			expect(buildOptions).not.toMatch(/\bBuild in Cloud\b/i);
 		const planOptions = (
 			await planCanvasFrame!.locator('[aria-label="Plan action"] option').allInnerTexts()
 		).join("\n");
@@ -540,18 +556,34 @@ installedE2e(
 			planCanvasFrame!.locator("[data-selection-action-trigger]"),
 		).toBeEnabled();
 		await planCanvasFrame!.locator("[data-selection-action-trigger]").click();
-		await expect(
-			planCanvasFrame!.locator("[data-selection-action-menu]"),
-		).toBeVisible();
-		const selectedTaskOptions = (
-			await planCanvasFrame!
+			await expect(
+				planCanvasFrame!.locator("[data-selection-action-menu]"),
+			).toBeVisible();
+			const selectedTaskOptions = (
+				await planCanvasFrame!
+					.locator("[data-selection-action-menu] [data-selection-action-button]")
+					.allInnerTexts()
+			).join("\n");
+			const selectedTaskOptionElements = await planCanvasFrame!
 				.locator("[data-selection-action-menu] [data-selection-action-button]")
-				.allInnerTexts()
-		).join("\n");
-		expect(selectedTaskOptions).toContain("Build Selected");
-		expect(selectedTaskOptions).toContain("Build Selected Parallel");
-		expect(selectedTaskOptions).toContain("Build Selected in New Agent");
-		expect(selectedTaskOptions).toContain("Delete Selected");
+				.evaluateAll((nodes) =>
+					nodes.map((node) => ({
+						tag: node.tagName,
+						type: node.getAttribute("type"),
+						role: node.getAttribute("role"),
+					})),
+				);
+			expect(selectedTaskOptionElements.every((entry) => entry.tag === "BUTTON")).toBe(true);
+			expect(selectedTaskOptionElements.every((entry) => entry.type === "button")).toBe(true);
+			expect(selectedTaskOptionElements.every((entry) => entry.role === "menuitem")).toBe(true);
+			expect(selectedTaskOptions).toContain("Build Selected");
+			expect(selectedTaskOptions).toContain("Run selected todos locally in Act mode");
+			expect(selectedTaskOptions).toContain("Build Selected Parallel");
+			expect(selectedTaskOptions).toContain("Prepare selected todos for multitask execution");
+			expect(selectedTaskOptions).toContain("Build Selected in New Agent");
+			expect(selectedTaskOptions).toContain("Start a fresh local Act composer for selection");
+			expect(selectedTaskOptions).toContain("Delete Selected");
+			expect(selectedTaskOptions).toContain("Remove selected todos from this plan");
 		await expect(
 			planCanvasFrame!.locator("[data-mermaid-action-select]"),
 		).toBeVisible();
@@ -673,16 +705,44 @@ installedE2e(
 		const buildActionTrigger = visiblePlanCard
 			.getByRole("button", { name: /^Build plan action$/ })
 			.first();
-		await expect(buildActionTrigger).toBeVisible();
-		await expect(buildActionTrigger).toBeEnabled();
-		await buildActionTrigger.click();
-		const buildActionMenu = visiblePlanCard
-			.locator("[data-build-action-menu]")
-			.first();
-		await expect(buildActionMenu).toBeVisible();
-		const defaultBuildAction = buildActionMenu
-			.locator("[data-default-build-action]")
-			.first();
+			await expect(buildActionTrigger).toBeVisible();
+			await expect(buildActionTrigger).toBeEnabled();
+			await buildActionTrigger.click();
+			const buildActionMenu = visiblePlanCard
+				.locator("[data-build-action-menu]")
+				.first();
+			await expect(buildActionMenu).toBeVisible();
+			const cardBuildActionElements = await buildActionMenu
+				.locator("[data-build-action-button]")
+				.evaluateAll((nodes) =>
+					nodes.map((node) => ({
+						tag: node.tagName,
+						type: node.getAttribute("type"),
+						role: node.getAttribute("role"),
+					})),
+				);
+			expect(cardBuildActionElements.length).toBeGreaterThanOrEqual(3);
+			expect(cardBuildActionElements.every((entry) => entry.tag === "BUTTON")).toBe(
+				true,
+			);
+			expect(cardBuildActionElements.every((entry) => entry.type === "button")).toBe(
+				true,
+			);
+			expect(cardBuildActionElements.every((entry) => entry.role === "menuitem")).toBe(
+				true,
+			);
+			const cardBuildActionText = await buildActionMenu.innerText();
+			expect(cardBuildActionText).toContain("Build");
+			expect(cardBuildActionText).toContain("Run locally in Act mode");
+			expect(cardBuildActionText).toContain("Build in Parallel");
+			expect(cardBuildActionText).toContain("Prepare multitask local execution");
+			expect(cardBuildActionText).toContain("Build Selected in New Agent");
+			expect(cardBuildActionText).toContain(
+				"Start a fresh local Act composer for selection",
+			);
+			const defaultBuildAction = buildActionMenu
+				.locator("[data-default-build-action]")
+				.first();
 		await expect(defaultBuildAction).toBeVisible();
 		await slowVisiblePause(page);
 		await captureSlowUiScreenshot(page, testInfo, "build-locally-dropdown-open");
@@ -831,7 +891,7 @@ installedE2e(
 		let sidebar = await helper.openSidebar(page);
 		sidebar = await helper.getReadySidebar(page);
 		const modeSwitch = await helper.getModeSwitch(sidebar);
-		await expect(modeSwitch.locator("[aria-current='true']")).toHaveText("Act", {
+		await expect(await helper.getActiveMode(modeSwitch)).toHaveText("Act", {
 			timeout: 60_000,
 		});
 		await expect(sidebar.locator("body")).toContainText(

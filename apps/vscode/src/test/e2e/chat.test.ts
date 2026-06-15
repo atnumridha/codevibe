@@ -8,7 +8,7 @@ e2e("Chat - opens input and exposes Act mode", async ({ helper, page, sidebar })
 
 	// Makes sure the mode switch is visible and the chat can be driven in Act mode.
 	const modeSwitch = await helper.getModeSwitch(sidebar)
-	let activeMode = modeSwitch.locator("[aria-current='true']")
+	const activeMode = await helper.getActiveMode(modeSwitch)
 	await expect(activeMode).toHaveText("Act", { timeout: 5_000 })
 
 	// Enter a message. The edit e2e covers actual agent submission and tool execution.

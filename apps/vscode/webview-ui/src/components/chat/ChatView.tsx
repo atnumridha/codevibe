@@ -84,6 +84,30 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 		textAreaRef,
 	} = chatState
 
+	const focusTextAreaSoon = useCallback(
+		(scrollToEnd = false) => {
+			const focus = () => {
+				const textArea = textAreaRef.current
+				if (!textArea) {
+					return
+				}
+				if (scrollToEnd) {
+					textArea.scrollTop = textArea.scrollHeight
+				}
+				textArea.focus()
+			}
+
+			focus()
+			if (typeof window.requestAnimationFrame === "function") {
+				window.requestAnimationFrame(focus)
+			}
+			setTimeout(focus, 50)
+			setTimeout(focus, 150)
+			setTimeout(focus, 300)
+		},
+		[textAreaRef],
+	)
+
 	useEffect(() => {
 		const handleCopy = async (e: ClipboardEvent) => {
 			const targetElement = e.target as HTMLElement | null
@@ -226,7 +250,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 				onResponse: (event) => {
 					// Only focus if not hidden and preserveEditorFocus is false
 					if (!isHidden && !event.preserveEditorFocus) {
-						textAreaRef.current?.focus()
+						focusTextAreaSoon()
 					}
 				},
 				onError: (error) => {
@@ -239,7 +263,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 		)
 
 		return cleanup
-	}, [isHidden])
+	}, [isHidden, focusTextAreaSoon])
 
 	// Set up addToInput subscription
 	useEffect(() => {
@@ -253,14 +277,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 							const newTextWithNewline = newText + "\n"
 							return prevValue ? `${prevValue}\n${newTextWithNewline}` : newTextWithNewline
 						})
-						// Add scroll to bottom after state update
-						// Auto focus the input and start the cursor on a new line for easy typing
-						setTimeout(() => {
-							if (textAreaRef.current) {
-								textAreaRef.current.scrollTop = textAreaRef.current.scrollHeight
-								textAreaRef.current.focus()
-							}
-						}, 0)
+						focusTextAreaSoon(true)
 					}
 				},
 				onError: (error) => {
@@ -273,7 +290,7 @@ const ChatView = ({ isHidden, showAnnouncement, hideAnnouncement, showHistoryVie
 		)
 
 		return cleanup
-	}, [])
+	}, [focusTextAreaSoon])
 
 	useMount(() => {
 		// NOTE: the vscode window needs to be focused for this to work
