@@ -38,6 +38,7 @@ interface PlanCompletionOutputProps {
 	headClassNames?: string
 	localPlanBuild?: LocalPlanBuildMetadata
 	canBuild?: boolean
+	composerId?: string
 }
 
 interface FlattenedTodo {
@@ -150,8 +151,9 @@ function fileNameFromPath(value?: string): string {
 }
 
 const PlanCompletionOutputRow = memo(
-	({ text, headClassNames, localPlanBuild, canBuild = false }: PlanCompletionOutputProps) => {
+	({ text, headClassNames, localPlanBuild, canBuild = false, composerId }: PlanCompletionOutputProps) => {
 		const [plan, setPlan] = useState<PlanFile | undefined>()
+		const [createdPlanBuild, setCreatedPlanBuild] = useState<LocalPlanBuildMetadata | undefined>()
 		const [metadata, setMetadata] = useState<PlanMetadata>(createEmptyMetadata)
 		const [body, setBody] = useState(text)
 		const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -161,9 +163,14 @@ const PlanCompletionOutputRow = memo(
 		const [isStartingBuild, setIsStartingBuild] = useState<"agent" | "multitask" | undefined>()
 		const [search, setSearch] = useState("")
 		const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
+		const effectivePlanBuild = localPlanBuild || createdPlanBuild
 
 		useEffect(() => {
-			if (!localPlanBuild?.planId && !localPlanBuild?.planPath) {
+			setCreatedPlanBuild(undefined)
+		}, [localPlanBuild?.planId, localPlanBuild?.planPath])
+
+		useEffect(() => {
+			if (!effectivePlanBuild?.planId && !effectivePlanBuild?.planPath) {
 				setBody(text)
 				return
 			}
@@ -171,8 +178,8 @@ const PlanCompletionOutputRow = memo(
 			setIsLoading(true)
 			PlanServiceClient.getPlan(
 				PlanRequest.create({
-					planId: localPlanBuild.planId,
-					planPath: localPlanBuild.planPath,
+					planId: effectivePlanBuild.planId,
+					planPath: effectivePlanBuild.planPath,
 				}),
 			)
 				.then((nextPlan) => {
@@ -192,27 +199,28 @@ const PlanCompletionOutputRow = memo(
 			return () => {
 				cancelled = true
 			}
-		}, [localPlanBuild?.planId, localPlanBuild?.planPath, text])
+		}, [effectivePlanBuild?.planId, effectivePlanBuild?.planPath, text])
 
 		const flattenedTodos = useMemo(() => flattenTodos(metadata), [metadata])
 		const selectedTodoIds = selectedIds.filter((id) => flattenedTodos.some((item) => item.todo.id === id))
 		const hasSelectedTodos = selectedTodoIds.length > 0
 		const searchNeedle = search.trim().toLowerCase()
 		const searchMatchesBody = Boolean(searchNeedle && body.toLowerCase().includes(searchNeedle))
-		const buildStatus = plan?.buildStatus || localPlanBuild?.status || "none"
-		const visiblePlanPath = plan?.planPath || localPlanBuild?.planPath
+		const buildStatus = plan?.buildStatus || effectivePlanBuild?.status || "none"
+		const visiblePlanPath = plan?.planPath || effectivePlanBuild?.planPath
 		const visiblePlanName = fileNameFromPath(visiblePlanPath)
+		const hasPlanArtifact = Boolean(effectivePlanBuild?.planId || effectivePlanBuild?.planPath || plan?.planId || plan?.planPath)
 
 		const savePlan = async (nextMetadata = metadata, nextBody = body): Promise<PlanFile | undefined> => {
-			if (!localPlanBuild?.planId && !localPlanBuild?.planPath) {
+			if (!effectivePlanBuild?.planId && !effectivePlanBuild?.planPath) {
 				return undefined
 			}
 			setIsSaving(true)
 			try {
 				const saved = await PlanServiceClient.updatePlan(
 					PlanUpdateRequest.create({
-						planId: localPlanBuild.planId,
-						planPath: localPlanBuild.planPath,
+						planId: effectivePlanBuild.planId,
+						planPath: effectivePlanBuild.planPath,
 						planMetadata: nextMetadata,
 						body: nextBody,
 					}),
@@ -235,12 +243,12 @@ const PlanCompletionOutputRow = memo(
 			}
 			const nextMetadata = mapTodos(metadata, (todo) => (todoIds.includes(todo.id) ? { ...todo, status } : todo))
 			setMetadata(nextMetadata)
-			if (localPlanBuild?.planId || localPlanBuild?.planPath) {
+			if (effectivePlanBuild?.planId || effectivePlanBuild?.planPath) {
 				try {
 					const saved = await PlanServiceClient.updatePlanTodoStatus(
 						PlanTodoStatusRequest.create({
-							planId: localPlanBuild.planId,
-							planPath: localPlanBuild.planPath,
+							planId: effectivePlanBuild.planId,
+							planPath: effectivePlanBuild.planPath,
 							todoIds,
 							status,
 						}),
@@ -323,21 +331,37 @@ const PlanCompletionOutputRow = memo(
 		}
 
 		const buildPlan = async (mode: "agent" | "multitask") => {
-			if (!canBuild || isStartingBuild || (!localPlanBuild?.planId && !localPlanBuild?.planPath)) {
+			if (!canBuild || isStartingBuild) {
 				return
 			}
 			setIsStartingBuild(mode)
 			try {
 				const saved = await savePlan()
 				const sourcePlan = saved || plan
-				await PlanServiceClient.buildPlan(
+				const response = await PlanServiceClient.buildPlan(
 					BuildPlanRequest.create({
-						planId: sourcePlan?.planId || localPlanBuild.planId,
-						planPath: sourcePlan?.planPath || localPlanBuild.planPath,
+						planId: sourcePlan?.planId || effectivePlanBuild?.planId,
+						planPath: sourcePlan?.planPath || effectivePlanBuild?.planPath,
 						mode,
 						todoIds: hasSelectedTodos ? selectedTodoIds : [],
+						body: sourcePlan?.body || body || text,
+						composerId,
 					}),
 				)
+				if (response.plan) {
+					setPlan(response.plan)
+					setMetadata(normalizeMetadata(response.plan.metadata))
+					setBody(response.plan.body || body || text)
+					setCreatedPlanBuild({
+						planId: response.plan.planId,
+						planPath: response.plan.planPath,
+						todoCount: response.plan.todoCount,
+						status:
+							response.plan.buildStatus === "active" || response.plan.buildStatus === "complete"
+								? response.plan.buildStatus
+								: "none",
+					})
+				}
 			} catch (error) {
 				console.error("Failed to build local plan:", error)
 			} finally {
@@ -356,13 +380,13 @@ const PlanCompletionOutputRow = memo(
 		}
 
 		const openPlan = async () => {
-			if (!localPlanBuild?.planId && !localPlanBuild?.planPath) {
+			if (!effectivePlanBuild?.planId && !effectivePlanBuild?.planPath) {
 				return
 			}
 			await PlanServiceClient.openPlan(
 				PlanRequest.create({
-					planId: localPlanBuild.planId,
-					planPath: localPlanBuild.planPath,
+					planId: effectivePlanBuild.planId,
+					planPath: effectivePlanBuild.planPath,
 				}),
 			)
 		}
@@ -451,7 +475,7 @@ const PlanCompletionOutputRow = memo(
 					<div className="flex gap-2 items-center min-w-0">
 						<SparklesIcon className="size-2 shrink-0" />
 						<span className="text-foreground font-bold truncate">{metadata.name || "Plan Created"}</span>
-						{localPlanBuild && (
+						{hasPlanArtifact && (
 							<span className="shrink-0 rounded-sm border border-description/30 px-1 py-0.5 text-[10px] uppercase text-description">
 								{buildStatus}
 							</span>
@@ -460,7 +484,7 @@ const PlanCompletionOutputRow = memo(
 					</div>
 					<div className="flex items-center gap-1">
 						<CopyButton textToCopy={plan?.serialized || text || ""} />
-						{localPlanBuild && (
+						{hasPlanArtifact && (
 							<Button aria-label="Open plan" onClick={openPlan} size="icon" title="Open plan" variant="ghost">
 								<ExternalLinkIcon className="size-3" />
 							</Button>
@@ -468,7 +492,7 @@ const PlanCompletionOutputRow = memo(
 					</div>
 				</div>
 
-				{localPlanBuild && (
+				{hasPlanArtifact && (
 					<div className="mx-1 mt-2 flex min-w-0 items-center gap-1 rounded-sm border border-description/20 px-2 py-1 text-[11px] text-description">
 						<FileTextIcon className="size-3 shrink-0" />
 						<span className="shrink-0 font-medium text-foreground" title={visiblePlanPath}>
@@ -480,7 +504,7 @@ const PlanCompletionOutputRow = memo(
 					</div>
 				)}
 
-				{localPlanBuild ? (
+				{hasPlanArtifact ? (
 					<div className="w-full relative border-t-1 border-description/20 rounded-b-sm">
 						<div className="grid gap-2 p-2 pt-3">
 							<div className="grid gap-2">
@@ -560,7 +584,7 @@ const PlanCompletionOutputRow = memo(
 					</div>
 				)}
 
-				{localPlanBuild && (
+				{(hasPlanArtifact || canBuild) && (
 					<div className="flex flex-wrap justify-end gap-1 border-t-1 border-description/20 pt-2 px-1">
 						<Button
 							aria-label="Copy plan"

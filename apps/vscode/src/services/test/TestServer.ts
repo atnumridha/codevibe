@@ -9,7 +9,7 @@ import { WebviewProvider } from "@core/webview"
 import { searchWorkspaceText } from "@hosts/vscode/hostbridge/workspace/searchWorkspaceText"
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "@shared/AutoApprovalSettings"
 import { COMMAND_REQ_APP_STRING } from "@shared/combineCommandSequences"
-import type { ClineMessage, ExtensionState } from "@shared/ExtensionMessage"
+import type { BrowserActionResult, ClineMessage, ExtensionState } from "@shared/ExtensionMessage"
 import { HistoryItem } from "@shared/HistoryItem"
 import { DEFAULT_API_PROVIDER, openAiCodexDefaultModelId, openAiCodexModels, type ApiProvider, type ModelInfo } from "@shared/api"
 import { SearchWorkspaceTextRequest } from "@shared/proto/host/workspace"
@@ -81,6 +81,9 @@ const E2E_CLINE_TEST_MODEL_INFO = {
 const E2E_OPENAI_CODEX_ACCOUNT_ID = "acct_codevibe_e2e_codex"
 const E2E_OPENAI_CODEX_EMAIL = "codex-e2e@example.invalid"
 const E2E_OPENAI_CODEX_INSTALLATION_ID = "install_codevibe_e2e"
+const E2E_BROWSER_AUTOMATION_URL = "http://127.0.0.1:4317/codie-browser-e2e"
+const E2E_BROWSER_AUTOMATION_SCREENSHOT =
+	"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII="
 const E2E_SEEDED_TASK_HISTORY: HistoryItem[] = [
 	"Seeded review task",
 	"Seeded planning task",
@@ -210,6 +213,206 @@ async function createVisibleCommandApprovalSeed(controller: Controller, command:
 			await fs.promises.rm(sandboxRoot, { recursive: true, force: true }).catch(() => undefined)
 		}
 	}
+}
+
+function createBrowserAutomationResult(overrides: Partial<BrowserActionResult> = {}): string {
+	return JSON.stringify({
+		currentUrl: E2E_BROWSER_AUTOMATION_URL,
+		currentMousePosition: "120,140",
+		screenshot: E2E_BROWSER_AUTOMATION_SCREENSHOT,
+		logs: "[console] Codie installed browser automation snapshot",
+		title: "Codie Browser Automation E2E",
+		text: "Codie browser automation snapshot ready",
+		nodes: [
+			{
+				ref: "button-run-search",
+				role: "button",
+				name: "Run search",
+				text: "Run search",
+			},
+		],
+		...overrides,
+	} satisfies BrowserActionResult)
+}
+
+async function createVisibleBrowserAutomationSeed(controller: Controller) {
+	await controller.clearTask()
+	controller.stateManager.setGlobalState("welcomeViewCompleted", true)
+	controller.stateManager.setGlobalState("isNewUser", false)
+	controller.stateManager.setGlobalState("mode", "act")
+
+	const baseState = await controller.getStateToPostToWebview()
+	const taskTs = Date.now()
+	const taskItem: HistoryItem = {
+		id: `e2e-browser-automation-${taskTs}`,
+		ts: taskTs,
+		task: "Installed browser automation transcript",
+		tokensIn: 0,
+		tokensOut: 0,
+		totalCost: 0,
+	}
+	const clineMessages: ClineMessage[] = [
+		{
+			type: "say",
+			say: "task",
+			text: "Installed browser automation transcript",
+			ts: taskTs,
+		},
+		{
+			type: "ask",
+			ask: "browser_action_launch",
+			text: E2E_BROWSER_AUTOMATION_URL,
+			ts: taskTs + 1,
+		},
+		{
+			type: "say",
+			say: "browser_action_result",
+			text: "",
+			ts: taskTs + 2,
+		},
+		{
+			type: "say",
+			say: "browser_action_result",
+			text: createBrowserAutomationResult({
+				logs: "[console] initial DOM snapshot captured",
+				text: "Snapshot ready with Run search button",
+			}),
+			ts: taskTs + 3,
+		},
+		{
+			type: "say",
+			say: "browser_action",
+			text: JSON.stringify({ action: "click", coordinate: "120,140" }),
+			ts: taskTs + 4,
+		},
+		{
+			type: "say",
+			say: "browser_action_result",
+			text: createBrowserAutomationResult({
+				currentMousePosition: "120,140",
+				logs: "[console] clicked Run search",
+				text: "Run search clicked",
+			}),
+			ts: taskTs + 5,
+		},
+		{
+			type: "say",
+			say: "browser_action",
+			text: JSON.stringify({ action: "type", text: "Codie browser parity" }),
+			ts: taskTs + 6,
+		},
+		{
+			type: "say",
+			say: "browser_action_result",
+			text: createBrowserAutomationResult({
+				currentMousePosition: "220,180",
+				logs: "[console] typed Codie browser parity",
+				text: "Typed Codie browser parity",
+			}),
+			ts: taskTs + 7,
+		},
+		{
+			type: "say",
+			say: "browser_action",
+			text: JSON.stringify({ action: "close" }),
+			ts: taskTs + 8,
+		},
+		{
+			type: "say",
+			say: "text",
+			text: "Browser automation evidence captured locally.",
+			ts: taskTs + 9,
+		},
+	]
+	const seededState: ExtensionState = {
+		...baseState,
+		currentTaskItem: taskItem,
+		taskHistory: [taskItem, ...(baseState.taskHistory ?? []).filter((item) => item.id !== taskItem.id)],
+		clineMessages,
+		isNewUser: false,
+		welcomeViewCompleted: true,
+		mode: "act",
+		compatibilityStatus: {
+			...(baseState.compatibilityStatus ?? {
+				enabled: true,
+				deepLinksEnabled: true,
+				retrievalIndexingPrivacyGate: true,
+				sandboxPolicy: "workspace",
+				sandboxRuntime: {
+					status: "missing",
+					effectiveAccess: "disabled",
+					configSource: "none",
+					readablePathCount: 0,
+					writablePathCount: 0,
+					networkDefault: "deny",
+					networkAllowCount: 0,
+					networkDenyCount: 0,
+					networkStrict: false,
+					blockGitWrites: false,
+					allowTerminalAutoApprove: false,
+				},
+				safeBrowserEvaluateEnabled: false,
+				effectiveBrowserEvaluateEnabled: false,
+				openAiCodexAuthSource: "auto",
+				openAiCodexAuthenticated: false,
+			}),
+			safeBrowserEvaluateEnabled: false,
+			effectiveBrowserEvaluateEnabled: false,
+		},
+	}
+
+	return {
+		actions: ["launch", "snapshot", "screenshot", "click", "type", "close"],
+		clineMessages,
+		seededState,
+		taskItem,
+		url: E2E_BROWSER_AUTOMATION_URL,
+	}
+}
+
+async function createVisiblePlanBuildSeed(controller: Controller) {
+	await controller.clearTask()
+	controller.stateManager.setGlobalState("welcomeViewCompleted", true)
+	controller.stateManager.setGlobalState("isNewUser", false)
+	controller.stateManager.setGlobalState("mode", "plan")
+
+	const baseState = await controller.getStateToPostToWebview()
+	const taskTs = Date.now()
+	const taskItem: HistoryItem = {
+		id: `e2e-plan-build-${taskTs}`,
+		ts: taskTs,
+		task: "Installed plan build materialization",
+		tokensIn: 0,
+		tokensOut: 0,
+		totalCost: 0,
+	}
+	const response =
+		"## Build Button Materializes\n\nClicking Build Locally must create a local .plan.md before switching to Act mode.\n\n- [ ] Create the plan file\n- [ ] Start local Act mode"
+	const clineMessages: ClineMessage[] = [
+		{
+			type: "say",
+			say: "task",
+			text: "Installed plan build materialization",
+			ts: taskTs,
+		},
+		{
+			type: "ask",
+			ask: "plan_mode_respond",
+			text: JSON.stringify({ response }),
+			ts: taskTs + 1,
+		},
+	]
+	const seededState: ExtensionState = {
+		...baseState,
+		currentTaskItem: taskItem,
+		taskHistory: [taskItem, ...(baseState.taskHistory ?? []).filter((item) => item.id !== taskItem.id)],
+		clineMessages,
+		isNewUser: false,
+		welcomeViewCompleted: true,
+		mode: "plan",
+	}
+
+	return { clineMessages, response, seededState, taskItem }
 }
 
 /**
@@ -393,6 +596,61 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 					res.writeHead(400, { "Content-Type": "application/json" })
 					res.end(JSON.stringify({ success: false, error: `Invalid JSON: ${error}` }))
 				})
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/seed-browser-automation") {
+			;(async () => {
+				try {
+					const { actions, clineMessages, seededState, taskItem, url } =
+						await createVisibleBrowserAutomationSeed(controller)
+
+					await sendStateUpdate(seededState)
+					await new Promise((resolve) => setTimeout(resolve, 250))
+					await sendStateUpdate(seededState)
+
+					res.writeHead(200, { "Content-Type": "application/json" })
+					res.end(
+						JSON.stringify({
+							success: true,
+							actions,
+							hasScreenshot: true,
+							messageCount: clineMessages.length,
+							taskId: taskItem.id,
+							url,
+						}),
+					)
+				} catch (error) {
+					res.writeHead(500, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+				}
+			})()
+			return
+		}
+
+		if (req.method === "POST" && req.url === "/seed-plan-build-without-file") {
+			;(async () => {
+				try {
+					const { clineMessages, response, seededState, taskItem } = await createVisiblePlanBuildSeed(controller)
+
+					await sendStateUpdate(seededState)
+					await new Promise((resolve) => setTimeout(resolve, 250))
+					await sendStateUpdate(seededState)
+
+					res.writeHead(200, { "Content-Type": "application/json" })
+					res.end(
+						JSON.stringify({
+							success: true,
+							messageCount: clineMessages.length,
+							response,
+							taskId: taskItem.id,
+						}),
+					)
+				} catch (error) {
+					res.writeHead(500, { "Content-Type": "application/json" })
+					res.end(JSON.stringify({ success: false, error: error instanceof Error ? error.message : String(error) }))
+				}
+			})()
 			return
 		}
 
@@ -775,16 +1033,37 @@ export async function createTestServer(controller: Controller, hooks: TestServer
 			return
 		}
 
-		if (req.method === "POST" && req.url === "/plans/open-latest") {
-			;(async () => {
-				try {
-					await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.PlansOpenLatest)
-					await new Promise((resolve) => setTimeout(resolve, 350))
-					const latestPlan = (await getPlanStorageService().listPlans(await getCwd()))[0]
-					const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab
-					const input = activeTab?.input as { uri?: vscode.Uri; viewType?: string } | undefined
-					const editorAssociations =
-						vscode.workspace.getConfiguration("workbench").get<Record<string, string>>("editorAssociations") ?? {}
+			if (req.method === "POST" && req.url === "/plans/open-latest") {
+				;(async () => {
+					try {
+						await vscode.commands.executeCommand(ExtensionRegistryInfo.commands.PlansOpenLatest)
+						const latestPlan = (await getPlanStorageService().listPlans(await getCwd()))[0]
+						const findPlanEditorTab = () => {
+							for (const group of vscode.window.tabGroups.all) {
+								for (const tab of group.tabs) {
+									const input = tab.input as { uri?: vscode.Uri; viewType?: string } | undefined
+									if (
+										input?.viewType === "codevibe.planEditor" &&
+										(!latestPlan?.uri || input.uri?.fsPath === latestPlan.uri)
+									) {
+										return { tab, input }
+									}
+								}
+							}
+							return undefined
+						}
+						let planEditorTab = findPlanEditorTab()
+						const startedAt = Date.now()
+						while (!planEditorTab && Date.now() - startedAt < 5_000) {
+							await new Promise((resolve) => setTimeout(resolve, 250))
+							planEditorTab = findPlanEditorTab()
+						}
+						const actualActiveTab = vscode.window.tabGroups.activeTabGroup.activeTab
+						const activeTab = planEditorTab?.tab ?? actualActiveTab
+						const input =
+							planEditorTab?.input ?? (actualActiveTab?.input as { uri?: vscode.Uri; viewType?: string } | undefined)
+						const editorAssociations =
+							vscode.workspace.getConfiguration("workbench").get<Record<string, string>>("editorAssociations") ?? {}
 					const packageJson = vscode.extensions.getExtension(ExtensionRegistryInfo.id)?.packageJSON as
 						| { contributes?: { configurationDefaults?: { "workbench.editorAssociations"?: Record<string, string> } } }
 						| undefined

@@ -8,11 +8,18 @@ import { toProtoPlanFile } from "./converters"
 export async function buildPlan(controller: Controller, request: BuildPlanRequest): Promise<BuildPlanResponse> {
 	const workspacePath = await getWorkspacePath()
 	const storage = getPlanStorageService()
-	const initialPlan = await storage.readPlan({
-		planId: request.planId,
-		planPath: request.planPath,
-		workspacePath,
-	})
+	const hasExistingPlanReference = Boolean(request.planId || request.planPath)
+	const initialPlan = hasExistingPlanReference
+		? await storage.readPlan({
+				planId: request.planId,
+				planPath: request.planPath,
+				workspacePath,
+			})
+		: await storage.createOrUpdatePlanForComposer({
+				composerId: request.composerId || controller.task?.taskId || `local-plan-build-${Date.now()}`,
+				response: request.body,
+				workspacePath,
+			})
 	const requestedMode: PlanBuildMode = request.mode === "multitask" ? "multitask" : "agent"
 	const executionMode: PlanBuildMode =
 		requestedMode === "multitask" ? "multitask" : initialPlan.metadata.isProject ? "project" : "agent"
@@ -35,18 +42,30 @@ export async function buildPlan(controller: Controller, request: BuildPlanReques
 		selectedTodoIds: registration.todoIds,
 	})
 
-	await controller.task?.updateTaskProgressFromPlan(taskProgress)
-	const started = await controller.togglePlanActMode("act", {
-		message,
-		images: [],
-		files: [registration.plan.planPath],
-	})
+	let started = false
+	if (controller.task?.taskState.isAwaitingPlanResponse) {
+		await controller.task.updateTaskProgressFromPlan(taskProgress)
+		started = await controller.togglePlanActMode("act", {
+			message,
+			images: [],
+			files: [registration.plan.planPath],
+		})
+	} else {
+		const taskId = await controller.initTask(message, [], [registration.plan.planPath], undefined, { mode: "act" } as any)
+		started = Boolean(taskId)
+	}
 
 	if (!started) {
 		await storage.rollbackBuild({
 			planId: registration.plan.planId,
 			planPath: registration.plan.planPath,
 			builderId,
+			workspacePath,
+		})
+	} else {
+		await storage.openPlan({
+			planId: registration.plan.planId,
+			planPath: registration.plan.planPath,
 			workspacePath,
 		})
 	}

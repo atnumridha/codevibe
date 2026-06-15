@@ -1044,6 +1044,7 @@ export const ChatRowContent = memo(
 							return (
 								<PlanCompletionOutputRow
 									canBuild={mode === "plan" && message.partial !== true}
+									composerId={`chat-${message.ts}`}
 									headClassNames={HEADER_CLASSNAMES}
 									localPlanBuild={localPlanCompletion.localPlanBuild}
 									text={localPlanCompletion.response}
@@ -1204,6 +1205,7 @@ export const ChatRowContent = memo(
 								return (
 									<PlanCompletionOutputRow
 										canBuild={mode === "plan" && message.partial !== true}
+										composerId={`chat-${message.ts}`}
 										headClassNames={HEADER_CLASSNAMES}
 										localPlanBuild={localPlanCompletion.localPlanBuild}
 										text={localPlanCompletion.response}
@@ -1325,13 +1327,13 @@ export const ChatRowContent = memo(
 							// legacy messages would pass response directly
 							response = message.text
 						}
-						const canBuildLocally =
-							isLast && lastModifiedMessage?.ask === "plan_mode_respond" && mode === "plan" && !selected && !message.partial
+						const canBuildLocally = mode === "plan" && !selected && !message.partial
 
 						return (
 							<div>
 								<PlanCompletionOutputRow
 									canBuild={canBuildLocally}
+									composerId={`chat-${message.ts}`}
 									headClassNames={HEADER_CLASSNAMES}
 									localPlanBuild={localPlanBuild}
 									text={response || message.text || ""}

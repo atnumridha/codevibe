@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
-import { expect, type Frame } from "@playwright/test"
+import { expect, type Frame, type Page } from "@playwright/test"
 import { E2ETestHelper, e2e } from "./utils/helpers"
 
 const installedE2e = e2e.extend({
@@ -61,6 +61,12 @@ function findInstalledCodeVibeExtension(extensionsDir: string) {
 	return {
 		extensionPath,
 		manifest: readJsonFile(path.join(extensionPath, "package.json")),
+	}
+}
+
+async function slowVisiblePause(page: Page, ms = 1_500): Promise<void> {
+	if (process.env.CODEVIBE_E2E_SLOW_UI === "true") {
+		await page.waitForTimeout(ms)
 	}
 }
 
@@ -313,7 +319,7 @@ installedE2e("Installed VSIX opens native plan editor for local plan files", asy
 			}
 		}
 		return false
-	}, 30_000)
+	}, 60_000)
 	expect(planCanvasText).toContain("Build")
 	expect(planCanvasText).toContain("Build Selected")
 	expect(planCanvasText).toContain("Build in Parallel")
@@ -322,6 +328,111 @@ installedE2e("Installed VSIX opens native plan editor for local plan files", asy
 	expect(planCanvasText).not.toMatch(/\bBuild in Cloud\b/i)
 	expect(planCanvasFrame).toBeTruthy()
 	await expect(planCanvasFrame!.locator("[data-mermaid-target] svg").first()).toBeVisible({ timeout: 15_000 })
+	await slowVisiblePause(page)
+})
+
+installedE2e("Installed VSIX Build Locally materializes missing plan file from UI plan card", async ({ page, sidebar, helper }) => {
+	await expect
+		.poll(
+			async () => {
+				const diagnosticsResponse = await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({ success: false }))
+				return diagnosticsResponse.success === true
+			},
+			{
+				message: "Installed Codie VSIX should activate its E2E command server before plan build diagnostics run",
+				timeout: 60_000,
+			},
+		)
+		.toBe(true)
+
+	sidebar = await helper.openSidebar(page)
+	const signInButton = sidebar.getByRole("button", { name: "Sign in to Codie" })
+	if (await signInButton.isVisible().catch(() => false)) {
+		sidebar = await helper.signin(sidebar, page)
+	} else {
+		sidebar = await helper.getReadySidebar(page)
+	}
+	sidebar = await helper.ensurePlanMode(page, sidebar)
+
+	const seeded = await E2ETestHelper.seedPlanBuildWithoutFile()
+	expect(seeded.success).toBe(true)
+	expect(seeded.messageCount).toBe(2)
+
+	await E2ETestHelper.waitUntil(async () => {
+		for (const frame of page.frames()) {
+			if (frame.isDetached()) {
+				continue
+			}
+			const hasPlanText = (await frame.locator("body").innerText({ timeout: 500 }).catch(() => "")).includes(
+				"Build Button Materializes",
+			)
+			if (hasPlanText) {
+				sidebar = frame
+				return true
+			}
+		}
+		return false
+	}, 60_000)
+	sidebar = await helper.ensurePlanMode(page, sidebar)
+
+	await E2ETestHelper.waitUntil(async () => {
+		for (const frame of page.frames()) {
+			if (frame.isDetached()) {
+				continue
+			}
+			const hasPlanText = (await frame.locator("body").innerText({ timeout: 500 }).catch(() => "")).includes(
+				"Build Button Materializes",
+			)
+			const hasBuildButton = (await frame.getByRole("button", { name: /^Build Locally$/ }).count().catch(() => 0)) > 0
+			if (hasPlanText && hasBuildButton) {
+				sidebar = frame
+				return true
+			}
+		}
+		return false
+	}, 60_000)
+	await slowVisiblePause(page)
+
+	await E2ETestHelper.waitUntil(async () => {
+		for (const frame of page.frames()) {
+			if (frame.isDetached()) {
+				continue
+			}
+			const buildLocallyButton = frame.getByRole("button", { name: /^Build Locally$/ }).last()
+			if (
+				(await buildLocallyButton.isVisible().catch(() => false)) &&
+				(await buildLocallyButton.isEnabled().catch(() => false))
+			) {
+				await buildLocallyButton.scrollIntoViewIfNeeded().catch(() => undefined)
+				await buildLocallyButton.click({ force: true })
+				sidebar = frame
+				return true
+			}
+		}
+		return false
+	}, 60_000)
+	await slowVisiblePause(page)
+	let opened = await E2ETestHelper.openLatestNativePlan()
+	await expect
+		.poll(
+			async () => {
+				opened = await E2ETestHelper.openLatestNativePlan()
+				return opened.latestPlan?.name ?? ""
+			},
+			{ timeout: 60_000 },
+		)
+		.toBe("Build Button Materializes")
+	expect(opened.success).toBe(true)
+	expect(opened.latestPlan?.name).toBe("Build Button Materializes")
+	expect(opened.latestPlan?.uri).toMatch(/\.plan\.md$/)
+	expect(opened.activeTab?.inputViewType).toBe("codevibe.planEditor")
+	expect(opened.planEditor?.usesCustomEditor).toBe(true)
+
+	const planPath = opened.latestPlan?.uri ?? ""
+	const planText = readFileSync(planPath, "utf8")
+	expect(planText).toMatch(/^---\nname: Build Button Materializes/m)
+	expect(planText).toContain("content: Create the plan file")
+	expect(planText).toContain("content: Start local Act mode")
 })
 
 installedE2e("Installed VSIX uses VS Code native text search before file reads", async ({ app: _app }) => {
@@ -494,6 +605,61 @@ installedE2e("Installed VSIX renders visible sandbox command approval controls",
 	expect(visibleWebviewText).not.toMatch(/\bCline\b/)
 })
 
+installedE2e("Installed VSIX renders browser automation transcript", async ({ page, sidebar, helper }) => {
+	await expect
+		.poll(
+			async () => {
+				const diagnosticsResponse = await E2ETestHelper.getNativeAgentDiagnostics().catch(() => ({ success: false }))
+				return diagnosticsResponse.success === true
+			},
+			{
+				message: "Installed Codie VSIX should activate its E2E command server before browser diagnostics run",
+				timeout: 60_000,
+			},
+		)
+		.toBe(true)
+
+	sidebar = await helper.openSidebar(page)
+	const response = await E2ETestHelper.seedBrowserAutomation()
+	sidebar = await helper.getReadySidebar(page)
+
+	expect(response.success).toBe(true)
+	expect(response.url).toBe("http://127.0.0.1:4317/codie-browser-e2e")
+	expect(response.hasScreenshot).toBe(true)
+	expect(response.actions).toEqual(["launch", "snapshot", "screenshot", "click", "type", "close"])
+	expect(response.messageCount).toBe(10)
+
+	let visibleWebviewText = ""
+	await E2ETestHelper.waitUntil(async () => {
+		for (const frame of page.frames()) {
+			if (frame.isDetached()) {
+				continue
+			}
+			const bodyText = await frame.locator("body").innerText({ timeout: 500 }).catch(() => "")
+			if (
+				bodyText.includes("Codie wants to use the browser:") &&
+				bodyText.includes("http://127.0.0.1:4317/codie-browser-e2e") &&
+				bodyText.includes("Browse Action: Close browser") &&
+				bodyText.includes("Browser automation evidence captured locally.")
+			) {
+				visibleWebviewText = bodyText
+				sidebar = frame
+				return true
+			}
+		}
+		return false
+	}, 30_000)
+
+	await expect(sidebar.locator('img[alt="Browser screenshot"]').first()).toBeVisible()
+	await expect(sidebar.getByText("Console Logs").first()).toBeVisible()
+	await expect(sidebar.getByText("Step 4 of 4")).toBeVisible()
+	await expect(sidebar.getByText("Browse Action: Close browser")).toBeVisible()
+	await expect(sidebar.getByText("Browser automation evidence captured locally.")).toBeVisible()
+	await slowVisiblePause(page)
+
+	expect(visibleWebviewText).not.toMatch(/\bCline\b/)
+})
+
 installedE2e("Installed VSIX routes Cursor-compatible deeplinks through local VS Code handlers", async ({ app: _app }) => {
 	await expect
 		.poll(
@@ -612,4 +778,5 @@ installedE2e("Installed VSIX opens the Codie webview composer", async ({ page, s
 	const visibleWebviewText = await sidebar.locator("body").innerText()
 	expect(visibleWebviewText).toContain("Codie")
 	expect(visibleWebviewText).not.toMatch(/\bCline\b/)
+	await slowVisiblePause(page)
 })

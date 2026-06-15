@@ -252,6 +252,24 @@ export interface NativeVisibleCommandApprovalResponse {
 	error?: string
 }
 
+export interface NativeBrowserAutomationResponse {
+	success: boolean
+	actions?: string[]
+	hasScreenshot?: boolean
+	messageCount?: number
+	taskId?: string
+	url?: string
+	error?: string
+}
+
+export interface NativePlanBuildWithoutFileResponse {
+	success: boolean
+	messageCount?: number
+	response?: string
+	taskId?: string
+	error?: string
+}
+
 export class E2ETestHelper {
 	// Constants
 	public static readonly CODEBASE_ROOT_DIR = path.resolve(__dirname, "..", "..", "..", "..")
@@ -361,6 +379,39 @@ export class E2ETestHelper {
 				modeSwitch = await this.getModeSwitch(sidebar)
 				activeMode = modeSwitch.locator("[aria-current='true']")
 				await expect(activeMode).toHaveText("Act", { timeout: 5_000 })
+				return sidebar
+			} catch (error: any) {
+				lastError = error
+				if (!this.isTransientWebviewError(error) && !error.message?.includes("toHaveText")) {
+					break
+				}
+				this.clearCachedFrame()
+				await E2ETestHelper.openCodeVibeSidebar(page)
+				sidebar = await this.getReadySidebar(page)
+			}
+		}
+
+		throw lastError instanceof Error ? lastError : new Error(String(lastError))
+	}
+
+	public async ensurePlanMode(page: Page, webview: Frame): Promise<Frame> {
+		let sidebar = webview
+		let lastError: unknown
+
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				let modeSwitch = await this.getModeSwitch(sidebar)
+				let activeMode = modeSwitch.locator("[aria-current='true']")
+				await expect(activeMode).toHaveText(/^(Plan|Act)$/)
+				if (((await activeMode.textContent())?.trim() ?? "") === "Plan") {
+					return sidebar
+				}
+
+				await modeSwitch.click()
+				sidebar = await this.getReadySidebar(page)
+				modeSwitch = await this.getModeSwitch(sidebar)
+				activeMode = modeSwitch.locator("[aria-current='true']")
+				await expect(activeMode).toHaveText("Plan", { timeout: 5_000 })
 				return sidebar
 			} catch (error: any) {
 				lastError = error
@@ -890,6 +941,14 @@ export class E2ETestHelper {
 			"/seed-visible-command-approval",
 			input,
 		)
+	}
+
+	public static async seedBrowserAutomation(): Promise<NativeBrowserAutomationResponse> {
+		return E2ETestHelper.postTestServerJson<NativeBrowserAutomationResponse>("/seed-browser-automation")
+	}
+
+	public static async seedPlanBuildWithoutFile(): Promise<NativePlanBuildWithoutFileResponse> {
+		return E2ETestHelper.postTestServerJson<NativePlanBuildWithoutFileResponse>("/seed-plan-build-without-file")
 	}
 
 	public static async runCommandPalette(page: Page, command: string): Promise<void> {

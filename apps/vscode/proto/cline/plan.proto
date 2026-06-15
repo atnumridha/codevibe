@@ -95,6 +95,8 @@ message BuildPlanRequest {
   string plan_path = 3;
   string mode = 4;
   repeated string todo_ids = 5;
+  string body = 6;
+  string composer_id = 7;
 }
 
 message BuildPlanResponse {
