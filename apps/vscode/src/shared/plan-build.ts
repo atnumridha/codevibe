@@ -158,7 +158,9 @@ export function derivePlanStatus(metadata: PlanMetadata): PlanStatus {
 	if (todos.every((todo) => todo.status === "completed" || todo.status === "cancelled")) {
 		return "complete"
 	}
-	if (todos.some((todo) => todo.status === "in_progress" || todo.status === "completed")) {
+	// A plan is only "in_progress" when at least one todo is actively in progress.
+	// If work was partially completed but nothing is currently active, treat it as pending/not-progressing.
+	if (todos.some((todo) => todo.status === "in_progress")) {
 		return "in_progress"
 	}
 	return "pending"

@@ -25,6 +25,17 @@ export class OcaAuthService {
 		responseStream: StreamingResponseHandler<OcaAuthState>
 	}>()
 
+	private describeError(error: unknown): string {
+		if (error instanceof Error) {
+			return `${error.name}: ${error.message}`
+		}
+		try {
+			return JSON.stringify(error)
+		} catch {
+			return String(error)
+		}
+	}
+
 	protected constructor() {
 		this._config = getOcaConfig()
 		this._provider = new OcaAuthProvider(this._config)
@@ -178,7 +189,9 @@ export class OcaAuthService {
 			this._authenticated = true
 			await this.sendAuthStatusUpdate()
 		} catch (error) {
-			Logger.error("Error signing in with custom token:", error)
+			Logger.error(
+				`Error signing in with custom token: ${this.describeError(error)}`,
+			)
 			throw error
 		} finally {
 			const authHandler = AuthHandler.getInstance()
@@ -197,20 +210,35 @@ export class OcaAuthService {
 				return
 			}
 			Logger.warn("No user found after restoring auth token")
-			await this.kickstartInteractiveLoginAsFallback()
+			await this.handleMissingAuthState()
 		} catch (error) {
-			Logger.error("Error restoring auth token:", error)
-			await this.kickstartInteractiveLoginAsFallback(error)
+			Logger.error(`Error restoring auth token: ${this.describeError(error)}`)
+			await this.handleMissingAuthState(error)
 		}
 	}
 
-	private async kickstartInteractiveLoginAsFallback(_err?: unknown): Promise<void> {
+	private async handleMissingAuthState(err?: unknown): Promise<void> {
 		// Clear any stale secrets and broadcast unauthenticated state
 		this.clearAuth()
 		this._authenticated = false
 		this._ocaAuthState = null
 		await this.sendAuthStatusUpdate()
 
+		if (!this.shouldAutoKickstartInteractiveLogin()) {
+			Logger.info(
+				"OCA auth is unavailable. Interactive login fallback is disabled; waiting for manual sign-in.",
+			)
+			return
+		}
+
+		await this.kickstartInteractiveLoginAsFallback(err)
+	}
+
+	private shouldAutoKickstartInteractiveLogin(): boolean {
+		return process.env.CODEVIBE_OCA_AUTO_LOGIN_FALLBACK === "true"
+	}
+
+	private async kickstartInteractiveLoginAsFallback(_err?: unknown): Promise<void> {
 		// Avoid repeated/looping login attempts
 		if (this._interactiveLoginPending) {
 			return
@@ -227,7 +255,7 @@ export class OcaAuthService {
 				await new Promise((r) => setTimeout(r, pollMs))
 			}
 			if (!this._authenticated) {
-				Logger.warn("Interactive OCA login timed out after 120 seconds")
+				Logger.warn("Interactive OCA login timed out after 60 seconds")
 			}
 		} catch (e) {
 			Logger.error("Failed to initiate interactive OCA login:", e)

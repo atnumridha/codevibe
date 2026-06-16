@@ -1089,6 +1089,96 @@ type CodeVibeNativeChatSessionRefreshTarget = {
 }
 
 const codeVibeNativeChatSessionRefreshTargets = new Map<string, CodeVibeNativeChatSessionRefreshTarget>()
+const codeVibeNativeChatSessionTaskIds = new Map<string, string>()
+const CODEVIBE_STARTED_TASK_MARKDOWN_REGEX = /Started Codie task `([^`]+)` from native VS Code Chat\./
+
+function asObjectRecord(value: unknown): Record<string, unknown> | undefined {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		return undefined
+	}
+	return value as Record<string, unknown>
+}
+
+function isLikelyCodeVibeSessionPath(value: string): boolean {
+	return value.startsWith("/") && value.length > 1 && value.indexOf("/", 1) === -1
+}
+
+function collectNativeChatContextStrings(
+	value: unknown,
+	collected: string[],
+	visited = new Set<unknown>(),
+	depth = 0,
+): void {
+	if (depth > 5 || visited.has(value) || value === undefined || value === null) {
+		return
+	}
+	visited.add(value)
+	if (typeof value === "string") {
+		collected.push(value)
+		return
+	}
+	if (Array.isArray(value)) {
+		for (const entry of value) {
+			collectNativeChatContextStrings(entry, collected, visited, depth + 1)
+		}
+		return
+	}
+	if (typeof value === "object") {
+		for (const entry of Object.values(value as Record<string, unknown>)) {
+			collectNativeChatContextStrings(entry, collected, visited, depth + 1)
+		}
+	}
+}
+
+function getCodeVibeNativeChatSessionPath(chatContext: unknown): string | undefined {
+	const queue: unknown[] = [chatContext]
+	const visited = new Set<unknown>()
+	while (queue.length > 0) {
+		const current = queue.shift()
+		if (current === undefined || current === null || visited.has(current)) {
+			continue
+		}
+		visited.add(current)
+
+		const record = asObjectRecord(current)
+		if (!record) {
+			continue
+		}
+
+		for (const candidate of [record.resource, record.session, record.uri]) {
+			const candidateRecord = asObjectRecord(candidate)
+			if (
+				candidateRecord &&
+				typeof candidateRecord.path === "string" &&
+				isLikelyCodeVibeSessionPath(candidateRecord.path)
+			) {
+				return candidateRecord.path
+			}
+		}
+		if (typeof record.path === "string" && isLikelyCodeVibeSessionPath(record.path)) {
+			return record.path
+		}
+
+		for (const value of Object.values(record)) {
+			if (value && typeof value === "object") {
+				queue.push(value)
+			}
+		}
+	}
+	return undefined
+}
+
+function getCodeVibeNativeTaskIdFromContext(chatContext: unknown): string | undefined {
+	const strings: string[] = []
+	collectNativeChatContextStrings(chatContext, strings)
+	for (const value of strings) {
+		const startedMatch = value.match(CODEVIBE_STARTED_TASK_MARKDOWN_REGEX)
+		if (startedMatch?.[1]) {
+			return startedMatch[1]
+		}
+	}
+	return undefined
+}
 
 function createCodeVibeNativeAgentRegistrationState(): CodeVibeNativeAgentRegistrationState {
 	return {
@@ -1221,10 +1311,19 @@ async function showCodeVibeNativeAgentDiagnostics(
 }
 
 function buildCodeVibeNativeChatRequestHandler(participantId: string = CODEVIBE_CHAT_PARTICIPANT_ID) {
-	return async (request: unknown, _chatContext: unknown, stream: unknown, token: vscode.CancellationToken) => {
+	return async (request: unknown, chatContext: unknown, stream: unknown, token: vscode.CancellationToken) => {
 		const chatRequest = request as NativeChatRequest
 		const responseStream = stream as NativeChatResponseStream
 		const taskText = buildCodeVibeNativeChatTaskText(chatRequest)
+		const sessionPath = getCodeVibeNativeChatSessionPath(chatContext)
+		const sessionTaskId = sessionPath
+			? codeVibeNativeChatSessionTaskIds.get(sessionPath)
+			: undefined
+		const taskIdFromSessionPath = sessionPath
+			? getCodeVibeNativeSessionTaskIdFromPath(sessionPath)
+			: undefined
+		const taskIdFromContext = getCodeVibeNativeTaskIdFromContext(chatContext)
+		const existingTaskId = sessionTaskId || taskIdFromSessionPath || taskIdFromContext
 
 		responseStream.progress?.(taskText ? "Starting Codie Agent task..." : "Preparing Codie Agent...")
 		if (token.isCancellationRequested) {
@@ -1234,12 +1333,43 @@ function buildCodeVibeNativeChatRequestHandler(participantId: string = CODEVIBE_
 		if (taskText) {
 			try {
 				const webview = WebviewProvider.getInstance() as VscodeWebviewProvider
-				const taskId = await webview.controller.initTask(taskText)
+				let taskId: string | undefined
+				let continuedTask = false
+				if (existingTaskId) {
+					taskId = await webview.controller.continueTaskWithMessage(
+						existingTaskId,
+						taskText,
+					)
+					continuedTask = Boolean(taskId)
+				}
+				if (!taskId) {
+					taskId = await webview.controller.startBackgroundTask(taskText)
+				}
+				if (!taskId) {
+					throw new Error("Could not start or continue a Codie task")
+				}
+				if (sessionPath) {
+					codeVibeNativeChatSessionTaskIds.set(sessionPath, taskId)
+				}
 				refreshCodeVibeNativeChatSessionItems("native-chat-task-started")
 				scheduleCodeVibeNativeChatSessionItemsRefresh("native-chat-task-started")
-				responseStream.progress?.("Codie task started.")
-				responseStream.markdown?.(buildCodeVibeNativeChatStartedMarkdown(taskId))
-				return { metadata: { routedTo: participantId, taskId, startedInCodeVibe: true } }
+				if (continuedTask) {
+					responseStream.progress?.("Codie task updated.")
+					responseStream.markdown?.(
+						`Added your follow-up to Codie task \`${taskId}\` in this session.`,
+					)
+				} else {
+					responseStream.progress?.("Codie task started.")
+					responseStream.markdown?.(buildCodeVibeNativeChatStartedMarkdown(taskId))
+				}
+				return {
+					metadata: {
+						routedTo: participantId,
+						taskId,
+						startedInCodeVibe: true,
+						continuedTask,
+					},
+				}
 			} catch (error) {
 				const errorMessage = error instanceof Error ? error.message : String(error)
 				Logger.warn(`Failed to start Codie task from native chat: ${errorMessage}`)
@@ -1409,7 +1539,11 @@ function registerCodeVibeNativeChatSessionType(
 
 		const contentProvider: CodeVibeChatSessionContentProvider = {
 			provideChatSessionContent: async (resource, token, sessionContext) => {
-				const taskId = getCodeVibeNativeSessionTaskIdFromPath(resource.path)
+				const taskIdFromPath = getCodeVibeNativeSessionTaskIdFromPath(resource.path)
+				const taskId = taskIdFromPath || codeVibeNativeChatSessionTaskIds.get(resource.path)
+				if (taskId) {
+					codeVibeNativeChatSessionTaskIds.set(resource.path, taskId)
+				}
 				const historyItem = taskId ? readCodeVibeNativeTaskHistory().find((item) => item.id === taskId) : undefined
 				const title = historyItem
 					? buildCodeVibeNativeSessionDescriptors([historyItem], {

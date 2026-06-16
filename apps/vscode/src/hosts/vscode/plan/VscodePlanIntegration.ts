@@ -201,11 +201,16 @@ class PlanTreeItem extends vscode.TreeItem {
 			vscode.TreeItemCollapsibleState.None,
 			plan.uri,
 		);
+		const ownerTag = formatPlanOwnerTag(plan.createdBy);
 		item.id = plan.id;
 		item.resourceUri = vscode.Uri.file(plan.uri);
 		item.contextValue = "codevibe.plan";
-		item.description = plan.status;
-		item.tooltip = `${plan.name}\n${plan.uri}`;
+		item.description = ownerTag
+			? `${plan.status} | ${ownerTag}`
+			: plan.status;
+		item.tooltip = ownerTag
+			? `${plan.name}\n${plan.uri}\nOwner: ${plan.createdBy}`
+			: `${plan.name}\n${plan.uri}`;
 		item.iconPath = new vscode.ThemeIcon(
 			plan.status === "complete" ? "check" : "checklist",
 		);
@@ -227,6 +232,17 @@ class PlanTreeItem extends vscode.TreeItem {
 		item.iconPath = new vscode.ThemeIcon("info");
 		return item;
 	}
+}
+
+function formatPlanOwnerTag(createdBy: string | undefined): string | undefined {
+	const owner = createdBy?.trim();
+	if (!owner || owner === "local" || owner === "migration" || owner === "user") {
+		return undefined;
+	}
+	if (owner.length <= 18) {
+		return owner;
+	}
+	return `${owner.slice(0, 15)}...`;
 }
 
 async function resolvePlanPath(
@@ -629,7 +645,9 @@ class VscodePlanEditorProvider implements vscode.CustomTextEditorProvider {
 					? "Build complete"
 					: plan.status === "complete"
 						? "Plan complete"
-						: "Planning";
+						: completedTodoCount > 0 && completedTodoCount < todos.length
+							? "Not progressing"
+							: "Planning";
 		const humanizeStatus = (value: string) =>
 			value
 				.replace(/_/g, " ")

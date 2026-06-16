@@ -39,6 +39,47 @@ export class OcaAuthProvider {
 		this._config = config || {}
 	}
 
+	private describeError(error: unknown): string {
+		if (axios.isAxiosError(error)) {
+			const status = error.response?.status ?? "unknown"
+			const statusText = error.response?.statusText || ""
+			const data = error.response?.data as Record<string, unknown> | undefined
+			const errCode = typeof data?.error === "string" ? data.error : undefined
+			const errDesc =
+				typeof data?.error_description === "string"
+					? data.error_description
+					: undefined
+			const transportCode =
+				typeof (error as { code?: unknown }).code === "string"
+					? (error as { code: string }).code
+					: undefined
+			const causeMessage =
+				typeof (error as { cause?: { message?: unknown } }).cause?.message ===
+				"string"
+					? ((error as { cause: { message: string } }).cause.message as string)
+					: undefined
+			const base = [
+				`status=${status}${statusText ? ` ${statusText}` : ""}`,
+				errCode ? `code=${errCode}` : undefined,
+				errDesc ? `desc=${errDesc}` : undefined,
+				transportCode ? `transport=${transportCode}` : undefined,
+				causeMessage ? `cause=${causeMessage}` : undefined,
+				error.message ? `message=${error.message}` : undefined,
+			]
+				.filter(Boolean)
+				.join(" | ")
+			return `axios error (${base || "no details"})`
+		}
+		if (error instanceof Error) {
+			return `${error.name}: ${error.message}`
+		}
+		try {
+			return JSON.stringify(error)
+		} catch {
+			return String(error)
+		}
+	}
+
 	get config(): OcaConfig {
 		return this._config
 	}
@@ -133,7 +174,9 @@ export class OcaAuthProvider {
 			const desc = data?.error_description || (isAxios ? (err as any).message : undefined)
 			const invalidGrant = (status === 400 && code === "invalid_grant") || status === 401
 
-			Logger.error("OCA refresh failed", { status, code, desc })
+			Logger.error(
+				`OCA refresh failed: status=${status ?? "unknown"} code=${code ?? "unknown"} desc=${desc ?? "unknown"}`,
+			)
 
 			throw new OcaRefreshError(desc || "OCA refresh failed", status, code, invalidGrant, data)
 		}
@@ -201,8 +244,12 @@ export class OcaAuthProvider {
 			const idToken = tokenResponse.data.id_token
 			if (idToken) {
 				const decoded: any = this.decodeJwt(idToken)
-				if (decoded.nonce !== nonce) {
+				const tokenNonce = typeof decoded?.nonce === "string" ? decoded.nonce : undefined
+				if (tokenNonce && tokenNonce !== nonce) {
 					throw new Error("OIDC nonce verification failed")
+				}
+				if (!tokenNonce) {
+					Logger.warn("OCA ID token did not include a nonce claim; continuing with PKCE/state validation.")
 				}
 			} else {
 				throw new Error("No ID token received from OCA")
@@ -222,7 +269,7 @@ export class OcaAuthProvider {
 			// Step 4: Return only the access_token for downstream use
 			return { user: userInfo, apiKey: accessToken }
 		} catch (error) {
-			Logger.error("oca sign-in error", "error")
+			Logger.error(`oca sign-in error: ${this.describeError(error)}`)
 			throw error
 		}
 	}

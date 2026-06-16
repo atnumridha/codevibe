@@ -30,6 +30,8 @@ import { Logger } from "@/shared/services/Logger";
 
 const REGISTRY_FILE_NAME = "composer.planRegistry.json";
 const PLAN_EXTENSION = ".plan.md";
+const PLAN_OWNER_PLACEHOLDERS = new Set(["", "local", "migration", "user"]);
+const GENERIC_PLAN_NAMES = new Set(["plan", "goal", "untitled plan"]);
 
 type PlanOpenHandler = (input: {
 	planId?: string;
@@ -190,6 +192,13 @@ export class PlanStorageService {
 
 	async listPlans(workspacePath?: string): Promise<PlanRegistryRecord[]> {
 		const registry = await this.readRegistry(workspacePath);
+		const registryWasUpdated = await this.refreshRegistryFromPlanFiles(
+			registry,
+			workspacePath,
+		);
+		if (registryWasUpdated) {
+			await this.writeRegistry(registry, workspacePath);
+		}
 		return registry.plans.sort((a, b) => b.lastUpdatedAt - a.lastUpdatedAt);
 	}
 
@@ -801,14 +810,17 @@ export class PlanStorageService {
 			editedBy?: string[];
 			referencedBy?: string[];
 		},
-	): Promise<void> {
-		const registry = await this.readRegistry();
-		const entry = this.findOrCreateRegistryEntry(registry, plan);
-		entry.name = plan.metadata.name;
-		entry.uri = plan.planPath;
-		entry.status = plan.status;
+		): Promise<void> {
+			const registry = await this.readRegistry();
+			const entry = this.findOrCreateRegistryEntry(registry, plan);
+			entry.name = this.getRegistryPlanName(plan);
+			entry.uri = plan.planPath;
+			entry.status = plan.status;
 		entry.lastUpdatedAt = Date.now();
-		if (options?.createdBy && !entry.createdBy) {
+		if (
+			options?.createdBy &&
+			PLAN_OWNER_PLACEHOLDERS.has((entry.createdBy || "").trim().toLowerCase())
+		) {
 			entry.createdBy = options.createdBy;
 		}
 		if (options?.editedBy) {
@@ -844,12 +856,12 @@ export class PlanStorageService {
 			editedBy?: string[];
 			referencedBy?: string[];
 		},
-	): PlanRegistryRecord {
-		const now = Date.now();
-		return {
-			id: plan.planId,
-			name: plan.metadata.name,
-			uri: plan.planPath,
+		): PlanRegistryRecord {
+			const now = Date.now();
+			return {
+				id: plan.planId,
+				name: this.getRegistryPlanName(plan),
+				uri: plan.planPath,
 			createdBy: options?.createdBy || "local",
 			editedBy: options?.editedBy || [],
 			referencedBy: options?.referencedBy || [],
@@ -928,6 +940,38 @@ export class PlanStorageService {
 			}
 			throw error;
 		}
+	}
+
+	private async refreshRegistryFromPlanFiles(
+		registry: PlanRegistryFile,
+		workspacePath?: string,
+	): Promise<boolean> {
+		let changed = false;
+		for (const entry of registry.plans) {
+			if (!entry.uri) {
+				continue;
+			}
+				try {
+					const plan = await this.readPlanIfExists(entry.uri, entry.id);
+					if (!plan) {
+						continue;
+					}
+					const refreshedName = this.getRegistryPlanName(plan);
+					if (entry.name !== refreshedName) {
+						entry.name = refreshedName;
+						changed = true;
+					}
+				if (entry.status !== plan.status) {
+					entry.status = plan.status;
+					changed = true;
+				}
+			} catch (error) {
+				Logger.warn(
+					`PlanStorageService: failed to refresh registry entry ${entry.id}: ${error}`,
+				);
+			}
+		}
+		return changed;
 	}
 
 	private async findExistingComposerPlan(
@@ -1080,12 +1124,17 @@ export class PlanStorageService {
 						dependencies: previous.dependencies,
 					}
 				: todo;
-		});
-		const phases = this.extractPhases(response, existing);
-		const name = existing?.name || this.extractPlanName(response);
-		const overview = existing?.overview || this.extractOverview(response);
-		return this.normalizeMetadata({
-			name,
+			});
+			const phases = this.extractPhases(response, existing);
+			const existingName =
+				typeof existing?.name === "string" ? existing.name.trim() : "";
+			const name =
+				existingName && !this.isGenericPlanName(existingName)
+					? existingName
+					: this.extractPlanName(response);
+			const overview = existing?.overview || this.extractOverview(response);
+			return this.normalizeMetadata({
+				name,
 			overview,
 			todos: phases.length > 0 ? [] : todos,
 			isProject: existing?.isProject || phases.length > 0,
@@ -1465,11 +1514,27 @@ export class PlanStorageService {
 	}
 
 	private extractPlanName(response: string): string {
-		const heading = normalizePlanText(response)
+		const headings = normalizePlanText(response)
 			.split("\n")
-			.find((line) => /^#{1,3}\s+\S+/.test(line.trim()));
-		if (heading) {
-			return heading.replace(/^#{1,3}\s+/, "").trim();
+			.map((line) => line.trim())
+			.filter((line) => /^#{1,3}\s+\S+/.test(line))
+			.map((line) => line.replace(/^#{1,3}\s+/, "").trim())
+			.filter(Boolean);
+
+		const preferredHeading = headings.find(
+			(heading) => !this.isGenericPlanName(heading),
+		);
+		if (preferredHeading) {
+			return preferredHeading;
+		}
+
+		const overviewCandidate = this.nameFromOverview(this.extractOverview(response));
+		if (overviewCandidate) {
+			return overviewCandidate;
+		}
+
+		if (headings.length > 0) {
+			return headings[0];
 		}
 		return "Plan";
 	}
@@ -1480,6 +1545,54 @@ export class PlanStorageService {
 			.map((part) => part.trim())
 			.find((part) => part && !part.startsWith("#") && !part.startsWith("- ["));
 		return paragraph || "";
+	}
+
+	private getRegistryPlanName(plan: PlanFileRecord): string {
+		if (plan.metadata.name && !this.isGenericPlanName(plan.metadata.name)) {
+			return plan.metadata.name;
+		}
+		const fromOverview = this.nameFromOverview(plan.metadata.overview);
+		if (fromOverview) {
+			return fromOverview;
+		}
+		const fromBody = this.extractPlanName(plan.body);
+		if (fromBody && !this.isGenericPlanName(fromBody)) {
+			return fromBody;
+		}
+		return plan.metadata.name || "Plan";
+	}
+
+	private nameFromOverview(overview: string | undefined): string | undefined {
+		if (!overview) {
+			return undefined;
+		}
+		const sentence = normalizePlanText(overview)
+			.replace(/[`*_>#-]/g, " ")
+			.replace(/\s+/g, " ")
+			.trim();
+		if (!sentence) {
+			return undefined;
+		}
+		const endIndex = sentence.search(/[.!?](\s|$)/);
+		const base =
+			endIndex > 10 ? sentence.slice(0, endIndex).trim() : sentence;
+		if (!base) {
+			return undefined;
+		}
+		const words = base.split(" ").slice(0, 10).join(" ").trim();
+		if (!words) {
+			return undefined;
+		}
+		return words.length > 80 ? `${words.slice(0, 77).trim()}...` : words;
+	}
+
+	private isGenericPlanName(value: string): boolean {
+		const normalized = value
+			.trim()
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, " ")
+			.trim();
+		return !normalized || GENERIC_PLAN_NAMES.has(normalized);
 	}
 
 	private planIdFromPath(planPath: string): string {

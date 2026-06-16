@@ -13,10 +13,35 @@ import { sendChatButtonClickedEvent } from "../ui/subscribeToChatButtonClicked"
 export async function showTaskWithId(controller: Controller, request: StringRequest): Promise<TaskResponse> {
 	try {
 		const id = request.value
+		if (!id) {
+			return TaskResponse.create()
+		}
+
+		const activatedBackgroundTask = await controller.activateTaskById(id)
 
 		// First check if task exists in global state for faster access
 		const taskHistory = controller.stateManager.getGlobalStateKey("taskHistory")
 		const historyItem = taskHistory.find((item) => item.id === id)
+
+		if (activatedBackgroundTask && historyItem) {
+			await sendChatButtonClickedEvent()
+			return TaskResponse.create({
+				id: historyItem.id,
+				task: historyItem.task || "",
+				ts: historyItem.ts || 0,
+				isFavorited: historyItem.isFavorited || false,
+				size: historyItem.size || 0,
+				totalCost: historyItem.totalCost || 0,
+				tokensIn: historyItem.tokensIn || 0,
+				tokensOut: historyItem.tokensOut || 0,
+				cacheWrites: historyItem.cacheWrites || 0,
+				cacheReads: historyItem.cacheReads || 0,
+			})
+		}
+		if (activatedBackgroundTask) {
+			await sendChatButtonClickedEvent()
+			return TaskResponse.create({ id })
+		}
 
 		// We need to initialize the task before returning data
 		if (historyItem) {

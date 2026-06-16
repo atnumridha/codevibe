@@ -55,8 +55,20 @@ describe("plan-build", () => {
 			isProject: false,
 		}
 
-		assert.equal(derivePlanStatus(metadata), "in_progress")
+		assert.equal(derivePlanStatus(metadata), "pending")
 		assert.equal(planMetadataToTaskProgress(metadata), "- [ ] Inspect\n- [x] Implement")
+	})
+
+	it("marks plan as in_progress when at least one todo is actively running", () => {
+		const todos = markdownTodosToPlanTodos("- [ ] Inspect\n- [ ] Implement")
+		const metadata = {
+			name: "Plan",
+			overview: "",
+			todos: [{ ...todos[0], status: "in_progress" as const }, todos[1]],
+			isProject: false,
+		}
+
+		assert.equal(derivePlanStatus(metadata), "in_progress")
 	})
 
 	it("builds a local parallel execution handoff without cloud/background routing", () => {

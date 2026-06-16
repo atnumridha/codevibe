@@ -167,8 +167,77 @@ describe("PlanStorageService", () => {
 		assert.equal(second.todoCount, 2);
 		assert.equal(second.metadata.todos[0].id, first.metadata.todos[0].id);
 		assert.equal(second.metadata.todos[0].status, "completed");
-		assert.equal(second.status, "in_progress");
+		assert.equal(second.status, "pending");
 		assert.match(await fs.readFile(second.planPath, "utf8"), /Updated\./);
+	});
+
+	it("refreshes stale registry statuses from plan files when listing plans", async () => {
+		const service = await createService();
+		const created = await service.createOrUpdatePlanForComposer({
+			composerId: "task-status-refresh",
+			response: "## Status Refresh\n\nEnsure registry status is current.",
+			taskProgress: "- [x] Inspect\n- [ ] Verify",
+			workspacePath: tempDir,
+		});
+		assert.equal(created.status, "pending");
+
+		const registryPath = path.join(tempDir!, "composer.planRegistry.json");
+		const registryRaw = await fs.readFile(registryPath, "utf8");
+		const registry = JSON.parse(registryRaw) as {
+			version: number;
+			plans: Array<{ id: string; status: string }>;
+		};
+		assert.equal(registry.plans.length, 1);
+		registry.plans[0].status = "in_progress";
+		await fs.writeFile(`${registryPath}`, `${JSON.stringify(registry, null, 2)}\n`);
+
+		const [listed] = await service.listPlans(tempDir);
+		assert.equal(listed.status, "pending");
+
+		const refreshedRaw = await fs.readFile(registryPath, "utf8");
+		const refreshed = JSON.parse(refreshedRaw) as {
+			version: number;
+			plans: Array<{ id: string; status: string }>;
+		};
+		assert.equal(refreshed.plans[0].status, "pending");
+	});
+
+	it("refreshes stale generic registry names from plan metadata when listing plans", async () => {
+		const service = await createService();
+		const created = await service.createOrUpdatePlanForComposer({
+			composerId: "task-name-refresh",
+			response: "## Goal\n\nCreate a better plan title from metadata overview.",
+			taskProgress: "- [ ] Inspect\n- [ ] Verify",
+			workspacePath: tempDir,
+		});
+		await service.updatePlan({
+			planId: created.planId,
+			planPath: created.planPath,
+			metadata: {
+				...created.metadata,
+				name: "Goal",
+				overview:
+					"Improve browse and playback performance for the Android TV app.",
+			},
+			body: created.body,
+			workspacePath: tempDir,
+		});
+
+		const registryPath = path.join(tempDir!, "composer.planRegistry.json");
+		const registryRaw = await fs.readFile(registryPath, "utf8");
+		const registry = JSON.parse(registryRaw) as {
+			version: number;
+			plans: Array<{ id: string; name: string }>;
+		};
+		assert.equal(registry.plans.length, 1);
+		registry.plans[0].name = "Goal";
+		await fs.writeFile(`${registryPath}`, `${JSON.stringify(registry, null, 2)}\n`);
+
+		const [listed] = await service.listPlans(tempDir);
+		assert.equal(
+			listed.name,
+			"Improve browse and playback performance for the Android TV app",
+		);
 	});
 
 	it("syncs active local build task_progress back into the shared plan file", async () => {

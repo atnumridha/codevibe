@@ -116,6 +116,17 @@ type PostStateToWebviewOptions = {
 	skipOpenAiCodexBackendModelsRefresh?: boolean;
 };
 
+type TaskLaunchMode = "active" | "background";
+
+type InitTaskOptions = {
+	launchMode?: TaskLaunchMode;
+	resumeWithMessage?: {
+		text?: string;
+		images?: string[];
+		files?: string[];
+	};
+};
+
 type CodeVibeSandboxRuntimeSummary =
 	CodeVibeCompatibilityStatus["sandboxRuntime"];
 
@@ -166,6 +177,7 @@ function createInactiveSandboxRuntimeSummary(options: {
 
 export class Controller {
 	task?: Task;
+	private backgroundTasks = new Map<string, Task>();
 
 	mcpHub: McpHub;
 	accountService: ClineAccountService;
@@ -293,6 +305,12 @@ export class Controller {
 		}
 
 		await this.clearTask();
+		const backgroundTaskIds = [...this.backgroundTasks.keys()];
+		await Promise.all(
+			backgroundTaskIds.map((taskId) =>
+				this.cancelBackgroundTaskById(taskId, false),
+			),
+		);
 		this.mcpHub.dispose();
 
 		Logger.error("Controller disposed");
@@ -354,7 +372,11 @@ export class Controller {
 		files?: string[],
 		historyItem?: HistoryItem,
 		taskSettings?: Partial<Settings>,
+		options: InitTaskOptions = {},
 	) {
+		const launchMode: TaskLaunchMode = options.launchMode ?? "active";
+		const launchInBackground = launchMode === "background";
+
 		if (process.env.E2E_TEST === "true") {
 			const apiConfiguration = this.stateManager.getApiConfiguration();
 			const testProvider: ApiProvider = "cline";
@@ -376,7 +398,9 @@ export class Controller {
 		// when done and catches all errors internally.
 		fetchRemoteConfig(this);
 
-		await this.clearTask(); // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
+		if (!launchInBackground) {
+			await this.clearTask(); // Keep legacy single-active behavior for foreground launches.
+		}
 
 		const autoApprovalSettings = this.stateManager.getGlobalSettingsKey(
 			"autoApprovalSettings",
@@ -471,6 +495,7 @@ export class Controller {
 		});
 
 		const taskId = historyItem?.id || Date.now().toString();
+		await this.cancelBackgroundTaskById(taskId, false);
 
 		// Acquire task lock
 		let taskLockAcquired = false;
@@ -503,14 +528,19 @@ export class Controller {
 			});
 		}
 
-		this.task = new Task({
+		const taskInstance = new Task({
 			controller: this,
 			mcpHub: this.mcpHub,
 			updateTaskHistory: (historyItem) => this.updateTaskHistory(historyItem),
 			postStateToWebview: () => this.postStateToWebview(),
 			reinitExistingTaskFromId: (taskId) =>
-				this.reinitExistingTaskFromId(taskId),
-			cancelTask: () => this.cancelTask(),
+				launchInBackground
+					? this.reinitBackgroundTaskFromId(taskId)
+					: this.reinitExistingTaskFromId(taskId),
+			cancelTask: () =>
+				launchInBackground
+					? this.cancelBackgroundTaskById(taskId)
+					: this.cancelTask(),
 			shellIntegrationTimeout,
 			terminalReuseEnabled: terminalReuseEnabled ?? true,
 			terminalOutputLineLimit: terminalOutputLineLimit ?? 500,
@@ -530,19 +560,160 @@ export class Controller {
 			taskLockAcquired,
 		});
 
-		if (historyItem) {
-			this.task.resumeTaskFromHistory();
-		} else if (task || images || files) {
-			this.task.startTask(task, images, files);
+		if (launchInBackground) {
+			this.backgroundTasks.set(taskInstance.taskId, taskInstance);
+		} else {
+			this.task = taskInstance;
 		}
 
-		return this.task.taskId;
+		if (historyItem) {
+			if (options.resumeWithMessage) {
+				await taskInstance.handleWebviewAskResponse(
+					"messageResponse",
+					options.resumeWithMessage.text,
+					options.resumeWithMessage.images,
+					options.resumeWithMessage.files,
+				);
+			}
+			taskInstance.resumeTaskFromHistory();
+		} else if (task || images || files) {
+			taskInstance.startTask(task, images, files);
+		}
+
+		return taskInstance.taskId;
 	}
 
 	async reinitExistingTaskFromId(taskId: string) {
 		const history = await this.getTaskWithId(taskId);
 		if (history) {
 			await this.initTask(undefined, undefined, undefined, history.historyItem);
+		}
+	}
+
+	private async reinitBackgroundTaskFromId(taskId: string): Promise<void> {
+		try {
+			await this.cancelBackgroundTaskById(taskId, false);
+			const history = await this.getTaskWithId(taskId);
+			if (history) {
+				await this.initTask(
+					undefined,
+					undefined,
+					undefined,
+					history.historyItem,
+					undefined,
+					{ launchMode: "background" },
+				);
+			}
+		} catch (error) {
+			Logger.warn(
+				`[Controller] Failed to reinitialize background task ${taskId}: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			);
+		}
+	}
+
+	private getTaskInstanceById(taskId: string): Task | undefined {
+		if (this.task?.taskId === taskId) {
+			return this.task;
+		}
+		return this.backgroundTasks.get(taskId);
+	}
+
+	async startBackgroundTask(
+		task: string,
+		images?: string[],
+		files?: string[],
+		taskSettings?: Partial<Settings>,
+	): Promise<string | undefined> {
+		return this.initTask(task, images, files, undefined, taskSettings, {
+			launchMode: "background",
+		});
+	}
+
+	async continueTaskWithMessage(
+		taskId: string,
+		message: string,
+		images: string[] = [],
+		files: string[] = [],
+	): Promise<string | undefined> {
+		const taskInstance = this.getTaskInstanceById(taskId);
+		if (taskInstance) {
+			await taskInstance.handleWebviewAskResponse(
+				"messageResponse",
+				message,
+				images,
+				files,
+			);
+			return taskId;
+		}
+
+		try {
+			const history = await this.getTaskWithId(taskId);
+			return this.initTask(
+				undefined,
+				undefined,
+				undefined,
+				history.historyItem,
+				undefined,
+				{
+					launchMode: "background",
+					resumeWithMessage: {
+						text: message,
+						images,
+						files,
+					},
+				},
+			);
+		} catch {
+			return undefined;
+		}
+	}
+
+	async activateTaskById(taskId: string): Promise<boolean> {
+		if (this.task?.taskId === taskId) {
+			return true;
+		}
+
+		const backgroundTask = this.backgroundTasks.get(taskId);
+		if (!backgroundTask) {
+			return false;
+		}
+
+		if (this.task) {
+			this.backgroundTasks.set(this.task.taskId, this.task);
+		}
+
+		this.backgroundTasks.delete(taskId);
+		this.task = backgroundTask;
+		await this.postStateToWebview();
+		return true;
+	}
+
+	private async cancelBackgroundTaskById(
+		taskId: string,
+		refreshState = true,
+	): Promise<void> {
+		const task = this.backgroundTasks.get(taskId);
+		if (!task) {
+			return;
+		}
+
+		try {
+			await task.abortTask();
+			task.taskState.abandoned = true;
+		} catch (error) {
+			Logger.warn(
+				`[Controller] Failed to abort background task ${taskId}: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			);
+		} finally {
+			this.backgroundTasks.delete(taskId);
+		}
+
+		if (refreshState) {
+			await this.postStateToWebview();
 		}
 	}
 
@@ -789,13 +960,18 @@ export class Controller {
 
 			await this.postStateToWebview();
 		} catch (error) {
-			Logger.error("Failed to handle auth callback:", error);
+			Logger.error(
+				`Failed to handle auth callback: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			);
 			HostProvider.window.showMessage({
 				type: ShowMessageType.ERROR,
 				message: "Failed to sign in to Codie",
 			});
 			// Even on login failure, we preserve any existing tokens
 			// Only clear tokens on explicit logout
+			throw error;
 		}
 	}
 
@@ -844,14 +1020,57 @@ export class Controller {
 
 			await this.postStateToWebview();
 		} catch (error) {
-			Logger.error("Failed to handle auth callback:", error);
+			const networkError = this.isLikelyNetworkAuthError(error);
+			const currentApiConfiguration = this.stateManager.getApiConfiguration();
+			const currentOcaMode = currentApiConfiguration.ocaMode || "internal";
+			if (networkError && currentOcaMode === "internal") {
+				Logger.warn(
+					"OCA internal auth callback failed with network error. Switching to external mode and relaunching sign-in.",
+				);
+				this.stateManager.setApiConfiguration({
+					...currentApiConfiguration,
+					ocaMode: "external",
+				});
+				HostProvider.window.showMessage({
+					type: ShowMessageType.WARNING,
+					message:
+						"Internal Oracle auth endpoint was unreachable. Switched to external OCA mode and retrying sign-in.",
+				});
+				try {
+					await this.ocaAuthService.createAuthRequest();
+				} catch (retryError) {
+					Logger.error(
+						`Failed to relaunch external OCA sign-in: ${
+							retryError instanceof Error
+								? retryError.message
+								: String(retryError)
+						}`,
+					);
+				}
+			}
+			Logger.error(
+				`Failed to handle auth callback: ${
+					error instanceof Error ? error.message : String(error)
+				}`,
+			);
 			HostProvider.window.showMessage({
 				type: ShowMessageType.ERROR,
 				message: "Failed to log in to OCA",
 			});
 			// Even on login failure, we preserve any existing tokens
 			// Only clear tokens on explicit logout
+			throw error;
 		}
+	}
+
+	private isLikelyNetworkAuthError(error: unknown): boolean {
+		const text =
+			error instanceof Error
+				? `${error.name} ${error.message}`
+				: String(error ?? "");
+		return /network error|fetch failed|enotfound|econnrefused|econnreset|etimedout|certificate/i.test(
+			text,
+		);
 	}
 
 	async handleMcpOAuthCallback(
@@ -989,7 +1208,9 @@ export class Controller {
 			createWorktree: (cwd, worktreePath, options) =>
 				createWorktreeUtil(cwd, worktreePath, options),
 			startTask: (prompt, taskSettings) =>
-				this.initTask(prompt, undefined, undefined, undefined, taskSettings),
+				this.initTask(prompt, undefined, undefined, undefined, taskSettings, {
+					launchMode: "background",
+				}),
 			onRecordChange: (record) => this.updateBackgroundAgentTaskRecord(record),
 		});
 	}

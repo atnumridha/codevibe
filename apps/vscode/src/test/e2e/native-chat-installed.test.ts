@@ -431,7 +431,7 @@ installedE2e(
 		expect(created.plan?.planPath).toMatch(/\.plan\.md$/);
 		expect(created.plan?.todoCount).toBe(2);
 		expect(created.plan?.metadata?.name).toBe("Native Plan E2E");
-		expect(created.plan?.status).toBe("in_progress");
+		expect(created.plan?.status).toBe("pending");
 		expect(created.plan?.completedTodoCount).toBe(1);
 		expect(created.plan?.metadata?.todos?.map((todo) => todo.status)).toEqual([
 			"completed",
@@ -498,6 +498,7 @@ installedE2e(
 		expect(planCanvasText).toContain("Selected task actions");
 		expect(planCanvasText).toContain("Native Plan E2E");
 		expect(planCanvasText).toContain("50%");
+		expect(planCanvasText).toContain("Not progressing");
 		expect(planCanvasText).toMatch(/\bcomplete\b/i);
 		expect(planCanvasText).toMatch(/\bpending\b/i);
 		expect(planCanvasText).toContain("Todos: 1/2");
